@@ -1,9 +1,13 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
-cc_binary(
+cc_library(
     name = "rtbot",
-    srcs = ["src/rtbot.cpp"],
+    srcs = glob([
+        "src/**/*.cpp",
+        "src/**/*.h",
+    ]),
+    includes = ["src"],
     deps = [
-        "@yaml-cpp//:lib"
+        "@yaml-cpp//:lib",
     ],
 )

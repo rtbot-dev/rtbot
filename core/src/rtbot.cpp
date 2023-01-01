@@ -1,3 +1,4 @@
+#include "Operator.h"
 #include "yaml-cpp/yaml.h"
 #include <ctime>
 #include <iostream>
