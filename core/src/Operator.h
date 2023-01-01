@@ -38,6 +38,14 @@ public:
 private:
 };
 
+/**
+ * Represents a genereric operator that can receive a message and forward its
+ * computed value to its children. This is one of the main building blocks of
+ * rtbot framework.
+ *
+ * @tparam T Numeric type used for floating computations, (`float`, `double`,
+ * etc.).
+ */
 template <class T> class Op {
   vector<Op> children;
 
@@ -46,6 +54,15 @@ public:
 
   Op(string const &id_) : id(id_) {}
 
+  /**
+   * Receives a message emitted from another operator. This method should be
+   * implemented in concrete realizations of the `Operator` class. Here is where
+   * the main logic of the operator is defined.
+   *
+   * @param msg {Buffer const &}  The message received by the operator in the
+   * current processing cycle.
+   * @param t {int} Timestamp of the message.
+   */
   virtual void receive(int t, Buffer const &msg) = 0;
 
   void emit(int t, Buffer const &msg) const {
