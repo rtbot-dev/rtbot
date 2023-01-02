@@ -6,7 +6,9 @@ cc_library(
         "src/**/*.cpp",
         "src/**/*.h",
     ]),
-    includes = ["src"],
+    hdrs = glob(["include/**/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
     deps = [
         "@yaml-cpp//:lib",
     ],

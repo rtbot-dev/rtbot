@@ -1,4 +1,20 @@
-# Real time bot (rtbot)
+# RtBot framework
+
+## Building
+
+Core C++ code can be build using:
+
+```bash
+bazel build //lib:rtbot
+```
+
+## Testing
+
+Core functionality can be tested by running:
+
+```bash
+bazel test //test:rtbot
+```
 
 Plataform to process real time series.
 
@@ -12,7 +28,7 @@ The dependencies are **automatically satisfied** using `git submodule`. They are
 
 ## Installation
 
-```
+```bash
 cd rtbot
 mkdir build
 cd build
