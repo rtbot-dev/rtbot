@@ -18,16 +18,16 @@ TEST_CASE("Buffer")
 
     SECTION("add")
     {
-        REQUIRE(msg.to_matrix()[0].empty());
+        REQUIRE(msg.getData().empty());
         msg.add({1,2,3});
-        vector<vector<double>> out={{1},{2},{3}};
-        REQUIRE(msg.to_matrix()==out);
+        vector<vector<double>> out={{1,2,3}};
+        REQUIRE(msg.getData()==out);
         msg.add({4,5,6});
-        out={{1,4},{2,5},{3,6}};
-        REQUIRE(msg.to_matrix()==out);
+        out={{1,2,3},{4,5,6}};
+        REQUIRE(msg.getData()==out);
         msg.add({6,7,8});
-        out={{4,6},{5,7},{6,8}};
-        REQUIRE(msg.to_matrix()==out);
+        out={{4,5,6},{6,7,8}};
+        REQUIRE(msg.getData()==out);
     }
 
 }

@@ -30,12 +30,12 @@ public:
   }
 
   /// returns a printable list of list
-  vector<vector<T>> to_matrix() const
+  vector<vector<T>> getData() const
   {
-     vector<vector<T>> out(channelSize, vector<T>(sz));
-     for(auto i=0; i<channelSize; i++)
-          for(auto j=0; j<sz; j++)
-              out[i][j]=(*this)(i,j);
+     vector<vector<T>> out(sz, vector<T>(channelSize));
+     for(auto j=0; j<sz; j++)
+          for(auto i=0; i<channelSize; i++)
+              out[j][i]=(*this)(i,j);
       return out;
   }
 

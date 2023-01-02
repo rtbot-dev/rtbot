@@ -25,7 +25,7 @@ PYBIND11_MODULE(rtbotpy, m) {
             .def_readonly("channelSize",&Bufferd::channelSize)
             .def_readonly("windowSize",&Bufferd::windowSize)
             .def("add",&Bufferd::add)
-            .def("to_matrix",&Bufferd::to_matrix)
+            .def("getData",&Bufferd::getData)
             ;
 
 }
