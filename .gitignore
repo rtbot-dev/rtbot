@@ -2,3 +2,4 @@ dist/
 .vscode/
 build/
 *.txt.user
+*.ipynb_checkpoints/
