@@ -14,7 +14,7 @@ using namespace rtbot;
 namespace py = pybind11;
 using namespace pybind11::literals;
 
-PYBIND11_MODULE(rtbotpy, m) {
+PYBIND11_MODULE(rtbot, m) {
   m.doc() = "Python interface for real time bot library (rtbot)";
 
   using Bufferd = Buffer<double>;
