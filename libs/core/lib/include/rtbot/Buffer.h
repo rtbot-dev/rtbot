@@ -45,7 +45,7 @@ public:
       throw std::invalid_argument(
           "Buffer::add() with wrong number of channels");
     for (int i = 0; i < channelSize; i++)
-      (*this)(i, p0) = data[i];
+      (*this)(i, sz) = data[i];
     p0 = (p0 + 1) % windowSize;
     if (sz<windowSize) sz++;
   }

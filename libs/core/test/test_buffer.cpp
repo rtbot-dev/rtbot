@@ -16,14 +16,13 @@ TEST_CASE("Buffer") {
 
   SECTION("add") {
     REQUIRE(msg.getData().empty());
-    msg.add({1, 2, 3});
-    vector<vector<double>> out = {{1, 2, 3}};
-    REQUIRE(msg.getData() == out);
-    msg.add({4, 5, 6});
-    out = {{1, 2, 3}, {4, 5, 6}};
-    REQUIRE(msg.getData() == out);
-    msg.add({6, 7, 8});
-    out = {{4, 5, 6}, {6, 7, 8}};
-    REQUIRE(msg.getData() == out);
+    vector<double> a,b;
+    msg.add(a={1, 1, 1});
+    REQUIRE(msg.getData() == vector<vector<double>>({a}));
+    for(double i=2; i<10; i++) {
+        msg.add(b={i, i, i});
+        REQUIRE(msg.getData() == vector<vector<double>>( {a,b} ) );
+        a=b;
+    }
   }
 }
