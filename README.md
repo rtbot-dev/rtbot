@@ -1,26 +1,10 @@
 # RtBot framework
 
-## Building
-
-Core C++ code can be build using:
-
-```bash
-bazel build //libs/core/lib:rtbot
-```
-
-## Testing
-
-Core functionality can be tested by running:
-
-```bash
-bazel test //test:rtbot
-```
-
 Plataform to process real time series.
 
 ## Examples
 
-See folder `example/c++` (for **c++**) and `example/notebook` (for **python**).
+See folder `examples/c++` (for **c++**) and `examples/notebook` (for **python**).
 
 ## Documentation
 
