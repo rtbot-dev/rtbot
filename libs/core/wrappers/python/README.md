@@ -5,5 +5,5 @@
 With bazel:
 
 ```bash
-bazel build //python:rtbot.so
+bazel build //libs/core/wrappers/python:rtbot.so
 ```

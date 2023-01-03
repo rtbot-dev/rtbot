@@ -8,6 +8,6 @@ cc_binary(
     ]),
     visibility = ["//visibility:public"],
     deps = [
-        "//lib:rtbot",
+        "//libs/core/lib:rtbot",
     ],
 )

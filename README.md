@@ -5,7 +5,7 @@
 Core C++ code can be build using:
 
 ```bash
-bazel build //lib:rtbot
+bazel build //libs/core/lib:rtbot
 ```
 
 ## Testing

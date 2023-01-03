@@ -5,5 +5,5 @@
 Using bazel:
 
 ```bash
-bazel run //example/c++/example1:run
+bazel run //examples/c++/example1:run
 ```

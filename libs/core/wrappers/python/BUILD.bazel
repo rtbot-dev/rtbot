@@ -5,6 +5,6 @@ pybind_extension(
     srcs = ["rtbot.cpp"],
     visibility = ["//visibility:public"],
     deps = [
-        "//lib:rtbot",
+        "//libs/core/lib:rtbot",
     ],
 )
