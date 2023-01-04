@@ -7,6 +7,7 @@ CMakeFiles
 DartConfiguration.tcl
 CMakeCache.txt
 **/*.cmake
+
 **/*/Makefile
 Makefile
 **/*/librtbot.a
@@ -20,7 +21,7 @@ Makefile
 /coverage
 
 # production
-/build
+*/build*
 
 # misc
 .DS_Store
