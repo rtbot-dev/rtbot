@@ -10,21 +10,21 @@ See folder `examples/c++` (for **c++**) and `examples/notebook` (for **python**)
 
 - Core:
 
-  - [ ] Create core framework in C++
+  - [ ] Create core framework in **C++**
   - [x] Generic operator setup
   - [ ] Read pipeline from yaml
   - Wrappers:
 
-    - [x] `python`
-    - [ ] `wasm`
-    - [ ] `java`
+    - [x] **python**
+    - [ ] **wasm**
+    - [ ] **java**
 
-      next iteration:
+    next iteration:
 
-    - [ ] `go`
-    - [ ] `rust`
-    - [ ] `R`
-    - [ ] `swift`
+    - [ ] **go**
+    - [ ] **rust**
+    - [ ] **R**
+    - [ ] **swift**
 
   - [ ] Standard library of common operators
   - [ ] Define "trainable" parameters in operator inputs
@@ -38,9 +38,24 @@ See folder `examples/c++` (for **c++**) and `examples/notebook` (for **python**)
 
 - Frontend:
 
-  - [ ] User accounts
-  - [ ] Run RtBot yaml programs using the `wasm` api
-  - [ ] Load data, store as file
+  - Account:
+
+    - [ ] Login
+    - [ ] Logout
+    - [ ] Basic profile
+
+  - [ ] Run RtBot yaml programs using the **wasm** api
+  - Data:
+
+    - [ ] Load data
+    - [ ] Preview data
+    - [ ] Delete data
+    - [ ] Data navigator
+
+    next iteration:
+
+    - [ ] Edit data
+
   - [ ] Plot timeseries
   - [ ] Allow several plots in the same chart
   - [ ] Create programs using a yaml editor
@@ -60,11 +75,14 @@ See folder `examples/c++` (for **c++**) and `examples/notebook` (for **python**)
   next iteration:
 
   - [ ] Allow users to run training jobs (RtBot program + data) to
-        find best parameter values.
+        find best parameter values
+  - [ ] Share data between users
 
 - Documentation:
-  - [x] Jupyter notebook `python` example
-  - [ ] General documentation of `RtBot` framework
+  - [ ] Use cases
+  - [x] Jupyter notebook **python** example
+  - [ ] General documentation of **RtBot** framework
   - [ ] Trading bot tutorial
   - [ ] Arduinio tutorial
   - [ ] ECG tutorial
+  - [ ] Performance comparison with other approaches
