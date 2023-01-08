@@ -1,6 +1,7 @@
 #include "rtbot/Buffer.h"
+#include "rtbot/Output.h"
+#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
-#include <iostream>
 
 using namespace rtbot;
 using namespace std;
@@ -19,10 +20,17 @@ TEST_CASE("Buffer") {
     vector<double> a,b;
     msg.add(a={1, 1, 1});
     REQUIRE(msg.getData() == vector<vector<double>>({a}));
-    for(double i=2; i<10; i++) {
-        msg.add(b={i, i, i});
+    for(int i=2; i<10.0; i++) {
+        double x=i;
+        msg.add(b={x, x, x});
         REQUIRE(msg.getData() == vector<vector<double>>( {a,b} ) );
         a=b;
     }
+  }
+
+  auto output=makeOutput<double>("o1",cout);
+
+  SECTION("Output") {
+      output.receive(1,msg);
   }
 }

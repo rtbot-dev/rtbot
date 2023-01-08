@@ -1,3 +1,6 @@
+#ifndef OPERATOR_H
+#define OPERATOR_H
+
 
 #include "Buffer.h"
 #include <stdexcept>
@@ -16,13 +19,13 @@ using std::vector;
  * @tparam T Numeric type used for floating computations, (`float`, `double`,
  * etc.).
  */
-template <class T> class Op {
-  vector<Op *> children;
+template <class T> class Operator {
+    vector<Operator<T> *> children;
 
 public:
   const string id;
 
-  Op(string const &id_) : id(id_) {}
+  Operator(string const &id_) : id(id_) {}
 
   /**
    * Receives a message emitted from another operator. This method should be
@@ -40,10 +43,12 @@ public:
       x->receive(t, msg);
   }
 
-  void addChildren(Op *const child) { children.push_back(child); }
+  void addChildren(Operator<T> * child) { children.push_back(child); }
 };
 
-template class Buffer<double>;
-template class Op<double>;
+
 
 } // end namespace rtbot
+
+
+#endif // OPERATOR_H

@@ -1,3 +1,6 @@
+#ifndef BUFFER_H
+#define BUFFER_H
+
 #include <stdexcept>
 #include <vector>
 
@@ -14,6 +17,18 @@ public:
   Buffer(int channelSize_, int windowSize_)
       : channelSize(channelSize_), windowSize(windowSize_),
         data(channelSize_ * windowSize_, T(0)) {}
+
+  Buffer(int channelSize_, int windowSize_, std::initializer_list<T> const& data_)
+      : channelSize(channelSize_), windowSize(windowSize_),
+      data( data_ ) {
+      if (channelSize*windowSize!=data.size())
+          throw std::invalid_argument("Buffer constructor: mismatching data");
+  }
+
+
+  int actualWindowsSize() const { return sz; }
+  bool isEmpty() const { return sz==0; }
+  bool isFull() const { return sz==windowSize; }
 
   /// @brief element at channel i and time stamp j
   T &operator()(int i, int j) {
@@ -36,6 +51,15 @@ public:
      for(auto j=0; j<sz; j++)
           for(auto i=0; i<channelSize; i++)
               out[j][i]=(*this)(i,j);
+      return out;
+  }
+
+  /// lag=-1 is the last
+  vector<T> getLag(int lag) const
+  {
+      vector<T> out(channelSize);
+      for(auto i=0; i<out.size(); i++)
+          out[i]=(*this)(i,lag);
       return out;
   }
 
@@ -65,3 +89,6 @@ private:
   }
 };
 } // namespace rtbot
+
+
+#endif // BUFFER_H

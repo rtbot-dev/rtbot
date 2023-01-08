@@ -1,8 +1,9 @@
 add_executable(${PROJECT_NAME}_test
     test_buffer.cpp
+    test_group.cpp
 )
 
-target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DCATCH_CONFIG_MAIN)
+#target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DCATCH_CONFIG_MAIN)
 
 target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
 target_link_libraries(${PROJECT_NAME}_test PRIVATE ${PROJECT_NAME})
