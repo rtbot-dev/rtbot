@@ -1,0 +1,105 @@
+generator client {
+  provider        = "prisma-client-js"
+  output          = "./generated/pgClient"
+  previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL_POSTGRES")
+}
+
+// main models
+
+model User {
+  userId           String   @id @default(cuid())
+  name             String   @db.VarChar(256)
+  email            String   @unique @db.VarChar(256)
+  profile_Github   String   @unique
+  profile_LinkedIn String   @unique
+  createdAt        DateTime @db.Date
+  updatedAt        DateTime @db.Date
+}
+
+model Tenant {
+  tenantId     String    @id @default(cuid())
+  subscription String    @db.VarChar(64)
+  website      String?
+  createdAt    DateTime  @db.Date
+  createdBy    String
+  updatedAt    DateTime? @db.Date
+  updatedBy    String?
+}
+
+model Dataset {
+  datasetId   String    @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime  @db.Date
+  createdBy   String
+  updatedAt   DateTime? @db.Date
+  updatedBy   String?
+}
+
+model DataBit {
+  dataBitId String    @id @default(cuid())
+  url       String
+  format    String    @db.VarChar(8)
+  createdAt DateTime  @db.Date
+  createdBy String
+  updatedAt DateTime? @db.Date
+  updatedBy String?
+}
+
+model Annotation {
+  annotationId String    @id @default(cuid())
+  userId       String
+  tenantId     String
+  url          String
+  createdAt    DateTime  @db.Date
+  createdBy    String
+  updatedAt    DateTime? @db.Date
+  updatedBy    String?
+}
+
+model DatasetAccessControl {
+  datasetAccessControlId String    @id @default(cuid())
+  tenantId               String
+  datasetId              String
+  userId                 String
+  read                   Boolean
+  write                  Boolean
+  expiresAt              DateTime? @db.Date
+  createdAt              DateTime  @db.Date
+  createdBy              String
+  updatedAt              DateTime? @db.Date
+  updatedBy              String?
+}
+
+// junction models
+
+model Tenant_User {
+  tenant_userId String    @id @default(cuid())
+  userId        String
+  tenantId      String
+  createdAt     DateTime  @db.Date
+  createdBy     String
+  updatedAt     DateTime? @db.Date
+  updatedBy     String?
+}
+
+model Tenant_Dataset {
+  tenant_datasetId String   @id @default(cuid())
+  tenantId         String
+  datasetId        String
+  createdAt        DateTime @db.Date
+  createdBy        String
+}
+
+model Dataset_DataBit {
+  dataset_dataBitId String   @id @default(cuid())
+  dataBitId         String
+  datasetId         String
+  createdAt         DateTime @db.Date
+  createdBy         String
+}
