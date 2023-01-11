@@ -1,5 +1,6 @@
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
 load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@aspect_rules_js//npm:defs.bzl", "npm_link_package")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,4 +9,14 @@ npm_link_all_packages(name = "node_modules")
 ts_config(
     name = "tsconfig",
     src = "tsconfig.bazel.json",
+)
+
+npm_link_package(
+    name = "node_modules/@rtbot/postgres",
+    src = "//libs/postgres:js",
+)
+
+npm_link_package(
+    name = "node_modules/@rtbot/postgres-client",
+    src = "@postgres-client//:js",
 )
