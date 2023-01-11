@@ -1,0 +1,33 @@
+load("@aspect_rules_swc//swc:defs.bzl", "swc")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("@bazel_skylib//lib:partial.bzl", "partial")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+
+package(default_visibility = ["//visibility:public"])
+
+_DEPS = [
+    "//:node_modules/@rtbot/postgres-client",
+    "//:node_modules/@types/node",
+]
+
+ts_project(
+    name = "ts",
+    srcs = glob([
+        "src/**/*",
+    ]),
+    declaration = True,
+    root_dir = "src",
+    # transpiler = partial.make(
+    #     swc,
+    #     swcrc = ".swcrc",
+    # ),
+    tsconfig = "//:tsconfig",
+    deps = _DEPS,
+)
+
+npm_package(
+    name = "js",
+    srcs = [":ts"],
+    data = _DEPS,
+    package = "@rtbot/postgres",
+)

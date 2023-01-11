@@ -3,6 +3,19 @@ workspace(name = "rtbot")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
+    name = "bazel_skylib",
+    sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
+    urls = ["https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz"],
+)
+
+http_archive(
+    name = "aspect_bazel_lib",
+    sha256 = "558d70e36425c317c70b19fb0f68241a3747bcf46561b5ffc19bed17527adbb3",
+    strip_prefix = "bazel-lib-1.20.0",
+    url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.20.0.tar.gz",
+)
+
+http_archive(
     name = "yaml-cpp",
     build_file = "@//libs/core/external:yaml-cpp.BUILD",
     sha256 = "4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5",
@@ -98,4 +111,11 @@ load("@aspect_rules_swc//swc:repositories.bzl", "swc_register_toolchains", LATES
 swc_register_toolchains(
     name = "swc",
     swc_version = LATEST_SWC_VERSION,
+)
+
+load("//:tools/prisma/prisma.bzl", "prisma_generate")
+
+prisma_generate(
+    name = "postgres-client",
+    schema = "//:libs/postgres/prisma/schema.prisma",
 )

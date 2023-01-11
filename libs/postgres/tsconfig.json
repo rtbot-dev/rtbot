@@ -1,0 +1,4 @@
+{
+  // recall that this is using merely for intellisense
+  "extends": "../../tsconfig.json"
+}
