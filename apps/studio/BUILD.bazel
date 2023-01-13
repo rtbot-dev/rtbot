@@ -7,6 +7,8 @@ npm_link_all_packages()
 _DEPS = glob([
     "public/**/*",
     "src/**/*",
+    "*.cjs",
+    "*.js",
 ]) + [
     "index.html",
     "vite.config.ts",
@@ -24,14 +26,15 @@ _DEPS = glob([
 
 js_run_devserver(
     name = "dev",
-    args = [],
+    args = ["--host"],
     command = "node_modules/.bin/vite",
     data = _DEPS,
 )
 
 bin.vite_binary(
-    name = "build",
-    args = ["build"],
+    name = "run",
+    args = ["--host"],
     chdir = package_name(),
     data = _DEPS,
+    tags = ["ibazel_notify_changes"],
 )
