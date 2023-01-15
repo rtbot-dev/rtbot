@@ -1,6 +1,5 @@
 set(header
     include/rtbot/Buffer.h
-    include/rtbot/Group.h
     include/rtbot/Operator.h
     include/rtbot/Output.h
 )

@@ -8,8 +8,18 @@
 #include <vector>
 
 namespace rtbot {
+
 using std::string;
 using std::vector;
+
+
+template<class T=double>
+struct Message {
+    int time;
+    std::vector<T> value;
+};
+
+
 
 /**
  * Represents a genereric operator that can receive a message and forward its
@@ -36,11 +46,11 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual void receive(int t, Buffer<T> const &msg) = 0;
+  virtual void receive(Message<T> const& msg) = 0;
 
-  void emit(int t, Buffer<T> const &msg) const {
+  void emit(Message<T> const& msg) const {
     for (auto x : children)
-      x->receive(t, msg);
+      x->receive(msg);
   }
 
   void addChildren(Operator<T> * child) { children.push_back(child); }

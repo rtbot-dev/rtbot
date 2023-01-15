@@ -18,10 +18,10 @@ PYBIND11_MODULE(rtbot, m) {
   m.doc() = "Python interface for real time bot library (rtbot)";
 
   using Bufferd = Buffer<double>;
-  py::class_<Bufferd>(m, "Buffer")
-      .def(py::init<int, int>(), "channelSize"_a = 1, "windowSize"_a = 1)
-      .def_readonly("channelSize", &Bufferd::channelSize)
-      .def_readonly("windowSize", &Bufferd::windowSize)
-      .def("add", &Bufferd::add)
-      .def("getData", &Bufferd::getData);
+//  py::class_<Bufferd>(m, "Buffer")
+//      .def(py::init<int, int>(), "channelSize"_a = 1, "windowSize"_a = 1)
+//      .def_readonly("channelSize", &Bufferd::channelSize)
+//      .def_readonly("windowSize", &Bufferd::windowSize)
+//      .def("add", &Bufferd::add)
+//      .def("getData", &Bufferd::getData);
 }
