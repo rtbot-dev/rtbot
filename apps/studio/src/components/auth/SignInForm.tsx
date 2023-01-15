@@ -1,9 +1,9 @@
-import React from "react";
+import React, { ReactElement } from "react";
 import { useState, useLayoutEffect } from "react";
-import auth, { initialState } from "@/store/auth";
+import auth, { IAuthState, initialState } from "@/store/auth";
 import { useNavigate } from "react-router-dom";
 
-const renderField = (child, state, key: string) => {
+const renderField = (child: ReactElement, state: IAuthState, key: keyof IAuthState) => {
   return (
     <React.Fragment>
       {child}
@@ -25,7 +25,7 @@ export function SignInForm() {
     auth.init();
   }, []);
 
-  const onFormSubmit = (e) => {
+  const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log("Form submitted");
   };

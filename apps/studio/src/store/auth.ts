@@ -2,16 +2,16 @@ import { Observer, Subject } from "rxjs";
 import { FormField } from "./types";
 import { z } from "zod";
 
-const subject = new Subject<IAuthStore>();
+const subject = new Subject<IAuthState>();
 
-export interface IAuthStore {
+export interface IAuthState {
   email: FormField<string>;
   password: FormField<string>;
   passwordRepeated: FormField<string>;
   rememberMe: FormField<boolean>;
 }
 
-export const initialState: IAuthStore = {
+export const initialState: IAuthState = {
   email: {},
   password: {},
   passwordRepeated: {},
@@ -35,14 +35,16 @@ export const store = {
     state = { ...initialState };
     subject.next(state);
   },
-  subscribe: (setState: (value: IAuthStore) => void) => subject.subscribe(setState),
+  subscribe: (setState: (value: IAuthState) => void) => subject.subscribe(setState),
   setField: (field: keyof z.infer<typeof schema>, value: any) => {
     // check if valid
     const parsed = schema.pick({ [field]: true }).safeParse({ [field]: value });
+    console.log("parsed data", parsed);
     if (parsed.success) {
       console.log(`Field ${field} is valid: ${value}`);
       state[field] = {
-        value: parsed.data,
+        // @ts-ignore
+        value: parsed.data[field],
         valid: true,
       };
     } else {
