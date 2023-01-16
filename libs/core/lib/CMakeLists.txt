@@ -2,6 +2,7 @@ set(header
     include/rtbot/Buffer.h
     include/rtbot/Operator.h
     include/rtbot/Output.h
+    include/rtbot/PeakDetector.h
 )
 
 add_library(${PROJECT_NAME} STATIC

@@ -1,6 +1,6 @@
 add_executable(${PROJECT_NAME}_test
     test_buffer.cpp
-    test_group.cpp
+    test_peak_detector.cpp
 )
 
 #target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DCATCH_CONFIG_MAIN)

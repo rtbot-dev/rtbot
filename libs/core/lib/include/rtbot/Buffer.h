@@ -17,16 +17,14 @@ public:
     {
         if (this->size()==n) this->pop_front();
         this->push_back(msg);
-        if (this->size()==n) this->emit(compute());
+        if (this->size()==n) processData();
     }
 
     /**
-     *  Compute the message to send to the children.
-     *  For that, the Buffer data is available as s std::deque.
-     *  Example: the MA(n) is just
-     *  return Message(at(n).time, std::accumulate(begin(), end())/n );
+     *  This is a replacement of Operator::receive but using the Buffer full data (a std::deque<Message>)
+     *  It is responsible to emit().
      */
-    virtual Message<T> compute() const = 0;
+    virtual void processData()=0;
 };
 
 
