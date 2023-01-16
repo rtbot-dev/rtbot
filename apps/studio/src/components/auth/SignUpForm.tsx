@@ -30,13 +30,6 @@ export function SignUpForm() {
     signUp();
   };
 
-  useEffect(() => {
-    if (authState.user) {
-      // navigate to default page
-      navigate("/workspace");
-    }
-  });
-
   const disabled = !authState.isSignUpFormValid;
 
   return (

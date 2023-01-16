@@ -30,13 +30,6 @@ export function SignInForm() {
     signIn();
   };
 
-  useEffect(() => {
-    if (authState.user) {
-      // navigate to default page
-      navigate("/workspace");
-    }
-  });
-
   const disabled = !authState.isSignInFormValid;
 
   return (
