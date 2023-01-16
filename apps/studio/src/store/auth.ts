@@ -1,6 +1,8 @@
 import { Observer, Subject } from "rxjs";
 import { FormField } from "./types";
 import { z } from "zod";
+import { User } from "firebase/auth";
+import { useNavigate } from "react-router-dom";
 
 const subject = new Subject<IAuthState>();
 
@@ -9,6 +11,9 @@ export interface IAuthState {
   password: FormField<string>;
   passwordRepeated: FormField<string>;
   rememberMe: FormField<boolean>;
+  isSignUpFormValid: boolean;
+  isSignInFormValid: boolean;
+  user?: User;
 }
 
 export const initialState: IAuthState = {
@@ -16,6 +21,8 @@ export const initialState: IAuthState = {
   password: {},
   passwordRepeated: {},
   rememberMe: {},
+  isSignUpFormValid: false,
+  isSignInFormValid: false,
 };
 
 let state = initialState;
@@ -31,11 +38,15 @@ const schema = z.object({
 // store
 export const store = {
   init: () => {
-    console.log("initializing auth state");
+    console.log("Initializing auth state");
     state = { ...initialState };
     subject.next(state);
   },
   subscribe: (setState: (value: IAuthState) => void) => subject.subscribe(setState),
+  setUser(user?: User) {
+    state.user = user;
+    subject.next({ ...state });
+  },
   setField: (field: keyof z.infer<typeof schema>, value: any) => {
     // check if valid
     const parsed = schema.pick({ [field]: true }).safeParse({ [field]: value });
@@ -56,6 +67,15 @@ export const store = {
       };
     }
 
+    const formState = {
+      email: state.email.value,
+      password: state.password.value,
+      passwordRepeated: state.passwordRepeated.value,
+    };
+    state.isSignUpFormValid = schema
+      .pick({ email: true, password: true, passwordRepeated: true })
+      .safeParse(formState).success;
+    state.isSignInFormValid = schema.pick({ email: true, password: true }).safeParse(formState).success;
     if (field === "passwordRepeated") {
       // a valid value has to be equal to the password value
       state.passwordRepeated = {
@@ -64,8 +84,13 @@ export const store = {
         invalidMessage: state.password.value === value ? "" : "Repeated password doesn't match",
       };
     }
+
+    state.isSignUpFormValid = state.isSignUpFormValid && state.password.value === state.passwordRepeated.value;
     subject.next({ ...state });
   },
+  getState: () => ({ ...state }),
 };
+
+store.init();
 
 export default store;

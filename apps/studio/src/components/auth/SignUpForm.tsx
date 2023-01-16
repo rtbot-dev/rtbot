@@ -1,7 +1,8 @@
-import React, { ReactElement } from "react";
+import React, { ReactElement, useEffect } from "react";
 import { useState, useLayoutEffect } from "react";
 import auth, { IAuthState, initialState } from "@/store/auth";
 import { useNavigate } from "react-router-dom";
+import { signUp } from "@/api/firebase";
 
 const renderField = (child: ReactElement, state: IAuthState, key: keyof IAuthState) => {
   return (
@@ -22,13 +23,21 @@ export function SignUpForm() {
 
   useLayoutEffect(() => {
     auth.subscribe(setAuthState);
-    auth.init();
   }, []);
 
   const onFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log("Form submitted");
+    signUp();
   };
+
+  useEffect(() => {
+    if (authState.user) {
+      // navigate to default page
+      navigate("/workspace");
+    }
+  });
+
+  const disabled = !authState.isSignUpFormValid;
 
   return (
     <section>
@@ -100,8 +109,9 @@ export function SignUpForm() {
                 </a>
               </div>
               <button
+                disabled={disabled}
                 type="submit"
-                className="w-full text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
+                className="disabled:opacity-25 w-full text-white bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800"
               >
                 Sign up
               </button>
