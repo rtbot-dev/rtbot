@@ -9,9 +9,7 @@ const renderField = (child: ReactElement, state: IAuthState, key: keyof IAuthSta
     <React.Fragment>
       {child}
       {state[key].value && !state[key].valid && (
-        <label className="block mb-2 text-sm font-light text-gray-900 dark:text-white">
-          {state[key].invalidMessage}
-        </label>
+        <p className="mt-2 text-sm text-red-600 dark:text-red-500">{state[key].invalidMessage}</p>
       )}
     </React.Fragment>
   );

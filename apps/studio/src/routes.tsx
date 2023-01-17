@@ -1,9 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Error } from "@/pages/Error";
 import { Profile } from "@/pages/Profile";
-import { SignUp } from "@/pages/SignUp";
-import { Workspace } from "@/pages/Workspace";
-import { SignIn } from "./pages/SignIn";
+import { SignUp } from "@/pages/auth/SignUp";
+import { Workspace } from "@/pages/workspace/Workspace";
+import { SignIn } from "@/pages/auth/SignIn";
 
 export const router = createBrowserRouter([
   {

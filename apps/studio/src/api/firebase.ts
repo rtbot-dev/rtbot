@@ -15,6 +15,10 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
+auth.onAuthStateChanged((user) => {
+  console.log("auth state changed", user);
+  authStore.setUser(user);
+});
 
 const githuProvider = new GithubAuthProvider();
 
@@ -28,13 +32,11 @@ export const signUp = () => {
     .then((userCredential) => {
       // Signed in
       console.log("Signed up", userCredential);
-      const user = userCredential.user;
-      authStore.setUser(user);
     })
     .catch((error) => {
       const errorCode = error.code;
       const errorMessage = error.message;
-      console.log(`Unable to create user, error code: ${errorCode}, ${errorMessage}`);
+      console.error(`Unable to create user, error code: ${errorCode}, ${errorMessage}`);
     });
 };
 
@@ -48,12 +50,19 @@ export const signIn = () => {
     .then((userCredential) => {
       // Signed in
       console.log("Signed in", userCredential);
-      const user = userCredential.user;
-      authStore.setUser(user);
     })
     .catch((error) => {
-      const errorCode = error.code;
-      const errorMessage = error.message;
-      console.log(`Unable to sign in user, error code: ${errorCode}, ${errorMessage}`);
+      console.error(`Unable to sign in user, error code: ${error.code}, ${error.message}`);
+    });
+};
+
+export const signOut = () => {
+  auth
+    .signOut()
+    .then(() => {
+      console.log("Signed out successfully");
+    })
+    .catch((error) => {
+      console.error("Unable to sign out", error.code, error.message);
     });
 };

@@ -1,5 +1,5 @@
-import { SignInForm } from "@/components/auth/SignInForm";
-import { toPrivateLandingPage } from "./toPrivateLandingPage";
+import { SignInForm } from "@/pages/auth/components/SignInForm";
+import { toPrivateLandingPage } from "@/pages/toPrivateLandingPage";
 
 export const SignIn = toPrivateLandingPage(() => (
   <div className="flex items-center justify-center h-screen">

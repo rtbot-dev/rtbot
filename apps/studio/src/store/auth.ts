@@ -13,7 +13,7 @@ export interface IAuthState {
   rememberMe: FormField<boolean>;
   isSignUpFormValid: boolean;
   isSignInFormValid: boolean;
-  user?: User;
+  user: User | null;
 }
 
 export const initialState: IAuthState = {
@@ -21,6 +21,7 @@ export const initialState: IAuthState = {
   password: {},
   passwordRepeated: {},
   rememberMe: {},
+  user: null,
   isSignUpFormValid: false,
   isSignInFormValid: false,
 };
@@ -43,7 +44,8 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IAuthState) => void) => subject.subscribe(setState),
-  setUser(user?: User) {
+  setUser(user: User | null) {
+    console.log("Setting user", user);
     state.user = user;
     subject.next({ ...state });
   },
