@@ -1,8 +1,7 @@
-import { Observer, Subject } from "rxjs";
+import { Subject } from "rxjs";
 import { FormField } from "./types";
 import { z } from "zod";
 import { User } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
 
 const subject = new Subject<IAuthState>();
 
