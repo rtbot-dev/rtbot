@@ -15,7 +15,7 @@ public:
     Output(string const &id_, function<void(Message<T>)> callback_)
         : Operator<T>(id_), callback(callback_) {}
 
-    void receive(Message<T> const &msg) override { callback(msg); }
+    void receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { callback(msg); }
 };
 
 

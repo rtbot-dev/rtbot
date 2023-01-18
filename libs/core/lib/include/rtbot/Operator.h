@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace rtbot {
 
@@ -38,6 +39,8 @@ bool operator==(Message<T> const& a, Message<T> const& b) { return a.time==b.tim
  */
 template <class T> class Operator {
     vector<Operator<T> *> children;
+protected:
+    std::map<const Operator* const, int> parents; //< an index for each parent
 
 public:
   const string id;
@@ -53,16 +56,23 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual void receive(Message<T> const& msg) = 0;
+  virtual void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) = 0;
 
   void emit(Message<T> const& msg) const {
     for (auto x : children)
-      x->receive(msg);
+      x->receive(msg,this);
   }
 
-  void addChildren(Operator<T> * child) { children.push_back(child); }
+  void addChildren(Operator<T> * child) { children.push_back(child); child->parents[this]=child->parents.size(); }
 };
 
+
+template<class T>
+struct Input: public Operator<T>
+{
+    using Operator<T>::Operator;
+    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { this->emit(msg); }
+};
 
 
 } // end namespace rtbot

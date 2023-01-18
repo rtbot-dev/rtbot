@@ -13,7 +13,7 @@ public:
     int n;                  //< number of message to keep in memory
     Buffer(string const &id_, int n_): n(n_), Operator<T>(id_) {}
 
-    void receive(Message<T> const& msg) override
+    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override
     {
         if (this->size()==n) this->pop_front();
         this->push_back(msg);
