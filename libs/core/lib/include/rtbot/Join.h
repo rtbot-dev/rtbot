@@ -13,8 +13,8 @@ namespace rtbot {
 template<class T>
 class Join : public Operator<T>
 {
-public:
     std::vector<std::queue<Message<T>>> data; //< the waiting Messages for each channel
+public:
     Join(string const &id_) : Operator<T>(id_) {}
 
     void receive(Message<T> const &msg, const Operator<T> *sender) override
