@@ -2,6 +2,7 @@
 #define JOIN_H
 
 #include <queue>
+#include <unordered_map>
 #include "Operator.h"
 
 namespace rtbot {
@@ -21,7 +22,7 @@ namespace rtbot {
 template<class T>
 class Join : public Operator<T>
 {
-    std::map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
+    std::unordered_map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
 public:
     Join(string const &id_) : Operator<T>(id_) {}
 
