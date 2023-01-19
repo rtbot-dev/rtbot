@@ -39,8 +39,6 @@ bool operator==(Message<T> const& a, Message<T> const& b) { return a.time==b.tim
  */
 template <class T> class Operator {
     vector<Operator<T> *> children;
-protected:
-    std::map<const Operator* const, int> parents; //< an index for each parent
 
 public:
   const string id;
@@ -63,7 +61,11 @@ public:
       x->receive(msg,this);
   }
 
-  void addChildren(Operator<T> * child) { children.push_back(child); child->parents[this]=child->parents.size(); }
+  friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
+
+  protected:
+  void addChildren(Operator<T>* child) { children.push_back(child); }
+  virtual void addSender(const Operator<T>*) { }
 };
 
 

@@ -21,28 +21,26 @@ namespace rtbot {
 template<class T>
 class Join : public Operator<T>
 {
-    std::vector<std::queue<Message<T>>> data; //< the waiting Messages for each channel
+    std::map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
 public:
     Join(string const &id_) : Operator<T>(id_) {}
 
+    void addSender(const Operator<T> *sender) override { data[sender]; }
+
     void receive(Message<T> const &msg, const Operator<T> *sender) override
     {
-        if (data.empty())   // prepare the data when the first message arrives
-            data.resize(this->parents.size());
-
         // add the incoming message to the correct channel
-        int channel = this->parents.at(sender);
-        data[channel].push(msg);
+        data.at(sender).push(msg);
 
         // remove old messages
-        for (auto &qi : data)
-            while (!qi.empty() && qi.front().time < msg.time)
-                qi.pop();
+        for (auto &x : data)
+            while (!x.second.empty() && x.second.front().time < msg.time)
+                x.second.pop();
 
         // check if all queue match the current time
         bool all_ready = true;
-        for (const auto &qi : data)
-            if (qi.empty() || qi.front().time > msg.time)
+        for (const auto &x : data)
+            if (x.second.empty() || x.second.front().time > msg.time)
                 all_ready = false;
 
         if (all_ready)
@@ -61,13 +59,13 @@ private:
     Message<T> makeMessage()
     {
         Message<T> msg;
-        msg.time = data.at(0).front().time;
-        for (const auto &qi : data)
-            for (const T &x : qi.front().value)
-                msg.value.push_back(x);
+        msg.time = data.begin()->second.front().time;
+        for (const auto &x : data)
+            for (const T &xi : x.second.front().value)
+                msg.value.push_back(xi);
 
-        for (auto &qi : data)
-            qi.pop();
+        for (auto &x : data)
+            x.second.pop();
         return msg;
     }
 };

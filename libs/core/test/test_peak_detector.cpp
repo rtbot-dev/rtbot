@@ -14,7 +14,7 @@ TEST_CASE("simple peak detector")
 
     vector<Message<>> msg_l;
     auto o1=Output<double>("o1", [&](Message<double> msg){ msg_l.push_back(msg); });
-    op.addChildren(&o1);
+    connect(&op, &o1);
 
     SECTION("one peak") {
         for(int i=0; i<10; i++)
