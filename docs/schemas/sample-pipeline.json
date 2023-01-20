@@ -1,0 +1,67 @@
+{
+  "title": "Peak detector",
+  "description": "This is a program to detect peaks in ECG...",
+  "date": "now",
+  "version": "v1",
+  "author": "Someone <someone@gmail.com>",
+  "license": "MIT",
+  "entryNode": "ma1",
+  "optim": {
+    "algorithm": "Nelder-Mead"
+  },
+  "operators": [
+    {
+      "id": "ma1",
+      "type": "MA",
+      "parameters": [
+        {
+          "name": "backwardTimeWindow",
+          "type": "integer",
+          "value": 2,
+          "optim": {
+            "range": {
+              "min": 0,
+              "max": 10
+            }
+          }
+        },
+        {
+          "name": "forwardTimeWindow",
+          "type": "integer",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "id": "std",
+      "description": "Custom std operator with a scale determined by the lambda parameter",
+      "type": "STDL",
+      "parameters": [
+        {
+          "name": "backwardTimeWindow",
+          "type": "integer",
+          "value": 3
+        },
+        {
+          "name": "lambda",
+          "type": "float",
+          "value": 1.2
+        }
+      ]
+    },
+    {
+      "id": "output",
+      "type": "OUT"
+    }
+  ],
+  "connections": [
+    {
+      "from": "ma1",
+      "to": "std"
+    },
+    {
+      "from": "std",
+      "to": "out"
+    }
+  ]
+}
