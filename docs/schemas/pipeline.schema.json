@@ -1,0 +1,123 @@
+{
+  "$id": "root",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "examples": ["Peak detector"]
+    },
+    "description": {
+      "type": "string",
+      "examples": ["This is a program to detect peaks in ECG..."]
+    },
+    "date": {
+      "type": "date"
+    },
+    "version": {
+      "type": "string",
+      "examples": ["v1"]
+    },
+    "author": {
+      "type": "string",
+      "examples": ["Someone <someone@gmail.com>"]
+    },
+    "license": {
+      "type": "string",
+      "examples": ["MIT", "private"]
+    },
+    "entryNode": {
+      "type": "string",
+      "examples": ["ma1"]
+    },
+    "optim": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "default": "Nelder-Mead",
+          "examples": ["Nelder-Mead"]
+        }
+      }
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": ["ma1"]
+          },
+          "type": {
+            "type": "string",
+            "examples": ["MA"]
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "examples": ["backwardTimeWindow"]
+                },
+                "type": {
+                  "enum": ["integer", "float"]
+                },
+                "value": {
+                  "type": "number",
+                  "examples": [2, 0.33]
+                },
+                "optim": {
+                  "type": "object",
+                  "properties": {
+                    "range": {
+                      "type": "object",
+                      "properties": {
+                        "min": {
+                          "type": "number",
+                          "examples": [0]
+                        },
+                        "max": {
+                          "type": "number",
+                          "examples": [10]
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": ["name", "type", "value"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["id", "type"],
+        "additionalProperties": false
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "examples": ["ma1"]
+          },
+          "to": {
+            "type": "string",
+            "examples": ["std"]
+          }
+        },
+        "required": ["from", "to"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["title", "entryNode", "operators", "connections"],
+  "additionalProperties": false
+}
