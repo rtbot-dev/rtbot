@@ -1,12 +1,33 @@
+#ifndef OPERATOR_H
+#define OPERATOR_H
 
-#include "Buffer.h"
+
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <map>
 
 namespace rtbot {
+
 using std::string;
 using std::vector;
+
+
+template<class T=double>
+struct Message {
+    int time;
+    std::vector<T> value;
+
+    Message()=default;
+    Message(int time_, T value_): time(time_), value(1,value_) {}
+    Message(int time_, vector<T> const& value_): time(time_), value(value_) {}
+};
+
+template<class T>
+bool operator==(Message<T> const& a, Message<T> const& b) { return a.time==b.time && a.value==b.value; }
+
+
+
 
 /**
  * Represents a genereric operator that can receive a message and forward its
@@ -16,13 +37,13 @@ using std::vector;
  * @tparam T Numeric type used for floating computations, (`float`, `double`,
  * etc.).
  */
-template <class T> class Op {
-  vector<Op *> children;
+template <class T> class Operator {
+    vector<Operator<T> *> children;
 
 public:
   const string id;
 
-  Op(string const &id_) : id(id_) {}
+  Operator(string const &id_) : id(id_) {}
 
   /**
    * Receives a message emitted from another operator. This method should be
@@ -33,17 +54,30 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual void receive(int t, Buffer<T> const &msg) = 0;
+  virtual void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) = 0;
 
-  void emit(int t, Buffer<T> const &msg) const {
+  void emit(Message<T> const& msg) const {
     for (auto x : children)
-      x->receive(t, msg);
+      x->receive(msg,this);
   }
 
-  void addChildren(Op *const child) { children.push_back(child); }
+  friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
+
+  protected:
+  void addChildren(Operator<T>* child) { children.push_back(child); }
+  virtual void addSender(const Operator<T>*) { }
 };
 
-template class Buffer<double>;
-template class Op<double>;
+
+template<class T>
+struct Input: public Operator<T>
+{
+    using Operator<T>::Operator;
+    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { this->emit(msg); }
+};
+
 
 } // end namespace rtbot
+
+
+#endif // OPERATOR_H
