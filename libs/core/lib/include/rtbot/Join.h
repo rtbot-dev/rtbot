@@ -34,9 +34,11 @@ public:
         data.at(sender).push(msg);
 
         // remove old messages
-        for (auto &x : data)
+        for (auto &x : data) {
+            if (x.first==sender) continue;
             while (!x.second.empty() && x.second.front().time < msg.time)
                 x.second.pop();
+        }
 
         // check if all queue match the current time
         bool all_ready = true;
