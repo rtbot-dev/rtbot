@@ -98,15 +98,11 @@ TEST_CASE("ppg peak detector")
     ofstream out("peak.txt");
     auto o1 = makeOutput<double>("o1", out);
 
-    connect(&i1, &ma1);
-    connect(&i1, &ma2);
-    connect(&ma1, &diff);
-    connect(&ma2, &diff);
-    connect(&diff, &peak);
+    // draw the pipeline
 
-    connect(&peak ,&join);
-    connect(&i1, &join);
-    connect(&join, &o1);
+    i1 | ma1 | diff | peak | join | o1 ;
+    i1 | ma2 | diff ;
+    i1 |                     join ;
 
     // process the data
     for(auto i=0u; i<s.ti.size(); i++)

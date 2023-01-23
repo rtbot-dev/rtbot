@@ -16,10 +16,8 @@ TEST_CASE("Join peak and value")
     auto o1 = makeOutput<double>("o1", cout);
     auto join = Join<double>("j1");
 
-    connect(&i1, &peak);
-    connect(&i1, &join);
-    connect(&peak ,&join);
-    connect(&join, &o1);
+    i1 | peak | join | o1 ;
+    i1        | join ;
 
     // process the data
     for(int i=0; i<26; i++)
