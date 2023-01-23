@@ -106,5 +106,5 @@ TEST_CASE("ppg peak detector")
 
     // process the data
     for(auto i=0u; i<s.ti.size(); i++)
-        i1.receive(Message<>(s.ti[i], s.ppg[i]));
+        Message<>(s.ti[i], s.ppg[i]) | i1;
 }

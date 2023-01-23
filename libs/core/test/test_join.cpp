@@ -21,6 +21,6 @@ TEST_CASE("Join peak and value")
 
     // process the data
     for(int i=0; i<26; i++)
-        i1.receive(Message<>(i, i%5));
+        Message<>(i, i%5) | i1;
 
 }
