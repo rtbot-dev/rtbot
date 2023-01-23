@@ -4,6 +4,7 @@ set(header
     include/rtbot/Output.h
     include/rtbot/Join.h
     include/rtbot/PeakDetector.h
+    include/rtbot/MovingAverage.h
 )
 
 add_library(${PROJECT_NAME} STATIC
