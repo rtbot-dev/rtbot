@@ -1,0 +1,25 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+cc_library(
+    name = "lib",
+    srcs = glob([
+        "src/**/*.cpp",
+        "src/**/*.h",
+    ]),
+    hdrs = glob(["include/**/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
+
+cc_binary(
+    name = "rtbot",
+    srcs = glob([
+        "src/**/*.cpp",
+    ]),
+    linkopts = [
+        "-W",
+        "-dynamiclib",
+    ],
+    linkshared = True,
+    deps = ["lib"],
+)
