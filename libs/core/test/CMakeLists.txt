@@ -1,7 +1,9 @@
 add_executable(${PROJECT_NAME}_test
+    tools.h
     test_buffer.cpp
     test_peak_detector.cpp
     test_join.cpp
+    test_pipeline.cpp
 )
 
 #target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DCATCH_CONFIG_MAIN)
@@ -14,3 +16,7 @@ list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/contrib/)
 include(CTest)
 include(Catch)
 catch_discover_tests(${PROJECT_NAME}_test)
+
+
+target_include_directories(${PROJECT_NAME}_test INTERFACE nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME}_test PRIVATE nlohmann_json::nlohmann_json)
