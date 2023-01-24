@@ -24,7 +24,8 @@ class Join : public Operator<T>
 {
     std::unordered_map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
 public:
-    Join(string const &id_) : Operator<T>(id_) {}
+    using Operator<T>::Operator;
+    virtual ~Join()=default;
 
     void addSender(const Operator<T> *sender) override { data[sender]; }
 
@@ -72,6 +73,21 @@ private:
         return msg;
     }
 };
+
+
+/**
+ * @brief The Difference class as example of application of Join
+ */
+struct Difference: public Join<double>
+{
+    using Join<double>::Join;
+
+    void processData(Message<double> const &msg) override
+    {
+        emit(Message<>(msg.time, msg.value.at(1)-msg.value.at(0)));
+    }
+};
+
 
 } // end namespace rtbot
 

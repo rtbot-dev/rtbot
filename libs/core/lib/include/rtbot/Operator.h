@@ -41,9 +41,11 @@ template <class T> class Operator {
     vector<Operator<T> *> children;
 
 public:
-  const string id;
+  string id;
 
-  Operator(string const &id_) : id(id_) {}
+  Operator()=default;
+  explicit Operator(string const &id_) : id(id_) {}
+  virtual ~Operator()=default;
 
   /**
    * Receives a message emitted from another operator. This method should be
