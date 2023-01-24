@@ -14,7 +14,7 @@ struct MovingAverage: public Buffer<double>
         Message<> out;
         out.time=at(size()/2).time;
         out.value.assign(at(0).value.size(), 0);
-        for(auto x : (*this))
+        for(auto const& x : (*this))
             for(auto j=0u; j<x.value.size(); j++)
                 out.value[j] += x.value[j]/size();
         emit(out);
