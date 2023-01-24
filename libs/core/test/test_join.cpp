@@ -13,7 +13,7 @@ TEST_CASE("Join peak and value")
 {
     auto i1 = Input<double>("i1");
     auto peak = PeakDetector("b1", 3);
-    auto o1 = makeOutput<double>("o1", cout);
+    auto o1 = Output<double>("o1");
     auto join = Join<double>("j1");
 
     i1 | peak | join | o1 ;
