@@ -24,6 +24,14 @@ http_archive(
 )
 
 http_archive(
+    name = "json-cpp",
+    build_file = "@//libs/core/external:json-cpp.BUILD",
+    sha256 = "95651d7d1fcf2e5c3163c3d37df6d6b3e9e5027299e6bd050d157322ceda9ac9",
+    strip_prefix = "json-3.11.2",
+    url = "https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.zip",
+)
+
+http_archive(
     name = "catch2",
     sha256 = "121e7488912c2ce887bfe4699ebfb983d0f2e0d68bcd60434cdfd6bb0cf78b43",
     strip_prefix = "Catch2-2.13.10",
