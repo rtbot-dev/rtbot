@@ -41,9 +41,11 @@ template <class T> class Operator {
     vector<Operator<T> *> children;
 
 public:
-  const string id;
+  string id;
 
-  Operator(string const &id_) : id(id_) {}
+  Operator()=default;
+  explicit Operator(string const &id_) : id(id_) {}
+  virtual ~Operator()=default;
 
   /**
    * Receives a message emitted from another operator. This method should be
@@ -68,6 +70,11 @@ public:
   virtual void addSender(const Operator<T>*) { }
 };
 
+template<class T>
+Operator<T>& operator|(Operator<T>& A, Operator<T>& B) { connect(&A,&B); return B; }
+
+template<class T>
+Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
 
 template<class T>
 struct Input: public Operator<T>

@@ -10,8 +10,11 @@ template<class T>
 class Buffer: public Operator<T>, public std::deque<Message<T>>
 {
 public:
-    int n;                  //< number of message to keep in memory
+    int n=1;                  //< number of message to keep in memory
+
+    using Operator<T>::Operator;
     Buffer(string const &id_, int n_): n(n_), Operator<T>(id_) {}
+    virtual ~Buffer()=default;
 
     void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override
     {

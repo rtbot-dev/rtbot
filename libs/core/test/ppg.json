@@ -1,0 +1,79 @@
+{
+  "title": "Peak detector",
+  "description": "This is a program to detect peaks in PPG...",
+  "date": "now",
+  "version": "v1",
+  "author": "Someone <someone@gmail.com>",
+  "license": "MIT",
+  "entryNode": "ma1",
+  "optim": {
+    "algorithm": "Nelder-Mead"
+  },
+  "operators": [
+    {
+        "id": "i1",
+        "type": "Input"
+    },
+    {
+        "id": "ma1",
+        "type": "MovingAverage",
+        "n": 6
+    },
+    {
+        "id": "ma2",
+        "type": "MovingAverage",
+        "n": 250
+    },
+    {
+        "id": "diff",
+        "type": "Difference"
+    },
+    {
+        "id": "peak",
+        "type": "PeakDetector",
+        "n": 13
+    },
+    {
+        "id": "join",
+        "type": "Join"
+    },
+    {
+        "id": "o1",
+        "type": "Output"
+    }
+  ],
+  "connections": [
+    {
+        "from": "i1",
+        "to": "ma1"
+    },
+    {
+        "from": "ma1",
+        "to": "diff"
+    },
+    {
+        "from": "diff",
+        "to": "peak"
+    },
+    {
+        "from": "peak",
+        "to": "join"
+    },
+    {
+        "from": "join",
+        "to": "o1"
+    },
+    {
+        "from": "i1",
+        "to": "ma2"
+    },
+    {
+        "from": "ma2",
+        "to": "diff"
+    },
+    {
+        "from": "i1",
+        "to": "join"
+    }
+  ]
+}

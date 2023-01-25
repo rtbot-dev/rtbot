@@ -5,11 +5,18 @@ set(header
     include/rtbot/Join.h
     include/rtbot/PeakDetector.h
     include/rtbot/MovingAverage.h
+    include/rtbot/FactoryOp.h
+    include/rtbot/Pipeline.h
+)
+
+set(source
+    src/empty.cpp
+    src/FactoryOp.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC
-    src/empty.cpp
     ${header}
+    ${source}
 )
 
 
@@ -19,3 +26,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
+
+## dependence
+
+target_include_directories(${PROJECT_NAME} INTERFACE nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} PRIVATE nlohmann_json::nlohmann_json)
