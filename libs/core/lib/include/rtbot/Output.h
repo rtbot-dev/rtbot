@@ -11,9 +11,19 @@ namespace rtbot {
 
 using std::function;
 
+template<class T>
+std::ostream& operator<<(std::ostream& out, Message<T> const& msg)
+{
+    out<<msg.time;
+    for (auto x:msg.value)
+        out<<" "<<x;
+    return out;
+}
+
 template <class T> class Output : public Operator<T> {
-    function<void(Message<T>)> callback;
 public:
+    function<void(Message<T>)> callback;
+
     Output(string const &id_, function<void(Message<T>)> callback_)
         : Operator<T>(id_), callback(callback_) {}
 
@@ -30,12 +40,7 @@ private:
 
     static function<void(Message<T>)> makeCallback(string const &id,std::ostream& out)
     {
-        return [id,&out](Message<T> const &msg) {
-            out<<id<<" "<<msg.time;
-            for (auto x:msg.value)
-                    out<<" "<<x;
-            out<<"\n";
-        };
+        return [id,&out](Message<T> const &msg) { out<<id<<" "<<msg<<"\n"; };
     }
 
 };
