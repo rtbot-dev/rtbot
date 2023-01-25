@@ -2,9 +2,11 @@
 #define PIPELINE_H
 
 #include "rtbot/Operator.h"
+#include "Output.h"
 
 #include <memory>
 #include <map>
+#include <optional>
 
 namespace rtbot {
 
@@ -14,8 +16,15 @@ struct Pipeline {
 
     std::map<std::string, Op_ptr> all_op;  // from id to operator
     Operator<double> *input;
+    Output<double> *output;
+    std::optional<Message<double>> out;
 
-    void receive(const Message<double>& msg) { input->receive(msg); }
+    std::optional<Message<double>> receive(const Message<double>& msg)
+    {
+        out.reset();
+        input->receive(msg);
+        return out;
+    }
 };
 
 }

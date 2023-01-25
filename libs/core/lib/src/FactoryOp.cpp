@@ -45,6 +45,10 @@ Pipeline FactoryOp::createPipeline(nlohmann::json const& json)
         auto it = pipe.all_op.emplace(x["id"], createOp(x));
         if (x["type"]=="Input")
             pipe.input=it.first->second.get();
+        else if (x["type"]=="Output") {
+            pipe.output=dynamic_cast<Output<double> *>(it.first->second.get());
+            pipe.output->callback=[&pipe](Message<> const& msg) { pipe.out=msg; };
+        }
     }
 
     // connections

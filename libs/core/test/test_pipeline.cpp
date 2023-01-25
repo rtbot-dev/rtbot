@@ -20,6 +20,9 @@ TEST_CASE("read ppg pipeline")
     auto s=SamplePPG("ppg.csv");
 
     // process the data
-    for(auto i=0u; i<s.ti.size(); i++)
-        pipe.receive( Message<>(s.ti[i], s.ppg[i]) );
+    for(auto i=0u; i<s.ti.size(); i++) {
+
+        auto y=pipe.receive( Message<>(s.ti[i], s.ppg[i]) );
+        if (y) cout<<y.value()<<"\n";
+    }
 }
