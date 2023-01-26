@@ -13,12 +13,6 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
   if (argc != 4) {
     return RedisModule_WrongArity(ctx);
   }
-  /*char msg2[120];
-  size_t len2;
-  sprintf(msg2, "Args passed %s, %s, %s", RedisModule_StringPtrLen(argv[0], &len2), RedisModule_StringPtrLen(argv[1],
-  &len2), RedisModule_StringPtrLen(argv[2], &len2) );
-
-  RedisModule_Log(ctx, "warning", msg2);*/
 
   // program key, notice that we store it as a native json in redis
   RedisModuleKey *pKey = RedisModule_OpenKey(ctx, argv[1], REDISMODULE_READ);
@@ -103,13 +97,6 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
     RedisModule_ReplyWithString(ctx, valueStr);
   }
 
-  // double y = RedisModule_CreateStringFromCallReply(val);
-
-  // here is where we iterate and send all the content of the timeseries
-  // to our rtbot program
-
-  // RedisModule_ReplyWithLongLong(ctx, timestamp);
-  // RedisModule_ReplyWithDouble(ctx, y);
   return REDISMODULE_OK;
 }
 
