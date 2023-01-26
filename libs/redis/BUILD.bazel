@@ -9,17 +9,23 @@ cc_library(
     hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core/lib",
+        "@fast_double_parser//:lib",
+        "@json-cpp//:lib",
+    ],
 )
 
 cc_binary(
-    name = "rtbot",
+    name = "redisrtbot",
     srcs = glob([
         "src/**/*.cpp",
     ]),
     linkopts = [
         "-W",
-        "-dynamiclib",
     ],
     linkshared = True,
-    deps = ["lib"],
+    deps = [
+        "lib",
+    ],
 )
