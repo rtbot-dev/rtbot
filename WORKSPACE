@@ -32,6 +32,14 @@ http_archive(
 )
 
 http_archive(
+    name = "fast_double_parser",
+    build_file = "@//libs/core/external:fast_double_parser.BUILD",
+    sha256 = "fc408309a03dc1606620c8be358e98c652479766afd50e5cdb22032a3f09b5d8",
+    strip_prefix = "fast_double_parser-0.7.0",
+    url = "https://github.com/lemire/fast_double_parser/archive/refs/tags/v0.7.0.zip",
+)
+
+http_archive(
     name = "catch2",
     sha256 = "121e7488912c2ce887bfe4699ebfb983d0f2e0d68bcd60434cdfd6bb0cf78b43",
     strip_prefix = "Catch2-2.13.10",
