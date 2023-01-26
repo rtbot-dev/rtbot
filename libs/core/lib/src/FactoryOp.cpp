@@ -38,6 +38,9 @@ Op_ptr FactoryOp::createOp(nlohmann::json const& json)
 }
 
 
+// TODO: we need a similar method but that receives a `const char *` instead
+// moreover it would be ideal to simply move this logic to the pipeline constructor
+// if possible
 Pipeline FactoryOp::createPipeline(nlohmann::json const& json)
 {
     Pipeline pipe;
