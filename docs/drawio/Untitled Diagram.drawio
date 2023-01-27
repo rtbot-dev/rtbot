@@ -1,1 +1,40 @@
-<mxfile host="app.diagrams.net" modified="2023-01-27T19:32:55.513Z" agent="5.0 (X11)" version="20.8.3" etag="3TMiQQRuIdCW3NaS_CtR" type="github"><diagram id="zx69Wc6ILgkBybeYZCb7">UzV2zq1wL0osyPDNT0nNUTV2VTV2LsrPL4GwciucU3NyVI0MMlNUjV1UjYwMgFjVyA2HrCFY1qAgsSg1rwSLBiADYTaQg2Y1AA==</diagram></mxfile>
+<mxfile host="app.diagrams.net" modified="2023-01-27T19:44:47.842Z" agent="5.0 (X11)" version="20.8.3" etag="Fvz6aEigJcv_vctpP0mj" type="github">
+  <diagram id="w7UeyHjINGeoJfNCUkTX" name="Page-1">
+    <mxGraphModel dx="1434" dy="680" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JQVqLTnl7qz9SuRQ6DIX-1" target="JQVqLTnl7qz9SuRQ6DIX-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" edge="1" parent="1" source="JQVqLTnl7qz9SuRQ6DIX-1" target="JQVqLTnl7qz9SuRQ6DIX-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-1" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="330" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-2" value="&lt;div&gt;Redis&lt;/div&gt;&lt;div&gt;Module&lt;br&gt;&lt;/div&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="390" y="340" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JQVqLTnl7qz9SuRQ6DIX-3" target="JQVqLTnl7qz9SuRQ6DIX-1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-3" value="ts input" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.start_2;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="100" y="330" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-5" value="&lt;div&gt;ts output 2&lt;/div&gt;" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.start_2;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="640" y="330" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-7" value="TS.ADD input 123412342134 1.33234" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="30" y="440" width="220" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-8" value="&lt;div align=&quot;left&quot;&gt;Redis RtBot module:&lt;/div&gt;&lt;div align=&quot;left&quot;&gt;&lt;ul&gt;&lt;li&gt;&amp;nbsp;detects new entries in the `input` key&lt;/li&gt;&lt;li&gt;looks for an existing `Pipeline` associated to the given input key&lt;/li&gt;&lt;li&gt;If any, sends the new point to the pipeline&lt;/li&gt;&lt;li&gt;If any result, write the result in the previously declared output ts key&lt;br&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="293" y="480" width="265" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="JQVqLTnl7qz9SuRQ6DIX-9" value="ts output 1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.start_2;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="640" y="190" width="60" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
