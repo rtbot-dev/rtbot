@@ -1,12 +1,16 @@
 #include "module.h"
-#include "rtbot/FactoryOp.h"
-#include "fast_double_parser.h"
-#include <stdlib.h>
-#include <optional>
-#include <iostream>
-#include <string.h>
-#include <nlohmann/json.hpp>
 
+#include <stdlib.h>
+#include <string.h>
+
+#include <iostream>
+#include <nlohmann/json.hpp>
+#include <optional>
+
+#include "fast_double_parser.h"
+#include "rtbot/FactoryOp.h"
+
+auto onKeyChanged(RedisModuleCtx *ctx, int type, const char *event, RedisModuleString *key) {}
 
 int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   std::cout << "Running rtbot.run command" << std::endl;
@@ -55,7 +59,6 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
   RedisModule_CloseKey(tsKey);
 
   // get the values of the timeseries at the input key
-  std::cout << "Executing ts.range " << argv[2] << "- +" << std::endl;
   reply = RedisModule_Call(ctx, "ts.range", "scc", argv[2], "-", "+");
   if (RedisModule_CallReplyType(reply) != REDISMODULE_REPLY_ARRAY) {
     char msg[120];
@@ -67,7 +70,7 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
   size_t reply_len = RedisModule_CallReplyLength(reply);
   RedisModule_Log(ctx, "warning", "Sample size %lu", reply_len);
 
-  std::cout<<"Sample size" << reply_len << std::endl <<std::flush;
+  std::cout << "Sample size" << reply_len << std::endl << std::flush;
   for (size_t i = 0; i < reply_len; i++) {
     RedisModuleCallReply *row = RedisModule_CallReplyArrayElement(reply, i);
 
@@ -83,13 +86,16 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
     }
 
     std::optional<rtbot::Message<double>> result = pipeline.receive(rtbot::Message<>((int)timestamp, value));
-    if(result.has_value()) {
+    if (result.has_value()) {
       // RedisModule_Log(ctx, "warning", "New result received (%i, %f)", result->time, result->value.at(0));
-      RedisModuleCallReply *addReply = RedisModule_Call(ctx, "ts.add", "slc", argv[3], (long long)result->time, std::to_string(result->value.at(0)).c_str());
+      RedisModuleCallReply *addReply = RedisModule_Call(ctx, "ts.add", "slc", argv[3], (long long)result->time,
+                                                        std::to_string(result->value.at(0)).c_str());
       if (RedisModule_CallReplyType(addReply) != REDISMODULE_REPLY_INTEGER) {
-        RedisModule_Log(ctx, "warning", "ts.add returned a wrong reply type=%i, expected %i (REDISMODULE_REPLY_INTEGER)",
-                                          RedisModule_CallReplyType(addReply), REDISMODULE_REPLY_INTEGER);
-        RedisModule_Log(ctx, "warning", "command sent: ts.add xx %lld %s", (long long)result->time, std::to_string(result->value.at(0)).c_str());
+        RedisModule_Log(ctx, "warning",
+                        "ts.add returned a wrong reply type=%i, expected %i (REDISMODULE_REPLY_INTEGER)",
+                        RedisModule_CallReplyType(addReply), REDISMODULE_REPLY_INTEGER);
+        RedisModule_Log(ctx, "warning", "command sent: ts.add xx %lld %s", (long long)result->time,
+                        std::to_string(result->value.at(0)).c_str());
         return RedisModule_ReplyWithError(ctx, "ts.add returned a wrong reply");
       }
     }
@@ -105,7 +111,6 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
 // with certain compiler options
 extern "C" {
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
-  std::cout<< "Loading redisrtbot module" << std::endl;
   if (RedisModule_Init(ctx, "rtbot", 1, REDISMODULE_APIVER_1) == REDISMODULE_ERR) return REDISMODULE_ERR;
 
   if (RedisModule_CreateCommand(ctx, "rtbot.run", RtBotRun_RedisCommand, "write", 0, 0, 0) == REDISMODULE_ERR)
