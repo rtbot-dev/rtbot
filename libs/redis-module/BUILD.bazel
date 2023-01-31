@@ -1,8 +1,8 @@
 load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
-load("@rules_rust//rust:defs.bzl", "rust_library")
+load("@rules_rust//rust:defs.bzl", "rust_shared_library")
 
-rust_library(
-    name = "lib",
+rust_shared_library(
+    name = "redis-rtbot",
     srcs = glob(["src/**/*"]),
     aliases = aliases(),
     edition = "2021",
