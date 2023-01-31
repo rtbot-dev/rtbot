@@ -4,13 +4,41 @@
 #include <string.h>
 
 #include <iostream>
+#include <map>
 #include <nlohmann/json.hpp>
 #include <optional>
 
 #include "fast_double_parser.h"
 #include "rtbot/FactoryOp.h"
 
-auto onKeyChanged(RedisModuleCtx *ctx, int type, const char *event, RedisModuleString *key) {}
+using namespace std;
+using namespace rtbot;
+
+// this map will hold the associated pipeline per input/output key pair
+map<string, map<string, Pipeline *>> pipelines;
+
+int KeySpace_NotificationLoaded(RedisModuleCtx *ctx, int type, const char *event, RedisModuleString *key) {
+  std::cout << "Notification received" << std::endl;
+
+  const char *keyStr = RedisModule_StringPtrLen(key, NULL);
+  RedisModule_Log(ctx, "warning", "event %s, key %s", event, keyStr);
+
+  // check if there is a pipeline hooked into the key
+  for (auto p : pipelines) {
+    RedisModule_Log(ctx, "warning", "Existing pipeline key %s", p.first.c_str());
+  }
+  auto it = pipelines.find(keyStr);
+  if (it != pipelines.end()) {
+    if (string(event) == "ts.add") {
+      for(auto [outputKeyStr, pipeline] : it->second) {
+        // TODO: send point to pipeline
+        RedisModule_Log(ctx, "warning", "pipeline found for in:%s out:%s", keyStr, outputKeyStr.c_str());
+      }
+    }
+  }
+
+  return REDISMODULE_OK;
+}
 
 int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   std::cout << "Running rtbot.run command" << std::endl;
@@ -39,13 +67,19 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
   }
   RedisModuleString *programStr = RedisModule_CreateStringFromCallReply(reply);
   const char *program = RedisModule_StringPtrLen(programStr, NULL);
-  RedisModule_Log(ctx, "warning", program);
+  RedisModule_Log(ctx, "warning", "%s", program);
+
   // TODO: for some reason we need to upgrade the standard library so object
   // inside the redis-stack docker container with the command:
   // apt-get upgrade libstdc++6
   // otherwise the module won't be loaded if we use the next line of code
   nlohmann::json programJson = nlohmann::json::parse(program);
   auto pipeline = rtbot::FactoryOp::createPipeline(programJson);
+
+  // store the pipeline in the map
+  const char *inputKeyStr = RedisModule_StringPtrLen(argv[2], NULL);
+  const char *outputKeyStr = RedisModule_StringPtrLen(argv[3], NULL);
+  pipelines[inputKeyStr][outputKeyStr] = &pipeline;
 
   // input key
   RedisModuleKey *tsKey = RedisModule_OpenKey(ctx, argv[2], REDISMODULE_READ);
@@ -96,12 +130,22 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
                         RedisModule_CallReplyType(addReply), REDISMODULE_REPLY_INTEGER);
         RedisModule_Log(ctx, "warning", "command sent: ts.add xx %lld %s", (long long)result->time,
                         std::to_string(result->value.at(0)).c_str());
-        return RedisModule_ReplyWithError(ctx, "ts.add returned a wrong reply");
+        return RedisModule_ReplyWithError(ctx, ("Error while trying to add (" + to_string(result->time) + ", " +
+                                                to_string(result->value.at(0)) + ") at " + outputKeyStr)
+                                                   .c_str());
       }
     }
-
-    RedisModule_ReplyWithString(ctx, valueStr);
   }
+
+  // hook into redis and list for changes in the source timeseries
+  if (RedisModule_SubscribeToKeyspaceEvents(ctx, REDISMODULE_NOTIFY_ALL, KeySpace_NotificationLoaded) !=
+      REDISMODULE_OK) {
+    RedisModule_Log(ctx, "error", "Unable to subscribe to events");
+    return REDISMODULE_ERR;
+  }
+  RedisModule_Log(ctx, "warning", "Subscribing to set events");
+
+  RedisModule_ReplyWithString(ctx, argv[3]);
 
   return REDISMODULE_OK;
 }
@@ -113,7 +157,8 @@ extern "C" {
 int RedisModule_OnLoad(RedisModuleCtx *ctx, RedisModuleString **argv, int argc) {
   if (RedisModule_Init(ctx, "rtbot", 1, REDISMODULE_APIVER_1) == REDISMODULE_ERR) return REDISMODULE_ERR;
 
-  if (RedisModule_CreateCommand(ctx, "rtbot.run", RtBotRun_RedisCommand, "write", 0, 0, 0) == REDISMODULE_ERR)
+  // see https://redis.io/docs/reference/modules/modules-api-ref/#redismodule_createcommand
+  if (RedisModule_CreateCommand(ctx, "rtbot.run", RtBotRun_RedisCommand, "write pubsub", 0, 0, 0) == REDISMODULE_ERR)
     return REDISMODULE_ERR;
 
   return REDISMODULE_OK;
