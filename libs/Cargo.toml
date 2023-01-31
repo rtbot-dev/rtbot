@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "rtbot-rs",
+    "redis-module"
+]
