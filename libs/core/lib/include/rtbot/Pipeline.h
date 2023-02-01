@@ -19,6 +19,12 @@ struct Pipeline {
     Output<double> *output;
     std::optional<Message<double>> out;
 
+    explicit Pipeline(const char json_string[]);
+
+    Pipeline(Pipeline const&)=delete;
+    void operator=(Pipeline const&)=delete;
+    Pipeline(Pipeline &&)=default;
+
     std::optional<Message<double>> receive(const Message<double>& msg)
     {
         out.reset();

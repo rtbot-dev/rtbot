@@ -4,7 +4,9 @@
 #include "rtbot/PeakDetector.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
+
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 
 namespace rtbot {
@@ -18,8 +20,9 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
 template<class T>
 std::unique_ptr<T> make_unique(T &&x) { return std::unique_ptr<T>(new T(std::move(x))); } // remove this if std >= c++14
 
-Op_ptr FactoryOp::createOp(nlohmann::json const& json)
+Op_ptr FactoryOp::createOp(const char json_string[])
 {
+    auto json=nlohmann::json::parse(json_string);
     const string type=json["type"];
     if (type=="Input")
         return make_unique(json.get<Input<double>>());
@@ -36,33 +39,6 @@ Op_ptr FactoryOp::createOp(nlohmann::json const& json)
     else
         throw std::invalid_argument("FactoryOp::createOp unknow operator type");
 }
-
-
-// TODO: we need a similar method but that receives a `const char *` instead
-// moreover it would be ideal to simply move this logic to the pipeline constructor
-// if possible
-Pipeline FactoryOp::createPipeline(nlohmann::json const& json)
-{
-    Pipeline pipe;
-    for(const nlohmann::json& x : json["operators"]) {
-        auto it = pipe.all_op.emplace(x["id"], createOp(x));
-        if (x["type"]=="Input")
-            pipe.input=it.first->second.get();
-        else if (x["type"]=="Output") {
-            pipe.output=dynamic_cast<Output<double> *>(it.first->second.get());
-            pipe.output->callback=[&pipe](Message<> const& msg) { pipe.out=msg; };
-        }
-    }
-
-    // connections
-    for(const nlohmann::json& x : json["connections"]) {
-        connect(pipe.all_op.at(x["from"]).get(),
-                pipe.all_op.at(x["to"]).get());
-    }
-
-    return pipe;
-}
-
 
 
 }

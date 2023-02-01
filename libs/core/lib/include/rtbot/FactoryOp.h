@@ -7,15 +7,14 @@
 #include <map>
 #include <functional>
 #include <memory>
-#include <nlohmann/json.hpp>
 
 namespace rtbot {
 
 class FactoryOp
 {
 public:
-    static Op_ptr createOp(nlohmann::json const& json);
-    static Pipeline createPipeline(nlohmann::json const& json);
+    static Op_ptr createOp(const char json_string[]);
+    static Pipeline createPipeline(const char json_string[]) { return Pipeline(json_string); }
 };
 
 
