@@ -10,7 +10,7 @@ rust_shared_library(
         proc_macro = True,
     ),
     deps = [
-        "//libs/rtbot-rs:rtbot",
+        "//libs/core/lib:rtbot_bindgen",
     ] + all_crate_deps(
         normal = True,
     ),

@@ -1,7 +1,5 @@
-use jsonschema::{JSONSchema, ValidationError};
+use jsonschema::{JSONSchema};
 use serde_json::{json, Value};
-use std::error::Error;
-use std::slice;
 
 pub struct ProgramJsonSchemaValidator {
     schema: Value,
