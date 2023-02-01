@@ -3,6 +3,7 @@
 #include "tools.h"
 
 #include <fstream>
+#include <nlohmann/json.hpp>
 
 using namespace rtbot;
 using namespace std;
@@ -16,7 +17,7 @@ TEST_CASE("read ppg pipeline")
         in>>json;
     }
 
-    auto pipe = FactoryOp::createPipeline(json);
+    auto pipe = FactoryOp::createPipeline(json.get<string>().c_str());
     auto s=SamplePPG("ppg.csv");
 
     // process the data
