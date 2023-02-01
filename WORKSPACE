@@ -160,7 +160,6 @@ crates_repository(
     lockfile = "//libs:Cargo.Bazel.lock",
     manifests = [
         "//libs:Cargo.toml",
-        "//libs/rtbot-rs:Cargo.toml",
         "//libs:redis-module/Cargo.toml",
     ],
 )
@@ -168,3 +167,9 @@ crates_repository(
 load("@crate_index//:defs.bzl", "crate_repositories")
 
 crate_repositories()
+
+load("@rules_rust//bindgen:repositories.bzl", "rust_bindgen_dependencies", "rust_bindgen_register_toolchains")
+
+rust_bindgen_dependencies()
+
+rust_bindgen_register_toolchains()
