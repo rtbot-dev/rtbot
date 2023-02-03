@@ -11,31 +11,41 @@
 using namespace std;
 using namespace rtbot;
 
-map<rust::Str, rtbot::Pipeline*> pipelines;
+map<rust::String, rtbot::Pipeline> pipelines;
 
 namespace rtbot {
 
-rust::Str createPipeline(rust::Str  id, rust::Str program) {
-  auto parsedProgram = nlohmann::json::parse(program.data());
-  auto p = FactoryOp::createPipeline(parsedProgram);
-
-  pipelines[id] = &p;
-  return rust::Str("");
+rust::String createPipeline(rust::String id, rust::String program) {
+  try
+  {
+    auto parsedProgram = nlohmann::json::parse(program);
+    pipelines.emplace(id, FactoryOp::createPipeline(parsedProgram));
+    return rust::String("");
+  }
+  catch (nlohmann::json::parse_error& e)
+  {
+    // output exception information
+    std::cout << "message: " << e.what() << '\n'
+              << "exception id: " << e.id << '\n'
+              << "byte position of error: " << e.byte << std::endl;
+    return rust::String("Unable to parse program: "s + e.what());
+  }
 }
 
-rust::Str deletePipeline(rust::Str id) {
+rust::String deletePipeline(rust::String id) {
   pipelines.erase(id);
   // TODO: do we have to do something else here?
-  return rust::Str("");
+  return rust::String("");
 }
 
 
-rust::Vec<RtBotMessage> receiveMessageInPipeline(rust::Str id, ::uint64_t timestamp, rust::Slice<const double> values) {
+rust::Vec<RtBotMessage> receiveMessageInPipeline(rust::String id, ::uint64_t timestamp, rust::Slice<const double> values) {
   rust::Vec<RtBotMessage> r;
-  if (pipelines[id]) {
+  auto it = pipelines.find(id);
+  if (it != pipelines.end()) {
     auto values_arr = values.data();
     vector<double> v(values_arr, values_arr + values.length());
-    auto result = pipelines[id]->receive(Message(timestamp, v));
+    auto result = it->second.receive(Message(timestamp, v));
     if(result) {
       // we are copying the value here, in the future we should explore the possibility
       // to pass a pointer to the original message directly to avoid the copy

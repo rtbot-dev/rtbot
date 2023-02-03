@@ -23,7 +23,7 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         RedisValue::SimpleString(s) => Ok(s),
         result => Err(String(format!("Response from 'json.get' is not a string: {} -> {:?}", program_key_str, result))),
     }?;
-    ctx.log_verbose(format!("json.get result {:?}", get_program_result).as_str());
+    // ctx.log_verbose(format!("json.get result {:?}", get_program_result).as_str());
 
     let program_parsed = serde_json::from_str::<Value>(get_program_result.as_str())
         .map_err(|err| String(format!("Unable to parse returned json:\n {}", err)))?;

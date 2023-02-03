@@ -28,7 +28,8 @@ impl PipelinesManager {
             }
         }
         let id = nanoid::nanoid!(5);
-        let result = unsafe { cxx_bindings::ffi::createPipeline(&id, program_json_str) };
+        println!("Sending program {}", program_json_str);
+        let result = unsafe { cxx_bindings::ffi::createPipeline(id.to_string(), program_json_str.to_string()) };
         if result != "" {
             Err(RedisError::String(format!("Unable to create pipeline from program: {}", result)))
         } else {
@@ -47,9 +48,9 @@ impl PipelinesManager {
         let mut pipeline = self.pipelines.lock().unwrap();
         if let Some(outputs) = pipeline.get_mut(input_key) {
             if let Some(pipeline_id) = outputs.remove(output_key) {
-                let result = unsafe { cxx_bindings::ffi::deletePipeline(&pipeline_id) };
+                let result = unsafe { cxx_bindings::ffi::deletePipeline(pipeline_id.to_string()) };
                 return if result != "" {
-                    Err(RedisError::String(format!("Unable to delete pipeline {}: {}", &pipeline_id, result)))
+                    Err(RedisError::String(format!("Unable to delete pipeline {}: {}", pipeline_id, result)))
                 } else {
                     Ok("OK".into())
                 }
