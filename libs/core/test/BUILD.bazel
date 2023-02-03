@@ -7,7 +7,7 @@ cc_test(
     ]),
     defines = ["CATCH_CONFIG_MAIN"],
     deps = [
-        "//libs/core/lib",
+        "//libs/core/lib:rtbot",
         "@catch2",
     ],
 )

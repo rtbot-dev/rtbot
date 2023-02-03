@@ -173,3 +173,15 @@ load("@rules_rust//bindgen:repositories.bzl", "rust_bindgen_dependencies", "rust
 rust_bindgen_dependencies()
 
 rust_bindgen_register_toolchains()
+
+# cxx
+http_archive(
+    name = "cxx.rs",
+    sha256 = "80b340aa123475367ba8d084fb3da02ffa1218a1c0aed844e70e6bd9cda0e6ca",
+    strip_prefix = "cxx-1.0.89",
+    urls = ["https://github.com/dtolnay/cxx/archive/refs/tags/1.0.89.tar.gz"],
+)
+
+load("@cxx.rs//third-party/bazel:defs.bzl", "crate_repositories")
+
+crate_repositories()

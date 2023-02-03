@@ -10,7 +10,7 @@ cc_library(
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
-        "//libs/core/lib",
+        "//libs/core/lib:rtbot",
         "@fast_double_parser//:lib",
         "@json-cpp//:lib",
     ],

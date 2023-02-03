@@ -1,5 +1,27 @@
 load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
 load("@rules_rust//rust:defs.bzl", "rust_shared_library")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools/cxx:rust_cxx_bridge.bzl", "rust_cxx_bridge")
+
+rust_cxx_bridge(
+    name = "bridge",
+    src = "src/cxx_bindings.rs",
+    deps = [":bindings"],
+)
+
+cc_library(
+    name = "bindings",
+    srcs = ["cxx/bindings.cpp"],
+    hdrs = ["include/bindings.h"],
+    copts = ["-std=c++17"],
+    includes = ["include"],
+    deps = [
+        ":bridge/include",
+        "//libs/core/lib:rtbot",
+        "@cxx.rs//:core",
+    ],
+)
 
 rust_shared_library(
     name = "redis-rtbot",
@@ -10,7 +32,9 @@ rust_shared_library(
         proc_macro = True,
     ),
     deps = [
-        "//libs/core/lib:rtbot_bindgen",
+        "bindings",
+        ":bridge",
+        "@cxx.rs//:cxx",
     ] + all_crate_deps(
         normal = True,
     ),

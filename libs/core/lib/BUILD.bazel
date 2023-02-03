@@ -4,7 +4,7 @@ load("@rules_rust//bindgen:bindgen.bzl", "rust_bindgen_library")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "lib",
+    name = "rtbot",
     srcs = glob([
         "src/**/*.cpp",
     ]),
@@ -18,19 +18,4 @@ cc_library(
         "@json-cpp//:lib",
         "@yaml-cpp//:lib",
     ],
-)
-
-rust_bindgen_library(
-    name = "rtbot_bindgen",
-    bindgen_flags = [
-        "--allowlist-function=.*Pipeline",
-    ],
-    cc_lib = "//libs/core/lib",
-    clang_flags = [
-        "-x",
-        "c++",
-        "-std=c++17",
-    ],
-    edition = "2021",
-    header = ":include/rtbot/bindings.h",
 )

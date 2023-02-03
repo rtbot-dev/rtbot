@@ -3,6 +3,7 @@
 mod program_validator;
 mod commands;
 mod pipelines_manager;
+mod cxx_bindings;
 
 #[macro_use]
 extern crate redis_module;

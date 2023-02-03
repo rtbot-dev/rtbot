@@ -37,7 +37,10 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult
     let mut binding = PIPELINES_MANAGER.write().unwrap();
     let mut manager = binding.as_mut().unwrap();
 
-    let pipeline_id = manager.create(get_program_result, input_key.into(), output_key.into())?;
+    let input_key_str = input_key.to_string();
+    let output_key_str = output_key.to_string();
+    let pipeline_id = manager.create(&get_program_result, &input_key_str, &output_key_str)?;
+    manager.delete(&input_key_str, &output_key_str);
     let response = format!("pipeline id {}", pipeline_id);
     let response = Vec::from(response);
 
