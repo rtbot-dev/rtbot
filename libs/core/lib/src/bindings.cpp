@@ -1,31 +1,19 @@
 #include "rtbot/bindings.h"
 #include "rtbot/FactoryOp.h"
-#include "rtbot/Pipeline.h"
-#include <map>
-#include <vector>
-#include <string>
 
-using namespace std;
+rtbot::FactoryOp factory;
 
-map<string, Pipeline> pipelines;
-
-int createPipeline(const char* id, const char* program) {
-  pipelines.emplace(id,FactoryOp::createPipeline(program));
-  return 0;
+std::string createPipeline(std::string const& id, std::string const& json_program)
+{
+    return factory.createPipeline(id,json_program);
 }
 
-int deletePipeline(const char* id) {
-  pipelines.erase(id);
-  return 0;
+std::string deletePipeline(std::string const& id)
+{
+    return factory.deletePipeline(id);
 }
 
-int sendMessageToPipeline(const char* id, long long timestamp, double* values, uint size) {
-    auto it=pipelines.find(id);
-    if( it !=pipelines.end() ) {
-        vector<double> v(values, values + size);
-        it->second.receive(Message(timestamp, v));
-        return 0;
-    }
-    // indicate failure
-    return 1;
+std::vector<std::optional<rtbot::Message<>>> receiveMessageInPipeline(const std::string &id, rtbot::Message<> const& msg)
+{
+    return factory.receiveMessageInPipeline(id,msg);
 }

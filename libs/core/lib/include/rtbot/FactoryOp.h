@@ -7,14 +7,29 @@
 #include <map>
 #include <functional>
 #include <memory>
+#include <string>
+#include <vector>
+#include <optional>
+#include <string>
 
 namespace rtbot {
 
 class FactoryOp
 {
+    std::map<string, Pipeline> pipelines;
 public:
-    static Op_ptr createOp(const char json_string[]);
-    static Pipeline createPipeline(const char json_string[]) { return Pipeline(json_string); }
+    static Op_ptr createOp(std::string const& json_string);
+    static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
+
+    std::string createPipeline(std::string const& id, std::string const& json_program);
+
+    std::string deletePipeline(std::string const& id) { pipelines.erase(id); return ""; }
+
+    std::vector<std::optional<Message<>>> receiveMessageInPipeline(std::string const& id, Message<> const& msg) {
+      auto it = pipelines.find(id);
+      if (it == pipelines.end()) return {};
+      return it->second.receive(msg);
+    }
 };
 
 

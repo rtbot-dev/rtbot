@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 #include "rtbot/FactoryOp.h"
 #include "tools.h"
+#include "rtbot/bindings.h"
 
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -17,13 +18,26 @@ TEST_CASE("read ppg pipeline")
         in>>json;
     }
 
-    auto pipe = FactoryOp::createPipeline(json.get<string>().c_str());
     auto s=SamplePPG("ppg.csv");
 
-    // process the data
-    for(auto i=0u; i<s.ti.size(); i++) {
+    SECTION("using the pipeline")
+    {
+        auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+        // process the data
+        for(auto i=0u; i<s.ti.size(); i++) {
 
-        auto y=pipe.receive( Message<>(s.ti[i], s.ppg[i]) );
-        if (y) cout<<y.value()<<"\n";
+            auto y=pipe.receive( Message<>(s.ti[i], s.ppg[i]) )[0];
+            if (y) cout<<y.value()<<"\n";
+        }
+    }
+
+    SECTION("using the bindings")
+    {
+        createPipeline("pipe1", json.dump());
+        // process the data
+        for(auto i=0u; i<s.ti.size(); i++) {
+            auto y=receiveMessageInPipeline("pipe1", Message<>(s.ti[i], s.ppg[i]) )[0];
+            if (y) cout<<y.value()<<"\n";
+        }
     }
 }
