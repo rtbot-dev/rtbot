@@ -1,4 +1,5 @@
 set(header
+    include/rtbot/Message.h
     include/rtbot/Buffer.h
     include/rtbot/Operator.h
     include/rtbot/Output.h
