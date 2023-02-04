@@ -40,6 +40,13 @@ http_archive(
 )
 
 http_archive(
+    name = "quill",
+    build_file = "@//libs/core/external:quill.BUILD",
+    strip_prefix = "quill-6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce/quill",
+    url = "https://github.com/odygrd/quill/archive/6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce.zip",
+)
+
+http_archive(
     name = "catch2",
     sha256 = "121e7488912c2ce887bfe4699ebfb983d0f2e0d68bcd60434cdfd6bb0cf78b43",
     strip_prefix = "Catch2-2.13.10",
