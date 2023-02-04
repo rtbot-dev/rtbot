@@ -2,7 +2,7 @@
 
 mod program_validator;
 mod commands;
-mod pipelines_manager;
+mod pipelines_registry;
 mod cxx_bindings;
 
 #[macro_use]
