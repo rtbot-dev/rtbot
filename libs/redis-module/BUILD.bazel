@@ -12,8 +12,8 @@ rust_cxx_bridge(
 
 cc_library(
     name = "bindings",
-    srcs = ["cxx/bindings.cpp"],
-    hdrs = ["include/bindings.h"],
+    srcs = ["cxx/cxx_bindings.cpp"],
+    hdrs = ["include/cxx_bindings.h"],
     copts = ["-std=c++17"],
     includes = ["include"],
     deps = [

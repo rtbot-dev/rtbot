@@ -7,10 +7,10 @@ pub mod ffi {
     }
 
     unsafe extern "C++" {
-        include!("bindings.h");
+        include!("cxx_bindings.h");
 
-        pub fn createPipeline(id: String, program: String) -> String;
-        pub fn deletePipeline(id: String) -> String;
-        pub fn receiveMessageInPipeline(id:String, message: RtBotMessage) -> Vec<RtBotMessage>;
+        pub fn create_pipeline(id: String, program: String) -> String;
+        pub fn delete_pipeline(id: String) -> String;
+        pub fn receive_message_in_pipeline(id:String, message: RtBotMessage) -> Vec<RtBotMessage>;
     }
 }

@@ -46,7 +46,7 @@ impl PipelinesRegistry {
         }
         let id = nanoid::nanoid!(5);
         println!("Sending program {}", program_json_str);
-        let result = unsafe { cxx_bindings::ffi::createPipeline(id.to_string(), program_json_str.to_string()) };
+        let result = unsafe { cxx_bindings::ffi::create_pipeline(id.to_string(), program_json_str.to_string()) };
         if result != "" {
             Err(RedisError::String(format!("Unable to create pipeline from program: {}", result)))
         } else {
@@ -74,7 +74,7 @@ impl PipelinesRegistry {
         let mut pipeline = self.pipelines.lock().unwrap();
         if let Some(outputs) = pipeline.get_mut(input_key) {
             if let Some(pipeline_id) = outputs.remove(output_key) {
-                let result = unsafe { cxx_bindings::ffi::deletePipeline(pipeline_id.to_string()) };
+                let result = unsafe { cxx_bindings::ffi::delete_pipeline(pipeline_id.to_string()) };
                 return if result != "" {
                     Err(RedisError::String(format!("Unable to delete pipeline {}: {}", pipeline_id, result)))
                 } else {
@@ -130,7 +130,7 @@ impl PipelinesRegistry {
                     timestamp,
                     values: values.clone()
                 };
-                let r = unsafe { cxx_bindings::ffi::receiveMessageInPipeline(pipeline_id.to_string(), message) };
+                let r = unsafe { cxx_bindings::ffi::receive_message_in_pipeline(pipeline_id.to_string(), message) };
                 result.insert(output_key.to_string(), r);
             }
         }
