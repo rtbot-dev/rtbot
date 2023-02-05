@@ -65,7 +65,13 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult
         // now for each of the registered outputs send the result
         for (registered_output_key, message) in result {
             if !message.is_empty() {
-                println!("Sending message {:?} to {}", message, registered_output_key)
+                println!("Sending message {:?} to {}", message, registered_output_key);
+                // notice that here we just consider the first element in the values as
+                // the value to consider as the output to store in the output timeseries
+                let timestamp = message[0].timestamp;
+                let value = message[0].values[0];
+
+                ctx.call("ts.add", &[registered_output_key.to_string().as_str(), timestamp.to_string().as_str(), value.to_string().as_str()])?;
             }
         }
     }
