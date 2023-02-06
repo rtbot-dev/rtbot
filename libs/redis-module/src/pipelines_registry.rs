@@ -37,9 +37,9 @@ impl PipelinesRegistry {
     /// returns: Result<String, RedisError>
     pub fn create(
         &self,
-        program_json_str: &String,
-        input_key: &String,
-        output_key: &String,
+        program_json_str: &str,
+        input_key: &str,
+        output_key: &str,
     ) -> Result<String, RedisError> {
         let mut pipeline = self.pipelines.lock().unwrap();
         if pipeline.contains_key(input_key) {
@@ -83,7 +83,7 @@ impl PipelinesRegistry {
     /// * `output_key`: The output key.
     ///
     /// returns: Result<String, RedisError>
-    pub fn delete(&self, input_key: &String, output_key: &String) -> Result<String, RedisError> {
+    pub fn delete(&self, input_key: &str, output_key: &str) -> Result<String, RedisError> {
         let mut pipeline = self.pipelines.lock().unwrap();
         if let Some(outputs) = pipeline.get_mut(input_key) {
             if let Some(pipeline_id) = outputs.remove(output_key) {
@@ -115,7 +115,7 @@ impl PipelinesRegistry {
     /// * `input_key`: The input key.
     ///
     /// returns: Result<String, RedisError>
-    pub fn delete_by_input_key(&self, input_key: &String) -> Result<String, RedisError> {
+    pub fn delete_by_input_key(&self, input_key: &str) -> Result<String, RedisError> {
         let pipeline = self.pipelines.lock().unwrap();
         let mut counter = 0;
         if let Some(outputs) = pipeline.get(input_key) {
@@ -146,7 +146,7 @@ impl PipelinesRegistry {
     /// returns: Result<BTreeMap<String, Vec<RtBotMessage, Global>, Global>, RedisError>
     pub fn receive(
         &self,
-        input_key: &String,
+        input_key: &str,
         timestamp: u64,
         values: Vec<f64>,
     ) -> Result<BTreeMap<String, Vec<RtBotMessage>>, RedisError> {

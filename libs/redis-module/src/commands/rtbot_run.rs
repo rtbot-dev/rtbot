@@ -7,8 +7,8 @@ use std::ffi::CString;
 
 pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     if PIPELINES_REGISTRY.read().unwrap().is_none() {
-        let mut manager = PIPELINES_REGISTRY.write().unwrap();
-        *manager = Some(PipelinesRegistry::new());
+        let mut registry = PIPELINES_REGISTRY.write().unwrap();
+        *registry = Some(PipelinesRegistry::new());
     }
     let mut it = args.into_iter();
     it.next(); // pop the first argument, which is the command itself
@@ -22,7 +22,6 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         .to_string()
         .parse::<bool>()?;
 
-    println!("persist pipeline {}", persist_pipeline);
     // check that the program key contains a valid program
     let get_program_result = match ctx.call("json.get", &[&program_key])? {
         RedisValue::SimpleString(s) => Ok(s),
@@ -41,8 +40,8 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
         .map_err(|err| String(err))?;
 
     // let's create a pipeline
-    let mut binding = PIPELINES_REGISTRY.write().unwrap();
-    let mut registry = binding.as_mut().unwrap();
+    let binding = PIPELINES_REGISTRY.read().unwrap();
+    let registry = binding.as_ref().unwrap();
 
     // create the pipeline
     let pipeline_id = registry.create(&get_program_result, &input_key, &output_key)?;
