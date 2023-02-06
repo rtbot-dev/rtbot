@@ -1,21 +1,21 @@
+use redis_module::RedisError;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
-use redis_module::{RedisError, RedisResult, RedisValue};
 
-use redis_module::RedisError::Str;
 use crate::cxx_bindings;
 use crate::cxx_bindings::ffi::RtBotMessage;
+use redis_module::RedisError::Str;
 
 pub static PIPELINES_REGISTRY: RwLock<Option<PipelinesRegistry>> = RwLock::new(None);
 
 pub struct PipelinesRegistry {
-    pipelines:Arc<Mutex<BTreeMap<String, BTreeMap<String, String>>>>
+    pipelines: Arc<Mutex<BTreeMap<String, BTreeMap<String, String>>>>,
 }
 
 impl PipelinesRegistry {
     pub fn new() -> Self {
         Self {
-            pipelines: Arc::new(Mutex::new(BTreeMap::new()))
+            pipelines: Arc::new(Mutex::new(BTreeMap::new())),
         }
     }
 
@@ -35,20 +35,33 @@ impl PipelinesRegistry {
     /// * `output_key`: The output key.
     ///
     /// returns: Result<String, RedisError>
-    pub fn create(&self, program_json_str: &String, input_key: &String, output_key: &String) ->  Result<String, RedisError> {
+    pub fn create(
+        &self,
+        program_json_str: &String,
+        input_key: &String,
+        output_key: &String,
+    ) -> Result<String, RedisError> {
         let mut pipeline = self.pipelines.lock().unwrap();
         if pipeline.contains_key(input_key) {
             if let Some(outputs) = pipeline.get(input_key) {
                 if let Some(pipeline_id) = outputs.get(output_key) {
-                    return Err(RedisError::String(format!("There is already a pipeline, id {}, running for input {} to output {}", pipeline_id, input_key, output_key)));
+                    return Err(RedisError::String(format!(
+                        "There is already a pipeline, id {}, running for input {} to output {}",
+                        pipeline_id, input_key, output_key
+                    )));
                 }
             }
         }
         let id = nanoid::nanoid!(5);
         println!("Sending program {}", program_json_str);
-        let result = unsafe { cxx_bindings::ffi::create_pipeline(id.to_string(), program_json_str.to_string()) };
+        let result = unsafe {
+            cxx_bindings::ffi::create_pipeline(id.to_string(), program_json_str.to_string())
+        };
         if result != "" {
-            Err(RedisError::String(format!("Unable to create pipeline from program: {}", result)))
+            Err(RedisError::String(format!(
+                "Unable to create pipeline from program: {}",
+                result
+            )))
         } else {
             if pipeline.get(input_key).is_none() {
                 pipeline.insert(input_key.to_string(), BTreeMap::new());
@@ -76,14 +89,20 @@ impl PipelinesRegistry {
             if let Some(pipeline_id) = outputs.remove(output_key) {
                 let result = unsafe { cxx_bindings::ffi::delete_pipeline(pipeline_id.to_string()) };
                 return if result != "" {
-                    Err(RedisError::String(format!("Unable to delete pipeline {}: {}", pipeline_id, result)))
+                    Err(RedisError::String(format!(
+                        "Unable to delete pipeline {}: {}",
+                        pipeline_id, result
+                    )))
                 } else {
                     Ok("OK".into())
-                }
+                };
             }
         }
 
-        Err(RedisError::String(format!("There is no pipeline from key {}", input_key.to_string())))
+        Err(RedisError::String(format!(
+            "There is no pipeline from key {}",
+            input_key.to_string()
+        )))
     }
 
     /// Delete all the pipelines attached to a given input key.
@@ -105,7 +124,11 @@ impl PipelinesRegistry {
                 counter += 1;
             }
         }
-        Ok(format!("Deleted {} pipeline(s) associated with the input key {}", counter, input_key).into())
+        Ok(format!(
+            "Deleted {} pipeline(s) associated with the input key {}",
+            counter, input_key
+        )
+        .into())
     }
 
     /// Sends a message to all the pipelines attached to the given `input_key`
@@ -121,16 +144,23 @@ impl PipelinesRegistry {
     /// * `values`: The values of the message.
     ///
     /// returns: Result<BTreeMap<String, Vec<RtBotMessage, Global>, Global>, RedisError>
-    pub fn receive(&self, input_key: &String, timestamp: u64, values: Vec<f64>) -> Result<BTreeMap<String, Vec<RtBotMessage>>, RedisError> {
+    pub fn receive(
+        &self,
+        input_key: &String,
+        timestamp: u64,
+        values: Vec<f64>,
+    ) -> Result<BTreeMap<String, Vec<RtBotMessage>>, RedisError> {
         let pipeline = self.pipelines.lock().unwrap();
         let mut result = BTreeMap::new();
         if let Some(outputs) = pipeline.get(input_key) {
             for (output_key, pipeline_id) in outputs {
                 let message = RtBotMessage {
                     timestamp,
-                    values: values.clone()
+                    values: values.clone(),
                 };
-                let r = unsafe { cxx_bindings::ffi::receive_message_in_pipeline(pipeline_id.to_string(), message) };
+                let r = unsafe {
+                    cxx_bindings::ffi::receive_message_in_pipeline(pipeline_id.to_string(), message)
+                };
                 result.insert(output_key.to_string(), r);
             }
         }

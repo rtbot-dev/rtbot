@@ -14,5 +14,8 @@ redis_module! {
     data_types: [],
     commands: [
         ["rtbot.run", commands::rtbot_run::run, "write", 0, 0, 0]
+    ],
+    event_handlers: [
+        [@ALL: commands::rtbot_xrun::on_generic_event]
     ]
 }
