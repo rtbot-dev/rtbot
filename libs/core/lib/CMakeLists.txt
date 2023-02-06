@@ -1,4 +1,5 @@
 set(header
+    include/rtbot/Message.h
     include/rtbot/Buffer.h
     include/rtbot/Operator.h
     include/rtbot/Output.h
@@ -7,11 +8,14 @@ set(header
     include/rtbot/MovingAverage.h
     include/rtbot/FactoryOp.h
     include/rtbot/Pipeline.h
+    include/rtbot/bindings.h
 )
 
 set(source
     src/empty.cpp
+    src/Pipeline.cpp
     src/FactoryOp.cpp
+    src/bindings.cpp
 )
 
 add_library(${PROJECT_NAME} STATIC

@@ -1,0 +1,5 @@
+## Compiling
+
+```bash
+cargo build 
+```

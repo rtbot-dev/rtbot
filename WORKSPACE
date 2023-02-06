@@ -24,6 +24,29 @@ http_archive(
 )
 
 http_archive(
+    name = "json-cpp",
+    build_file = "@//libs/core/external:json-cpp.BUILD",
+    sha256 = "95651d7d1fcf2e5c3163c3d37df6d6b3e9e5027299e6bd050d157322ceda9ac9",
+    strip_prefix = "json-3.11.2",
+    url = "https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.zip",
+)
+
+http_archive(
+    name = "fast_double_parser",
+    build_file = "@//libs/core/external:fast_double_parser.BUILD",
+    sha256 = "fc408309a03dc1606620c8be358e98c652479766afd50e5cdb22032a3f09b5d8",
+    strip_prefix = "fast_double_parser-0.7.0",
+    url = "https://github.com/lemire/fast_double_parser/archive/refs/tags/v0.7.0.zip",
+)
+
+http_archive(
+    name = "quill",
+    build_file = "@//libs/core/external:quill.BUILD",
+    strip_prefix = "quill-6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce/quill",
+    url = "https://github.com/odygrd/quill/archive/6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce.zip",
+)
+
+http_archive(
     name = "catch2",
     sha256 = "121e7488912c2ce887bfe4699ebfb983d0f2e0d68bcd60434cdfd6bb0cf78b43",
     strip_prefix = "Catch2-2.13.10",
@@ -119,3 +142,53 @@ prisma_generate(
     name = "postgres-client",
     schema = "//:libs/postgres/prisma/schema.prisma",
 )
+
+http_archive(
+    name = "rules_rust",
+    sha256 = "d125fb75432dc3b20e9b5a19347b45ec607fabe75f98c6c4ba9badaab9c193ce",
+    urls = ["https://github.com/bazelbuild/rules_rust/releases/download/0.17.0/rules_rust-v0.17.0.tar.gz"],
+)
+
+load("@rules_rust//rust:repositories.bzl", "rules_rust_dependencies", "rust_register_toolchains")
+
+rules_rust_dependencies()
+
+rust_register_toolchains()
+
+load("@rules_rust//crate_universe:repositories.bzl", "crate_universe_dependencies")
+
+crate_universe_dependencies()
+
+load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
+
+crates_repository(
+    name = "crate_index",
+    cargo_lockfile = "//libs:Cargo.lock",
+    lockfile = "//libs:Cargo.Bazel.lock",
+    manifests = [
+        "//libs:Cargo.toml",
+        "//libs:redis-module/Cargo.toml",
+    ],
+)
+
+load("@crate_index//:defs.bzl", "crate_repositories")
+
+crate_repositories()
+
+load("@rules_rust//bindgen:repositories.bzl", "rust_bindgen_dependencies", "rust_bindgen_register_toolchains")
+
+rust_bindgen_dependencies()
+
+rust_bindgen_register_toolchains()
+
+# cxx
+http_archive(
+    name = "cxx.rs",
+    sha256 = "80b340aa123475367ba8d084fb3da02ffa1218a1c0aed844e70e6bd9cda0e6ca",
+    strip_prefix = "cxx-1.0.89",
+    urls = ["https://github.com/dtolnay/cxx/archive/refs/tags/1.0.89.tar.gz"],
+)
+
+load("@cxx.rs//third-party/bazel:defs.bzl", "crate_repositories")
+
+crate_repositories()

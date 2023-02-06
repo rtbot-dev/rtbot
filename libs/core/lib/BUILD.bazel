@@ -1,15 +1,21 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_rust//bindgen:bindgen.bzl", "rust_bindgen_library")
+
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "rtbot",
     srcs = glob([
         "src/**/*.cpp",
-        "src/**/*.h",
     ]),
-    hdrs = glob(["include/**/*.h"]),
+    hdrs = glob([
+        "include/**/*.h",
+        "include/**/*.hpp",
+    ]),
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
+        "@json-cpp//:lib",
         "@yaml-cpp//:lib",
     ],
 )
