@@ -1,0 +1,21 @@
+[package]
+name = "rtbot-server"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.18", features = ["rustls-tls-native-roots"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+url = "2.3"
+warp = "0.3"
+config = "0.13"
+redis = { version = "0.22", features = ["tokio-comp"] }
+serde = "1.0"
+serde_json = "1.0"
+glob = "0.3"
+pretty_env_logger = "0.4"
+jsonpath-rust = "0.2"
+log = "0.4.17"

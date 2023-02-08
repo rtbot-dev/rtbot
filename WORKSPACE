@@ -168,6 +168,7 @@ crates_repository(
     manifests = [
         "//libs:Cargo.toml",
         "//libs:redis-module/Cargo.toml",
+        "//libs:rtbot-server/Cargo.toml",
     ],
 )
 

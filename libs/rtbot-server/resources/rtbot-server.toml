@@ -1,0 +1,48 @@
+url = "http://localhost"
+
+[input_ws]
+url = "wss://stream.binance.com:443/ws/btcusdt@aggTrade"
+operator_id = "i1"
+
+[input_ws.json_remap]
+timestamp = "$.T"
+values = ["$.p", "$.q"]
+
+[rtbot.program]
+json = '''
+{
+  "title": "Moving average",
+  "version": "v1",
+  "author": "Someone <someone@gmail.com>",
+  "license": "MIT",
+  "entryNode": "ma1",
+  "optim": {
+    "algorithm": "Nelder-Mead"
+  },
+  "operators": [
+    {
+        "id": "i1",
+        "type": "Input"
+    },
+    {
+        "id": "ma1",
+        "type": "MovingAverage",
+        "n": 6
+    },
+    {
+        "id": "o1",
+        "type": "Output"
+    }
+  ],
+  "connections": [
+    {
+        "from": "i1",
+        "to": "ma1"
+    },
+    {
+        "from": "ma1",
+        "to": "o1"
+    }
+  ]
+}
+'''
