@@ -4,6 +4,9 @@ url = "http://localhost"
 url = "wss://stream.binance.com:443/ws/btcusdt@aggTrade"
 operator_id = "i1"
 
+[redis]
+url = "redis://localhost:6379"
+
 [input_ws.json_remap]
 timestamp = "$.T"
 values = ["$.p", "$.q"]

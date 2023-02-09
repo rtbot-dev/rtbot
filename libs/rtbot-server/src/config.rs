@@ -42,9 +42,7 @@ impl Default for InputJsonPath {
 #[derive(Debug, Deserialize)]
 #[allow(unused)]
 pub struct RedisConfig {
-    pub connection: String,
-    pub input_key: String,
-    pub output_key: String,
+    pub url: String,
 }
 
 #[derive(Debug, Deserialize)]

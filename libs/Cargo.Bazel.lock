@@ -1,5 +1,5 @@
 {
-  "checksum": "7789cd238cdf56882a5c1b420ea86bcfb4751d1f4209732b4385c267bf85270f",
+  "checksum": "179c6d654e2a98339cc6091689907a0582506e8118ef5fa13f0e51c1955ec6a9",
   "crates": {
     "addr2line 0.19.0": {
       "name": "addr2line",
@@ -8021,6 +8021,10 @@
             {
               "id": "log 0.4.17",
               "target": "log"
+            },
+            {
+              "id": "nanoid 0.4.0",
+              "target": "nanoid"
             },
             {
               "id": "pretty_env_logger 0.4.0",

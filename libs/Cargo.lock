@@ -1510,6 +1510,7 @@ dependencies = [
  "glob",
  "jsonpath-rust",
  "log",
+ "nanoid",
  "pretty_env_logger",
  "redis",
  "serde",

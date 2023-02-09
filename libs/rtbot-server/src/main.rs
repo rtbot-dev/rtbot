@@ -3,6 +3,7 @@ extern crate pretty_env_logger;
 extern crate serde_json;
 
 use crate::config::{InputWsConfig, ServerConfig};
+use crate::redis_service::RedisService;
 use futures_util::StreamExt;
 use jsonpath_rust::JsonPathFinder;
 use serde_json::Value;
@@ -19,19 +20,36 @@ use url::Url;
 extern crate log;
 
 mod config;
+mod redis_service;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::init();
     let config = ServerConfig::new().expect("Unable to find a configuration file");
     info!("Server config {:#?}", config);
+    // TODO: handle json and yaml cases for program configuration
+    let program = config.rtbot.program.json.unwrap();
+    let redis_service = config.redis.map(|redis_config| {
+        info!("Initializing redis");
+        let service = RedisService::new(redis_config.url, program);
+        service
+    });
+
+    if redis_service.is_some() {
+        redis_service
+            .unwrap()
+            .start()
+            .await
+            .expect("Unable to connect to redis");
+    }
+
     if let Some(input_ws) = config.input_ws {
-        connect_to_input_ws(&input_ws).await;
+        connect_to_input_ws(&input_ws, None).await;
     }
     Ok(())
 }
 
-async fn connect_to_input_ws(input_ws: &InputWsConfig) {
+async fn connect_to_input_ws(input_ws: &InputWsConfig, redis_service: Option<RedisService>) {
     let case_url = Url::parse(input_ws.url.as_str()).expect("Bad websocket connection url");
 
     let (mut ws_input_stream, _) = connect_async(case_url).await.unwrap();
