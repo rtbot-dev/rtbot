@@ -7,13 +7,9 @@ use crate::redis_service::RedisService;
 use futures_util::StreamExt;
 use jsonpath_rust::JsonPathFinder;
 use serde_json::Value;
-use std::num::ParseFloatError;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::tungstenite::Message::Text;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{Error, Message, Result},
-};
+use tokio_tungstenite::{connect_async, tungstenite::Result};
 use url::Url;
 
 #[macro_use]
@@ -29,7 +25,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Server config {:#?}", config);
     // TODO: handle json and yaml cases for program configuration
     let program = config.rtbot.program.json.unwrap();
-    let redis_service = config.redis.map(|redis_config| {
+    let mut redis_service = config.redis.map(|redis_config| {
         info!("Initializing redis");
         let service = RedisService::new(redis_config.url, program);
         service
@@ -37,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     if redis_service.is_some() {
         redis_service
+            .as_mut()
             .unwrap()
             .start()
             .await
@@ -44,12 +41,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     if let Some(input_ws) = config.input_ws {
-        connect_to_input_ws(&input_ws, None).await;
+        connect_to_input_ws_redis(&input_ws, &redis_service).await;
     }
     Ok(())
 }
 
-async fn connect_to_input_ws(input_ws: &InputWsConfig, redis_service: Option<RedisService>) {
+async fn connect_to_input_ws_redis(input_ws: &InputWsConfig, redis_service: &Option<RedisService>) {
     let case_url = Url::parse(input_ws.url.as_str()).expect("Bad websocket connection url");
 
     let (mut ws_input_stream, _) = connect_async(case_url).await.unwrap();
@@ -104,6 +101,16 @@ async fn connect_to_input_ws(input_ws: &InputWsConfig, redis_service: Option<Red
                 .collect();
 
             info!("timestamp {:?}, values {:?}", timestamp, values);
+            if redis_service.is_some() {
+                if let Err(e) = redis_service
+                    .as_ref()
+                    .unwrap()
+                    .add(timestamp, vec![values[0].unwrap()])
+                    .await
+                {
+                    warn!("Unable to store the data in redis: {:#?}", e);
+                };
+            }
         }
     }
 }

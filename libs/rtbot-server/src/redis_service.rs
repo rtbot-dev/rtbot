@@ -25,13 +25,15 @@ impl RedisService {
     }
 
     pub async fn start(&mut self) -> redis::RedisResult<()> {
+        info!("Connecting to redis {}", self.url.as_str());
         // connect
         let client = redis::Client::open(self.url.as_str())?;
         let mut con = client.get_async_connection().await?;
         // write the program to redis
-        let program_key = format!("p:{}", nanoid::nanoid!(5));
-        let input_key = format!("{}:i", program_key);
-        let output_key = format!("{}:o", program_key);
+        let program_id = nanoid::nanoid!(5, &nanoid::alphabet::SAFE);
+        let program_key = format!("p:{}", program_id);
+        let input_key = format!("p:i:{}", program_id);
+        let output_key = format!("p:o:{}", program_id);
         info!(
             "Redis program, input and output keys: {}, {}, {}",
             program_key, input_key, output_key
@@ -39,6 +41,8 @@ impl RedisService {
         // create the input timeseries key
         cmd("TS.CREATE")
             .arg(&input_key)
+            .arg("DUPLICATE_POLICY")
+            .arg("LAST")
             .query_async::<_, ()>(&mut con)
             .await?;
         // store the program inside redis
