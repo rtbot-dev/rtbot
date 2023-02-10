@@ -3,10 +3,12 @@ extern crate pretty_env_logger;
 extern crate serde_json;
 
 use crate::config::{InputWsConfig, ServerConfig};
-use crate::redis_service::RedisService;
+use crate::pull_redis_service::PullRedisService;
+use crate::push_redis_service::PushRedisService;
 use futures_util::StreamExt;
 use jsonpath_rust::JsonPathFinder;
 use serde_json::Value;
+use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio_tungstenite::tungstenite::Message::Text;
 use tokio_tungstenite::{connect_async, tungstenite::Result};
@@ -16,7 +18,8 @@ use url::Url;
 extern crate log;
 
 mod config;
-mod redis_service;
+mod pull_redis_service;
+mod push_redis_service;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,28 +28,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Server config {:#?}", config);
     // TODO: handle json and yaml cases for program configuration
     let program = config.rtbot.program.json.unwrap();
-    let mut redis_service = config.redis.map(|redis_config| {
-        info!("Initializing redis");
-        let service = RedisService::new(redis_config.url, program);
-        service
-    });
 
-    if redis_service.is_some() {
-        redis_service
-            .as_mut()
-            .unwrap()
+    if let Some(mut redis_config) = config.redis {
+        info!("Initializing redis");
+        let mut push_redis_service = PushRedisService::new(redis_config.url.to_string(), program);
+        let output_pubsub_key = push_redis_service
             .start()
             .await
             .expect("Unable to connect to redis");
+
+        if let Some(input_ws) = config.input_ws {
+            // subscribe to output messages coming from redis
+            // we will create a second
+            let url = redis_config.url.to_string();
+            tokio::spawn(async move {
+                let pull_redis_service = PullRedisService::new(url, output_pubsub_key);
+                pull_redis_service.subscribe_to_redis_rtbot_messages().await;
+            });
+            // connect to the input websocket and stream data to redis
+            connect_to_input_ws_redis(&input_ws, &mut push_redis_service).await;
+        }
     }
 
-    if let Some(input_ws) = config.input_ws {
-        connect_to_input_ws_redis(&input_ws, &redis_service).await;
-    }
     Ok(())
 }
 
-async fn connect_to_input_ws_redis(input_ws: &InputWsConfig, redis_service: &Option<RedisService>) {
+async fn connect_to_input_ws_redis(input_ws: &InputWsConfig, redis_service: &mut PushRedisService) {
     let case_url = Url::parse(input_ws.url.as_str()).expect("Bad websocket connection url");
 
     let (mut ws_input_stream, _) = connect_async(case_url).await.unwrap();
@@ -101,16 +108,11 @@ async fn connect_to_input_ws_redis(input_ws: &InputWsConfig, redis_service: &Opt
                 .collect();
 
             info!("timestamp {:?}, values {:?}", timestamp, values);
-            if redis_service.is_some() {
-                if let Err(e) = redis_service
-                    .as_ref()
-                    .unwrap()
-                    .add(timestamp, vec![values[0].unwrap()])
-                    .await
-                {
-                    warn!("Unable to store the data in redis: {:#?}", e);
-                };
-            }
+
+            // Notice we are sending here only the first parsed value
+            if let Err(e) = redis_service.add(timestamp, vec![values[0].unwrap()]).await {
+                warn!("Unable to store the data in redis: {:#?}", e);
+            };
         }
     }
 }

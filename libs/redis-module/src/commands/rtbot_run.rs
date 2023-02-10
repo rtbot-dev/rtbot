@@ -55,6 +55,15 @@ pub fn run<'a>(ctx: &Context, args: Vec<RedisString>) -> RedisResult {
     }?;
     // delete whatever is in the output key, if something
     ctx.call("del", &[output_key.as_str()])?;
+    // create a new timeseries key
+    // Notice that here we are using a policy that will replace the existing
+    // value with the latest send in case of having two values with the same
+    // timestamp. This is might not be always desirable and further discussion
+    // will be needed on this
+    ctx.call(
+        "ts.create",
+        &[output_key.as_str(), "DUPLICATE_POLICY", "LAST"],
+    )?;
     // send it to the pipeline
     for entry in input_ts {
         let row = match entry {

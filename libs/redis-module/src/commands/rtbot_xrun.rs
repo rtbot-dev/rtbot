@@ -44,17 +44,25 @@ pub fn on_generic_event(
                 // the value to consider as the output to store in the output timeseries
                 let timestamp = message[0].timestamp;
                 let value = message[0].values[0];
-
-                ctx.call(
+                if let Err(msg) = ctx.call(
                     "ts.add",
                     &[
                         registered_output_key.as_str(),
                         timestamp.to_string().as_str(),
                         value.to_string().as_str(),
                     ],
-                )?;
+                ) {
+                    ctx.log_warning(
+                        format!(
+                            "Adding pipeline output to {} failed: {:?}",
+                            registered_output_key.to_string(),
+                            msg
+                        )
+                        .as_str(),
+                    );
+                };
                 // send the saved message to the correspondent output pubsub channel
-                ctx.call(
+                if let Err(msg) = ctx.call(
                     "publish",
                     &[
                         // channel
@@ -63,7 +71,16 @@ pub fn on_generic_event(
                         // and the remaining ones the values
                         format!("{},{}", message[0].timestamp, message[0].values[0]).as_str(),
                     ],
-                )?;
+                ) {
+                    ctx.log_warning(
+                        format!(
+                            "Publishing pipeline output to {}:ps failed: {:?}",
+                            registered_output_key.to_string(),
+                            msg
+                        )
+                        .as_str(),
+                    );
+                };
             }
         }
     }
