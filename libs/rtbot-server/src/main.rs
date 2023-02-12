@@ -5,14 +5,20 @@ extern crate serde_json;
 use crate::config::{InputWsConfig, ServerConfig};
 use crate::pull_redis_service::PullRedisService;
 use crate::push_redis_service::PushRedisService;
+use crate::ws_handlers::{handle_rejection, handle_ws_client};
 use futures_util::StreamExt;
 use jsonpath_rust::JsonPathFinder;
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
+
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::RwLock;
 use tokio_tungstenite::tungstenite::Message::Text;
 use tokio_tungstenite::{connect_async, tungstenite::Result};
 use url::Url;
+use warp::Filter;
 
 #[macro_use]
 extern crate log;
@@ -20,16 +26,19 @@ extern crate log;
 mod config;
 mod pull_redis_service;
 mod push_redis_service;
+mod ws_handlers;
+
+type Rx = Arc<RwLock<UnboundedReceiver<Vec<String>>>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pretty_env_logger::init();
     let config = ServerConfig::new().expect("Unable to find a configuration file");
-    info!("Server config {:#?}", config);
+    debug!("Server config {:#?}", config);
     // TODO: handle json and yaml cases for program configuration
     let program = config.rtbot.program.json.unwrap();
-
-    if let Some(mut redis_config) = config.redis {
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Vec<String>>();
+    if let Some(redis_config) = config.redis {
         info!("Initializing redis");
         let mut push_redis_service = PushRedisService::new(redis_config.url.to_string(), program);
         let output_pubsub_key = push_redis_service
@@ -43,12 +52,43 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let url = redis_config.url.to_string();
             tokio::spawn(async move {
                 let pull_redis_service = PullRedisService::new(url, output_pubsub_key);
-                pull_redis_service.subscribe_to_redis_rtbot_messages().await;
+                pull_redis_service
+                    .subscribe_to_redis_rtbot_messages(tx)
+                    .await
+                    .expect("Unable to read pubsub data coming from redis");
             });
+
             // connect to the input websocket and stream data to redis
-            connect_to_input_ws_redis(&input_ws, &mut push_redis_service).await;
+            tokio::spawn(async move {
+                connect_to_input_ws_redis(&input_ws, &mut push_redis_service).await;
+            });
         }
     }
+
+    // websocket server code
+    let health_check = warp::path("health-check").map(|| format!("Server OK"));
+    let rx_container = Arc::new(RwLock::new(rx));
+
+    let ws = warp::path("ws")
+        .and(warp::ws())
+        .and(warp::any().map(move || rx_container.clone()))
+        .map(|ws: warp::ws::Ws, rx: Rx| {
+            info!("upgrading connection to websocket");
+            ws.on_upgrade(move |ws| handle_ws_client(ws, rx))
+        });
+
+    let routes = health_check
+        .or(ws)
+        .with(warp::cors().allow_any_origin())
+        .recover(handle_rejection);
+
+    warp::serve(routes)
+        .run(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            config.port.unwrap_or(9889),
+        ))
+        .await;
+    info!("server is running");
 
     Ok(())
 }
@@ -107,7 +147,7 @@ async fn connect_to_input_ws_redis(input_ws: &InputWsConfig, redis_service: &mut
                 })
                 .collect();
 
-            info!("timestamp {:?}, values {:?}", timestamp, values);
+            debug!("timestamp {:?}, values {:?}", timestamp, values);
 
             // Notice we are sending here only the first parsed value
             if let Err(e) = redis_service.add(timestamp, vec![values[0].unwrap()]).await {

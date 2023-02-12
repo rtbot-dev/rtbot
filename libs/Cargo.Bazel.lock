@@ -1,5 +1,5 @@
 {
-  "checksum": "179c6d654e2a98339cc6091689907a0582506e8118ef5fa13f0e51c1955ec6a9",
+  "checksum": "9bac7c86d567fb0baa98b2cca61fd5d869e68040bcedd2bea85901974e4c4a04",
   "crates": {
     "addr2line 0.19.0": {
       "name": "addr2line",
@@ -8041,6 +8041,10 @@
             {
               "id": "serde_json 1.0.91",
               "target": "serde_json"
+            },
+            {
+              "id": "thiserror 1.0.38",
+              "target": "thiserror"
             },
             {
               "id": "tokio 1.25.0",

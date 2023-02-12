@@ -1,15 +1,7 @@
 extern crate redis;
 
 use futures_util::StreamExt as _;
-use redis::cmd;
-use std::sync::{Arc, Mutex};
-
-struct RedisProgramKeys {
-    program_key: String,
-    input_key: String,
-    output_key: String,
-    output_pubsub_key: String,
-}
+use tokio::sync::mpsc::UnboundedSender;
 
 pub struct PullRedisService {
     url: String,
@@ -24,7 +16,10 @@ impl PullRedisService {
         }
     }
 
-    pub async fn subscribe_to_redis_rtbot_messages(&self) -> redis::RedisResult<()> {
+    pub async fn subscribe_to_redis_rtbot_messages(
+        &self,
+        tx: UnboundedSender<Vec<String>>,
+    ) -> redis::RedisResult<()> {
         info!("Subscribing to pubsub channel {}", self.output_pubsub_key);
         let client = redis::Client::open(self.url.as_str()).unwrap();
         let mut pubsub_conn = client.get_async_connection().await?.into_pubsub();
@@ -35,15 +30,13 @@ impl PullRedisService {
 
         while let Some(msg) = pubsub_stream.next().await {
             let pubsub_msg: String = msg.get_payload()?;
-            let arr = pubsub_msg.split(",");
-            let mut it = arr.into_iter();
-            let timestamp: u64 = it.next().unwrap().parse().unwrap();
-            let mut values = vec![];
-            for v in it {
-                values.push(v);
-            }
-
-            info!("Received message parsed: ({}, {:?}", timestamp, values);
+            // notify that we have received data to other parts of the program
+            let tx_msg = pubsub_msg
+                .split(",")
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+            tx.send(tx_msg)
+                .expect("Unable to notify the arrival of new data from redis");
         }
 
         Ok(())

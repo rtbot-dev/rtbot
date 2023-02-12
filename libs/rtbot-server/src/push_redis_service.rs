@@ -1,20 +1,11 @@
 extern crate redis;
 
-use futures_util::StreamExt as _;
 use redis::cmd;
-use std::sync::{Arc, Mutex};
-
-struct RedisProgramKeys {
-    program_key: String,
-    input_key: String,
-    output_key: String,
-    output_pubsub_key: String,
-}
 
 pub struct PushRedisService {
     url: String,
     program: String,
-    keys: Option<RedisProgramKeys>,
+    input_key: Option<String>,
     connection: Option<redis::aio::Connection>,
 }
 
@@ -24,7 +15,7 @@ impl PushRedisService {
             url,
             program,
             connection: None,
-            keys: None,
+            input_key: None,
         }
     }
 
@@ -67,21 +58,16 @@ impl PushRedisService {
 
         // store the objects
         self.connection = Some(con);
-        self.keys = Some(RedisProgramKeys {
-            program_key,
-            input_key,
-            output_key,
-            output_pubsub_key: output_pubsub_key.to_string(),
-        });
+        self.input_key = Some(input_key);
         Ok(output_pubsub_key)
     }
 
     pub async fn add(&mut self, timestamp: u64, values: Vec<f64>) -> redis::RedisResult<()> {
-        let mut con = self.connection.as_mut().unwrap();
-        let keys = self.keys.as_ref().unwrap();
+        let con = self.connection.as_mut().unwrap();
+        let input_key = self.input_key.as_ref().unwrap();
 
         cmd("TS.ADD")
-            .arg(keys.input_key.as_str())
+            .arg(input_key.as_str())
             .arg(timestamp)
             .arg(values[0])
             .query_async::<_, ()>(con)

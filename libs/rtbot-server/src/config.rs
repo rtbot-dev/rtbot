@@ -6,6 +6,7 @@ use serde::Deserialize;
 #[allow(unused)]
 pub struct ServerConfig {
     pub url: String,
+    pub port: Option<u16>,
     pub rtbot: RtBotConfig,
     pub redis: Option<RedisConfig>,
     pub input_ws: Option<InputWsConfig>,
