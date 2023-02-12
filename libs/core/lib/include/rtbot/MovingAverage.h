@@ -7,7 +7,17 @@ namespace rtbot {
 
 struct MovingAverage: public Buffer<double>
 {
-    using Buffer<double>::Buffer;
+    vector<double> coeff;
+
+    MovingAverage(string const &id_, vector<double> const& coeff_)
+        : Buffer<double>(id_, coeff_.size())
+        , coeff(coeff_)
+    {}
+
+    MovingAverage(string const &id_,int n_)
+        : Buffer<double>(id_, n_)
+        , coeff(n, 1.0/n_)
+    {}
 
     void processData() override
     {
