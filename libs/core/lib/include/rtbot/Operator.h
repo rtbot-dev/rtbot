@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <limits>
 
 namespace rtbot {
 
@@ -65,7 +66,10 @@ template<class T>
 struct Input: public Operator<T>
 {
     using Operator<T>::Operator;
-    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { this->emit(msg); }
+    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { if (int64_t(msg.time)<=t0) return; t0=msg.time; this->emit(msg); }
+
+private:
+    std::int64_t t0 = std::numeric_limits<int64_t>::lowest();
 };
 
 
