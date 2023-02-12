@@ -4,8 +4,10 @@ set(header
     include/rtbot/Operator.h
     include/rtbot/Output.h
     include/rtbot/Join.h
+    include/rtbot/Chain.h
     include/rtbot/PeakDetector.h
     include/rtbot/MovingAverage.h
+    include/rtbot/Autoregressive.h
     include/rtbot/FactoryOp.h
     include/rtbot/Pipeline.h
     include/rtbot/bindings.h
