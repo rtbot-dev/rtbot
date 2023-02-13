@@ -9,10 +9,14 @@ use crate::ws_handlers::{handle_rejection, handle_ws_client};
 use futures_util::StreamExt;
 use jsonpath_rust::JsonPathFinder;
 use serde_json::Value;
+use std::collections::HashMap;
 
+use crate::ws_client::{ClientHandle, ClientMessage};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::error::SendError;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::RwLock;
 use tokio_tungstenite::tungstenite::Message::Text;
@@ -26,9 +30,11 @@ extern crate log;
 mod config;
 mod pull_redis_service;
 mod push_redis_service;
+mod ws_client;
 mod ws_handlers;
 
 type Rx = Arc<RwLock<UnboundedReceiver<Vec<String>>>>;
+type Clients = Arc<RwLock<HashMap<String, ClientHandle>>>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,7 +43,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("Server config {:#?}", config);
     // TODO: handle json and yaml cases for program configuration
     let program = config.rtbot.program.json.unwrap();
-    let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<Vec<String>>();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<String>>();
+    let clients: Clients = Arc::new(RwLock::new(HashMap::new()));
+    let clients_container = clients.clone();
+
+    // send the message to each registered client
+    // every time we receive a message from redis
+    tokio::spawn(async move {
+        while let Some(msg) = rx.recv().await {
+            let mut clients = clients.write().await;
+            let mut disconnected_clients: Vec<String> = vec![];
+            for (id, client_handle) in clients.iter() {
+                // send the message to all client handles
+                let ref_values = &msg[1..];
+                let values = ref_values
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>();
+
+                if let Err(SendError(_)) = client_handle.send(ClientMessage::Data {
+                    timestamp: msg[0].parse().unwrap(),
+                    values,
+                }) {
+                    info!("Disconnecting client {}", id);
+                    disconnected_clients.push(id.to_string());
+                }
+            }
+
+            // remove all the clients disconnected from the internal list
+            for disconnected_client in disconnected_clients {
+                clients.remove(disconnected_client.as_str());
+            }
+        }
+    });
+
     if let Some(redis_config) = config.redis {
         info!("Initializing redis");
         let mut push_redis_service = PushRedisService::new(redis_config.url.to_string(), program);
@@ -67,14 +106,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // websocket server code
     let health_check = warp::path("health-check").map(|| format!("Server OK"));
-    let rx_container = Arc::new(RwLock::new(rx));
 
     let ws = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || rx_container.clone()))
-        .map(|ws: warp::ws::Ws, rx: Rx| {
+        .and(warp::any().map(move || clients_container.clone()))
+        .map(|ws: warp::ws::Ws, clients: Clients| {
             info!("upgrading connection to websocket");
-            ws.on_upgrade(move |ws| handle_ws_client(ws, rx))
+            ws.on_upgrade(move |ws| handle_ws_client(ws, clients))
         });
 
     let routes = health_check

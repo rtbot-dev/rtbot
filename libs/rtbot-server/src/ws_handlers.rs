@@ -1,5 +1,7 @@
-use crate::Rx;
+use crate::ws_client::ClientHandle;
+use crate::{Clients, Rx};
 use futures_util::{SinkExt, StreamExt};
+use nanoid::nanoid;
 use serde::Serialize;
 use serde_json::json;
 use std::convert::Infallible;
@@ -57,33 +59,12 @@ pub async fn handle_rejection(
     Ok(warp::reply::with_status(json, code))
 }
 
-pub async fn handle_ws_client(websocket: WebSocket, rx: Rx) {
+pub async fn handle_ws_client(websocket: WebSocket, clients: Clients) {
     // receiver - this server, from websocket client
     // sender - diff clients connected to this server
     let (mut client_ws_sender, _) = websocket.split();
-
-    let mut receiver = rx.write().await;
-    while let Some(msg) = receiver.recv().await {
-        // TODO: spawn a tokio task here to unblock the thread
-        let mut it = msg.iter();
-        let timestamp = it.next().unwrap().parse::<u64>().unwrap();
-        let mut values = vec![];
-        for v in it {
-            values.push(v);
-        }
-
-        let payload = json!({
-            "timestamp": timestamp,
-            "values": values
-        })
-        .to_string();
-
-        debug!("Sending data to websocket {}", payload);
-        client_ws_sender
-            .send(Message::text(payload))
-            .await
-            .expect("Unable to send message to socket");
-    }
-
-    info!("client disconnected");
+    let client_id = nanoid!(10);
+    let client_handle = ClientHandle::new(client_ws_sender);
+    let mut clients = clients.write().await;
+    clients.insert(client_id, client_handle);
 }
