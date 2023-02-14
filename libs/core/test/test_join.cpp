@@ -1,7 +1,7 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
-#include "rtbot/PeakDetector.h"
+#include "rtbot/tools/PeakDetector.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 

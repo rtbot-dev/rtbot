@@ -52,7 +52,7 @@ public:
   friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
 
   protected:
-  void addChildren(Operator<T>* child) { children.push_back(child); }
+  virtual void addChildren(Operator<T>* child) { children.push_back(child); }
   virtual void addSender(const Operator<T>*) { }
 };
 

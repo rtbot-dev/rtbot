@@ -1,7 +1,7 @@
 #include "rtbot/FactoryOp.h"
 #include "rtbot/Operator.h"
-#include "rtbot/MovingAverage.h"
-#include "rtbot/PeakDetector.h"
+#include "rtbot/tools/MovingAverage.h"
+#include "rtbot/tools/PeakDetector.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 
@@ -9,13 +9,36 @@
 #include <nlohmann/json.hpp>
 
 
+namespace nlohmann {
+template <>
+struct adl_serializer<rtbot::MovingAverage> {
+    static rtbot::MovingAverage from_json(const json& j) {
+        std::string id = j.at("id");
+        if (j.contains("coeff")) {
+            std::vector<double> coeff=j.at("coeff");
+            return {id, coeff};
+        }
+        else {
+            int n=j.at("n");
+            return  {id, n};
+        }
+    }
+
+    static void to_json(json& j, rtbot::MovingAverage t) {
+        j = t.coeff;
+    }
+};
+}
+
+
 namespace rtbot {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input<double>,id);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
+
+
 
 template<class T>
 std::unique_ptr<T> make_unique(T &&x) { return std::unique_ptr<T>(new T(std::move(x))); } // remove this if std >= c++14

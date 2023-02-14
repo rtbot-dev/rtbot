@@ -5,12 +5,12 @@ set(header
     include/rtbot/Output.h
     include/rtbot/Join.h
     include/rtbot/Chain.h
-    include/rtbot/PeakDetector.h
-    include/rtbot/MovingAverage.h
-    include/rtbot/Autoregressive.h
     include/rtbot/FactoryOp.h
     include/rtbot/Pipeline.h
     include/rtbot/bindings.h
+    include/rtbot/tools/MovingAverage.h
+    include/rtbot/tools/Autoregressive.h
+    include/rtbot/tools/PeakDetector.h
 )
 
 set(source

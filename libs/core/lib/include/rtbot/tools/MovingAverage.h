@@ -1,7 +1,7 @@
 #ifndef MOVINGAVERAGE_H
 #define MOVINGAVERAGE_H
 
-#include"Buffer.h"
+#include"rtbot/Buffer.h"
 
 namespace rtbot {
 

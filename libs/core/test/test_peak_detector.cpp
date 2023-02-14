@@ -1,7 +1,7 @@
-#include "rtbot/PeakDetector.h"
+#include "rtbot/tools/PeakDetector.h"
 #include "rtbot/Output.h"
 #include "rtbot/Join.h"
-#include "rtbot/MovingAverage.h"
+#include "rtbot/tools/MovingAverage.h"
 #include "tools.h"
 
 #include <catch2/catch.hpp>
