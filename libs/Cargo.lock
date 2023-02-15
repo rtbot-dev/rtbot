@@ -1502,6 +1502,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "rtbot-rs"
+version = "0.1.0"
+
+[[package]]
 name = "rtbot-server"
 version = "0.1.0"
 dependencies = [

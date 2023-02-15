@@ -169,6 +169,7 @@ crates_repository(
         "//libs:Cargo.toml",
         "//libs:redis-module/Cargo.toml",
         "//libs:rtbot-server/Cargo.toml",
+        "//libs:rtbot-rs/Cargo.toml",
     ],
 )
 
