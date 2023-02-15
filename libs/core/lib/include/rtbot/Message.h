@@ -2,18 +2,19 @@
 #define MESSAGE_H
 
 #include <vector>
+#include <cstdint>
 
 
 namespace rtbot {
 
 template<class T=double>
 struct Message {
-    int time;
+    std::uint64_t time;
     std::vector<T> value;
 
     Message()=default;
-    Message(int time_, T value_): time(time_), value(1,value_) {}
-    Message(int time_, std::vector<T> const& value_): time(time_), value(value_) {}
+    Message(std::uint64_t time_, T value_): time(time_), value(1,value_) {}
+    Message(std::uint64_t time_, std::vector<T> const& value_): time(time_), value(value_) {}
 };
 
 template<class T>

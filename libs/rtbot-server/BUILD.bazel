@@ -1,0 +1,32 @@
+load("@crate_index//:defs.bzl", "aliases", "all_crate_deps")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+# using this flags we can reduce the binary size from 26 Mb
+# to 4.9 Mb
+_RELEASE_FLAGS = [
+    "-C",
+    "opt-level=z",
+    "-C",
+    "lto=yes",
+    "-C",
+    "strip=symbols",
+    "-C",
+    "codegen-units=1",
+    "-C",
+    "panic=abort",
+]
+
+rust_binary(
+    name = "bin",
+    srcs = glob(["src/**/*"]),
+    aliases = aliases(),
+    data = glob(["resources/**/*"]),
+    edition = "2021",
+    proc_macro_deps = all_crate_deps(
+        proc_macro = True,
+    ),
+    #rustc_flags = _RELEASE_FLAGS,
+    deps = all_crate_deps(
+        normal = True,
+    ),
+)
