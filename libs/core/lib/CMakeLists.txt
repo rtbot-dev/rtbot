@@ -11,6 +11,7 @@ set(header
     include/rtbot/tools/MovingAverage.h
     include/rtbot/tools/Autoregressive.h
     include/rtbot/tools/PeakDetector.h
+    include/rtbot/tools/Finance.h
 )
 
 set(source
