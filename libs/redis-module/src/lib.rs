@@ -1,7 +1,8 @@
 #![recursion_limit = "256"]
 
+use rtbot_rs::*;
+
 mod commands;
-mod cxx_bindings;
 mod pipelines_registry;
 mod program_validator;
 

@@ -1,7 +1,7 @@
-use crate::cxx_bindings::ffi::RtBotMessage;
 use crate::pipelines_registry::PIPELINES_REGISTRY;
 use redis_module::RedisError::Str;
 use redis_module::{Context, NotifyEvent, RedisError, RedisResult, RedisString, RedisValue};
+use rtbot_rs::cxx_bindings::ffi::RtBotMessage;
 use std::collections::BTreeMap;
 
 pub fn on_generic_event(
