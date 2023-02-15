@@ -8,11 +8,13 @@
 #include <vector>
 #include <map>
 #include <limits>
+#include <functional>
 
 namespace rtbot {
 
 using std::string;
 using std::vector;
+using std::function;
 
 
 /**
@@ -28,9 +30,11 @@ template <class T> class Operator {
 
 public:
   string id;
+  function<T(T)> f;
 
   Operator()=default;
   explicit Operator(string const &id_) : id(id_) {}
+  Operator(string const &id_, function<T(T)> f_) : id(id_), f(f_) {}
   virtual ~Operator()=default;
 
   /**
@@ -42,7 +46,14 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) = 0;
+  virtual void receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+  {
+      auto out=msg;
+      if (f)
+          std::transform(msg.value.begin(), msg.value.end(),
+                         out.value.begin(),f);
+      emit(out);
+  }
 
   void emit(Message<T> const& msg) const {
     for (auto x : children)

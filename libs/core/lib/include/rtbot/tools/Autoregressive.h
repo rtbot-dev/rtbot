@@ -43,37 +43,6 @@ struct ARMA: public Chain<double>
 };
 
 
-//-------------------------------- Some examples ------------
-
-struct TotalSum: public AutoRegressive
-{
-    TotalSum(string const &id_) : AutoRegressive(id_,{1.0}) {}
-};
-
-struct Finance_si: public AutoBuffer<double>
-{
-    int nPeriod;
-
-    Finance_si(string const &id_, int nPeriod_)
-        : AutoBuffer<double>(id_,1), nPeriod(nPeriod_)
-    {}
-
-    Message<> solve(Message<> const& msg) const override
-    {
-        if (c < nPeriod) {
-            c++;
-            sum += msg.value[0];
-            return Message<> {msg.time, sum/c};
-        }
-        return {msg.time,
-                msg.value[0]*(1.0/nPeriod)+ back().value[0]*(1-1.0/nPeriod)};
-    }
-private:
-    mutable int c=0;
-    mutable double sum=0;
-};
-
-
 }
 
 
