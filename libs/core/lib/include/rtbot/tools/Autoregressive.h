@@ -3,7 +3,7 @@
 
 #include "MovingAverage.h"
 #include "rtbot/Buffer.h"
-#include "rtbot/Chain.h"
+#include "rtbot/Composite.h"
 
 namespace rtbot {
 
@@ -27,19 +27,25 @@ struct AutoRegressive: public AutoBuffer<double>
 };
 
 
-struct ARMA: public Chain<double>
+struct ARMA: public Composite<double>
 {
+    MovingAverage ma;
+    AutoRegressive ar;
+
     ARMA(string const &id_, vector<double> const& ar_, vector<double> const& ma_)
-        : Chain<double>(id_, {
-                        std::make_unique<AutoRegressive>(id_+"_ar",ar_),
-                        std::make_unique<MovingAverage>(id_+"_ma",ma_) })
+        : Composite<double>(id_)
+        , ma(id_+"_ma",ma_)
+        , ar(id_+"_ar",ar_)
     {}
 
     ARMA(string const &id_, vector<double> const& ar_, int n_ma)
-        : Chain<double>(id_, {
-                        std::make_unique<AutoRegressive>(id_+"_ar",ar_),
-                        std::make_unique<MovingAverage>(id_+"_ma",n_ma) })
+        : Composite<double>(id_)
+        , ma(id_+"_ma",n_ma)
+        , ar(id_+"_ar",ar_)
     {}
+
+    Operator<double>& front() override { return ma; }
+    Operator<double>& back() override { return ar; }
 };
 
 
