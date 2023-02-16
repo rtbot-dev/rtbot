@@ -1,8 +1,9 @@
 #![recursion_limit = "256"]
 
+use redis_module::RedisError;
+use rtbot_rs::pipelines_registry::PipelineError;
+use rtbot_rs::*;
 mod commands;
-mod cxx_bindings;
-mod pipelines_registry;
 mod program_validator;
 
 #[macro_use]

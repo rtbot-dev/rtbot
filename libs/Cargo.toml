@@ -2,5 +2,6 @@
 
 members = [
     "redis-module",
-    "rtbot-server"
+    "rtbot-server",
+    "rtbot-rs"
 ]

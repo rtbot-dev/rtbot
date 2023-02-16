@@ -1,10 +1,15 @@
-use redis_module::RedisError;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, RwLock};
+use thiserror::Error;
 
 use crate::cxx_bindings;
 use crate::cxx_bindings::ffi::RtBotMessage;
-use redis_module::RedisError::Str;
+
+#[derive(Error, Debug)]
+pub enum PipelineError {
+    #[error("unknown pipeline error {0} ")]
+    Generic(String),
+}
 
 pub static PIPELINES_REGISTRY: RwLock<Option<PipelinesRegistry>> = RwLock::new(None);
 
@@ -40,12 +45,12 @@ impl PipelinesRegistry {
         program_json_str: &str,
         input_key: &str,
         output_key: &str,
-    ) -> Result<String, RedisError> {
+    ) -> Result<String, PipelineError> {
         let mut pipeline = self.pipelines.lock().unwrap();
         if pipeline.contains_key(input_key) {
             if let Some(outputs) = pipeline.get(input_key) {
                 if let Some(pipeline_id) = outputs.get(output_key) {
-                    return Err(RedisError::String(format!(
+                    return Err(PipelineError::Generic(format!(
                         "There is already a pipeline, id {}, running for input {} to output {}",
                         pipeline_id, input_key, output_key
                     )));
@@ -54,11 +59,10 @@ impl PipelinesRegistry {
         }
         let id = nanoid::nanoid!(5);
         println!("Sending program {}", program_json_str);
-        let result = unsafe {
-            cxx_bindings::ffi::create_pipeline(id.to_string(), program_json_str.to_string())
-        };
+        let result =
+            cxx_bindings::ffi::create_pipeline(id.to_string(), program_json_str.to_string());
         if result != "" {
-            Err(RedisError::String(format!(
+            Err(PipelineError::Generic(format!(
                 "Unable to create pipeline from program: {}",
                 result
             )))
@@ -67,7 +71,7 @@ impl PipelinesRegistry {
                 pipeline.insert(input_key.to_string(), BTreeMap::new());
             }
 
-            let mut outputs = pipeline.get_mut(input_key).unwrap();
+            let outputs = pipeline.get_mut(input_key).unwrap();
             outputs.insert(output_key.to_string(), id.to_string());
 
             Ok(id.into())
@@ -82,14 +86,14 @@ impl PipelinesRegistry {
     /// * `input_key`: The input key.
     /// * `output_key`: The output key.
     ///
-    /// returns: Result<String, RedisError>
-    pub fn delete(&self, input_key: &str, output_key: &str) -> Result<String, RedisError> {
+    /// returns: Result<String, PipelineError>
+    pub fn delete(&self, input_key: &str, output_key: &str) -> Result<String, PipelineError> {
         let mut pipeline = self.pipelines.lock().unwrap();
         if let Some(outputs) = pipeline.get_mut(input_key) {
             if let Some(pipeline_id) = outputs.remove(output_key) {
-                let result = unsafe { cxx_bindings::ffi::delete_pipeline(pipeline_id.to_string()) };
+                let result = cxx_bindings::ffi::delete_pipeline(pipeline_id.to_string());
                 return if result != "" {
-                    Err(RedisError::String(format!(
+                    Err(PipelineError::Generic(format!(
                         "Unable to delete pipeline {}: {}",
                         pipeline_id, result
                     )))
@@ -99,7 +103,7 @@ impl PipelinesRegistry {
             }
         }
 
-        Err(RedisError::String(format!(
+        Err(PipelineError::Generic(format!(
             "There is no pipeline from key {}",
             input_key.to_string()
         )))
@@ -114,8 +118,8 @@ impl PipelinesRegistry {
     ///
     /// * `input_key`: The input key.
     ///
-    /// returns: Result<String, RedisError>
-    pub fn delete_by_input_key(&self, input_key: &str) -> Result<String, RedisError> {
+    /// returns: Result<String, Err(String)>
+    pub fn delete_by_input_key(&self, input_key: &str) -> Result<String, PipelineError> {
         let pipeline = self.pipelines.lock().unwrap();
         let mut counter = 0;
         if let Some(outputs) = pipeline.get(input_key) {
@@ -143,13 +147,13 @@ impl PipelinesRegistry {
     /// * `timestamp`: The timestamp of the message
     /// * `values`: The values of the message.
     ///
-    /// returns: Result<BTreeMap<String, Vec<RtBotMessage, Global>, Global>, RedisError>
+    /// returns: Result<BTreeMap<String, Vec<RtBotMessage, Global>, Global>, PipelineError>
     pub fn receive(
         &self,
         input_key: &str,
         timestamp: u64,
         values: Vec<f64>,
-    ) -> Result<BTreeMap<String, Vec<RtBotMessage>>, RedisError> {
+    ) -> Result<BTreeMap<String, Vec<RtBotMessage>>, PipelineError> {
         let pipeline = self.pipelines.lock().unwrap();
         let mut result = BTreeMap::new();
         if let Some(outputs) = pipeline.get(input_key) {
@@ -158,9 +162,10 @@ impl PipelinesRegistry {
                     timestamp,
                     values: values.clone(),
                 };
-                let r = unsafe {
-                    cxx_bindings::ffi::receive_message_in_pipeline(pipeline_id.to_string(), message)
-                };
+                let r = cxx_bindings::ffi::receive_message_in_pipeline(
+                    pipeline_id.to_string(),
+                    message,
+                );
                 result.insert(output_key.to_string(), r);
             }
         }

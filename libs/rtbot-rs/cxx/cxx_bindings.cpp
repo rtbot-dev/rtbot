@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "libs/redis-module/src/cxx_bindings.rs.h"
+#include "libs/rtbot-rs/src/cxx_bindings.rs.h"
 #include "rtbot/bindings.h"
 
 using namespace std;

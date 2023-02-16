@@ -1,5 +1,5 @@
 {
-  "checksum": "9bac7c86d567fb0baa98b2cca61fd5d869e68040bcedd2bea85901974e4c4a04",
+  "checksum": "1b0f567cc98f9271159cbc6e9e37059cc20a988f4a05d66b1cc33fe8eb8be5fe",
   "crates": {
     "addr2line 0.19.0": {
       "name": "addr2line",
@@ -7990,6 +7990,31 @@
       },
       "license": "MIT/Apache-2.0"
     },
+    "rtbot-rs 0.1.0": {
+      "name": "rtbot-rs",
+      "version": "0.1.0",
+      "repository": null,
+      "targets": [
+        {
+          "Library": {
+            "crate_name": "rtbot_rs",
+            "crate_root": "src/lib.rs",
+            "srcs": [
+              "**/*.rs"
+            ]
+          }
+        }
+      ],
+      "library_target_name": "rtbot_rs",
+      "common_attrs": {
+        "compile_data_glob": [
+          "**"
+        ],
+        "edition": "2021",
+        "version": "0.1.0"
+      },
+      "license": null
+    },
     "rtbot-server 0.1.0": {
       "name": "rtbot-server",
       "version": "0.1.0",
@@ -13310,6 +13335,7 @@
   "binary_crates": [],
   "workspace_members": {
     "redis-rtbot 0.1.0": "libs/redis-module",
+    "rtbot-rs 0.1.0": "libs/rtbot-rs",
     "rtbot-server 0.1.0": "libs/rtbot-server"
   },
   "conditions": {
