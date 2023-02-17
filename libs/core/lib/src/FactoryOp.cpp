@@ -46,7 +46,7 @@ std::unique_ptr<T> make_unique(T &&x) { return std::unique_ptr<T>(new T(std::mov
 Op_ptr FactoryOp::createOp(const std::string &json_string)
 {
     auto json=nlohmann::json::parse(json_string);
-    const string type=json["type"];
+    const string type=json.at("type");
     if (type=="Input")
         return make_unique(json.get<Input<double>>());
     else if (type=="MovingAverage")
@@ -58,7 +58,7 @@ Op_ptr FactoryOp::createOp(const std::string &json_string)
     else if (type=="Difference")
         return make_unique(json.get<Difference>());
     else if (type=="Output")
-        return make_unique(Output<double>(json["id"]));
+        return make_unique(Output<double>(json.at("id")));
     else
         throw std::invalid_argument("FactoryOp::createOp unknow operator type");
 }
