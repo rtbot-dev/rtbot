@@ -13,15 +13,20 @@ using Op_ptr=std::unique_ptr<Operator<T>>;
 template<class T>
 struct Composite: public Operator<T>
 {
-    using Operator<T>::Operator;
+    vector<Op_ptr<T>> op;
+    Composite(string const &id_, vector<Op_ptr<T>> &&op_)
+        : Operator<T>(id_)
+        , op(op_)
+    {
+        for(auto i=0u; i+1<op.size(); i++)
+            connect(op[i],  op[i+1]);
+    }
+
     virtual ~Composite()=default;
 
-    virtual Operator<T>& front()=0;
-    virtual Operator<T>& back()=0;
-
 protected:
-    void addChildren(Operator<T>* child) override { back()->addChildren(child); }
-    void addSender(const Operator<T>* sender) override { front()->addSender(sender); }
+    void addChildren(Operator<T>* child) override { op.back()->addChildren(child); }
+    void addSender(const Operator<T>* sender) override { op.front()->addSender(sender); }
 };
 
 
