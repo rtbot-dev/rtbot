@@ -18,7 +18,10 @@ class FactoryOp
 {
     std::map<string, Pipeline> pipelines;
 public:
-    static Op_ptr createOp(std::string const& json_string);
+
+    FactoryOp();
+
+    static Op_ptr<> createOp(std::string const& json_string);
     static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
 
     std::string createPipeline(std::string const& id, std::string const& json_program);

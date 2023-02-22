@@ -20,7 +20,7 @@ std::ostream& operator<<(std::ostream& out, Message<T> const& msg)
     return out;
 }
 
-template <class T> class Output : public Operator<T> {
+template <class T=double> class Output : public Operator<T> {
 public:
     function<void(Message<T>)> callback;
 

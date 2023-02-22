@@ -8,9 +8,6 @@
 namespace rtbot {
 
 template<class T>
-using Op_ptr=std::unique_ptr<Operator<T>>;
-
-template<class T>
 struct Composite: public Operator<T>
 {
     vector<Op_ptr<T>> op;

@@ -9,12 +9,15 @@
 #include <map>
 #include <limits>
 #include <functional>
+#include <memory>
 
 namespace rtbot {
 
 using std::string;
 using std::vector;
 using std::function;
+using std::map;
+using std::unique_ptr;
 
 
 /**
@@ -25,10 +28,16 @@ using std::function;
  * @tparam T Numeric type used for floating computations, (`float`, `double`,
  * etc.).
  */
-template <class T> class Operator {
+
+
+template <class T> class Operator;
+template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
+
+template <class T=double> class Operator {
     vector<Operator<T> *> children;
 
 public:
+
   string id;
   function<T(T)> f;
 
@@ -36,6 +45,9 @@ public:
   explicit Operator(string const &id_) : id(id_) {}
   Operator(string const &id_, function<T(T)> f_) : id(id_), f(f_) {}
   virtual ~Operator()=default;
+
+  static map<string, function<Op_ptr<T>(string)>> opFactory;
+  static Op_ptr<T> parse(string const& program);
 
   /**
    * Receives a message emitted from another operator. This method should be
@@ -62,7 +74,7 @@ public:
 
   friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
 
-  protected:
+protected:
   virtual void addChildren(Operator<T>* child) { children.push_back(child); }
   virtual void addSender(const Operator<T>*) { }
 };
@@ -73,7 +85,11 @@ Operator<T>& operator|(Operator<T>& A, Operator<T>& B) { connect(&A,&B); return 
 template<class T>
 Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
 
-template<class T>
+
+///
+///------------------------------- Example of Operator: the struct Input ------------------
+
+template<class T=double>
 struct Input: public Operator<T>
 {
     using Operator<T>::Operator;

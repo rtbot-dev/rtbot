@@ -10,6 +10,7 @@
 
 
 namespace nlohmann {
+
 template <>
 struct adl_serializer<rtbot::MovingAverage> {
     static rtbot::MovingAverage from_json(const json& j) {
@@ -28,6 +29,19 @@ struct adl_serializer<rtbot::MovingAverage> {
         j = t.coeff;
     }
 };
+
+template <>
+struct adl_serializer<rtbot::Output<>> {
+    static rtbot::Output<> from_json(const json& j) {
+        std::string id = j.at("id");
+        return {id};
+    }
+
+    static void to_json(json& j, rtbot::Output<> t) {
+        j = t.id;
+    }
+};
+
 }
 
 
@@ -43,7 +57,7 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
 template<class T>
 std::unique_ptr<T> make_unique(T &&x) { return std::unique_ptr<T>(new T(std::move(x))); } // remove this if std >= c++14
 
-Op_ptr FactoryOp::createOp(const std::string &json_string)
+Op_ptr<> FactoryOp::createOp(const std::string &json_string)
 {
     auto json=nlohmann::json::parse(json_string);
     const string type=json.at("type");
@@ -80,6 +94,49 @@ std::string FactoryOp::createPipeline(std::string const& id, std::string const& 
         return std::string("Unable to parse program: ") + e.what();
     }
 }
+
+
+///----------- the new factory ----------------
+
+
+template<>
+map<string, function<Op_ptr<>(string)>> Operator<double>::opFactory= {}; // TODO: update to singleton
+
+template<>
+Op_ptr<> Operator<>::parse(string const& program)
+{
+    auto json=nlohmann::json::parse(program);
+    string type=json.at("type");
+    auto it = opFactory.find(type);
+    if (it == opFactory.end())
+        throw std::runtime_error(string("invalid Operator type while parsin") + type );
+    return it->second(program);
+}
+
+
+template<class T>                               // TODO: read about json::get_ptr()
+unique_ptr<T> read_json(string const& prog)
+{
+    return std::unique_ptr<T>(new T(nlohmann::json::parse(prog).get<T>()) );
+}
+
+/// register some the operators. Notice that this can be done on any constructor
+/// whenever we create a static instance later, as  below:
+FactoryOp::FactoryOp()
+{
+    Operator<>::opFactory["Input"]=read_json<Input<>>;
+    Operator<>::opFactory["MovingAverage"]=read_json<MovingAverage>;
+    Operator<>::opFactory["PeakDetector"]=read_json<PeakDetector>;
+    Operator<>::opFactory["Join"]=read_json<Join<>>;
+    Operator<>::opFactory["Difference"]=read_json<Difference>;
+    Operator<>::opFactory["Output"]=read_json<Output<>>;
+}
+
+static FactoryOp factory;
+
+
+
+
 
 
 }

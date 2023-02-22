@@ -10,11 +10,9 @@
 
 namespace rtbot {
 
-using Op_ptr=std::unique_ptr<Operator<double>>;
-
 struct Pipeline {
 
-    std::map<std::string, Op_ptr> all_op;  // from id to operator
+    std::map<std::string, Op_ptr<double>> all_op;  // from id to operator
     Operator<double> *input;
     Output<double> *output;
     std::optional<Message<double>> out;

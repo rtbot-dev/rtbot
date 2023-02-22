@@ -19,7 +19,7 @@ namespace rtbot {
  * To implement any Operator that requires synchronizing many channels of messages
  * the user should just inherit from Join and override the method processData(msg) where the ready-to-use message msg is given.
  */
-template<class T>
+template<class T=double>
 class Join : public Operator<T>
 {
     std::unordered_map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
