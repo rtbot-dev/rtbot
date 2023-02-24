@@ -44,14 +44,12 @@ export const store = {
   },
   subscribe: (setState: (value: IAuthState) => void) => subject.subscribe(setState),
   setUser(user: User | null) {
-    console.log("Setting user", user);
     state.user = user;
     subject.next({ ...state });
   },
   setField: (field: keyof z.infer<typeof schema>, value: any) => {
     // check if valid
     const parsed = schema.pick({ [field]: true }).safeParse({ [field]: value });
-    console.log("parsed data", parsed);
     if (parsed.success) {
       console.log(`Field ${field} is valid: ${value}`);
       state[field] = {
@@ -60,7 +58,6 @@ export const store = {
         valid: true,
       };
     } else {
-      console.log(`Field ${field} value ${value} is invalid ${parsed.error.issues[0].message}`);
       state[field] = {
         value,
         valid: false,

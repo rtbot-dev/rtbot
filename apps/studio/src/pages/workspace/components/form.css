@@ -1,0 +1,19 @@
+.form-group {
+    z-index: 1001;
+    display: flex;
+    font-weight: normal;
+}
+
+.form-card {
+    margin-bottom: 280px;
+}
+
+.control-label {
+    padding: 10px;
+}
+
+input.form-control {
+    padding-right: 10px;
+    max-width: 50%;
+    right: 0px;
+}
