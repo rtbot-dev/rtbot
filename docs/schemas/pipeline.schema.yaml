@@ -41,58 +41,30 @@ properties:
   operators:
     type: array
     items:
-      type: object
-      properties:
-        id:
-          type: string
-          examples:
-            - ma1
-        type:
-          type: string
-          examples:
-            - MA
-        parameters:
-          type: array
-          items:
-            type: object
-            properties:
-              name:
-                type: string
-                examples:
-                  - backwardTimeWindow
-              type:
-                enum:
-                  - integer
-                  - float
-              value:
-                type: number
-                examples:
-                  - 2
-                  - 0.33
-              optim:
-                type: object
-                properties:
-                  range:
-                    type: object
-                    properties:
-                      min:
-                        type: number
-                        examples:
-                          - 0
-                      max:
-                        type: number
-                        examples:
-                          - 10
-                    additionalProperties: false
-                additionalProperties: false
+      type:
+        anyOf:
+          # Remember to add all the operators here
+          - movingAverage:
+              additionalProperties: false
+              type: object
+              properties:
+                metadata:
+                  $ref: "#/commons/metadata"
+                id:
+                  type: string
+                forwardWindow:
+                  anyOf:
+                    - $ref: "#/commons/timeWindow"
+                    - $ref: "#/commons/optimize"
+                backwardWindow:
+                  anyOf:
+                    - $ref: "#/commons/timeWindow"
+                    - $ref: "#/commons/optimize"
             required:
-              - name
-              - type
-              - value
-            additionalProperties: false
-      required:
-        - id
-        - type
+              - id
+              - forwardWindow
+              - backwardWindow
+
       additionalProperties: false
   connections:
     type: array
@@ -117,3 +89,33 @@ required:
   - operators
   - connections
 additionalProperties: false
+
+commons:
+  timeWindow:
+    type: number
+    min: 0
+  optimize:
+    type: object
+    properties:
+      value:
+        # TODO: eventually values can be also enum which we would like
+        # to optimize
+        type: number
+      min:
+        type: number
+      max:
+        type: number
+      required:
+        - value
+  metadata:
+    type: object
+    properties:
+      position:
+        type: object
+        properties:
+          x:
+            type: number
+          y:
+            type: number
+        color:
+          type: string

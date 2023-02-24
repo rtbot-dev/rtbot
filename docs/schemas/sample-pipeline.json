@@ -42,12 +42,11 @@
           "type": "integer",
           "value": 3
         },
-        {
-          "name": "lambda",
+        "lambda": {
           "type": "float",
           "value": 1.2
         }
-      ]
+      }
     },
     {
       "id": "output",
