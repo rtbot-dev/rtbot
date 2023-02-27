@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { Handle, Position, Node } from "reactflow";
 import Form from "@rjsf/core";
 import zodToJsonSchema from "zod-to-json-schema";
@@ -7,6 +7,7 @@ import validator from "@rjsf/validator-ajv8";
 import { withTheme, ThemeProps } from "@rjsf/core";
 import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import "./form.css";
+import { FaEdit, FaTrash } from "react-icons/all";
 
 function OperatorTitleTemplate(props: TitleFieldProps) {
   //we don't want the title to be shown
@@ -37,18 +38,59 @@ schema = {
   anyOf: schema.anyOf.map((s) => ({
     ...s,
     title: s.properties.title["const"],
-    properties: Object.entries(s.properties.parameters.properties)
-      .map(([k, v]) => ({ [`${k}`]: (v as any).properties.value }))
-      .reduce((acc, v) => ({ ...acc, ...v })),
-    required: [],
+    properties: {
+      ...s.properties,
+      title: {
+        type: "string",
+        default: s.properties.title["const"],
+      },
+    },
   })),
 };
-export const OperatorNode = ({ data, isConnectable }: OperatorNodeInput) => {
+
+const uiSchema = ["title"].reduce(
+  (acc, val) => ({
+    ...acc,
+    [`${val}`]: {
+      "ui:widget": "hidden",
+    },
+  }),
+  {}
+);
+
+type FormData = {
+  title: string;
+  [key: string]: any;
+};
+
+type State = {
+  formData: FormData | null;
+  formOpen: boolean;
+  showMenu: boolean;
+};
+export const OperatorNode = ({
+  data: {
+    menu: { remove },
+  },
+  isConnectable,
+}: OperatorNodeInput) => {
+  const [state, setState] = useState<State>({
+    formData: null,
+    formOpen: false,
+    showMenu: false,
+  });
   const onSubmit = (e) => {
+    // TODO: check if valid
     console.log("Submitting", e);
+    setState({ ...state, formOpen: false, formData: e.formData });
   };
+
+  const onFormChange = (e) => {
+    console.log("Form changed", e);
+  };
+
   return (
-    <>
+    <div>
       <Handle
         type="target"
         position={Position.Left}
@@ -56,11 +98,54 @@ export const OperatorNode = ({ data, isConnectable }: OperatorNodeInput) => {
         onConnect={(params) => console.log("handle onConnect", params)}
         isConnectable={isConnectable}
       />
-      <div className="card bg-base-100 shadow-xl form-card">
-        <ThemedForm className="card-body" schema={schema} validator={validator} onSubmit={onSubmit}>
-          <button className="btn btn-primary">save</button>
-        </ThemedForm>
-      </div>
+      {state.formOpen ? (
+        <div className="card bg-base-100 shadow-xl form-card" onClick={(e) => e.stopPropagation()}>
+          <ThemedForm
+            className="card-body"
+            schema={schema}
+            uiSchema={uiSchema}
+            validator={validator}
+            onSubmit={onSubmit}
+            onChange={onFormChange}
+          >
+            <button className="btn btn-primary">save</button>
+          </ThemedForm>
+        </div>
+      ) : (
+        <div
+          style={{ position: "relative" }}
+          onMouseEnter={() => setState({ ...state, showMenu: true })}
+          onMouseLeave={() => setState({ ...state, showMenu: false })}
+        >
+          {state.showMenu && (
+            <div className="btn-group node-menu">
+              <button className="btn" onClick={() => setState({ ...state, formOpen: true })}>
+                <FaEdit />
+              </button>
+              <button className="btn" onClick={remove}>
+                <FaTrash />
+              </button>
+            </div>
+          )}
+          <div className="card bg-base-100 shadow-xl">
+            <div className="card-body">
+              {state.formData && (
+                // show the form data
+                <>
+                  <strong>{state.formData.title}</strong>
+                  {Object.keys(state.formData as any)
+                    .filter((k) => k !== "title")
+                    .map((k) => (
+                      <div key={k}>
+                        {k}={state.formData[k]}
+                      </div>
+                    ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <Handle
         type="source"
         position={Position.Right}
@@ -68,6 +153,6 @@ export const OperatorNode = ({ data, isConnectable }: OperatorNodeInput) => {
         style={{ bottom: 10, top: "auto", background: "#555" }}
         isConnectable={isConnectable}
       />
-    </>
+    </div>
   );
 };

@@ -14,13 +14,8 @@
 }
 
 .react-flow .react-flow__node {
-    height: 40px;
-    width: 150px;
-    justify-content: center;
-    align-items: center;
-    display: flex;
-    border-width: 2px;
-    font-weight: 700;
+    min-height: 40px;
+    min-width: 150px;
 }
 
 .react-flow .react-flow__edge path,
@@ -31,4 +26,11 @@
 .wrapper {
     flex-grow: 1;
     height: 100%;
+}
+
+.node-menu {
+    position: absolute;
+    top: -90px;
+    padding: 35px;
+    left: -35px;
 }
