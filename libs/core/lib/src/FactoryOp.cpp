@@ -53,31 +53,6 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
 
 
-
-template<class T>
-std::unique_ptr<T> make_unique(T &&x) { return std::unique_ptr<T>(new T(std::move(x))); } // remove this if std >= c++14
-
-Op_ptr<> FactoryOp::createOp(const std::string &json_string)
-{
-    auto json=nlohmann::json::parse(json_string);
-    const string type=json.at("type");
-    if (type=="Input")
-        return make_unique(json.get<Input<double>>());
-    else if (type=="MovingAverage")
-        return make_unique(json.get<MovingAverage>());
-    else if (type=="PeakDetector")
-        return make_unique(json.get<PeakDetector>());
-    else if (type=="Join")
-        return make_unique(json.get<Join<double>>());
-    else if (type=="Difference")
-        return make_unique(json.get<Difference>());
-    else if (type=="Output")
-        return make_unique(Output<double>(json.at("id")));
-    else
-        throw std::invalid_argument("FactoryOp::createOp unknow operator type");
-}
-
-
 std::string FactoryOp::createPipeline(std::string const& id, std::string const&  json_program)
 {
     try
@@ -96,24 +71,6 @@ std::string FactoryOp::createPipeline(std::string const& id, std::string const& 
 }
 
 
-///----------- the new factory ----------------
-
-
-template<>
-map<string, function<Op_ptr<>(string)>> Operator<double>::opFactory= {}; // TODO: update to singleton
-
-template<>
-Op_ptr<> Operator<>::parse(string const& program)
-{
-    auto json=nlohmann::json::parse(program);
-    string type=json.at("type");
-    auto it = opFactory.find(type);
-    if (it == opFactory.end())
-        throw std::runtime_error(string("invalid Operator type while parsin") + type );
-    return it->second(program);
-}
-
-
 template<class T>                               // TODO: read about json::get_ptr()
 unique_ptr<T> read_json(string const& prog)
 {
@@ -124,15 +81,28 @@ unique_ptr<T> read_json(string const& prog)
 /// whenever we create a static instance later, as  below:
 FactoryOp::FactoryOp()
 {
-    Operator<>::opFactory["Input"]=read_json<Input<>>;
-    Operator<>::opFactory["MovingAverage"]=read_json<MovingAverage>;
-    Operator<>::opFactory["PeakDetector"]=read_json<PeakDetector>;
-    Operator<>::opFactory["Join"]=read_json<Join<>>;
-    Operator<>::opFactory["Difference"]=read_json<Difference>;
-    Operator<>::opFactory["Output"]=read_json<Output<>>;
+    op_registry().emplace("Input", read_json<Input<>>);
+    op_registry().emplace("MovingAverage", read_json<MovingAverage>);
+    op_registry().emplace("PeakDetector", read_json<PeakDetector>);
+    op_registry().emplace("Join", read_json<Join<>>);
+    op_registry().emplace("Difference", read_json<Difference>);
+    op_registry().emplace("Output", read_json<Output<>>);
 }
 
 static FactoryOp factory;
+
+Op_ptr<> FactoryOp::createOp(const std::string &program)
+{
+    auto json=nlohmann::json::parse(program);
+    string type=json.at("type");
+    auto it = op_registry().find(type);
+    if (it == op_registry().end())
+        throw std::runtime_error(string("invalid Operator type while parsing") + type );
+    return it->second(program);
+}
+
+
+
 
 
 

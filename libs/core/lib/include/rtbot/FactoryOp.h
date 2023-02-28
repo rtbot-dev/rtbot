@@ -21,6 +21,12 @@ public:
 
     FactoryOp();
 
+    static auto& op_registry()
+    {
+        static map<string, function<Op_ptr<>(string)>> ops;
+        return ops;
+    }
+
     static Op_ptr<> createOp(std::string const& json_string);
     static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
 

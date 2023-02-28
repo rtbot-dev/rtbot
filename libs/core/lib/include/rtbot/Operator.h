@@ -46,10 +46,7 @@ public:
   Operator(string const &id_, function<T(T)> f_) : id(id_), f(f_) {}
   virtual ~Operator()=default;
 
-  static map<string, function<Op_ptr<T>(string)>> opFactory;
-  static Op_ptr<T> parse(string const& program);
-
-  /**
+   /**
    * Receives a message emitted from another operator. This method should be
    * implemented in concrete realizations of the `Operator` class. Here is where
    * the main logic of the operator is defined.
