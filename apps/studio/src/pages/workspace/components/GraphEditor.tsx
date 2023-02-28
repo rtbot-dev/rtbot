@@ -104,6 +104,8 @@ const AddNodeOnEdgeDrop = () => {
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        //nodesDraggable={false}
+        //panOnDrag={false}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}

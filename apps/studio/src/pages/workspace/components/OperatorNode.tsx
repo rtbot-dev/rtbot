@@ -8,6 +8,8 @@ import { withTheme, ThemeProps } from "@rjsf/core";
 import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import "./form.css";
 import { FaEdit, FaTrash } from "react-icons/all";
+import { operatorSchemas } from "@/store/editor/operator.schemas";
+import { NodeForm } from "./NodeForm";
 
 function OperatorTitleTemplate(props: TitleFieldProps) {
   //we don't want the title to be shown
@@ -100,7 +102,8 @@ export const OperatorNode = ({
       />
       {state.formOpen ? (
         <div className="card bg-base-100 shadow-xl form-card" onClick={(e) => e.stopPropagation()}>
-          <ThemedForm
+          <NodeForm schemas={operatorSchemas} />
+          {/*<ThemedForm
             className="card-body"
             schema={schema}
             uiSchema={uiSchema}
@@ -109,7 +112,7 @@ export const OperatorNode = ({
             onChange={onFormChange}
           >
             <button className="btn btn-primary">save</button>
-          </ThemedForm>
+          </ThemedForm>*/}
         </div>
       ) : (
         <div

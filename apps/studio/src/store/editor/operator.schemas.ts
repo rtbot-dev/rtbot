@@ -11,7 +11,7 @@ export type Parameter = z.infer<typeof parameterSchema>;
 const baseOperatorSchema = z.object({ id: z.string() });
 export const movingAverageSchema = z.object({
   title: z.literal("Moving Average"), // this will appear in the form
-  M: z.number().min(0),
+  Mwindow: z.number().min(0),
   N: z.number().min(0),
 });
 
@@ -27,7 +27,7 @@ export const inputSchema = z.object({
   sameTimestampInEntryPolicy: z.enum(["Ignore", "Forward"]),
 });
 
-const operatorSchemas = [movingAverageSchema, standardDeviationSchema, inputSchema];
+export const operatorSchemas = [movingAverageSchema, standardDeviationSchema, inputSchema];
 export const formOperatorSchema = z.union(operatorSchemas);
 export const operatorSchema = z.union(operatorSchemas);
 export type Operator = z.infer<typeof operatorSchema>;
