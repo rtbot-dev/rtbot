@@ -33,6 +33,8 @@ public:
 
     Output(string const &id, string const& filename): Output<T>(id, out) { out.open(filename); }
 
+    string typeName() const override { return "Output"; }
+
     void receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { callback(msg); }
 
 private:

@@ -27,6 +27,8 @@ public:
     using Operator<T>::Operator;
     virtual ~Join()=default;
 
+    virtual string typeName() const override { return "Join"; }
+
     void addSender(const Operator<T> *sender) override { data[sender]; }
 
     void receive(Message<T> const &msg, const Operator<T> *sender) override
@@ -81,6 +83,8 @@ private:
 struct Difference: public Join<double>
 {
     using Join<double>::Join;
+
+    string typeName() const override { return "Difference"; }
 
     void processData(Message<double> const &msg) override
     {

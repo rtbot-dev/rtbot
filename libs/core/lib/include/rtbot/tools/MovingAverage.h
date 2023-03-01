@@ -19,6 +19,8 @@ struct MovingAverage: public Buffer<double>
         , coeff(n, 1.0/n_)
     {}
 
+    string typeName() const override { return "MovingAverage"; }
+
     void processData() override
     {
         Message<> out;

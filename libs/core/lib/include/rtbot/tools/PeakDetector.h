@@ -9,6 +9,8 @@ struct PeakDetector: Buffer<double>
 {
     using Buffer<double>::Buffer;
 
+    string typeName() const override { return "PeakDetector"; }
+
     void processData() override
     {
         int pos=size()/2;  // expected position of the max

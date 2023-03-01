@@ -21,13 +21,19 @@ public:
 
     FactoryOp();
 
-    static auto& op_registry()
+    struct SerializerOp {
+        function<Op_ptr<>(string)> read;
+        function<string(const Op_ptr<>&)> write;
+    };
+
+    static map<string, SerializerOp>& op_registry()
     {
-        static map<string, function<Op_ptr<>(string)>> ops;
+        static map<string, SerializerOp> ops;
         return ops;
     }
 
-    static Op_ptr<> createOp(std::string const& json_string);
+    static Op_ptr<> readOp(std::string const& json_string);
+    static std::string writeOp(Op_ptr<> const& op);
     static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
 
     std::string createPipeline(std::string const& id, std::string const& json_program);
