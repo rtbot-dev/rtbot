@@ -1,22 +1,13 @@
-import React, { useCallback, useRef } from "react";
+import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import ReactFlow, {
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  useReactFlow,
-  ReactFlowProvider,
-  Position,
-  Edge,
-  Connection,
-  XYPosition,
-} from "reactflow";
+import ReactFlow, { Connection, Edge, Position, ReactFlowProvider, useReactFlow, XYPosition } from "reactflow";
 import "reactflow/dist/style.css";
 
 import "./reactflow.css";
 import { OperatorNode } from "./OperatorNode";
+import editor from "@/store/editor";
 
-const getNode = ({ x, y }: XYPosition, removeNode: (id: string) => void) => {
+const getNode = ({ x, y }: XYPosition) => {
   const id = nanoid(4);
   return {
     id,
@@ -24,14 +15,9 @@ const getNode = ({ x, y }: XYPosition, removeNode: (id: string) => void) => {
     targetPosition: Position.Left,
     type: "operatorNode",
     data: {
-      id,
-      menu: {
-        remove() {
-          removeNode(id);
-        },
-      },
+      parameters: null,
     },
-    position: { x: 0, y: 50 },
+    position: { x, y },
   };
 };
 
@@ -47,70 +33,87 @@ const fitViewOptions = {
 
 const AddNodeOnEdgeDrop = () => {
   const reactFlowWrapper = useRef(null);
-  const connectingNodeId = useRef(null);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const removeNode = (id: string) => setNodes((nds) => nds.filter((n) => n.data.id !== id));
+  const connectingNodeId = useRef<string | null>(null);
+  const draggingNodeId = useRef<string | null>(null);
 
-  // always keep at least 1 node in the stage
-  if (nodes.length === 0) {
-    const defaultNode = getNode({ x: 0, y: 50 }, removeNode);
-    setNodes([defaultNode]);
-  }
+  const [state, setState] = useState(editor.getState());
+  useLayoutEffect(() => {
+    editor.subscribe(setState);
+  }, []);
+
   const { project } = useReactFlow();
-  const onConnect = useCallback((params: Edge | Connection) => setEdges((eds) => addEdge(params, eds)), []);
+
+  const onConnect = useCallback(
+    (edge: Edge | Connection) => editor.addConnection(edge.source as string, edge.target as string),
+    []
+  );
 
   const onConnectStart = useCallback((_, { nodeId }) => {
     connectingNodeId.current = nodeId;
   }, []);
 
-  const addNodeOnConnectEnd = (event) => {
+  const onConnectEnd = (event) => {
+    handleAddNode(event);
+  };
+  const handleAddNode = (event) => {
     console.log("Adding node", event);
     const targetIsPane = event.target.classList.contains("react-flow__pane");
 
     if (targetIsPane) {
       // we need to remove the wrapper bounds, in order to get the correct position
       const { top, left } = (reactFlowWrapper as any).current.getBoundingClientRect();
-      const { id } = addNode({ x: event.clientX - left - 75, y: event.clientY - top });
-      setEdges((eds) => [...eds, { id, source: connectingNodeId.current as unknown as string, target: id }]);
+      const id = addNode({ x: event.clientX - left - 75, y: event.clientY - top });
+      editor.addConnection(connectingNodeId.current as unknown as string, id);
     }
+  };
+
+  const onClick = (event) => {
+    if (state.program && state.program.operators.length === 0) handleAddNode(event);
   };
 
   const addNode = ({ x, y }: XYPosition) => {
     const id = getId();
-    const newNode = {
+    const position = project({ x, y });
+    console.log("Adding new operator at x, y", position);
+    editor.addOperator({
       id,
-      sourcePosition: Position.Right,
-      targetPosition: Position.Left,
-      type: "operatorNode",
-      // we are removing the half of the node width (75) to center the new node
-      position: project({ x, y }),
-      data: {
-        id,
-        menu: {
-          remove() {
-            removeNode(id);
-          },
-        },
-      },
-    };
-
-    setNodes((nds) => [...nds, newNode]);
-    return newNode;
+      metadata: { position },
+    });
+    return id;
   };
+
+  const nodes = state.program
+    ? state.program.operators.map((op) => ({ ...getNode(op.metadata.position), id: op.id, data: { ...op } }))
+    : [];
+
+  const edges = state.program
+    ? state.program.connections.map((con) => ({ id: `${con.from}-${con.to}`, source: con.from, target: con.to }))
+    : [];
+
+  const onNodeDrag = (event) => {
+    // TODO: movement feels a bit strange as it doesn't follow exactly the mouse
+    // seems like we are missing a scaling factor
+    const { x: dx, y: dy } = { x: event.movementX, y: event.movementY };
+    editor.incrementOperatorPosition(draggingNodeId.current as string, dx, dy);
+  };
+
+  const onNodeDragStart = useCallback((_, { id }) => {
+    draggingNodeId.current = id;
+  }, []);
 
   return (
     <div className="wrapper" ref={reactFlowWrapper}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        //nodesDraggable={false}
-        //panOnDrag={false}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
+        onClick={onClick}
+        onNodeDrag={onNodeDrag}
+        autoPanOnNodeDrag={true}
+        onNodeDragStart={onNodeDragStart}
+        onDrag={(event) => console.log("Drag start", event)}
         onConnect={onConnect}
         onConnectStart={onConnectStart}
-        onConnectEnd={addNodeOnConnectEnd}
+        onConnectEnd={onConnectEnd}
         nodeTypes={nodeTypes}
         fitView
         fitViewOptions={fitViewOptions}

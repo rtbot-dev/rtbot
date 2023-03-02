@@ -1,15 +1,13 @@
-import React, { memo, useState } from "react";
-import { Handle, Position, Node } from "reactflow";
-import Form from "@rjsf/core";
-import zodToJsonSchema from "zod-to-json-schema";
-import { formOperatorSchema } from "@/store/editor/operator.schemas";
-import validator from "@rjsf/validator-ajv8";
+import React, { useState } from "react";
+import { Handle, Position } from "reactflow";
 import { withTheme, ThemeProps } from "@rjsf/core";
 import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import "./form.css";
 import { FaEdit, FaTrash } from "react-icons/all";
-import { operatorSchemas } from "@/store/editor/operator.schemas";
+import { operatorSchemaList } from "@/store/editor/operator.schemas";
 import { NodeForm } from "./NodeForm";
+import editor from "@/store/editor";
+import { BaseOperator } from "@/store/editor/operator.schemas";
 
 function OperatorTitleTemplate(props: TitleFieldProps) {
   //we don't want the title to be shown
@@ -28,68 +26,21 @@ const theme: ThemeProps = {
 const ThemedForm = withTheme(theme);
 
 export type OperatorNodeInput = {
-  data: { color: string; onChange: React.ChangeEventHandler<HTMLInputElement> };
+  id: string;
+  data: BaseOperator;
   isConnectable: boolean;
 };
 
-let schema = zodToJsonSchema(formOperatorSchema, { $refStrategy: "none" });
-console.log("JSON schemas", schema);
-schema = {
-  ...schema,
-  // @ts-ignore
-  anyOf: schema.anyOf.map((s) => ({
-    ...s,
-    title: s.properties.title["const"],
-    properties: {
-      ...s.properties,
-      title: {
-        type: "string",
-        default: s.properties.title["const"],
-      },
-    },
-  })),
-};
-
-const uiSchema = ["title"].reduce(
-  (acc, val) => ({
-    ...acc,
-    [`${val}`]: {
-      "ui:widget": "hidden",
-    },
-  }),
-  {}
-);
-
-type FormData = {
-  title: string;
-  [key: string]: any;
-};
-
 type State = {
-  formData: FormData | null;
-  formOpen: boolean;
   showMenu: boolean;
 };
-export const OperatorNode = ({
-  data: {
-    menu: { remove },
-  },
-  isConnectable,
-}: OperatorNodeInput) => {
+export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => {
+  const { parameters, title, metadata } = data;
+  const formOpen = metadata!! ? metadata.editing : false;
+
   const [state, setState] = useState<State>({
-    formData: null,
-    formOpen: false,
     showMenu: false,
   });
-  const onSubmit = (e) => {
-    // TODO: check if valid
-    console.log("Submitting", e);
-    setState({ ...state, formOpen: false, formData: e.formData });
-  };
-
-  const onFormChange = (e) => {
-    console.log("Form changed", e);
-  };
 
   return (
     <div>
@@ -100,19 +51,9 @@ export const OperatorNode = ({
         onConnect={(params) => console.log("handle onConnect", params)}
         isConnectable={isConnectable}
       />
-      {state.formOpen ? (
-        <div className="card bg-base-100 shadow-xl form-card" onClick={(e) => e.stopPropagation()}>
-          <NodeForm schemas={operatorSchemas} />
-          {/*<ThemedForm
-            className="card-body"
-            schema={schema}
-            uiSchema={uiSchema}
-            validator={validator}
-            onSubmit={onSubmit}
-            onChange={onFormChange}
-          >
-            <button className="btn btn-primary">save</button>
-          </ThemedForm>*/}
+      {formOpen ? (
+        <div className="card bg-base-100 shadow-xl form-card">
+          <NodeForm schemas={operatorSchemaList} id={id} />
         </div>
       ) : (
         <div
@@ -122,27 +63,25 @@ export const OperatorNode = ({
         >
           {state.showMenu && (
             <div className="btn-group node-menu">
-              <button className="btn" onClick={() => setState({ ...state, formOpen: true })}>
+              <button className="btn" onClick={() => editor.editOperator(id, true)}>
                 <FaEdit />
               </button>
-              <button className="btn" onClick={remove}>
+              <button className="btn" onClick={() => editor.deleteOperator({ id })}>
                 <FaTrash />
               </button>
             </div>
           )}
           <div className="card bg-base-100 shadow-xl">
             <div className="card-body">
-              {state.formData && (
+              {parameters && (
                 // show the form data
                 <>
-                  <strong>{state.formData.title}</strong>
-                  {Object.keys(state.formData as any)
-                    .filter((k) => k !== "title")
-                    .map((k) => (
-                      <div key={k}>
-                        {k}={state.formData[k]}
-                      </div>
-                    ))}
+                  <strong>{title}</strong>
+                  {Object.keys(parameters).map((k) => (
+                    <div key={k}>
+                      {k}={parameters[k]}
+                    </div>
+                  ))}
                 </>
               )}
             </div>

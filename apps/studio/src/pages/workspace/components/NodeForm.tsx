@@ -1,56 +1,58 @@
-import { z, ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodSchema, ZodString, ZodTypeAny } from "zod";
+import { ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodString } from "zod";
 import "./nodeform.css";
-import { FaEdit, MdCheck, MdClose } from "react-icons/all";
+import { MdCheck, MdClose } from "react-icons/all";
 import React, { useState } from "react";
+import editor from "@/store/editor";
 
-type NodeFormPropsType = {
+type NodeFormProps = {
+  id: string;
   schemas: ZodObject<any>[];
+};
+
+type NodeFormState = {
   schema: ZodObject<any> | null;
-  formData: any;
+  parameters: any;
   formErrors: any;
 };
-export const NodeForm = ({ schemas }: NodeFormPropsType) => {
-  const [state, setState] = useState({ schema: null, schemas, formData: {}, formErrors: {} });
+export const NodeForm = ({ schemas, id }: NodeFormProps) => {
+  const [state, setState] = useState<NodeFormState>({ schema: null, parameters: {}, formErrors: {} });
 
   const setFormValue = (k: string, v: any) => {
-    const { formData } = state;
-    formData[k] = v;
-    const { success, error } = state.schema.omit({ title: true }).safeParse(formData);
-    let formErrors = {};
-    if (!success) {
-      formErrors = Object.fromEntries(
-        error.errors.map((e: { message: string; path: string[] }) => [e.path[0], e.message])
-      );
-    }
+    if (state.schema) {
+      const { parameters } = state;
+      parameters[k] = v;
+      const { success, error } = state.schema.shape.parameters.safeParse(parameters);
+      let formErrors = {};
+      if (!success) {
+        formErrors = Object.fromEntries(error.errors.map((e: any) => [`${e.path[0]}`, e.message]));
+      }
 
-    setState({ ...state, formData, formErrors });
+      setState({ ...state, parameters: parameters, formErrors });
+    }
   };
 
   return (
-    <div
-      className="form-control node-form"
-      onDrag={(event) => {
-        console.log("Preventing event propagation");
-        event.preventDefault();
-        event.stopPropagation();
-        event.nativeEvent.stopImmediatePropagation();
-      }}
-    >
+    <div className="form-control node-form">
       <select
         className="select select-bordered w-full node-form-main-selector"
         onChange={(event) =>
-          setState({ ...state, schema: schemas[event.target.options.selectedIndex - 1], formData: {}, formErrors: {} })
+          setState({
+            ...state,
+            schema: schemas[event.target.options.selectedIndex - 1],
+            parameters: {},
+            formErrors: {},
+          })
         }
       >
         <option disabled selected>
           Select operator
         </option>
-        {state.schemas.map((s, k) => (
+        {schemas.map((s, k) => (
           <option key={k}>{s.shape.title.value}</option>
         ))}
       </select>
       {state.schema &&
-        Object.entries(state.schema.shape).map(([k, v], i) => {
+        Object.entries(state.schema.shape.parameters.shape).map(([k, v], i) => {
           let inputComponent;
           switch (v.constructor) {
             case ZodNumber:
@@ -99,14 +101,28 @@ export const NodeForm = ({ schemas }: NodeFormPropsType) => {
         })}
 
       <div className="node-form-buttons">
-        <button className="btn btn-circle" onClick={() => console.log("close edit")}>
+        <button className="btn btn-circle" onClick={() => editor.editOperator(id, false)}>
           <MdClose />
         </button>
         <button
           className="btn btn-circle"
-          disabled={Object.keys(state.formErrors).length !== 0 || Object.keys(state.formData).length === 0}
+          disabled={
+            Object.keys(state.formErrors).length !== 0 ||
+            Object.keys(state.parameters).length === 0 ||
+            state.schema === null
+          }
           onClick={() => {
-            console.log("Saving");
+            if (state.schema) {
+              const opDef = {
+                id,
+                title: state.schema.shape.title.value,
+                opType: state.schema.shape.opType.value,
+                parameters: { ...state.parameters },
+              };
+              console.log("Saving", opDef);
+              editor.updateOperator(opDef);
+              editor.editOperator(id, false);
+            }
           }}
         >
           <MdCheck />
