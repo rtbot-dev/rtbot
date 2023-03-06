@@ -1,0 +1,36 @@
+.react-flow .react-flow__handle {
+    width:10px;
+    height: 10px;
+    border-radius: 5px;
+    background-color: #784be8;
+}
+
+.react-flow .react-flow__handle-top {
+    top: -10px;
+}
+
+.react-flow .react-flow__handle-bottom {
+    bottom: -10px;
+}
+
+.react-flow .react-flow__node {
+    min-height: 40px;
+    min-width: 150px;
+}
+
+.react-flow .react-flow__edge path,
+.react-flow__connectionline path {
+    stroke-width: 2;
+}
+
+.wrapper {
+    flex-grow: 1;
+    height: 100%;
+}
+
+.node-menu {
+    position: absolute;
+    top: -90px;
+    padding: 35px;
+    left: -35px;
+}

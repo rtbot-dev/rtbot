@@ -1,0 +1,28 @@
+
+.node-form {
+    padding: 20px;
+}
+
+.node-form-label {
+    padding: 5px 0px 5px 0px;
+    width: 100%;
+}
+
+.node-form-input-number {
+    max-width: 30%;
+}
+
+.node-form-buttons {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.node-form-main-selector {
+    margin-bottom: 10px;
+}
+
+button .node-form-buttons {
+    padding: 5px;
+}
