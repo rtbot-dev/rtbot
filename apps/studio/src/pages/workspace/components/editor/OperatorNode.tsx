@@ -1,29 +1,11 @@
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
-import { withTheme, ThemeProps } from "@rjsf/core";
-import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import "./form.css";
 import { FaEdit, FaTrash } from "react-icons/all";
 import { operatorSchemaList } from "@/store/editor/operator.schemas";
 import { NodeForm } from "./NodeForm";
 import editor from "@/store/editor";
 import { BaseOperator } from "@/store/editor/operator.schemas";
-
-function OperatorTitleTemplate(props: TitleFieldProps) {
-  //we don't want the title to be shown
-  return <></>;
-}
-function OperatorBaseInputTemplate(props: WidgetProps) {
-  return "";
-}
-
-const theme: ThemeProps = {
-  templates: {
-    TitleFieldTemplate: OperatorTitleTemplate,
-    //BaseInputTemplate: OperatorBaseInputTemplate,
-  },
-};
-const ThemedForm = withTheme(theme);
 
 export type OperatorNodeInput = {
   id: string;

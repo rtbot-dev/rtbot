@@ -8,13 +8,17 @@ export const connectionSchema = z.object({
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
-export const programSchema = z.object({
+export const programMetadataSchema = z.object({
+  id: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
   date: z.date().optional(),
   version: z.string().optional(),
   author: z.string().optional(),
   license: z.string().optional(),
+});
+export const programSchema = z.object({
+  metadata: programMetadataSchema.optional(),
   entryNode: z.string().optional(),
   operators: z.array(operatorSchema),
   connections: z.array(connectionSchema),
