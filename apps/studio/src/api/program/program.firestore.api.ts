@@ -1,6 +1,18 @@
 import { ProgramApi } from "./index";
 import { Program } from "@/store/editor/schemas";
-import { getFirestore, collection, doc, addDoc, getDoc, getDocs, deleteDoc, updateDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  updateDoc,
+  query,
+  where,
+  serverTimestamp,
+  orderBy,
+} from "firebase/firestore";
 import { app } from "@/api/firebase";
 import auth from "@/store/auth";
 import { User } from "firebase/auth";
@@ -21,7 +33,15 @@ export class ProgramFirestoreApi implements ProgramApi {
       return;
     }
     try {
-      const docRef = await addDoc(collection(this.firestore, `users/${this.user.uid}/programs`), program);
+      const docRef = await addDoc(collection(this.firestore, `programs`), {
+        ...program,
+        metadata: {
+          ...program.metadata,
+          // add creator metadata
+          createdBy: this.user.uid,
+          createdAt: serverTimestamp(),
+        },
+      });
       console.log("Program saved with id: ", docRef.id);
     } catch (e) {
       console.error("Error adding program: ", e);
@@ -34,7 +54,7 @@ export class ProgramFirestoreApi implements ProgramApi {
       return;
     }
     try {
-      const docRef = await deleteDoc(doc(this.firestore, `users/${this.user.uid}/programs/${programId}`));
+      const docRef = await deleteDoc(doc(this.firestore, `programs/${programId}`));
       console.log("Program deleted", programId);
     } catch (e) {
       console.error("Error deleting program: ", e);
@@ -52,7 +72,13 @@ export class ProgramFirestoreApi implements ProgramApi {
     }
 
     try {
-      const querySnapshot = await getDocs(collection(this.firestore, `users/${this.user.uid}/programs`));
+      const querySnapshot = await getDocs(
+        query(
+          collection(this.firestore, `programs`),
+          where("metadata.createdBy", "==", this.user.uid),
+          orderBy("metadata.createdAt")
+        )
+      );
       const programs: Program[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
@@ -66,14 +92,19 @@ export class ProgramFirestoreApi implements ProgramApi {
     return Promise.resolve([]);
   }
 
-  async update(programId: string, program: Partial<Program>): Promise<void> {
+  async update(programId: string, program: any): Promise<void> {
     if (this.user === null) {
       console.error("updating program: user is not authenticated");
       return;
     }
 
     try {
-      await updateDoc(doc(this.firestore, `users/${this.user.uid}/programs/${programId}`), program);
+      console.log("updating", programId, program);
+      await updateDoc(doc(this.firestore, `programs/${programId}`), {
+        ...program,
+        "metadata.updatedBy": this.user.uid,
+        "metadata.updatedAt": serverTimestamp(),
+      });
     } catch (e) {
       console.error("Error while updating program", programId, e);
     }

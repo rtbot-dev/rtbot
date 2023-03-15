@@ -6,7 +6,7 @@ export const NavBar = () => {
   return (
     <div className="navbar bg-base-100">
       <div className="flex-none">
-        <button className="btn btn-square btn-ghost" onClick={() => menu.toggleSideMenu()}>
+        <button className="btn btn-square btn-ghost" onClick={() => menu.toggle()}>
           <MdMenu className="w-full" />
         </button>
       </div>

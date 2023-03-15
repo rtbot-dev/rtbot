@@ -9,6 +9,7 @@ specifiers:
   '@vitejs/plugin-react-swc': ^3.0.0
   autoprefixer: ^10.4.13
   daisyui: ^2.50.2
+  date-fns: ^2.29.3
   firebase: ^9.15.0
   firebase-tools: ^11.20.0
   monaco-editor: ^0.35.0
@@ -32,6 +33,7 @@ dependencies:
   '@headlessui/react': 1.7.7_biqbaboplfbrettd7655fr4n2y
   '@monaco-editor/react': 4.4.6_3vguicescx7w3divwtpzvtv5wy
   daisyui: 2.50.2_gbtt6ss3tbiz4yjtvdr6fbrj44
+  date-fns: 2.29.3
   firebase: 9.15.0
   firebase-tools: 11.20.0
   monaco-editor: 0.35.0
@@ -2480,6 +2482,11 @@ packages:
   /data-uri-to-buffer/3.0.1:
     resolution: {integrity: sha512-WboRycPNsVw3B3TL559F7kuBUM4d8CgMEvk6xEJlOp7OBPjt6G7z8WMWlD2rOFZLk6OYfFIUGsCOWzcQH9K2og==}
     engines: {node: '>= 6'}
+    dev: false
+
+  /date-fns/2.29.3:
+    resolution: {integrity: sha512-dDCnyH2WnnKusqvZZ6+jA1O51Ibt8ZMRNkDZdyAyK4YfbDwa/cEmuztzG5pk6hqlp9aSBPYcjOlktquahGwGeA==}
+    engines: {node: '>=0.11'}
     dev: false
 
   /debug/2.6.9:

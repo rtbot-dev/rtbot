@@ -13,6 +13,7 @@
     "@headlessui/react": "^1.7.7",
     "@monaco-editor/react": "^4.4.6",
     "daisyui": "^2.50.2",
+    "date-fns": "^2.29.3",
     "firebase": "^9.15.0",
     "firebase-tools": "^11.20.0",
     "monaco-editor": "^0.35.0",

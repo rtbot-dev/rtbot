@@ -1,26 +1,32 @@
 import { Subject } from "rxjs";
-import { Program, programSchema } from "./schemas";
-import zodToJsonSchema from "zod-to-json-schema";
-import { BaseOperator, Metadata } from "./operator.schemas";
+import { Program } from "./schemas";
+import { BaseOperator } from "./operator.schemas";
+import { programApi } from "../../api/program";
 
 const subject = new Subject<IEditorState>();
 
 export interface IEditorState {
   sourceCode: string;
-  program?: Program;
+  program: Program | null;
 }
 
 export const initialState: IEditorState = {
   sourceCode: "",
-  program: {
-    title: "new program",
-    operators: [],
-    connections: [],
-  },
+  program: null,
 };
 
 let state = initialState;
 
+const save = async () => {
+  if (state.program && state.program.metadata && state.program.metadata.id) {
+    return programApi.update(state.program.metadata.id, {
+      connections: state.program.connections,
+      operators: state.program.operators,
+    });
+  }
+};
+
+let debounce: NodeJS.Timeout | null = null;
 // store
 export const store = {
   init: () => {
@@ -29,8 +35,9 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IEditorState) => void) => subject.subscribe(setState),
-  setEditor(editor: IEditorState = initialState) {
-    subject.next({ ...editor });
+  setProgram(program: Program) {
+    state.program = program;
+    subject.next({ ...state });
   },
   setSourceCode(sourceCode: string) {
     state = { ...state, sourceCode };
@@ -48,6 +55,8 @@ export const store = {
           ),
         },
       };
+      // persist the change
+      save().then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
@@ -75,6 +84,8 @@ export const store = {
           ),
         },
       };
+      // persist the change
+      save().then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
@@ -104,6 +115,16 @@ export const store = {
           ),
         },
       };
+      // as this method will be called many times per second, we will debounce it and
+      // make the save call after 1 sec of the last change
+      if (debounce) clearTimeout(debounce);
+
+      debounce = setTimeout(() => {
+        // persist the change
+        console.log("Saving");
+        save().then(() => console.log("Program saved"));
+        debounce = null;
+      }, 1000);
       subject.next({ ...state });
     }
   },
@@ -117,6 +138,8 @@ export const store = {
           connections: state.program.connections.filter((con) => con.from !== operator.id && con.to !== operator.id),
         },
       };
+      // persist the change
+      save().then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
@@ -129,6 +152,8 @@ export const store = {
           connections: state.program.connections.filter((con) => con.from !== from || con.to !== to),
         },
       };
+      // persist the change
+      save().then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
@@ -141,6 +166,8 @@ export const store = {
           connections: [...state.program.connections, { from, to }],
         },
       };
+      // persist the change
+      save().then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },

@@ -5,7 +5,7 @@ export interface ProgramApi {
   create(program: Program): Promise<void>;
   get(programId: string): Promise<Program | null>;
   list(): Promise<Program[]>;
-  update(programId: string, program: Partial<Program>): Promise<void>;
+  update(programId: string, program: any): Promise<void>;
   delete(programId: string): Promise<void>;
 }
 

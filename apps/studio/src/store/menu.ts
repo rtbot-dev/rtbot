@@ -1,6 +1,7 @@
 import { Subject } from "rxjs";
 import { Program } from "@/store/editor/schemas";
 import { programApi } from "@/api/program";
+import auth from "./auth";
 
 const subject = new Subject<IMenuState>();
 
@@ -24,6 +25,11 @@ const refreshProgramList = () => {
     subject.next({ ...state });
   });
 };
+
+auth.subscribe(({ user }) => {
+  console.log("Refreshing program list");
+  if (user) refreshProgramList();
+});
 // store
 export const store = {
   init: () => {
@@ -32,8 +38,13 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IMenuState) => void) => subject.subscribe(setState),
-  toggleSideMenu() {
+  hide() {
+    state.sideMenuOpen = false;
+    subject.next({ ...state });
+  },
+  toggle() {
     state.sideMenuOpen = !state.sideMenuOpen;
+    subject.next({ ...state });
     refreshProgramList();
   },
   createProgram(title: string = "New program") {
