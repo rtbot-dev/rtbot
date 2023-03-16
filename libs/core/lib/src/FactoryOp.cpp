@@ -9,26 +9,10 @@
 #include <nlohmann/json.hpp>
 
 
-namespace nlohmann {
-
-template <>
-struct adl_serializer<rtbot::Output<>> {
-    static rtbot::Output<> from_json(const json& j) {
-        std::string id = j.at("id");
-        return {id};
-    }
-
-    static void to_json(json& j, rtbot::Output<> const& t) {
-        j = t.id;
-    }
-};
-
-}
-
-
 namespace rtbot {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input<double>,id);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>,id);
@@ -53,21 +37,6 @@ std::string FactoryOp::createPipeline(std::string const& id, std::string const& 
 }
 
 
-template<class Op>
-FactoryOp::SerializerOp SerializerOp_json()
-{
-    auto read=[](string const& prog)            // TODO: read about json::get_ptr()
-    {
-        return std::make_unique<Op>(nlohmann::json::parse(prog) );
-    };
-    auto write=[](Op_ptr<> const& op)
-    {
-        return nlohmann::json( *dynamic_cast<Op*>(op.get()) ).dump();
-    };
-
-    return {read,write};
-};
-
 /// register some the operators. Notice that this can be done on any constructor
 /// whenever we create a static instance later, as  below:
 FactoryOp::FactoryOp()
@@ -77,11 +46,15 @@ FactoryOp::FactoryOp()
     op_registry_add< PeakDetector , nlohmann::json >();
     op_registry_add< Join<>       , nlohmann::json >();
     op_registry_add< Difference   , nlohmann::json >();
-    op_registry_add< Output<>     , nlohmann::json >();
+    op_registry_add< Output_opt   , nlohmann::json >();
 
     nlohmann::json j;
-    for(auto& it:op_registry())
-        std::cout<<it.first<<"\n";
+    for(auto const& it : op_registry()) {
+        nlohmann::json ji=nlohmann::json::parse(it.second.to_string_default());
+        j.push_back(ji);
+    }
+    std::ofstream out("op_list.json");
+    out<<std::setw(4)<<j<<"\n";
 }
 
 static FactoryOp factory;
@@ -106,11 +79,6 @@ std::string FactoryOp::writeOp(Op_ptr<> const& op)
         throw std::runtime_error(string("invalid Operator type while parsing ") + type );
     return it->second.to_string(op);
 }
-
-
-
-
-
 
 
 }

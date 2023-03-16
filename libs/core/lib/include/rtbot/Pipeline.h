@@ -14,7 +14,7 @@ struct Pipeline {
 
     std::map<std::string, Op_ptr<double>> all_op;  // from id to operator
     Operator<double> *input;
-    Output<double> *output;
+    Output_opt *output;
     std::optional<Message<double>> out;
 
     explicit Pipeline(std::string const& json_string);
@@ -27,13 +27,12 @@ struct Pipeline {
         input=std::move(other.input);
         output=std::move(other.output);
         out=std::move(other.out);
-        output->callback=[this](Message<> const& msg) { out=msg; };
+        output->out=&out;
     }
 
-    std::vector<std::optional<Message<double>>> receive(const Message<double>& msg)
+    std::vector<std::optional<Message<>>> receive(const Message<>& msg)
     {
         out.reset();
-        //output->callback=[this](Message<> const& msg) { out=msg; };
         input->receive(msg);
         return {out};
     }

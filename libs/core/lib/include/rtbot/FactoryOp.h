@@ -24,6 +24,7 @@ public:
     struct SerializerOp {
         function<Op_ptr<>(string)> from_string;
         function<string(const Op_ptr<>&)> to_string;
+        function<string()> to_string_default;
     };
 
     static map<string, SerializerOp>& op_registry()
@@ -41,10 +42,22 @@ public:
         };
         auto to_string=[](Op_ptr<> const& op)
         {
-            return Format( *dynamic_cast<Op*>(op.get()) ).dump();
+            string type=op->typeName();
+            auto obj=Format( *dynamic_cast<Op*>(op.get()) );
+            obj["type"]=type;
+            return obj.dump();
+        };
+        auto to_string_default=[]()
+        {
+            Op op;
+            string type=op.typeName();
+            auto obj=Format(op);
+            obj["type"]=type;
+            obj["id"]=type+"1";
+            return obj.dump();
         };
 
-        op_registry()[Op().typeName()]=SerializerOp {from_string, to_string};
+        op_registry()[Op().typeName()]=SerializerOp {from_string, to_string, to_string_default};
     }
 
     static Op_ptr<> readOp(std::string const& json_string);

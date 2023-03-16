@@ -17,7 +17,7 @@ TEST_CASE("simple peak detector")
     auto op = PeakDetector("b1", nlag);
 
     vector<Message<>> msg_l;
-    auto o1=Output<double>("o1", [&](Message<double> msg){ msg_l.push_back(msg); });
+    auto o1=Output_vec("o1", msg_l);
     connect(&op, &o1);
 
     SECTION("one peak") {
@@ -46,7 +46,8 @@ TEST_CASE("ppg peak detector")
     auto diff = Difference("diff");
     auto peak = PeakDetector("b1", 2*ma1.n+1);
     auto join = Join<double>("j1");
-    auto o1 = Output<double>("o1", "peak.txt");
+    ofstream out("peak.txt");
+    auto o1 = Output_os("o1", out);
 
     // draw the pipeline
 

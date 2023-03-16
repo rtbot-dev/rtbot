@@ -13,8 +13,8 @@ Pipeline::Pipeline(const std::string &json_string)
         if (x.at("type")=="Input")
             input=it.first->second.get();
         else if (x.at("type")=="Output") {
-            output=dynamic_cast<Output<double> *>(it.first->second.get());
-            output->callback=[this](Message<> const& msg) { out=msg; };
+            output=dynamic_cast<decltype(output)>(it.first->second.get());
+            output->out=&out;
         }
     }
 
