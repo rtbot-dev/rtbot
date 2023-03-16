@@ -22,14 +22,29 @@ public:
     FactoryOp();
 
     struct SerializerOp {
-        function<Op_ptr<>(string)> read;
-        function<string(const Op_ptr<>&)> write;
+        function<Op_ptr<>(string)> from_string;
+        function<string(const Op_ptr<>&)> to_string;
     };
 
     static map<string, SerializerOp>& op_registry()
     {
         static map<string, SerializerOp> ops;
         return ops;
+    }
+
+    template<class Op, class Format>
+    static void op_registry_add()
+    {
+        auto from_string=[](string const& prog)
+        {
+            return std::make_unique<Op>(Format::parse(prog) );
+        };
+        auto to_string=[](Op_ptr<> const& op)
+        {
+            return Format( *dynamic_cast<Op*>(op.get()) ).dump();
+        };
+
+        op_registry()[Op().typeName()]=SerializerOp {from_string, to_string};
     }
 
     static Op_ptr<> readOp(std::string const& json_string);

@@ -12,25 +12,6 @@
 namespace nlohmann {
 
 template <>
-struct adl_serializer<rtbot::MovingAverage> {
-    static rtbot::MovingAverage from_json(const json& j) {
-        std::string id = j.at("id");
-        if (j.contains("coeff")) {
-            std::vector<double> coeff=j.at("coeff");
-            return {id, coeff};
-        }
-        else {
-            int n=j.at("n");
-            return  {id, n};
-        }
-    }
-
-    static void to_json(json& j, rtbot::MovingAverage const& t) {
-        j = t.coeff;
-    }
-};
-
-template <>
 struct adl_serializer<rtbot::Output<>> {
     static rtbot::Output<> from_json(const json& j) {
         std::string id = j.at("id");
@@ -48,6 +29,7 @@ struct adl_serializer<rtbot::Output<>> {
 namespace rtbot {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input<double>,id);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
@@ -76,7 +58,7 @@ FactoryOp::SerializerOp SerializerOp_json()
 {
     auto read=[](string const& prog)            // TODO: read about json::get_ptr()
     {
-        return std::unique_ptr<Op>(new Op(nlohmann::json::parse(prog).get<Op>()) );
+        return std::make_unique<Op>(nlohmann::json::parse(prog) );
     };
     auto write=[](Op_ptr<> const& op)
     {
@@ -90,12 +72,16 @@ FactoryOp::SerializerOp SerializerOp_json()
 /// whenever we create a static instance later, as  below:
 FactoryOp::FactoryOp()
 {
-    op_registry().emplace("Input", SerializerOp_json<Input<>>());
-    op_registry().emplace("MovingAverage", SerializerOp_json<MovingAverage>());
-    op_registry().emplace("PeakDetector", SerializerOp_json<PeakDetector>());
-    op_registry().emplace("Join", SerializerOp_json<Join<>>());
-    op_registry().emplace("Difference", SerializerOp_json<Difference>());
-    op_registry().emplace("Output", SerializerOp_json<Output<>>());
+    op_registry_add< Input<>      , nlohmann::json >();
+    op_registry_add< MovingAverage, nlohmann::json >();
+    op_registry_add< PeakDetector , nlohmann::json >();
+    op_registry_add< Join<>       , nlohmann::json >();
+    op_registry_add< Difference   , nlohmann::json >();
+    op_registry_add< Output<>     , nlohmann::json >();
+
+    nlohmann::json j;
+    for(auto& it:op_registry())
+        std::cout<<it.first<<"\n";
 }
 
 static FactoryOp factory;
@@ -107,7 +93,7 @@ Op_ptr<> FactoryOp::readOp(const std::string &program)
     auto it = op_registry().find(type);
     if (it == op_registry().end())
         throw std::runtime_error(string("invalid Operator type while parsing ") + type );
-    return it->second.read(program);
+    return it->second.from_string(program);
 }
 
 std::string FactoryOp::writeOp(Op_ptr<> const& op)
@@ -118,7 +104,7 @@ std::string FactoryOp::writeOp(Op_ptr<> const& op)
     auto it = op_registry().find(type);
     if (it == op_registry().end())
         throw std::runtime_error(string("invalid Operator type while parsing ") + type );
-    return it->second.write(op);
+    return it->second.to_string(op);
 }
 
 
