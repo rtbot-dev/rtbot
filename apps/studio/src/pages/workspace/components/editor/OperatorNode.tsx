@@ -35,7 +35,7 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
       />
       {formOpen ? (
         <div className="card bg-base-100 shadow-xl form-card">
-          <NodeForm schemas={operatorSchemaList} id={id} />
+          <NodeForm schemas={operatorSchemaList} id={id} opDef={data} />
         </div>
       ) : (
         <div
@@ -62,6 +62,17 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
                   {Object.keys(parameters).map((k) => (
                     <div key={k}>
                       {k}={parameters[k]}
+                    </div>
+                  ))}
+                </>
+              )}
+              {metadata.style && (
+                // show the style data
+                <>
+                  <strong>style</strong>
+                  {Object.entries(metadata.style).map(([k, v]) => (
+                    <div key={k}>
+                      {k}={v}
                     </div>
                   ))}
                 </>

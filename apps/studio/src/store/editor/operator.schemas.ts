@@ -42,7 +42,13 @@ export const metadataSchema = z.object({
       y: z.number().default(0).optional(),
     })
     .optional(),
-  style: z.any().optional(),
+  style: z
+    .object({
+      color: z.string().optional(),
+      lineType: z.string().optional(),
+      lineWidth: z.number().optional(),
+    })
+    .optional(),
   editing: z.boolean().optional(),
 });
 

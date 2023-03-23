@@ -89,7 +89,7 @@ export class ProgramFirestoreApi implements ProgramApi {
     } catch (e) {
       console.error("Error while getting the list of programs", e);
     }
-    return Promise.resolve([]);
+    return [];
   }
 
   async update(programId: string, program: any): Promise<void> {

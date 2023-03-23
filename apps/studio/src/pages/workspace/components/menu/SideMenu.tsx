@@ -4,8 +4,10 @@ import menu from "@/store/menu";
 import { ProgramEntry } from "./ProgramEntry";
 import { IoAddCircle, IoCloudUpload } from "react-icons/all";
 import "./menu.css";
+import { DataEntry } from "./DataEntry";
 
 export const SideMenu = ({ children }: React.PropsWithoutRef<any>) => {
+  const [selectedFile, setSelectedFile] = useState();
   const [state, setState] = useState(menu.getState());
   const [editorState, setEditorState] = useState(editor.getState());
   useLayoutEffect(() => {
@@ -14,6 +16,14 @@ export const SideMenu = ({ children }: React.PropsWithoutRef<any>) => {
   }, []);
 
   const opened = state.sideMenuOpen || editorState.program === null;
+  const fileHandler = (e: any) => {
+    setSelectedFile(e.target.files[0]);
+  };
+
+  const uploadFile = () => {
+    console.log("Uploading file", selectedFile);
+    menu.uploadFile(selectedFile as unknown as File);
+  };
 
   return (
     <div className="drawer">
@@ -32,20 +42,33 @@ export const SideMenu = ({ children }: React.PropsWithoutRef<any>) => {
               </li>
             ))}
             <li>
-              <button className="justify-center btn-xl" onClick={() => menu.createProgram()}>
-                <IoAddCircle />
-              </button>
+              {state.editingProgramList ? (
+                <div className="justify-center">...</div>
+              ) : (
+                <button className="justify-center btn-xl" onClick={() => menu.createProgram()}>
+                  <IoAddCircle />
+                </button>
+              )}
             </li>
           </ul>
+          <div className="divider"></div>
           <div>
             <strong>Data</strong>
             <ul>
-              <li>
-                <button className="justify-center btn-xl">
+              {state.data.map((p, i) => (
+                <li key={i} className="flex items-center">
+                  <DataEntry {...p} />
+                </li>
+              ))}
+            </ul>
+            <span>
+              <input type="file" className="file-input w-60 max-w-xs" accept="text/csv" onChange={fileHandler} />
+              {selectedFile && (
+                <button className="justify-center btn-xl" onClick={uploadFile}>
                   <IoCloudUpload />
                 </button>
-              </li>
-            </ul>
+              )}
+            </span>
           </div>
         </div>
       </div>

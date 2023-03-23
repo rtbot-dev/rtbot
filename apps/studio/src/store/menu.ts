@@ -2,6 +2,7 @@ import { Subject } from "rxjs";
 import { Program } from "@/store/editor/schemas";
 import { programApi } from "@/api/program";
 import auth from "./auth";
+import { Data, dataApi } from "@/api/data";
 
 const subject = new Subject<IMenuState>();
 
@@ -9,11 +10,20 @@ export interface IMenuState {
   sideMenuOpen: boolean;
   message?: string;
   programs: Program[];
+  data: Data[];
+  editingProgramList: boolean;
+  editingDataList: boolean;
+  uploadingFile: boolean;
+  uploadProgress?: number;
 }
 
 export const initialState: IMenuState = {
   sideMenuOpen: false,
+  editingProgramList: false,
+  editingDataList: false,
+  uploadingFile: false,
   programs: [],
+  data: [],
 };
 
 let state = initialState;
@@ -26,9 +36,19 @@ const refreshProgramList = () => {
   });
 };
 
+const refreshDataList = () => {
+  dataApi.list().then((data) => {
+    console.log("list of data", data);
+    state.data = data;
+    subject.next({ ...state });
+  });
+};
 auth.subscribe(({ user }) => {
   console.log("Refreshing program list");
-  if (user) refreshProgramList();
+  if (user) {
+    refreshProgramList();
+    refreshDataList();
+  }
 });
 // store
 export const store = {
@@ -38,6 +58,10 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IMenuState) => void) => subject.subscribe(setState),
+  setUploadProgress(progress: number) {
+    state.uploadProgress = progress;
+    subject.next({ ...state });
+  },
   hide() {
     state.sideMenuOpen = false;
     subject.next({ ...state });
@@ -46,8 +70,11 @@ export const store = {
     state.sideMenuOpen = !state.sideMenuOpen;
     subject.next({ ...state });
     refreshProgramList();
+    refreshDataList();
   },
   createProgram(title: string = "New program") {
+    state = { ...state, editingProgramList: true };
+    subject.next(state);
     programApi
       .create({
         metadata: {
@@ -56,10 +83,38 @@ export const store = {
         connections: [],
         operators: [],
       })
-      .then(refreshProgramList);
+      .then(() => {
+        state = { ...state, editingProgramList: false };
+        subject.next(state);
+        refreshProgramList();
+      });
   },
   deleteProgram(programId: string) {
-    programApi.delete(programId).then(refreshProgramList);
+    state = { ...state, editingProgramList: true };
+    subject.next(state);
+    programApi.delete(programId).then(() => {
+      state = { ...state, editingProgramList: false };
+      subject.next(state);
+      refreshProgramList();
+    });
+  },
+  uploadFile(file: File) {
+    state = { ...state, uploadingFile: true, uploadProgress: 0 };
+    subject.next({ ...state });
+    dataApi.uploadFile(file).then(() => {
+      state = { ...state, uploadingFile: false, uploadProgress: 0 };
+      subject.next({ ...state });
+      refreshDataList();
+    });
+  },
+  deleteData(dataId: string) {
+    state = { ...state, editingDataList: true };
+    subject.next(state);
+    dataApi.delete(dataId).then(() => {
+      state = { ...state, editingDataList: false };
+      subject.next(state);
+      refreshDataList();
+    });
   },
   getState: () => ({ ...state }),
 };

@@ -26,6 +26,18 @@ const save = async () => {
   }
 };
 
+// @see https://stackoverflow.com/questions/27936772/how-to-deep-merge-instead-of-shallow-merge
+export const merge = (objFrom: any, objTo: any) =>
+  Object.keys(objFrom).reduce(
+    (merged, key) => {
+      merged[key] =
+        objFrom[key] instanceof Object && !Array.isArray(objFrom[key])
+          ? merge(objFrom[key], merged[key] ?? {})
+          : objFrom[key];
+      return merged;
+    },
+    { ...objTo }
+  );
 let debounce: NodeJS.Timeout | null = null;
 // store
 export const store = {
@@ -72,14 +84,19 @@ export const store = {
       subject.next({ ...state });
     }
   },
-  updateOperator(operator: BaseOperator) {
+  updateOperator(operator: Partial<BaseOperator>) {
     if (state.program) {
       state = {
         ...state,
         program: {
           ...state.program,
           operators: state.program.operators.reduce(
-            (acc, op) => [...acc, op.id === operator.id ? { ...op, ...operator } : op],
+            (acc, op) => [
+              ...acc,
+              op.id === operator.id
+                ? { ...op, ...operator, metadata: merge(op.metadata ?? {}, operator.metadata ?? {}) }
+                : op,
+            ],
             []
           ),
         },

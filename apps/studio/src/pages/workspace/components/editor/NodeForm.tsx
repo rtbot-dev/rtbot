@@ -2,20 +2,34 @@ import { ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodString } from "zod";
 import "./nodeform.css";
 import { MdCheck, MdClose } from "react-icons/all";
 import React, { useState } from "react";
+import { CirclePicker } from "react-color";
 import editor from "@/store/editor";
+import { BaseOperator } from "../../../../store/editor/operator.schemas";
 
 type NodeFormProps = {
   id: string;
   schemas: ZodObject<any>[];
+  opDef: BaseOperator;
 };
 
 type NodeFormState = {
   schema: ZodObject<any> | null;
   parameters: any;
   formErrors: any;
+  more: boolean;
+  pickColor: boolean;
+  colorSelected: string;
 };
-export const NodeForm = ({ schemas, id }: NodeFormProps) => {
-  const [state, setState] = useState<NodeFormState>({ schema: null, parameters: {}, formErrors: {} });
+export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
+  const schema = schemas.filter((s) => s.shape.opType.value === opDef.opType)[0];
+  const [state, setState] = useState<NodeFormState>({
+    schema,
+    parameters: opDef.parameters ?? {},
+    formErrors: {},
+    more: false,
+    pickColor: false,
+    colorSelected: "rgb(233, 30, 99)",
+  });
 
   const setFormValue = (k: string, v: any) => {
     if (state.schema) {
@@ -48,7 +62,9 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
           Select operator
         </option>
         {schemas.map((s, k) => (
-          <option key={k}>{s.shape.title.value}</option>
+          <option key={k} selected={s.shape.opType.value === opDef.opType}>
+            {s.shape.title.value}
+          </option>
         ))}
       </select>
       {state.schema &&
@@ -61,6 +77,7 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
                   type="number"
                   className="input input-bordered node-form-input-number"
                   onChange={(event) => setFormValue(k, parseFloat(event.target.value))}
+                  value={opDef.parameters ? opDef.parameters[k] : null}
                 />
               );
               break;
@@ -70,9 +87,13 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
                   <option disabled selected>
                     Select
                   </option>
-                  {Object.entries(v.Values).map(([k, v], j) => (
-                    <option key={j} value={k}>
-                      {v}
+                  {Object.entries(v.Values).map(([k1, v1]) => (
+                    <option
+                      key={`${k}-${k1}`}
+                      value={v1 as string}
+                      selected={opDef.parameters ? v1 === opDef.parameters[k] : false}
+                    >
+                      {v1 as string}
                     </option>
                   ))}
                 </select>
@@ -90,7 +111,7 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
               return;
           }
           return (
-            <div key={i}>
+            <div key={`${opDef.id}-${i}`}>
               <label className="input-group node-form-label">
                 <span className="label-text">{k}</span>
                 {inputComponent}
@@ -99,11 +120,45 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
             </div>
           );
         })}
-
+      {state.schema && (
+        <>
+          <a className="options-btn" onClick={() => setState({ ...state, more: !state.more })}>
+            Options
+          </a>
+          {state.more && (
+            <div>
+              <label className="input-group node-form-label">
+                <span className="label-text">color</span>
+                <span
+                  className="select select-bordered"
+                  onClick={() => setState({ ...state, pickColor: !state.pickColor })}
+                >
+                  <div className="color-selected flex justify-center align-middle">
+                    <div
+                      className="color-selected-inner-div"
+                      style={{ boxShadow: `${state.colorSelected} 0px 0px 0px 15px inset` }}
+                    ></div>
+                  </div>
+                </span>
+              </label>
+              {state.pickColor && (
+                <div>
+                  <CirclePicker
+                    onChange={(e) =>
+                      setState({ ...state, pickColor: false, colorSelected: `rgb(${e.rgb.r}, ${e.rgb.g}, ${e.rgb.b})` })
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
       <div className="node-form-buttons">
         <button className="btn btn-circle" onClick={() => editor.editOperator(id, false)}>
           <MdClose />
         </button>
+        <div className="separator"></div>
         <button
           className="btn btn-circle"
           disabled={
@@ -115,6 +170,11 @@ export const NodeForm = ({ schemas, id }: NodeFormProps) => {
             if (state.schema) {
               const opDef = {
                 id,
+                metadata: {
+                  style: {
+                    color: state.colorSelected,
+                  },
+                },
                 title: state.schema.shape.title.value,
                 opType: state.schema.shape.opType.value,
                 parameters: { ...state.parameters },
