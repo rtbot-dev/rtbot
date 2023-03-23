@@ -1,0 +1,37 @@
+{
+  "title": "Moving average",
+  "description": "This is a program to detect peaks in PPG...",
+  "date": "now",
+  "version": "v1",
+  "author": "Someone <someone@gmail.com>",
+  "license": "MIT",
+  "entryNode": "ma1",
+  "optim": {
+    "algorithm": "Nelder-Mead"
+  },
+  "operators": [
+    {
+        "id": "i1",
+        "type": "Input"
+    },
+    {
+        "id": "ma1",
+        "type": "MovingAverage",
+        "n": 6
+    },
+    {
+        "id": "o1",
+        "type": "Output"
+    }
+  ],
+  "connections": [
+    {
+        "from": "i1",
+        "to": "ma1"
+    },
+    {
+        "from": "ma1",
+        "to": "o1"
+    }
+  ]
+}
