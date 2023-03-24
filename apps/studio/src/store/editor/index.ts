@@ -145,7 +145,7 @@ export const store = {
       subject.next({ ...state });
     }
   },
-  deleteOperator(operator: BaseOperator) {
+  deleteOperator(operator: { id: string }) {
     if (state.program) {
       state = {
         ...state,

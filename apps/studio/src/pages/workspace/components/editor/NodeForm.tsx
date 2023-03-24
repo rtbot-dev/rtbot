@@ -1,10 +1,11 @@
 import { ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodString } from "zod";
 import "./nodeform.css";
 import { MdCheck, MdClose } from "react-icons/all";
-import React, { useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { CirclePicker } from "react-color";
 import editor from "@/store/editor";
-import { BaseOperator } from "../../../../store/editor/operator.schemas";
+import { BaseOperator } from "@/store/editor/operator.schemas";
+import menu from "@/store/menu";
 
 type NodeFormProps = {
   id: string;
@@ -19,9 +20,14 @@ type NodeFormState = {
   more: boolean;
   pickColor: boolean;
   colorSelected: string;
+  source?: string;
 };
 export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
   const schema = schemas.filter((s) => s.shape.opType.value === opDef.opType)[0];
+  const [menuState, setMenuState] = useState(menu.getState());
+  useLayoutEffect(() => {
+    menu.subscribe(setMenuState);
+  }, []);
   const [state, setState] = useState<NodeFormState>({
     schema,
     parameters: opDef.parameters ?? {},
@@ -29,6 +35,7 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
     more: false,
     pickColor: false,
     colorSelected: "rgb(233, 30, 99)",
+    source: opDef.metadata.source,
   });
 
   const setFormValue = (k: string, v: any) => {
@@ -148,6 +155,33 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
                       setState({ ...state, pickColor: false, colorSelected: `rgb(${e.rgb.r}, ${e.rgb.g}, ${e.rgb.b})` })
                     }
                   />
+                </div>
+              )}
+              {opDef.opType === "INPUT" && (
+                <div>
+                  <label className="input-group node-form-label">
+                    <span className="label-text">source</span>
+                    <select
+                      className="select select-bordered"
+                      onChange={(event) => {
+                        setState({ ...state, source: event.target.value });
+                        editor.updateOperator({ id, metadata: { source: event.target.value } });
+                      }}
+                    >
+                      <option disabled selected>
+                        Select
+                      </option>
+                      {menuState.data.map((d, i) => (
+                        <option
+                          key={`${d.metadata.id}-${i}`}
+                          value={d.metadata.id}
+                          selected={d.metadata.id === state.source}
+                        >
+                          {d.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
               )}
             </div>

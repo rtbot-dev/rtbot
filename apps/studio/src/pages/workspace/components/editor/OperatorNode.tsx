@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./form.css";
-import { FaEdit, FaTrash } from "react-icons/all";
+import { FaChartLine, FaEdit, FaTrash } from "react-icons/all";
 import { operatorSchemaList } from "@/store/editor/operator.schemas";
 import { NodeForm } from "./NodeForm";
 import editor from "@/store/editor";
 import { BaseOperator } from "@/store/editor/operator.schemas";
+import { OperatorParameterValue } from "./OperatorParameterValue";
 
 export type OperatorNodeInput = {
   id: string;
@@ -15,13 +16,15 @@ export type OperatorNodeInput = {
 
 type State = {
   showMenu: boolean;
+  plot: boolean;
 };
 export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => {
   const { parameters, title, metadata } = data;
-  const formOpen = metadata!! ? metadata.editing : false;
+  const formOpen = metadata && typeof metadata.editing !== "undefined" ? metadata.editing : false;
 
   const [state, setState] = useState<State>({
     showMenu: false,
+    plot: metadata && typeof metadata.plot !== "undefined" ? metadata.plot : false,
   });
 
   return (
@@ -48,6 +51,15 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
               <button className="btn" onClick={() => editor.editOperator(id, true)}>
                 <FaEdit />
               </button>
+              <button
+                className={`btn ${state.plot ? "btn-active" : ""}`}
+                onClick={() => {
+                  editor.updateOperator({ id, metadata: { plot: !state.plot } });
+                  setState({ ...state, plot: !state.plot });
+                }}
+              >
+                <FaChartLine />
+              </button>
               <button className="btn" onClick={() => editor.deleteOperator({ id })}>
                 <FaTrash />
               </button>
@@ -71,9 +83,7 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
                 <>
                   <strong>style</strong>
                   {Object.entries(metadata.style).map(([k, v]) => (
-                    <div key={k}>
-                      {k}={v}
-                    </div>
+                    <OperatorParameterValue parameter={k} value={v as string} />
                   ))}
                 </>
               )}

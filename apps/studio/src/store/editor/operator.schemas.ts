@@ -50,6 +50,8 @@ export const metadataSchema = z.object({
     })
     .optional(),
   editing: z.boolean().optional(),
+  plot: z.boolean().optional(),
+  source: z.string().optional(),
 });
 
 export type Metadata = z.infer<typeof metadataSchema>;
