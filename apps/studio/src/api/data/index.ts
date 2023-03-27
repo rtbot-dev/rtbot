@@ -11,12 +11,13 @@ export interface Data {
   createdBy: string;
   createdAt: Date;
 }
-
 export interface DataApi {
   update(dataId: string, data: any): Promise<void>;
   list(): Promise<Data[]>;
   delete(dataId: string): Promise<void>;
   uploadFile(file: File): Promise<void>;
+  load(dataId: string): Promise<number[][]>;
+  clearCache(): Promise<void>;
 }
 
 export const dataApi: DataApi = new DataFirebaseApi();

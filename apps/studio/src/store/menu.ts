@@ -116,6 +116,11 @@ export const store = {
       refreshDataList();
     });
   },
+  loadData(dataId: string) {
+    dataApi.load(dataId).then(() => {
+      console.log("TODO: data loaded, update state");
+    });
+  },
   getState: () => ({ ...state }),
 };
 

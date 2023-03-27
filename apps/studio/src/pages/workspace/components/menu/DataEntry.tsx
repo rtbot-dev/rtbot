@@ -1,4 +1,4 @@
-import { IoMdTrash } from "react-icons/all";
+import { IoMdDownload, IoMdTrash } from "react-icons/all";
 import { format } from "date-fns";
 import { enGB } from "date-fns/locale";
 import { Data } from "@/store/editor/schemas";
@@ -41,7 +41,6 @@ export const DataEntry = (props: Data) => {
       className="flow-root w-full justify-center"
       onClick={() => {
         if (state.editing) return;
-        console.log("TODO: load data");
         menu.hide();
       }}
       onMouseEnter={() => setState({ ...state, showDeleteBtn: true })}
@@ -90,15 +89,25 @@ export const DataEntry = (props: Data) => {
       )}
       <div className="float-right">
         {state.showDeleteBtn && (
-          <button
-            className="btn btn-ghost btn-sm btn-circle"
-            onClick={(event) => {
-              event.stopPropagation();
-              menu.deleteData(props.metadata.id);
-            }}
-          >
-            <IoMdTrash />
-          </button>
+          <>
+            <button
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={(event) => {
+                menu.loadData(props.metadata.id);
+              }}
+            >
+              <IoMdDownload />
+            </button>
+            <button
+              className="btn btn-ghost btn-sm btn-circle"
+              onClick={(event) => {
+                event.stopPropagation();
+                menu.deleteData(props.metadata.id);
+              }}
+            >
+              <IoMdTrash />
+            </button>
+          </>
         )}
       </div>
     </div>

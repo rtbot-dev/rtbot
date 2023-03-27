@@ -1,5 +1,14 @@
 import { Data, DataApi, DataMetadata } from "./index";
-import { getStorage, ref, uploadBytesResumable, getDownloadURL, FirebaseStorage, deleteObject } from "firebase/storage";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  FirebaseStorage,
+  deleteObject,
+  getBlob,
+  getStream,
+} from "firebase/storage";
 import { User } from "firebase/auth";
 import menu from "@/store/menu";
 import auth from "@/store/auth";
@@ -25,6 +34,7 @@ export class DataFirebaseApi implements DataApi {
   private user: User | null = null;
   private readonly storage: FirebaseStorage;
   private readonly firestore;
+  private readonly dataCache: { [key: string]: number[][] } = {};
   constructor() {
     this.storage = getStorage(app);
     this.firestore = getFirestore(app);
@@ -170,5 +180,55 @@ export class DataFirebaseApi implements DataApi {
     } catch (e) {
       console.error("Error deleting data: ", e);
     }
+  }
+
+  async load(dataId: string): Promise<number[][]> {
+    if (this.dataCache[dataId]) {
+      console.log("Using cached version of data", dataId);
+      return this.dataCache[dataId];
+    }
+
+    if (this.user === null) {
+      console.error("Load data: user is not authenticated");
+      return [];
+    }
+
+    try {
+      // get the pathRef associated to the data id
+      const dbRef = await getDoc(doc(this.firestore, `data/${dataId}`));
+      const { pathRef } = dbRef.data() as any;
+      // delete the actual file
+      const csvBlob = await getBlob(ref(this.storage, pathRef));
+
+      const data: number[][] = await new Promise(async (resolve, reject) => {
+        Papa.parse(await csvBlob.text(), {
+          worker: true,
+          complete(result: ParseResult<string[]>) {
+            // parse the result with the expected format for the columns:
+            // first colum is an integer representing the timestamp
+            // and remaining ones are considered numeric columns
+            const numeric = result.data
+              .filter((r: string[]) => !isNaN(r[0] as any) && r.length > 1)
+              .map((r) => [parseInt(r[0]), ...r.slice(1).map((v) => parseFloat(v))]);
+            resolve(numeric);
+          },
+          error(error: Error) {
+            reject(error);
+          },
+        });
+      });
+      this.dataCache[dataId] = data;
+      console.log("Data downloaded and cached", dataId, data);
+      return data;
+    } catch (e) {
+      console.error("Error deleting data: ", e);
+    }
+
+    return Promise.resolve([]);
+  }
+
+  async clearCache() {
+    console.log("Clearing local data cache");
+    Object.keys(this.dataCache).forEach((k) => delete this.dataCache[k]);
   }
 }
