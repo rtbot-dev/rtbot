@@ -31,7 +31,7 @@ template<class T, class Out> struct Output : public Operator<T>
         : Operator<T>(id_), out(&out_) {}
 
     string typeName() const override { return "Output"; }
-    void receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { out->push_back(msg); }
+    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { out->push_back(msg); return this->emit(msg); }
 };
 
 
@@ -41,15 +41,17 @@ using Output_os=Output<double, std::ostream>;
 
 
 template<>
-inline void Output_os::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,Message<>> Output_os::receive(Message<> const &msg, const Operator<> *sender)
 {
     (*out)<<id<<" "<<msg<<"\n";
+    return emit(msg);
 }
 
 template<>
-inline void Output_opt::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,Message<>> Output_opt::receive(Message<> const &msg, const Operator<> *sender)
 {
     *out=msg;
+    return emit(msg);
 }
 
 } // end namespace rtbot

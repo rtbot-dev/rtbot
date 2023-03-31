@@ -16,10 +16,11 @@ struct FilterByValue: public Operator<T>
         , filter(filter_)
     {}
 
-    void receive(Message<T> const& msg, const Operator<T> *) override
+    map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *) override
     {
         if (all_of(msg.value.begin(), msg.value.end(), filter) )
-            this->emit(msg);
+            return this->emit(msg);
+        return {};
     }
 };
 }

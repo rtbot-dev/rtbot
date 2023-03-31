@@ -31,7 +31,7 @@ public:
 
     void addSender(const Operator<T> *sender) override { data[sender]; }
 
-    void receive(Message<T> const &msg, const Operator<T> *sender) override
+    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender) override
     {
         // add the incoming message to the correct channel
         data.at(sender).push(msg);
@@ -50,7 +50,8 @@ public:
                 all_ready = false;
 
         if (all_ready)
-            processData(makeMessage());
+            return processData(makeMessage());
+        return {};
     }
 
 
@@ -58,7 +59,7 @@ public:
      *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
      *  It is responsible to emit().
      */
-    virtual void processData(Message<T> const &msg) { this->emit(msg); };
+    virtual map<string,Message<T>> processData(Message<T> const &msg) { return this->emit(msg); };
 
 private:
     // build a message by concatenating all channels front() data. Remove the used data.
@@ -86,9 +87,9 @@ struct Difference: public Join<double>
 
     string typeName() const override { return "Difference"; }
 
-    void processData(Message<double> const &msg) override
+    map<string,Message<>> processData(Message<double> const &msg) override
     {
-        emit(Message<>(msg.time, msg.value.at(1)-msg.value.at(0)));
+        return emit(Message<>(msg.time, msg.value.at(1)-msg.value.at(0)));
     }
 };
 

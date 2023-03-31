@@ -15,7 +15,7 @@ struct MovingAverage: public Buffer<double>
 
     string typeName() const override { return "MovingAverage"; }
 
-    void processData() override
+    map<string,Message<>> processData() override
     {
         Message<> out;
         out.time=at(size()/2).time;
@@ -23,7 +23,7 @@ struct MovingAverage: public Buffer<double>
         for(auto const& x : (*this))
             for(auto j=0u; j<x.value.size(); j++)
                 out.value[j] += x.value[j]/size();
-        emit(out);
+        return emit(out);
     }
 
 };

@@ -36,6 +36,9 @@ struct Pipeline {
         input->receive(msg);
         return {out};
     }
+
+    /// return a list of the operator that emit: id, output message
+    map<string,Message<>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
 };
 
 }

@@ -18,6 +18,7 @@ using std::vector;
 using std::function;
 using std::map;
 using std::unique_ptr;
+using std::optional;
 
 
 /**
@@ -48,7 +49,7 @@ public:
 
   virtual string typeName() const = 0;
 
-   /**
+  /**
    * Receives a message emitted from another operator. This method should be
    * implemented in concrete realizations of the `Operator` class. Here is where
    * the main logic of the operator is defined.
@@ -57,18 +58,23 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual void receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+  virtual map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
   {
       auto out=msg;
       if (f)
           std::transform(msg.value.begin(), msg.value.end(),
                          out.value.begin(),f);
-      emit(out);
+      return emit(out);
   }
 
-  void emit(Message<T> const& msg) const {
-    for (auto x : children)
-      x->receive(msg,this);
+  map<string,Message<T>> emit(Message<T> const& msg) const {
+      map<string,Message<T>> out={{id,msg}};
+      for (auto x : children) {
+          auto outi=x->receive(msg,this);
+          for(const auto& it : outi)
+              out.emplace(it);
+      }
+      return out;
   }
 
   friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
@@ -94,7 +100,7 @@ struct Input: public Operator<T>
     using Operator<T>::Operator;
 
     string typeName() const override { return "Input"; }
-    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { if (int64_t(msg.time)<=t0) return; t0=msg.time; this->emit(msg); }
+    map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { if (int64_t(msg.time)<=t0) return {}; t0=msg.time; return this->emit(msg); }
 
 private:
     std::int64_t t0 = std::numeric_limits<int64_t>::lowest();
