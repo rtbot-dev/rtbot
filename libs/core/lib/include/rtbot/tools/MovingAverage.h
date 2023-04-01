@@ -1,15 +1,21 @@
 #ifndef MOVINGAVERAGE_H
 #define MOVINGAVERAGE_H
 
-#include"Buffer.h"
+#include"rtbot/Buffer.h"
 
 namespace rtbot {
 
 struct MovingAverage: public Buffer<double>
 {
-    using Buffer<double>::Buffer;
+    MovingAverage()=default;
 
-    void processData() override
+    MovingAverage(string const &id_,int n_)
+        : Buffer<double>(id_, n_)
+    {}
+
+    string typeName() const override { return "MovingAverage"; }
+
+    map<string,Message<>> processData() override
     {
         Message<> out;
         out.time=at(size()/2).time;
@@ -17,7 +23,7 @@ struct MovingAverage: public Buffer<double>
         for(auto const& x : (*this))
             for(auto j=0u; j<x.value.size(); j++)
                 out.value[j] += x.value[j]/size();
-        emit(out);
+        return emit(out);
     }
 
 };

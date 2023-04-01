@@ -1,7 +1,7 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
-#include "rtbot/PeakDetector.h"
+#include "rtbot/tools/PeakDetector.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 
@@ -13,7 +13,7 @@ TEST_CASE("Join peak and value")
 {
     auto i1 = Input<double>("i1");
     auto peak = PeakDetector("b1", 3);
-    auto o1 = Output<double>("o1");
+    auto o1 = Output_os("o1",std::cout);
     auto join = Join<double>("j1");
 
     i1 | peak | join | o1 ;

@@ -6,6 +6,8 @@
 #include <functional>
 #include <iostream>
 #include <fstream>
+#include <variant>
+#include <optional>
 
 namespace rtbot {
 
@@ -20,30 +22,37 @@ std::ostream& operator<<(std::ostream& out, Message<T> const& msg)
     return out;
 }
 
-template <class T> class Output : public Operator<T> {
-public:
-    function<void(Message<T>)> callback;
+template<class T, class Out> struct Output : public Operator<T>
+{
+    Out* out=nullptr;
 
-    Output(string const &id_, function<void(Message<T>)> callback_)
-        : Operator<T>(id_), callback(callback_) {}
+    Output()=default;
+    Output(string const &id_, Out& out_)
+        : Operator<T>(id_), out(&out_) {}
 
-    Output(string const &id_, std::ostream &out=std::cout)
-        :Output<T>(id_, makeCallback(id_,out))
-    {}
-
-    Output(string const &id, string const& filename): Output<T>(id, out) { out.open(filename); }
-
-    void receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { callback(msg); }
-
-private:
-    std::ofstream out; //< used just in case the output goes to a file
-
-    static function<void(Message<T>)> makeCallback(string const &id,std::ostream& out)
-    {
-        return [id,&out](Message<T> const &msg) { out<<id<<" "<<msg<<"\n"; };
-    }
-
+    string typeName() const override { return "Output"; }
+    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { out->push_back(msg); return this->emit(msg); }
 };
+
+
+using Output_vec=Output<double, std::vector<Message<>>>;
+using Output_opt=Output<double, std::optional<Message<>>>;
+using Output_os=Output<double, std::ostream>;
+
+
+template<>
+inline map<string,Message<>> Output_os::receive(Message<> const &msg, const Operator<> *sender)
+{
+    (*out)<<id<<" "<<msg<<"\n";
+    return emit(msg);
+}
+
+template<>
+inline map<string,Message<>> Output_opt::receive(Message<> const &msg, const Operator<> *sender)
+{
+    *out=msg;
+    return emit(msg);
+}
 
 } // end namespace rtbot
 
