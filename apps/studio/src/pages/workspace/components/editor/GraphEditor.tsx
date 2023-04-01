@@ -6,6 +6,7 @@ import "reactflow/dist/style.css";
 import "./reactflow.css";
 import { OperatorNode } from "./OperatorNode";
 import editor from "@/store/editor";
+import { RunBtn } from "./RunBtn";
 
 const getNode = ({ x, y }: XYPosition) => {
   const id = nanoid(4);
@@ -103,6 +104,7 @@ const AddNodeOnEdgeDrop = () => {
 
   return (
     <div className="wrapper" ref={reactFlowWrapper}>
+      <RunBtn />
       <ReactFlow
         nodes={nodes}
         edges={edges}

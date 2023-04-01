@@ -1,6 +1,5 @@
 import { z } from "zod";
-import zodToJsonSchema from "zod-to-json-schema";
-import { operatorSchema } from "./operator.schemas";
+import { baseOperatorSchema } from "./operator.schemas";
 
 export const connectionSchema = z.object({
   from: z.string(),
@@ -23,7 +22,8 @@ export const programMetadataSchema = z.object({
 export const programSchema = z.object({
   metadata: programMetadataSchema.optional(),
   entryNode: z.string().optional(),
-  operators: z.array(operatorSchema),
+  operators: z.array(baseOperatorSchema),
   connections: z.array(connectionSchema),
 });
+
 export type Program = z.infer<typeof programSchema>;

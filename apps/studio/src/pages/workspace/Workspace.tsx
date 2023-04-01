@@ -5,23 +5,24 @@ import { ProgramEditor } from "./components/editor/ProgramEditor";
 import { GraphEditor } from "./components/editor/GraphEditor";
 import { SideMenu } from "./components/menu/SideMenu";
 import { NavBar } from "./components/top/NavBar";
+import { Chart } from "./components/plot/Chart";
 
 export const Workspace = authenticated(() => (
   <div>
     <NavBar />
     <SideMenu>
-      <div className="w-full flex justify-center">
+      <div className="w-full ">
         <div
           className="resize overflow-auto text-sm p-2 ring-1 ring-slate-900/10 shadow-sm dark:bg-slate-800 dark:ring-0 dark:highlight-white/5"
-          style={{ height: "90vh", width: "100%", margin: "10px" }}
+          style={{ height: "40vh", width: "99%", margin: "10px" }}
         >
-          <GraphEditor />
+          <Chart />
         </div>
         <div
           className="resize overflow-auto text-sm p-2 ring-1 ring-slate-900/10 shadow-sm dark:bg-slate-800 dark:ring-0 dark:highlight-white/5"
-          style={{ height: "90vh", width: "100vh", margin: "10px" }}
+          style={{ height: "45vh", width: "99%", margin: "10px" }}
         >
-          <ProgramEditor />
+          <GraphEditor />
         </div>
       </div>
     </SideMenu>

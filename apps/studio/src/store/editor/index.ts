@@ -1,7 +1,10 @@
 import { Subject } from "rxjs";
 import { Program } from "./schemas";
-import { BaseOperator } from "./operator.schemas";
+import { BaseOperator, baseOperatorSchema } from "./operator.schemas";
 import { programApi } from "../../api/program";
+import { partialUtil } from "zod/lib/helpers/partialUtil";
+import DeepPartial = partialUtil.DeepPartial;
+import { z } from "zod";
 
 const subject = new Subject<IEditorState>();
 
@@ -91,10 +94,10 @@ export const store = {
         program: {
           ...state.program,
           operators: state.program.operators.reduce(
-            (acc, op) => [
+            (acc: BaseOperator[], op: BaseOperator) => [
               ...acc,
               op.id === operator.id
-                ? { ...op, ...operator, metadata: merge(op.metadata ?? {}, operator.metadata ?? {}) }
+                ? { ...op, ...operator, metadata: merge(operator.metadata ?? {}, op.metadata ?? {}) }
                 : op,
             ],
             []
@@ -113,7 +116,7 @@ export const store = {
         program: {
           ...state.program,
           operators: state.program.operators.reduce(
-            (acc, op) => [
+            (acc: BaseOperator[], op: BaseOperator) => [
               ...acc,
               op.id === operatorId
                 ? {

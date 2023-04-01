@@ -55,7 +55,7 @@ export const metadataSchema = z.object({
 });
 
 export type Metadata = z.infer<typeof metadataSchema>;
-const baseOperatorSchema = z.object({
+export const baseOperatorSchema = z.object({
   id: z.string(),
   title: z.string(),
   opType: z.string(),
