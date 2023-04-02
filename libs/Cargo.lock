@@ -1504,6 +1504,10 @@ dependencies = [
 [[package]]
 name = "rtbot-rs"
 version = "0.1.0"
+dependencies = [
+ "nanoid",
+ "thiserror",
+]
 
 [[package]]
 name = "rtbot-server"

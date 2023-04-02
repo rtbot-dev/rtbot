@@ -1,29 +1,12 @@
 import React, { useState } from "react";
 import { Handle, Position } from "reactflow";
-import { withTheme, ThemeProps } from "@rjsf/core";
-import { TitleFieldProps, WidgetProps } from "@rjsf/utils";
 import "./form.css";
-import { FaEdit, FaTrash } from "react-icons/all";
+import { FaChartLine, FaEdit, FaTrash } from "react-icons/all";
 import { operatorSchemaList } from "@/store/editor/operator.schemas";
 import { NodeForm } from "./NodeForm";
 import editor from "@/store/editor";
 import { BaseOperator } from "@/store/editor/operator.schemas";
-
-function OperatorTitleTemplate(props: TitleFieldProps) {
-  //we don't want the title to be shown
-  return <></>;
-}
-function OperatorBaseInputTemplate(props: WidgetProps) {
-  return "";
-}
-
-const theme: ThemeProps = {
-  templates: {
-    TitleFieldTemplate: OperatorTitleTemplate,
-    //BaseInputTemplate: OperatorBaseInputTemplate,
-  },
-};
-const ThemedForm = withTheme(theme);
+import { OperatorParameterValue } from "./OperatorParameterValue";
 
 export type OperatorNodeInput = {
   id: string;
@@ -33,13 +16,15 @@ export type OperatorNodeInput = {
 
 type State = {
   showMenu: boolean;
+  plot: boolean;
 };
 export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => {
   const { parameters, title, metadata } = data;
-  const formOpen = metadata!! ? metadata.editing : false;
+  const formOpen = metadata && typeof metadata.editing !== "undefined" ? metadata.editing : false;
 
   const [state, setState] = useState<State>({
     showMenu: false,
+    plot: metadata && typeof metadata.plot !== "undefined" ? metadata.plot : false,
   });
 
   return (
@@ -53,7 +38,7 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
       />
       {formOpen ? (
         <div className="card bg-base-100 shadow-xl form-card">
-          <NodeForm schemas={operatorSchemaList} id={id} />
+          <NodeForm schemas={operatorSchemaList} id={id} opDef={data} />
         </div>
       ) : (
         <div
@@ -65,6 +50,15 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
             <div className="btn-group node-menu">
               <button className="btn" onClick={() => editor.editOperator(id, true)}>
                 <FaEdit />
+              </button>
+              <button
+                className={`btn ${state.plot ? "btn-active" : ""}`}
+                onClick={() => {
+                  editor.updateOperator({ id, metadata: { plot: !state.plot } });
+                  setState({ ...state, plot: !state.plot });
+                }}
+              >
+                <FaChartLine />
               </button>
               <button className="btn" onClick={() => editor.deleteOperator({ id })}>
                 <FaTrash />
@@ -81,6 +75,15 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
                     <div key={k}>
                       {k}={parameters[k]}
                     </div>
+                  ))}
+                </>
+              )}
+              {metadata.style && (
+                // show the style data
+                <>
+                  <strong>style</strong>
+                  {Object.entries(metadata.style).map(([k, v]) => (
+                    <OperatorParameterValue parameter={k} value={v as string} />
                   ))}
                 </>
               )}

@@ -42,12 +42,20 @@ export const metadataSchema = z.object({
       y: z.number().default(0).optional(),
     })
     .optional(),
-  style: z.any().optional(),
+  style: z
+    .object({
+      color: z.string().optional(),
+      lineType: z.string().optional(),
+      lineWidth: z.number().optional(),
+    })
+    .optional(),
   editing: z.boolean().optional(),
+  plot: z.boolean().optional(),
+  source: z.string().optional(),
 });
 
 export type Metadata = z.infer<typeof metadataSchema>;
-const baseOperatorSchema = z.object({
+export const baseOperatorSchema = z.object({
   id: z.string(),
   title: z.string(),
   opType: z.string(),

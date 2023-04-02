@@ -8,6 +8,7 @@ import {
 } from "firebase/auth";
 import authStore from "@/store/auth";
 import errorStore from "@/store/error";
+import { programApi } from "./program";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCqB0uKOBnMh85SgneXjLid9aOsCQmDnqU",
@@ -22,8 +23,7 @@ const firebaseConfig = {
 export const app = initializeApp(firebaseConfig);
 
 const auth = getAuth(app);
-auth.onAuthStateChanged((user) => {
-  console.log("auth state changed", user);
+auth.onAuthStateChanged(async (user) => {
   authStore.setUser(user);
 });
 

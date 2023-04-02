@@ -1,0 +1,19 @@
+.program-entry-created-at {
+    font-size: xx-small;
+    font-weight: lighter;
+}
+
+.program-title-edit-btn {
+    font-size: x-small;
+    padding-left: 10px;
+}
+
+.data-entry-created-at {
+    font-size: xx-small;
+    font-weight: lighter;
+}
+
+.data-title-edit-btn {
+    font-size: x-small;
+    padding-left: 10px;
+}
