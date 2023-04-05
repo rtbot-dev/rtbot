@@ -157,7 +157,7 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
                   />
                 </div>
               )}
-              {opDef.opType === "INPUT" && (
+              {opDef.opType === "Input" && (
                 <div>
                   <label className="input-group node-form-label">
                     <span className="label-text">source</span>

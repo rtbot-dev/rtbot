@@ -1,10 +1,7 @@
 import { Subject } from "rxjs";
 import { Program } from "./schemas";
-import { BaseOperator, baseOperatorSchema } from "./operator.schemas";
+import { BaseOperator } from "./operator.schemas";
 import { programApi } from "../../api/program";
-import { partialUtil } from "zod/lib/helpers/partialUtil";
-import DeepPartial = partialUtil.DeepPartial;
-import { z } from "zod";
 
 const subject = new Subject<IEditorState>();
 

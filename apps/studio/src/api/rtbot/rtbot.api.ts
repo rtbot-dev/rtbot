@@ -8,7 +8,7 @@ export const rtbotApi = {
     const data = await dataApi.load(dataId);
     // TODO: run this using web workers
     const rtbotRun = new RtBotRun(program, data);
-    rtbotRun.run();
+    await rtbotRun.run();
     const outputs = rtbotRun.getOutputs();
     console.log("rtbot api outputs", outputs);
     return outputs;

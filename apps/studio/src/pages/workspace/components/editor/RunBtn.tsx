@@ -13,7 +13,7 @@ export const RunBtn = () => {
 
   let input: BaseOperator | null = null;
   if (editorState.program) {
-    const inputs = editorState.program.operators.filter((op) => op.opType === "INPUT");
+    const inputs = editorState.program.operators.filter((op) => op.opType === "Input");
     if (inputs.length > 0) {
       if (inputs.length > 1) {
         console.log("More than 1 input found, we currently support max 1, using the first one found");
