@@ -12,6 +12,11 @@ ts_config(
 )
 
 npm_link_package(
+    name = "node_modules/@rtbot/core",
+    src = "//libs/core/lib:js",
+)
+
+npm_link_package(
     name = "node_modules/@rtbot/postgres",
     src = "//libs/postgres:js",
 )
