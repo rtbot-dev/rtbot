@@ -35,7 +35,13 @@ template <class T> class Operator;
 template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
 
 template <class T=double> class Operator {
-    vector<Operator<T> *> children;
+    struct Connection {
+        Operator<T> *dest;
+        int fromPort=0;
+        int toPort=0;
+    };
+
+    vector<Connection> children;
 
 public:
 
@@ -58,7 +64,7 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+  virtual map<string,Message<T>> receive(Message<T> const& msg, int port=0)
   {
       auto out=msg;
       if (f)
@@ -77,11 +83,11 @@ public:
       return out;
   }
 
-  friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
+  friend void connect(Operator<T>* from, const Operator<T>* to,
+                      int fromPort=0, int toPort=0) { from->addChildren(to,fromPort,toPort); }
 
 protected:
-  virtual void addChildren(Operator<T>* child) { children.push_back(child); }
-  virtual void addSender(const Operator<T>*) { }
+  virtual void addChildren(Operator<T>* child, int fromPort=0, int toPort=0) { children.push_back(child); }
 };
 
 template<class T>

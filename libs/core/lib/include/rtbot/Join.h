@@ -22,19 +22,20 @@ namespace rtbot {
 template<class T=double>
 class Join : public Operator<T>
 {
-    std::unordered_map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
+    vector<std::queue<Message<T>>> data; //< the waiting Messages for each port
+    std::unordered_map<Operator<T> *, int> port; //< to what port put the incoming message
 public:
     using Operator<T>::Operator;
     virtual ~Join()=default;
 
     virtual string typeName() const override { return "Join"; }
 
-    void addSender(const Operator<T> *sender) override { data[sender]; }
+    void addSender(const Operator<T> *sender) override { port[sender]=data.size(); data.push_back({}); }
 
     map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender) override
     {
         // add the incoming message to the correct channel
-        data.at(sender).push(msg);
+        data.at(port.at(sender)).push(msg);
 
         // remove old messages
         for (auto &x : data) {
