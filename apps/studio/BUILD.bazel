@@ -24,7 +24,13 @@ genrule(
 copy_file(
     name = "public-wasm",
     src = "@rtbot//libs/core/lib:rtbot-wasm/bindings-cpp-wasm.wasm",
-    out = "public/bindings-cpp-wasm.wasm",
+    out = "public/src/api/rtbot/bindings-cpp-wasm.wasm",
+)
+
+copy_file(
+    name = "public-wasm-release",
+    src = "@rtbot//libs/core/lib:rtbot-wasm/bindings-cpp-wasm.wasm",
+    out = "public/assets/bindings-cpp-wasm.wasm",
 )
 
 # npm package for wasm code
@@ -66,6 +72,7 @@ _DEPS = glob([
     "tsconfig.node.json",
 ] + [
     "//:node_modules/@rtbot/core",
+    "//:node_modules/comlink",
     "//:node_modules/daisyui",
     "//:node_modules/react",
     "//:node_modules/react-icons",
@@ -107,4 +114,11 @@ bin.vite_binary(
     chdir = package_name(),
     data = _DEPS,
     tags = ["ibazel_notify_changes"],
+)
+
+bin.vite_binary(
+    name = "build",
+    args = ["build"],
+    chdir = package_name(),
+    data = _DEPS + ["public-wasm-release"],
 )
