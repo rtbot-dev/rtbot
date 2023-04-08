@@ -2,7 +2,7 @@ workspace(name = "apps")
 
 local_repository(
     name = "rtbot",
-    path = "../../",
+    path = "../../../",
 )
 
 load("@rtbot//:deps.bzl", "deps")
