@@ -108,10 +108,15 @@ js_run_devserver(
     tags = ["ibazel_notify_changes"],
 )
 
+# TODO: for some reason this doesn't work as
+# for instance ":dev" target: it complains about
+# firebase app component not being registered
 bin.vite_binary(
     name = "run",
-    args = ["--host"],
-    chdir = package_name(),
+    args = [
+        "--host",
+    ],
+    #chdir = package_name(),
     data = _DEPS,
     tags = ["ibazel_notify_changes"],
 )
