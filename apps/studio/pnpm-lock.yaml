@@ -16,6 +16,7 @@ specifiers:
   date-fns: ^2.29.3
   firebase: ^9.15.0
   firebase-tools: ^11.20.0
+  lottie-react: ^2.4.0
   monaco-editor: ^0.35.0
   nanoid: ^4.0.1
   papaparse: ^5.4.0
@@ -48,6 +49,7 @@ dependencies:
   date-fns: 2.29.3
   firebase: 9.15.0
   firebase-tools: 11.20.0
+  lottie-react: 2.4.0_biqbaboplfbrettd7655fr4n2y
   monaco-editor: 0.35.0
   nanoid: 4.0.1
   papaparse: 5.4.0
@@ -5051,6 +5053,21 @@ packages:
     hasBin: true
     dependencies:
       js-tokens: 4.0.0
+    dev: false
+
+  /lottie-react/2.4.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-pDJGj+AQlnlyHvOHFK7vLdsDcvbuqvwPZdMlJ360wrzGFurXeKPr8SiRCjLf3LrNYKANQtSsh5dz9UYQHuqx4w==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0
+    dependencies:
+      lottie-web: 5.10.2
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+    dev: false
+
+  /lottie-web/5.10.2:
+    resolution: {integrity: sha512-d0PFIGiwuMsJYaF4uPo+qG8dEorlI+xFI2zrrFtE1bGO4WoLIz+NjremxEq1swpR7juR10aeOtmNh3d6G3ub0A==}
     dev: false
 
   /lowercase-keys/1.0.1:

@@ -1,7 +1,8 @@
 import Plot from "react-plotly.js";
 import React, { useLayoutEffect, useRef, useState } from "react";
 import plot from "@/store/plot";
-
+import Lottie from "lottie-react";
+import computingAnimation from "./calculator.json";
 export function Chart() {
   const ref = useRef<any>(null);
   const [width, setWidth] = useState(0);
@@ -18,7 +19,7 @@ export function Chart() {
   });
   return (
     <div ref={ref} style={{ height: "inherit", width: "inherit" }}>
-      {plotState.data.length > 0 ? (
+      {plotState.data.length > 0 && !plotState.computing ? (
         <Plot
           data={plotState.data}
           layout={{
@@ -32,8 +33,10 @@ export function Chart() {
           }}
           config={{ autosizable: true }}
         />
+      ) : plotState.computing ? (
+        <Lottie animationData={computingAnimation} style={{ height: "50%" }} />
       ) : (
-        <div>nothing to plot</div>
+        <div>Nothing to show</div>
       )}
     </div>
   );

@@ -79,6 +79,7 @@ _DEPS = glob([
     "//:node_modules/react-router-dom",
     "//:node_modules/firebase",
     "//:node_modules/firebase-tools",
+    "//:node_modules/lottie-react",
     "//:node_modules/rxjs",
     "//:node_modules/tailwindcss",
     "//:node_modules/autoprefixer",

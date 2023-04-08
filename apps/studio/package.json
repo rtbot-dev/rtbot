@@ -20,6 +20,7 @@
     "date-fns": "^2.29.3",
     "firebase": "^9.15.0",
     "firebase-tools": "^11.20.0",
+    "lottie-react": "^2.4.0",
     "monaco-editor": "^0.35.0",
     "nanoid": "^4.0.1",
     "papaparse": "^5.4.0",
