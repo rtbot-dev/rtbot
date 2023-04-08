@@ -7,8 +7,10 @@ import { Program } from "@/store/editor/schemas";
 import plot from "@/store/plot";
 export const RunBtn = () => {
   const [editorState, setEditorState] = useState(editor.getState());
+  const [plotState, setPlotState] = useState(plot.getState());
   useLayoutEffect(() => {
     editor.subscribe(setEditorState);
+    plot.subscribe(setPlotState);
   }, []);
 
   let input: BaseOperator | null = null;
@@ -24,7 +26,7 @@ export const RunBtn = () => {
     }
   }
 
-  const disabled = input === null;
+  const disabled = input === null || plotState.computing;
 
   return (
     <button
