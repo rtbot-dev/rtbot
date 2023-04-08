@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "dist",
+    "public": "dist/bin/build.sh.runfiles/apps/dist",
     "ignore": [
       "firebase.json",
       "**/.*",

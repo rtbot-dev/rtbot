@@ -1,27 +1,13 @@
 workspace(name = "apps")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "aspect_rules_js",
-    sha256 = "c4a5766a45dff25b2eb1789d7a2decfda81b281fc88350d24687620c37fefb25",
-    strip_prefix = "rules_js-1.14.0",
-    url = "https://github.com/aspect-build/rules_js/archive/refs/tags/v1.14.0.tar.gz",
+local_repository(
+    name = "rtbot",
+    path = "../../",
 )
 
-http_archive(
-    name = "aspect_rules_ts",
-    sha256 = "e81f37c4fe014fc83229e619360d51bfd6cb8ac405a7e8018b4a362efa79d000",
-    strip_prefix = "rules_ts-1.0.4",
-    url = "https://github.com/aspect-build/rules_ts/archive/refs/tags/v1.0.4.tar.gz",
-)
+load("@rtbot//:deps.bzl", "deps")
 
-http_archive(
-    name = "aspect_rules_jest",
-    sha256 = "b5bf5f740da458fc3199264be6ef7acb74ddbdc30b4a7f75503e5e164e6c1781",
-    strip_prefix = "rules_jest-0.14.0",
-    url = "https://github.com/aspect-build/rules_jest/archive/refs/tags/v0.14.0.tar.gz",
-)
+deps()
 
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
 
@@ -66,3 +52,16 @@ npm_translate_lock(
 load("@npm//:repositories.bzl", "npm_repositories")
 
 npm_repositories()
+
+# emscripten
+load("@emsdk//:deps.bzl", emsdk_deps = "deps")
+
+emsdk_deps()
+
+load("@emsdk//:emscripten_deps.bzl", emsdk_emscripten_deps = "emscripten_deps")
+
+emsdk_emscripten_deps()
+
+load("@emsdk//:toolchains.bzl", "register_emscripten_toolchains")
+
+register_emscripten_toolchains()

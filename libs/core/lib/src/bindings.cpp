@@ -26,8 +26,10 @@ std::vector<std::optional<rtbot::Message<>>> receiveMessageInPipeline(const std:
     return factory.receiveMessageInPipeline(id,msg);
 }
 
-std::string receiveMessageInPipelineDebug(std::string const& id, rtbot::Message<> const& msg)
+std::string receiveMessageInPipelineDebug(std::string const& id, unsigned long time, std::vector<double> value)
 {
-    auto result = factory.receiveMessageInPipelineDebug(id,msg);
-    return nlohmann::json(result).dump();
+  rtbot::Message msg = rtbot::Message<>(time, value);
+
+  auto result = factory.receiveMessageInPipelineDebug(id, msg);
+  return nlohmann::json(result).dump();
 }

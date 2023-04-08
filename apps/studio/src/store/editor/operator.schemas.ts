@@ -10,16 +10,16 @@ export type Parameter = z.infer<typeof parameterSchema>;
 
 export const movingAverageSchema = z.object({
   title: z.literal("Moving Average"), // this will appear in the form
-  opType: z.literal("MOVING_AVERAGE"),
+  opType: z.literal("MovingAverage"),
   parameters: z.object({
-    MBackWindow: z.number().min(0),
-    NForwardWindow: z.number().min(0),
+    n: z.number().min(0),
+    m: z.number().min(0),
   }),
 });
 
 export const standardDeviationSchema = z.object({
   title: z.literal("Standard Deviation"), // this will appear in the form
-  opType: z.literal("STANDARD_DEVIATION"),
+  opType: z.literal("StandardDeviation"),
   parameters: z.object({
     M: z.number().min(0),
     N: z.number().min(0),
@@ -28,7 +28,7 @@ export const standardDeviationSchema = z.object({
 
 export const inputSchema = z.object({
   title: z.literal("Input"),
-  opType: z.literal("INPUT"),
+  opType: z.literal("Input"),
   parameters: z.object({
     resampler: z.enum(["None", "Hermite", "Chebyshev"]),
     sameTimestampInEntryPolicy: z.enum(["Ignore", "Forward"]),

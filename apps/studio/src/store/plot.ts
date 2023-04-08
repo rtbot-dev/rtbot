@@ -6,9 +6,16 @@ import { rtbotApi } from "@/api/rtbot/rtbot.api";
 
 const subject = new Subject<IPlotState>();
 
-export interface IPlotState extends Figure {}
+export interface IPlotState extends Figure {
+  computing: boolean;
+}
 
-export const initialState: IPlotState = { data: [], frames: null, layout: {} };
+export const initialState: IPlotState = {
+  computing: false,
+  data: [],
+  frames: null,
+  layout: {},
+};
 
 let state = initialState;
 
@@ -22,6 +29,8 @@ export const store = {
   subscribe: (setState: (value: IPlotState) => void) => subject.subscribe(setState),
   run(program: Program, dataId: string) {
     console.log("Running program");
+    state = { ...state, computing: true };
+    subject.next(state);
     rtbotApi
       .run(program, dataId)
       .then((outputs) => {
@@ -47,6 +56,7 @@ export const store = {
           });
         });
         state = {
+          computing: false,
           data,
           frames: null,
           layout: { title: `${program.metadata ? program.metadata.title : "program"} output` },

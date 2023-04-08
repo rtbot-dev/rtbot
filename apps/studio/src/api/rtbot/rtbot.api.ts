@@ -1,16 +1,16 @@
-// mock implementation of the library
+import * as Comlink from "comlink";
 import { Program } from "@/store/editor/schemas";
 import { dataApi } from "@/api/data";
-import { RtBotRun } from "./rtbot-run";
 
 export const rtbotApi = {
   async run(program: Program, dataId: string) {
     const data = await dataApi.load(dataId);
-    // TODO: run this using web workers
-    const rtbotRun = new RtBotRun(program, data);
-    rtbotRun.run();
-    const outputs = rtbotRun.getOutputs();
-    console.log("rtbot api outputs", outputs);
+
+    const RtBotRun = Comlink.wrap(new Worker(new URL("./rtbot.worker.ts", import.meta.url), { type: "module" }));
+    const rtbotRun = await new RtBotRun(program, data);
+    await rtbotRun.run();
+    const outputs = await rtbotRun.getOutputs();
+    console.log("outputs from comlink wrapped class", outputs);
     return outputs;
   },
 };
