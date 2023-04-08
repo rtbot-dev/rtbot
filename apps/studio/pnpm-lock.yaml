@@ -11,6 +11,7 @@ specifiers:
   '@types/react-plotly.js': ^2.6.0
   '@vitejs/plugin-react-swc': ^3.0.0
   autoprefixer: ^10.4.13
+  comlink: ^4.4.1
   daisyui: ^2.50.2
   date-fns: ^2.29.3
   firebase: ^9.15.0
@@ -42,6 +43,7 @@ dependencies:
   '@types/papaparse': 5.3.7
   '@types/plotly.js': 2.12.18
   '@types/react-plotly.js': 2.6.0
+  comlink: 4.4.1
   daisyui: 2.50.2_gbtt6ss3tbiz4yjtvdr6fbrj44
   date-fns: 2.29.3
   firebase: 9.15.0
@@ -2481,6 +2483,10 @@ packages:
     engines: {node: '>= 0.8'}
     dependencies:
       delayed-stream: 1.0.0
+    dev: false
+
+  /comlink/4.4.1:
+    resolution: {integrity: sha512-+1dlx0aY5Jo1vHy/tSsIGpSkN4tS9rZSW8FIhG0JH/crs9wwweswIo/POr451r7bZww3hFbPAKnTpimzL/mm4Q==}
     dev: false
 
   /commander/2.20.3:

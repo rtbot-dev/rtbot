@@ -1,6 +1,7 @@
+import * as Comlink from "comlink";
 import { Program } from "@/store/editor/schemas";
 import { nanoid } from "nanoid";
-import * as bindings from "@rtbot/core";
+import bindings from "@rtbot/core";
 
 interface RtBotMessage {
   time: number;
@@ -65,3 +66,5 @@ export class RtBotRun {
     return this.outputs;
   }
 }
+
+Comlink.expose(RtBotRun);
