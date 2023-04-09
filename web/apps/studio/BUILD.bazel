@@ -2,24 +2,8 @@ load("@npm//:vite/package_json.bzl", "bin")
 load("@aspect_rules_js//js:defs.bzl", "js_run_devserver")
 load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
 load("@npm//:defs.bzl", "npm_link_all_packages")
-load("@aspect_bazel_lib//lib:copy_directory.bzl", "copy_directory")
-load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_to_bin")
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
-
-npm_link_all_packages()
-
-genrule(
-    name = "package_json",
-    outs = ["package.json"],
-    cmd = """
-            echo "{
-    \\"name\\": \\"@rtbot/core\\",
-    \\"version\\": \\"0.1.0\\",
-    \\"main\\": \\"./wasm/bindings-cpp-wasm.js\\"
-}" > $@
-    """,
-)
 
 copy_file(
     name = "public-wasm",
@@ -33,45 +17,20 @@ copy_file(
     out = "public/assets/bindings-cpp-wasm.wasm",
 )
 
-# npm package for wasm code
-copy_to_directory(
-    name = "wasm",
-    srcs = [
-        "@rtbot//libs/core/lib:rtbot-wasm",
-    ],
-    include_external_repositories = ["*"],
-    replace_prefixes = {
-        "libs/core/lib/rtbot-wasm": ".",
-    },
-)
-
-npm_package(
-    name = "rtbot",
-    srcs = [
-        ":package_json",
-        ":wasm",
-    ],
-    package = "@rtbot/core",
-)
-
-npm_link_package(
-    name = "node_modules/@rtbot/core",
-    src = ":rtbot",
-)
-
 _DEPS = glob([
+    ":public-wasm",
     "public/**/*",
     "src/**/*",
     "*.cjs",
     "*.js",
 ]) + [
-    ":public-wasm",
+    "//:common-config",
     "index.html",
     "vite.config.ts",
     "tsconfig.json",
-    "tsconfig.node.json",
 ] + [
     "//:node_modules/@rtbot/core",
+    "//:node_modules/@rtbot/ui-windows-manager",
     "//:node_modules/comlink",
     "//:node_modules/daisyui",
     "//:node_modules/react",
@@ -102,9 +61,13 @@ _DEPS = glob([
 
 js_run_devserver(
     name = "dev",
-    args = ["--host"],
+    args = [
+        "--host",
+        "-c",
+        "apps/studio/vite.config.ts",
+    ],
     command = "node_modules/.bin/vite",
-    data = _DEPS,
+    data = _DEPS + ["public-wasm"],
     tags = ["ibazel_notify_changes"],
 )
 
@@ -115,15 +78,20 @@ bin.vite_binary(
     name = "run",
     args = [
         "--host",
+        "-c",
+        "apps/studio/vite.config.ts",
     ],
     #chdir = package_name(),
-    data = _DEPS,
+    data = _DEPS + ["public-wasm"],
     tags = ["ibazel_notify_changes"],
 )
 
 bin.vite_binary(
     name = "build",
-    args = ["build"],
-    chdir = package_name(),
+    args = [
+        "build",
+        "-c",
+        "apps/studio/vite.config.ts",
+    ],
     data = _DEPS + ["public-wasm-release"],
 )

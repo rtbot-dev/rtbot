@@ -2,7 +2,7 @@
 module.exports = {
   plugins: [require("daisyui")],
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./apps/studio/index.html",
+    "./apps/studio/src/**/*.{js,ts,jsx,tsx}",
   ],
 }
