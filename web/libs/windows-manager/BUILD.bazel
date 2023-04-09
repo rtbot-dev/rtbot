@@ -1,0 +1,92 @@
+load("@npm//:vite/package_json.bzl", "bin")
+load("@aspect_rules_js//js:defs.bzl", "js_run_devserver")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
+
+_DATA = glob([
+    "public/**/*",
+    "src/**/*",
+    "*.cjs",
+    "*.js",
+]) + [
+    "index.html",
+    "vite.config.ts",
+    "tsconfig.json",
+    "tsconfig.node.json",
+]
+
+_DEPS = [
+    "//:node_modules/comlink",
+    "//:node_modules/react",
+    "//:node_modules/react-icons",
+    "//:node_modules/react-color",
+    "//:node_modules/react-dom",
+    "//:node_modules/react-router-dom",
+    "//:node_modules/rxjs",
+    "//:node_modules/tailwindcss",
+    "//:node_modules/@headlessui/react",
+    "//:node_modules/zod",
+    "//:node_modules/@types/react",
+    "//:node_modules/@types/react-dom",
+    "//:node_modules/typescript",
+    "//:node_modules/vite",
+    "//:node_modules/@vitejs/plugin-react",
+    "//:node_modules/vite-tsconfig-paths",
+]
+
+# this is for locally testing the component
+js_run_devserver(
+    name = "dev",
+    args = [
+        "--host",
+        "-c",
+        "libs/windows-manager/vite.config.ts",
+    ],
+    command = "node_modules/.bin/vite",
+    data = _DEPS + _DATA,
+    tags = ["ibazel_notify_changes"],
+)
+
+# this is the code that bundles the interesting part into a bazel virtual
+# npm package
+package(default_visibility = ["//visibility:public"])
+
+genrule(
+    name = "package_json",
+    outs = ["package.json"],
+    cmd = """
+            echo "{
+    \\"main\\": \\"./index.js\\"
+}" > $@
+    """,
+)
+
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.json",
+)
+
+ts_project(
+    name = "ts",
+    srcs = glob([
+        "src/**/*.ts",
+        "src/**/*.tsx",
+    ]),
+    composite = True,
+    declaration = True,
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = ["ts"],
+    tsconfig = ":tsconfig",
+    deps = _DEPS,
+)
+
+npm_package(
+    name = "js",
+    srcs = [
+        "package_json",
+        ":ts",
+    ],
+    data = _DEPS,
+    package = "@rtbot/ui-windows-manager",
+)
