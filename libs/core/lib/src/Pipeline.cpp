@@ -5,6 +5,16 @@
 
 namespace rtbot {
 
+struct OpConnection
+{
+    string from;
+    string to;
+    int toPort=-1;
+    int fromPort=-1;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OpConnection,from,to,toPort,fromPort);
+
 Pipeline::Pipeline(const std::string &json_string)
 {
     auto json = nlohmann::json::parse(json_string);
@@ -19,8 +29,8 @@ Pipeline::Pipeline(const std::string &json_string)
     }
 
     // connections
-    for(const nlohmann::json& x : json.at("connections"))
-        connect(all_op.at(x.at("from")).get(), all_op.at(x.at("to")).get());
+    for(const OpConnection x : json.at("connections"))
+        all_op.at(x.from)->connect(all_op.at(x.to).get(), x.toPort, x.fromPort);
 
 }
 
