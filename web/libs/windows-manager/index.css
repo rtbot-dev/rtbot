@@ -1,7 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
+/* this file is used only by the exported library*/
+/* we can later auto-generated from the source of truth at src/index.css */
 .windows-manager {
     height: 100vh;
     width: 100%;
