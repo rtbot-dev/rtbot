@@ -1,36 +1,34 @@
-import { ReactNode, useLayoutEffect, useState } from "react";
-import windowsManager from "../store";
-import { Window } from "./Window";
-import { nanoid } from "nanoid";
+import { ReactNode, ReactPortal, useLayoutEffect, useState } from "react";
+import { Window, WindowProps } from "./Window";
+import { windowsManager } from "../store";
 
-export const WindowsManager = () => {
+export type WindowsManagerProps = {
+  children?: ReactNode;
+};
+
+export const WindowsManager = ({ children: windowsManagerChildren }: WindowsManagerProps) => {
   const [state, setState] = useState(windowsManager.getState);
+
   useLayoutEffect(() => {
     windowsManager.subscribe(setState);
+    if (windowsManagerChildren) {
+      const children: ReactNode[] = (windowsManagerChildren as any).length
+        ? (windowsManagerChildren as ReactNode[])
+        : [windowsManagerChildren];
+
+      console.log("children", children);
+      console.log(
+        "props",
+        children.map((r) => r.props)
+      );
+      children.forEach((r: any) => windowsManager.addWindow(r.props as WindowProps, r.props.id));
+    }
   });
 
-  const addWindow = () => {
-    const id = nanoid(3);
-    console.log("Adding a new window", id);
-    windowsManager.addWindow(
-      {
-        title: `Window ${id}`,
-        zIndex: state.windows.length,
-        initialStyle: {
-          top: `${50 * state.windows.length}px`,
-          left: `${100 * state.windows.length}px`,
-          width: "300px",
-          height: "400px",
-        },
-        children: <div>{`Hi from window ${id}, random number ${Math.random()}`}</div>,
-      },
-      id
-    );
-  };
-
+  console.log("Rendering", state);
   return (
-    <div className="windows-manager" onDoubleClick={addWindow}>
-      {state.windows.map((w) => {
+    <div className="windows-manager">
+      {state.windows.map((w: WindowProps) => {
         return (
           <Window {...w} key={`window-${w.id}`}>
             {w.children}

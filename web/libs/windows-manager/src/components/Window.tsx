@@ -1,7 +1,7 @@
 import React, { ReactNode, useLayoutEffect } from "react";
 import Draggable from "react-draggable";
 import { IoClose } from "react-icons/all";
-import windowsManager from "../store";
+import { windowsManager } from "../store";
 
 export interface WindowProps {
   children: ReactNode;
@@ -9,31 +9,39 @@ export interface WindowProps {
   id: string;
   zIndex: number;
   minimized?: boolean;
+  notClosable?: boolean;
+  onClose?: (id: string) => void;
   initialStyle?: {
     width: string;
     height: string;
     top: string;
-    left: string;
+    left?: string;
+    right?: string;
   };
 }
-export const Window = ({ title, children, initialStyle, id, zIndex }: WindowProps) => {
+export const Window = ({ title, children, initialStyle, id, zIndex, onClose, notClosable }: WindowProps) => {
   //useLayoutEffect()
   const initialWidth = initialStyle?.width ?? "200px";
   const initialHeight = initialStyle?.height ?? "400px";
   const initialTop = initialStyle?.top ?? "200px";
-  const initialLeft = initialStyle?.left ?? "200px";
+  let horizontal = {};
+  if (initialStyle?.left) {
+    horizontal = { left: initialStyle?.left };
+  } else if (initialStyle?.right) {
+    horizontal = { right: initialStyle?.right };
+  }
 
   return (
     <Draggable handle=".window-title-bar">
       <div
-        className="windows-body resize bg-base-300"
+        className="windows-body resize bg-slate-200"
         style={{
           position: "absolute",
           width: initialWidth,
           height: initialHeight,
           top: initialTop,
-          left: initialLeft,
           zIndex,
+          ...horizontal,
         }}
       >
         <div
@@ -43,19 +51,22 @@ export const Window = ({ title, children, initialStyle, id, zIndex }: WindowProp
           }}
         >
           <strong>{title}</strong>
-          <button
-            className="btn btn-ghost close-btn"
-            onMouseDown={(event) => {
-              event.stopPropagation();
-              windowsManager.deleteWindow(id);
-            }}
-          >
-            <IoClose></IoClose>
-          </button>
+          {!notClosable && (
+            <button
+              className="btn btn-ghost close-btn"
+              onMouseDown={(event) => {
+                event.stopPropagation();
+                windowsManager.deleteWindow(id);
+                if (onClose) onClose(id);
+              }}
+            >
+              <IoClose></IoClose>
+            </button>
+          )}
         </div>
 
         <div
-          className="bg-base-200"
+          className="bg-base-100"
           style={{ width: "100%", height: "100%" }}
           onMouseDown={(event) => {
             windowsManager.bringWindowFront(id, zIndex);

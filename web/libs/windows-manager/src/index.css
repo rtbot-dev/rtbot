@@ -21,7 +21,6 @@
     overflow: hidden;
     overflow-x: auto;
     border-radius: var(--rounded-box, 1rem);
-    filter: drop-shadow(1px 1px 1px grey);
 }
 
 .close-btn{

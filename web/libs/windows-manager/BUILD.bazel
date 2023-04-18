@@ -46,6 +46,9 @@ js_run_devserver(
     ],
     command = "node_modules/.bin/vite",
     data = _DEPS + _DATA,
+    env = {
+        "NODE_ENV": "dev",
+    },
     tags = ["ibazel_notify_changes"],
 )
 

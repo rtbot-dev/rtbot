@@ -22,8 +22,10 @@ export const store = {
     subject.next(state);
   },
   addWindow(windowProps: Omit<WindowProps, "id">, id?: string) {
-    state.windows.push({ ...windowProps, id: id ?? nanoid(3) });
-    subject.next({ ...state });
+    if (!state.windows.find((w) => w.id === id)) {
+      state.windows.push({ ...windowProps, id: id ?? nanoid(3) });
+      subject.next({ ...state });
+    }
   },
   updateWindow(windowProps: Omit<WindowProps, "id">, id: string) {
     state.windows = state.windows.reduce(
@@ -63,4 +65,4 @@ export const store = {
 
 store.init();
 
-export default store;
+export const windowsManager = store;
