@@ -11,7 +11,7 @@ struct PeakDetector: Buffer<double>
 
     string typeName() const override { return "PeakDetector"; }
 
-    map<string,Message<>> processData() override
+    map<string,std::vector<Message<>>> processData() override
     {
         int pos=size()/2;  // expected position of the max
         for(auto i=0u; i<size(); i++)

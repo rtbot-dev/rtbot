@@ -31,7 +31,7 @@ public:
 
     void addSender(const Operator<T> *sender) override { data[sender]; }
 
-    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender) override
+    map<string,std::vector<Message<T>>> receive(Message<T> const &msg, const Operator<T> *sender) override
     {
         // add the incoming message to the correct channel
         data.at(sender).push(msg);
@@ -59,7 +59,7 @@ public:
      *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
      *  It is responsible to emit().
      */
-    virtual map<string,Message<T>> processData(Message<T> const &msg) {
+    virtual map<string,std::vector<Message<T>>> processData(Message<T> const &msg) {
         std::vector<Message<>> msgs;
         msgs.push_back(msg);            
         return this->emit(msgs);
@@ -91,7 +91,7 @@ struct Difference: public Join<double>
 
     string typeName() const override { return "Difference"; }
 
-    map<string,Message<>> processData(Message<double> const &msg) override
+    map<string,std::vector<Message<>>> processData(Message<double> const &msg) override
     {
         Message<> out(msg.time, msg.value.at(1)-msg.value.at(0));
         std::vector<Message<>> msgs;

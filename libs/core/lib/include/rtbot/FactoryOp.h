@@ -74,7 +74,7 @@ public:
       return it->second.receive(msg);
     }
 
-    map<string,Message<>> receiveMessageInPipelineDebug(std::string const& id, Message<> const& msg) {
+    map<string,std::vector<Message<>>> receiveMessageInPipelineDebug(std::string const& id, Message<> const& msg) {
       auto it = pipelines.find(id);
       if (it == pipelines.end()) return {};
       return it->second.receiveDebug(msg);

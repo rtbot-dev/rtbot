@@ -57,7 +57,7 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
   {
       auto out=msg;
       if (f)
@@ -68,11 +68,12 @@ public:
       return emit(msgs);
   }
 
-  map<string,Message<T>> emit(std::vector<Message<T>> const& msgs) const {
+  map<string,std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
      
-      std::map<string,Message<T>> out;
+      std::map<string,std::vector<Message<T>>> out;
+      out.insert(std::pair<string,std::vector<Message<T>>>(id,msgs)); 
       for(unsigned int i=0; i < msgs.size(); i++) {
-        out.insert(std::pair<string,Message<T>>(id,msgs.at(i))); 
+        
         for (auto x : children) {
             auto outi=x->receive(msgs.at(i),this);
             for(const auto& it : outi)
