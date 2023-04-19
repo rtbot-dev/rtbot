@@ -13,6 +13,7 @@ set(header
     include/rtbot/tools/Autoregressive.h
     include/rtbot/tools/PeakDetector.h
     include/rtbot/tools/Finance.h
+    include/rtbot/tools/Input.h
 )
 
 set(source

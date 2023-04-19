@@ -23,7 +23,9 @@ struct MovingAverage: public Buffer<double>
         for(auto const& x : (*this))
             for(auto j=0u; j<x.value.size(); j++)
                 out.value[j] += x.value[j]/size();
-        return emit(out);
+        std::vector<Message<>> msgs;
+        msgs.push_back(out);
+        return emit(msgs);
     }
 
 };

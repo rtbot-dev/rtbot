@@ -44,14 +44,18 @@ template<>
 inline map<string,Message<>> Output_os::receive(Message<> const &msg, const Operator<> *sender)
 {
     (*out)<<id<<" "<<msg<<"\n";
-    return emit(msg);
+    std::vector<Message<>> msgs;
+    msgs.push_back(msg);
+    return emit(msgs);
 }
 
 template<>
 inline map<string,Message<>> Output_opt::receive(Message<> const &msg, const Operator<> *sender)
 {
     *out=msg;
-    return emit(msg);
+    std::vector<Message<>> msgs;
+    msgs.push_back(msg);
+    return emit(msgs);
 }
 
 } // end namespace rtbot

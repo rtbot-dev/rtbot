@@ -63,15 +63,21 @@ public:
       if (f)
           std::transform(msg.value.begin(), msg.value.end(),
                          out.value.begin(),f);
-      return emit(out);
+      std::vector<Message<>> msgs;
+      msgs.push_back(out);                   
+      return emit(msgs);
   }
 
-  map<string,Message<T>> emit(Message<T> const& msg) const {
-      map<string,Message<T>> out={{id,msg}};
-      for (auto x : children) {
-          auto outi=x->receive(msg,this);
-          for(const auto& it : outi)
-              out.emplace(it);
+  map<string,Message<T>> emit(std::vector<Message<T>> const& msgs) const {
+     
+      std::map<string,Message<T>> out;
+      for(unsigned int i=0; i < msgs.size(); i++) {
+        out.insert(std::pair<string,Message<T>>(id,msgs.at(i))); 
+        for (auto x : children) {
+            auto outi=x->receive(msgs.at(i),this);
+            for(const auto& it : outi)
+                out.emplace(it);
+        }
       }
       return out;
   }
@@ -88,23 +94,6 @@ Operator<T>& operator|(Operator<T>& A, Operator<T>& B) { connect(&A,&B); return 
 
 template<class T>
 Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
-
-
-///
-///------------------------------- Example of Operator: the struct Input ------------------
-
-template<class T=double>
-struct Input: public Operator<T>
-{
-    using Operator<T>::Operator;
-
-    string typeName() const override { return "Input"; }
-    map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { if (int64_t(msg.time)<=t0) return {}; t0=msg.time; return this->emit(msg); }
-
-private:
-    std::int64_t t0 = std::numeric_limits<int64_t>::lowest();
-};
-
 
 
 } // end namespace rtbot

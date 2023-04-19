@@ -59,7 +59,11 @@ public:
      *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
      *  It is responsible to emit().
      */
-    virtual map<string,Message<T>> processData(Message<T> const &msg) { return this->emit(msg); };
+    virtual map<string,Message<T>> processData(Message<T> const &msg) {
+        std::vector<Message<>> msgs;
+        msgs.push_back(msg);            
+        return this->emit(msgs);
+    };
 
 private:
     // build a message by concatenating all channels front() data. Remove the used data.
@@ -89,7 +93,10 @@ struct Difference: public Join<double>
 
     map<string,Message<>> processData(Message<double> const &msg) override
     {
-        return emit(Message<>(msg.time, msg.value.at(1)-msg.value.at(0)));
+        Message<> out(msg.time, msg.value.at(1)-msg.value.at(0));
+        std::vector<Message<>> msgs;
+        msgs.push_back(out);
+        return emit(msgs);        
     }
 };
 
