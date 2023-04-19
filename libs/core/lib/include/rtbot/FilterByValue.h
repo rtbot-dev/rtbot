@@ -16,7 +16,7 @@ struct FilterByValue: public Operator<T>
         , filter(filter_)
     {}
 
-    map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *) override
+    map<string,Message<T>> receive(Message<T> const& msg) override
     {
         if (all_of(msg.value.begin(), msg.value.end(), filter) )
             return this->emit(msg);

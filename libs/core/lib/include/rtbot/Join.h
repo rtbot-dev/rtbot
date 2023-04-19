@@ -22,31 +22,32 @@ namespace rtbot {
 template<class T=double>
 class Join : public Operator<T>
 {
-    std::unordered_map<const Operator<T> *, std::queue<Message<T>>> data; //< the waiting Messages for each sender
+    vector<std::queue<Message<T>>> data; //< the waiting Messages for each port
 public:
+    int nInput=2;
     using Operator<T>::Operator;
+    Join(string const &id_, int nInput_) : Operator<T>(id_), nInput(nInput_) {}
     virtual ~Join()=default;
 
     virtual string typeName() const override { return "Join"; }
 
-    void addSender(const Operator<T> *sender) override { data[sender]; }
-
-    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender) override
+    map<string,Message<T>> receive(Message<T> const &msg, int port) override
     {
         // add the incoming message to the correct channel
-        data.at(sender).push(msg);
+        if (nInput > data.size()) data.resize(nInput);
+        data.at(port).push(msg);
 
         // remove old messages
-        for (auto &x : data) {
-            if (x.first==sender) continue;
-            while (!x.second.empty() && x.second.front().time < msg.time)
-                x.second.pop();
+        for (auto i=0u; i<data.size(); i++) {
+            if (i==port) continue;
+            while (!data[i].empty() && data[i].front().time < msg.time)
+                data[i].pop();
         }
 
         // check if all queue match the current time
         bool all_ready = true;
         for (const auto &x : data)
-            if (x.second.empty() || x.second.front().time > msg.time)
+            if (x.empty() || x.front().time > msg.time)
                 all_ready = false;
 
         if (all_ready)
@@ -66,13 +67,13 @@ private:
     Message<T> makeMessage()
     {
         Message<T> msg;
-        msg.time = data.begin()->second.front().time;
+        msg.time = data.at(0).front().time;
         for (const auto &x : data)
-            for (const T &xi : x.second.front().value)
+            for (const T &xi : x.front().value)
                 msg.value.push_back(xi);
 
         for (auto &x : data)
-            x.second.pop();
+            x.pop();
         return msg;
     }
 };
@@ -83,13 +84,14 @@ private:
  */
 struct Difference: public Join<double>
 {
-    using Join<double>::Join;
+    Difference(string const &id_="diff") : Join(id_,2) {}
+
 
     string typeName() const override { return "Difference"; }
 
     map<string,Message<>> processData(Message<double> const &msg) override
     {
-        return emit(Message<>(msg.time, msg.value.at(1)-msg.value.at(0)));
+        return emit(Message<>(msg.time, msg.value.at(0)-msg.value.at(1)));
     }
 };
 

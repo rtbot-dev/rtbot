@@ -35,7 +35,8 @@
     },
     {
         "id": "join",
-        "type": "Join"
+        "type": "Join",
+        "nInput": 2
     },
     {
         "id": "o1",
@@ -49,7 +50,8 @@
     },
     {
         "from": "ma1",
-        "to": "diff"
+        "to": "diff",
+        "toPort": 0
     },
     {
         "from": "diff",
@@ -57,7 +59,8 @@
     },
     {
         "from": "peak",
-        "to": "join"
+        "to": "join",
+        "toPort": 0
     },
     {
         "from": "join",
@@ -69,11 +72,13 @@
     },
     {
         "from": "ma2",
-        "to": "diff"
+        "to": "diff",
+        "toPort": 1
     },
     {
         "from": "i1",
-        "to": "join"
+        "to": "join",
+        "toPort": 1
     }
   ]
 }

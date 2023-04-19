@@ -18,7 +18,7 @@ TEST_CASE("simple peak detector")
 
     vector<Message<>> msg_l;
     auto o1=Output_vec("o1", msg_l);
-    connect(&op, &o1);
+    op.connect(o1);
 
     SECTION("one peak") {
         for(int i=0; i<10; i++)
@@ -45,17 +45,17 @@ TEST_CASE("ppg peak detector")
     auto ma2 = MovingAverage("ma2", round(2000/s.dt()) );
     auto diff = Difference("diff");
     auto peak = PeakDetector("b1", 2*ma1.n+1);
-    auto join = Join<double>("j1");
+    auto join = Join<double>("j1",2);
     ofstream out("peak.txt");
     auto o1 = Output_os("o1", out);
 
     // draw the pipeline
 
-    i1 | ma1 | diff | peak | join | o1 ;
-    i1 | ma2 | diff ;
-    i1 |                     join ;
+    i1.connect(ma1).connect(diff,0).connect(peak).connect(join,0).connect(o1) ;
+    i1.connect(ma2).connect(diff,1) ;
+    i1.connect(                                           join,1) ;
 
     // process the data
     for(auto i=0u; i<s.ti.size(); i++)
-        Message<>(s.ti[i], s.ppg[i]) | i1;
+        i1.receive(Message<>(s.ti[i], s.ppg[i]));
 }

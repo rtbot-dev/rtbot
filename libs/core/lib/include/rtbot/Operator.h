@@ -34,7 +34,13 @@ template <class T> class Operator;
 template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
 
 template <class T=double> class Operator {
-    vector<Operator<T> *> children;
+    struct Connection {
+        Operator<T> * const dest;
+        int toPort=-1;
+        int fromPort=-1;
+    };
+
+    vector<Connection> children;
 
 public:
 
@@ -57,7 +63,10 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+
+  virtual map<string,Message<T>> receive(Message<T> const& msg, int port) { return receive(msg); }
+
+  virtual map<string,Message<T>> receive(Message<T> const& msg)
   {
       auto out=msg;
       if (f)
@@ -68,29 +77,19 @@ public:
 
   map<string,Message<T>> emit(Message<T> const& msg) const {
       map<string,Message<T>> out={{id,msg}};
-      for (auto x : children) {
-          auto outi=x->receive(msg,this);
+      for (auto [x,to,from] : children) {
+          auto outi=x->receive(msg,to);
           for(const auto& it : outi)
               out.emplace(it);
       }
       return out;
   }
 
-  friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
-
-protected:
-  virtual void addChildren(Operator<T>* child) { children.push_back(child); }
-  virtual void addSender(const Operator<T>*) { }
+  Operator<T>& connect(Operator<T>& child, int toPort=-1, int fromPort=-1) { children.push_back({&child, toPort, fromPort}); return child; }
+  void connect( Operator<T>* const child, int toPort=-1, int fromPort=-1) { children.push_back({child, toPort, fromPort}); }
 };
 
-template<class T>
-Operator<T>& operator|(Operator<T>& A, Operator<T>& B) { connect(&A,&B); return B; }
 
-template<class T>
-Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
-
-
-///
 ///------------------------------- Example of Operator: the struct Input ------------------
 
 template<class T=double>
@@ -99,7 +98,7 @@ struct Input: public Operator<T>
     using Operator<T>::Operator;
 
     string typeName() const override { return "Input"; }
-    map<string,Message<T>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override { if (int64_t(msg.time)<=t0) return {}; t0=msg.time; return this->emit(msg); }
+    map<string,Message<T>> receive(Message<T> const& msg) override { if (int64_t(msg.time)<=t0) return {}; t0=msg.time; return this->emit(msg); }
 
 private:
     std::int64_t t0 = std::numeric_limits<int64_t>::lowest();

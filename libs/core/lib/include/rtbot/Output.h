@@ -31,7 +31,7 @@ template<class T, class Out> struct Output : public Operator<T>
         : Operator<T>(id_), out(&out_) {}
 
     string typeName() const override { return "Output"; }
-    map<string,Message<T>> receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { out->push_back(msg); return this->emit(msg); }
+    map<string,Message<T>> receive(Message<T> const &msg) override { out->push_back(msg); return this->emit(msg); }
 };
 
 
@@ -41,14 +41,14 @@ using Output_os=Output<double, std::ostream>;
 
 
 template<>
-inline map<string,Message<>> Output_os::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,Message<>> Output_os::receive(Message<> const &msg)
 {
     (*out)<<id<<" "<<msg<<"\n";
     return emit(msg);
 }
 
 template<>
-inline map<string,Message<>> Output_opt::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,Message<>> Output_opt::receive(Message<> const &msg)
 {
     *out=msg;
     return emit(msg);
