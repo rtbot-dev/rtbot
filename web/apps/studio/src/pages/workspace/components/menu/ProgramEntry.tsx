@@ -14,7 +14,7 @@ export const ProgramEntry = (props: Program) => {
     showDeleteBtn: false,
     title: props.metadata ? props.metadata.title : "",
   });
-  const onTitleKeyUp = async (event) => {
+  const onTitleKeyUp = async (event: { key: string }) => {
     if (event.key === "Escape") {
       setState({ ...state, editing: false });
     }
@@ -25,7 +25,7 @@ export const ProgramEntry = (props: Program) => {
   // TODO: improve finish title edition trigger
   // window.document.addEventListener("keyup", onTitleKeyUp);
 
-  const updateTitle = async (event) => {
+  const updateTitle = async (event: { key?: string; stopPropagation?: any }) => {
     event.stopPropagation();
     // finish edition
     setState({ ...state, editing: false });
@@ -41,7 +41,7 @@ export const ProgramEntry = (props: Program) => {
       className="flow-root w-full justify-center"
       onClick={() => {
         if (state.editing) return;
-        editor.setProgram(props);
+        editor.openProgram(props);
         menu.hide();
       }}
       onMouseEnter={() => setState({ ...state, showDeleteBtn: true })}

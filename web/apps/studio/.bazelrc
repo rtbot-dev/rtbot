@@ -1,5 +1,0 @@
-build --symlink_prefix=dist/
-
-build --action_env=BAZEL_CXXOPTS="-std=c++17:-Werror"
-build --action_env=EMCC_CFLAGS="-fexceptions"
-build --incompatible_enable_cc_toolchain_resolution

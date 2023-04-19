@@ -17,8 +17,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@rtbot/ui-windows-manager": ["../../libs/windows-manager/src/index.ts"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src", "vite.config.ts"],

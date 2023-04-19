@@ -3,13 +3,22 @@ import React, { useLayoutEffect, useRef, useState } from "react";
 import plot from "@/store/plot";
 import Lottie from "lottie-react";
 import computingAnimation from "./calculator.json";
-export function Chart() {
+import { SinglePlotState } from "@/store/plot";
+
+export type ChartProps = {
+  plotId: string;
+};
+export function Chart({ plotId }: ChartProps) {
   const ref = useRef<any>(null);
   const [width, setWidth] = useState(0);
   const [height, setHeight] = useState(0);
-  const [plotState, setPlotState] = useState(plot.getState);
+  const [state, setState] = useState<SinglePlotState | undefined>(plot.getState().plots.find((p) => p.id === plotId));
+
   useLayoutEffect(() => {
-    plot.subscribe(setPlotState);
+    plot.subscribe((plotState) => {
+      const plot = plotState.plots.find((p) => p.id === plotId);
+      setState(plot);
+    });
     if (ref.current !== null) {
       const { width, height } = ref.current.getBoundingClientRect();
       console.log("ref dimensions", width, height);
@@ -19,11 +28,11 @@ export function Chart() {
   });
   return (
     <div ref={ref} style={{ height: "inherit", width: "inherit" }}>
-      {plotState.data.length > 0 && !plotState.computing ? (
+      {state && state.data.length > 0 && !state.computing ? (
         <Plot
-          data={plotState.data}
+          data={state.data}
           layout={{
-            ...plotState.layout,
+            ...state.layout,
             plot_bgcolor: "#1e293b",
             paper_bgcolor: "#1e293b",
             width,
@@ -33,7 +42,7 @@ export function Chart() {
           }}
           config={{ autosizable: true }}
         />
-      ) : plotState.computing ? (
+      ) : state?.computing ? (
         <Lottie animationData={computingAnimation} style={{ height: "50%" }} />
       ) : (
         <div>Nothing to show</div>

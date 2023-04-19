@@ -27,7 +27,7 @@ _DEPS = glob([
     "//:common-config",
     "index.html",
     "vite.config.ts",
-    "tsconfig.json",
+    "tsconfig.bazel.json",
 ] + [
     "//:node_modules/@rtbot/core",
     "//:node_modules/@rtbot/ui-windows-manager",
@@ -48,6 +48,7 @@ _DEPS = glob([
     "//:node_modules/lottie-react",
     "//:node_modules/rxjs",
     "//:node_modules/tailwindcss",
+    "//:node_modules/tailwind-styled-components",
     "//:node_modules/autoprefixer",
     "//:node_modules/@headlessui/react",
     "//:node_modules/zod",
@@ -57,6 +58,7 @@ _DEPS = glob([
     "//:node_modules/typescript",
     "//:node_modules/vite",
     "//:node_modules/vite-tsconfig-paths",
+    "//:node_modules/vite-plugin-custom-tsconfig",
 ]
 
 js_run_devserver(

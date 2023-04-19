@@ -10,7 +10,7 @@ import { OperatorParameterValue } from "./OperatorParameterValue";
 
 export type OperatorNodeInput = {
   id: string;
-  data: BaseOperator;
+  data: BaseOperator & { programId: string };
   isConnectable: boolean;
 };
 
@@ -19,7 +19,7 @@ type State = {
   plot: boolean;
 };
 export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => {
-  const { parameters, title, metadata } = data;
+  const { parameters, title, metadata, programId } = data;
   const formOpen = metadata && typeof metadata.editing !== "undefined" ? metadata.editing : false;
 
   const [state, setState] = useState<State>({
@@ -38,7 +38,7 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
       />
       {formOpen ? (
         <div className="card bg-base-100 shadow-xl form-card">
-          <NodeForm schemas={operatorSchemaList} id={id} opDef={data} />
+          <NodeForm programId={programId} schemas={operatorSchemaList} id={id} opDef={data} />
         </div>
       ) : (
         <div
@@ -48,19 +48,19 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
         >
           {state.showMenu && (
             <div className="btn-group node-menu">
-              <button className="btn" onClick={() => editor.editOperator(id, true)}>
+              <button className="btn" onClick={() => editor.editOperator(programId, id, true)}>
                 <FaEdit />
               </button>
               <button
                 className={`btn ${state.plot ? "btn-active" : ""}`}
                 onClick={() => {
-                  editor.updateOperator({ id, metadata: { plot: !state.plot } });
+                  editor.updateOperator(programId, { id, metadata: { plot: !state.plot } });
                   setState({ ...state, plot: !state.plot });
                 }}
               >
                 <FaChartLine />
               </button>
-              <button className="btn" onClick={() => editor.deleteOperator({ id })}>
+              <button className="btn" onClick={() => editor.deleteOperator(programId, { id })}>
                 <FaTrash />
               </button>
             </div>
@@ -82,8 +82,8 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
                 // show the style data
                 <>
                   <strong>style</strong>
-                  {Object.entries(metadata.style).map(([k, v]) => (
-                    <OperatorParameterValue parameter={k} value={v as string} />
+                  {Object.entries(metadata.style).map(([k, v], i) => (
+                    <OperatorParameterValue parameter={k} value={v as string} key={i} />
                   ))}
                 </>
               )}

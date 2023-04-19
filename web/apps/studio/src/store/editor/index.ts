@@ -2,26 +2,29 @@ import { Subject } from "rxjs";
 import { Program } from "./schemas";
 import { BaseOperator } from "./operator.schemas";
 import { programApi } from "../../api/program";
+import { rtbotApi } from "@/api/rtbot/rtbot.api";
+import plot from "../plot";
 
 const subject = new Subject<IEditorState>();
 
 export interface IEditorState {
-  sourceCode: string;
-  program: Program | null;
+  // Notice that this is a list of *opened* programs, not the list of
+  // all user programs, hence this is a subset of the last
+  programs: Program[];
 }
 
 export const initialState: IEditorState = {
-  sourceCode: "",
-  program: null,
+  programs: [],
 };
 
 let state = initialState;
 
-const save = async () => {
-  if (state.program && state.program.metadata && state.program.metadata.id) {
-    return programApi.update(state.program.metadata.id, {
-      connections: state.program.connections,
-      operators: state.program.operators,
+const save = async (programId: string) => {
+  const program = state.programs.find((p) => p.metadata?.id === programId);
+  if (program) {
+    return programApi.update(programId, {
+      connections: program.connections,
+      operators: program.operators,
     });
   }
 };
@@ -47,90 +50,137 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IEditorState) => void) => subject.subscribe(setState),
-  setProgram(program: Program) {
-    state.program = program;
+  openProgram(program: Program) {
+    state.programs = [...state.programs, program];
     subject.next({ ...state });
   },
-  setSourceCode(sourceCode: string) {
-    state = { ...state, sourceCode };
+  closeProgram(programId: string) {
+    state.programs = state.programs.filter((p) => p.metadata?.id !== programId);
     subject.next({ ...state });
   },
-  editOperator(id: string, value: boolean) {
-    if (state.program) {
+  editOperator(programId: string, operatorId: string, value: boolean) {
+    console.log("Editing operator ", programId, operatorId, value);
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    console.log("associated program", program);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...program,
+                operators: program.operators.reduce(
+                  (ops: BaseOperator[], op: BaseOperator) => [
+                    ...ops,
+                    op.id === operatorId ? { ...op, metadata: { ...op.metadata, editing: value } } : { ...op },
+                  ],
+                  []
+                ),
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          operators: state.program.operators.reduce(
-            (acc, op) => [...acc, op.id === id ? { ...op, metadata: { ...op.metadata, editing: value } } : { ...op }],
-            []
-          ),
-        },
+        programs,
       };
       // persist the change
-      save().then(() => console.log("Program saved"));
+      save(programId).then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
-  addOperator(operator: Partial<BaseOperator>) {
-    if (state.program) {
+  addOperator(programId: string, operator: BaseOperator) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...p,
+                operators: [...p.operators, { ...operator }],
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          operators: [...state.program.operators, { ...operator }],
-        },
-      };
-      subject.next({ ...state });
-    }
-  },
-  updateOperator(operator: Partial<BaseOperator>) {
-    if (state.program) {
-      state = {
-        ...state,
-        program: {
-          ...state.program,
-          operators: state.program.operators.reduce(
-            (acc: BaseOperator[], op: BaseOperator) => [
-              ...acc,
-              op.id === operator.id
-                ? { ...op, ...operator, metadata: merge(operator.metadata ?? {}, op.metadata ?? {}) }
-                : op,
-            ],
-            []
-          ),
-        },
+        programs,
       };
       // persist the change
-      save().then(() => console.log("Program saved"));
+      save(programId).then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
-  incrementOperatorPosition(operatorId: string, dx: number, dy: number) {
-    if (state.program) {
+  updateOperator(programId: string, operator: Partial<BaseOperator>) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...program,
+                operators: program.operators.reduce(
+                  (ops: BaseOperator[], op: BaseOperator) => [
+                    ...ops,
+                    op.id === operator.id
+                      ? { ...op, ...operator, metadata: merge(operator.metadata ?? {}, op.metadata ?? {}) }
+                      : op,
+                  ],
+                  []
+                ),
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          operators: state.program.operators.reduce(
-            (acc: BaseOperator[], op: BaseOperator) => [
-              ...acc,
-              op.id === operatorId
-                ? {
-                    ...op,
-                    metadata: {
-                      ...op.metadata,
-                      position: {
-                        x: op.metadata.position.x + dx,
-                        y: op.metadata.position.y + dy,
-                      },
-                    },
-                  }
-                : op,
-            ],
-            []
-          ),
-        },
+        programs,
+      };
+      // persist the change
+      save(programId).then(() => console.log("Program saved"));
+      subject.next({ ...state });
+    }
+  },
+  incrementOperatorPosition(programId: string, operatorId: string, dx: number, dy: number) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...program,
+                operators: program.operators.reduce(
+                  (ops: BaseOperator[], op: BaseOperator) => [
+                    ...ops,
+                    op.id === operatorId
+                      ? {
+                          ...op,
+                          metadata: {
+                            ...op.metadata,
+                            position: {
+                              x: (op.metadata?.position?.x ?? 0) + dx,
+                              y: (op.metadata?.position?.y ?? 0) + dy,
+                            },
+                          },
+                        }
+                      : op,
+                  ],
+                  []
+                ),
+              }
+            : p,
+        ],
+        []
+      );
+      state = {
+        ...state,
+        programs,
       };
       // as this method will be called many times per second, we will debounce it and
       // make the save call after 1 sec of the last change
@@ -139,53 +189,120 @@ export const store = {
       debounce = setTimeout(() => {
         // persist the change
         console.log("Saving");
-        save().then(() => console.log("Program saved"));
+        save(programId).then(() => console.log("Program saved"));
         debounce = null;
       }, 1000);
       subject.next({ ...state });
     }
   },
-  deleteOperator(operator: { id: string }) {
-    if (state.program) {
+  deleteOperator(programId: string, operator: { id: string }) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...p,
+                operators: p.operators.filter((op) => op.id != operator.id),
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          operators: state.program.operators.filter((op) => op.id !== operator.id),
-          connections: state.program.connections.filter((con) => con.from !== operator.id && con.to !== operator.id),
-        },
+        programs,
       };
       // persist the change
-      save().then(() => console.log("Program saved"));
+      save(programId).then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
-  deleteConnection(from: string, to: string) {
-    if (state.program) {
+  deleteConnection(programId: string, from: string, to: string) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...p,
+                connections: p.connections.filter((con) => con.from !== from || con.to !== to),
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          connections: state.program.connections.filter((con) => con.from !== from || con.to !== to),
-        },
+        programs,
       };
       // persist the change
-      save().then(() => console.log("Program saved"));
+      save(programId).then(() => console.log("Program saved"));
       subject.next({ ...state });
     }
   },
-  addConnection(from: string, to: string) {
-    if (state.program) {
+  // TODO: generalize this to consider explicit connections between operator ports
+  addConnection(programId: string, from: string, to: string) {
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      const programs: Program[] = state.programs.reduce(
+        (programs: Program[], p: Program) => [
+          ...programs,
+          p.metadata?.id === programId
+            ? {
+                ...p,
+                connections: [...p.connections, { from, to }],
+              }
+            : p,
+        ],
+        []
+      );
       state = {
         ...state,
-        program: {
-          ...state.program,
-          connections: [...state.program.connections, { from, to }],
-        },
+        programs,
       };
       // persist the change
-      save().then(() => console.log("Program saved"));
+      save(programId).then(() => console.log("Program saved"));
       subject.next({ ...state });
+    }
+  },
+  setProgramComputing(programId: string, computing: boolean) {
+    const programs: Program[] = state.programs.reduce(
+      (programs: Program[], p: Program) => [
+        ...programs,
+        p.metadata?.id === programId ? { ...p, metadata: { ...p.metadata, computing } } : p,
+      ],
+      []
+    );
+    state = { ...state, programs };
+    subject.next({ ...state });
+  },
+  run(programId: string, dataId: string) {
+    console.log("Running program", programId);
+    // notice that we use the same program id as the plot id
+    // this may change in the future but I think is ok for now
+    // notice also that if the plot doesn't exist at the time
+    // this won't cause any issue
+    plot.setPlotComputing(programId, true);
+    const program = state.programs.find((p) => p.metadata?.id === programId);
+    if (program) {
+      this.setProgramComputing(programId, true);
+      rtbotApi
+        .run(program, dataId)
+        .then((outputs) => {
+          console.log("outputs", outputs);
+          plot.upsertPlot(
+            programId,
+            outputs,
+            program.metadata?.title ?? "Output",
+            program.metadata?.style ?? { type: "scattergl", lineWidth: 2 }
+          );
+          plot.setPlotComputing(programId, false);
+          this.setProgramComputing(programId, false);
+        })
+        .catch((e) => console.error("Something went wrong while running program", program, "with data", dataId, e));
     }
   },
   getState: () => ({ ...state }),

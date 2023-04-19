@@ -9,6 +9,7 @@ import menu from "@/store/menu";
 
 type NodeFormProps = {
   id: string;
+  programId: string;
   schemas: ZodObject<any>[];
   opDef: BaseOperator;
 };
@@ -22,7 +23,7 @@ type NodeFormState = {
   colorSelected: string;
   source?: string;
 };
-export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
+export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
   const schema = schemas.filter((s) => s.shape.opType.value === opDef.opType)[0];
   const [menuState, setMenuState] = useState(menu.getState());
   useLayoutEffect(() => {
@@ -151,7 +152,7 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
               {state.pickColor && (
                 <div>
                   <CirclePicker
-                    onChange={(e) =>
+                    onChange={(e: any) =>
                       setState({ ...state, pickColor: false, colorSelected: `rgb(${e.rgb.r}, ${e.rgb.g}, ${e.rgb.b})` })
                     }
                   />
@@ -165,7 +166,7 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
                       className="select select-bordered"
                       onChange={(event) => {
                         setState({ ...state, source: event.target.value });
-                        editor.updateOperator({ id, metadata: { source: event.target.value } });
+                        editor.updateOperator(programId, { id, metadata: { source: event.target.value } });
                       }}
                     >
                       <option disabled selected>
@@ -189,7 +190,7 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
         </>
       )}
       <div className="node-form-buttons">
-        <button className="btn btn-circle" onClick={() => editor.editOperator(id, false)}>
+        <button className="btn btn-circle" onClick={() => editor.editOperator(programId, id, false)}>
           <MdClose />
         </button>
         <div className="separator"></div>
@@ -214,8 +215,8 @@ export const NodeForm = ({ schemas, id, opDef }: NodeFormProps) => {
                 parameters: { ...state.parameters },
               };
               console.log("Saving", opDef);
-              editor.updateOperator(opDef);
-              editor.editOperator(id, false);
+              editor.updateOperator(programId, opDef);
+              editor.editOperator(programId, id, false);
             }
           }}
         >

@@ -16,16 +16,10 @@ export const WindowsManager = ({ children: windowsManagerChildren }: WindowsMana
         ? (windowsManagerChildren as ReactNode[])
         : [windowsManagerChildren];
 
-      console.log("children", children);
-      console.log(
-        "props",
-        children.map((r) => r.props)
-      );
-      children.forEach((r: any) => windowsManager.addWindow(r.props as WindowProps, r.props.id));
+      children.flat().forEach((r: any) => windowsManager.addWindow(r.props as WindowProps, r.props.id));
     }
   });
 
-  console.log("Rendering", state);
   return (
     <div className="windows-manager">
       {state.windows.map((w: WindowProps) => {

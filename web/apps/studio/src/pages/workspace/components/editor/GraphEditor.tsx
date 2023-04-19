@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useRef, useState } from "react";
+import React, { MouseEventHandler, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
 import ReactFlow, { Connection, Edge, Position, ReactFlowProvider, useReactFlow, XYPosition } from "reactflow";
 import "reactflow/dist/style.css";
@@ -7,8 +7,9 @@ import "./reactflow.css";
 import { OperatorNode } from "./OperatorNode";
 import editor from "@/store/editor";
 import { RunBtn } from "./RunBtn";
+import { Program } from "@/store/editor/schemas";
 
-const getNode = ({ x, y }: XYPosition) => {
+const getNode = (position?: { x?: number; y?: number }) => {
   const id = nanoid(4);
   return {
     id,
@@ -18,7 +19,7 @@ const getNode = ({ x, y }: XYPosition) => {
     data: {
       parameters: null,
     },
-    position: { x, y },
+    position: { x: position?.x ?? 0, y: position?.y ?? 0 },
   };
 };
 
@@ -32,43 +33,48 @@ const fitViewOptions = {
   padding: 3,
 };
 
-const AddNodeOnEdgeDrop = () => {
+const AddNodeOnEdgeDrop = ({ programId }: { programId: string }) => {
   const reactFlowWrapper = useRef(null);
   const connectingNodeId = useRef<string | null>(null);
   const draggingNodeId = useRef<string | null>(null);
 
-  const [state, setState] = useState(editor.getState());
+  const [state, setState] = useState({ program: editor.getState().programs.find((p) => p.metadata?.id === programId) });
+
   useLayoutEffect(() => {
-    editor.subscribe(setState);
+    editor.subscribe((editorState) =>
+      setState({
+        program: editorState.programs.find((p) => p.metadata?.id === programId),
+      })
+    );
   }, []);
 
   const { project } = useReactFlow();
 
   const onConnect = useCallback(
-    (edge: Edge | Connection) => editor.addConnection(edge.source as string, edge.target as string),
+    (edge: Edge | Connection) => editor.addConnection(programId, edge.source as string, edge.target as string),
     []
   );
 
-  const onConnectStart = useCallback((_, { nodeId }) => {
+  const onConnectStart = useCallback((_: any, { nodeId }: { nodeId: string | null }) => {
     connectingNodeId.current = nodeId;
   }, []);
 
-  const onConnectEnd = (event) => {
+  const onConnectEnd = (event: any) => {
     handleAddNode(event);
   };
-  const handleAddNode = (event) => {
+  const handleAddNode: MouseEventHandler<HTMLDivElement> = (event) => {
     console.log("Adding node", event);
-    const targetIsPane = event.target.classList.contains("react-flow__pane");
+    const targetIsPane = (event.target as HTMLDivElement).classList.contains("react-flow__pane");
 
     if (targetIsPane) {
       // we need to remove the wrapper bounds, in order to get the correct position
       const { top, left } = (reactFlowWrapper as any).current.getBoundingClientRect();
       const id = addNode({ x: event.clientX - left - 75, y: event.clientY - top });
-      editor.addConnection(connectingNodeId.current as unknown as string, id);
+      editor.addConnection(programId, connectingNodeId.current as unknown as string, id);
     }
   };
 
-  const onClick = (event) => {
+  const onClick: MouseEventHandler<HTMLDivElement> = (event) => {
     if (state.program && state.program.operators.length === 0) handleAddNode(event);
   };
 
@@ -76,35 +82,37 @@ const AddNodeOnEdgeDrop = () => {
     const id = getId();
     const position = project({ x, y });
     console.log("Adding new operator at x, y", position);
-    editor.addOperator({
+    editor.addOperator(programId, {
       id,
       metadata: { position },
+      title: "",
+      opType: "",
     });
     return id;
   };
 
   const nodes = state.program
-    ? state.program.operators.map((op) => ({ ...getNode(op.metadata.position), id: op.id, data: { ...op } }))
+    ? state.program.operators.map((op) => ({ ...getNode(op.metadata.position), id: op.id, data: { ...op, programId } }))
     : [];
 
   const edges = state.program
     ? state.program.connections.map((con) => ({ id: `${con.from}-${con.to}`, source: con.from, target: con.to }))
     : [];
 
-  const onNodeDrag = (event) => {
+  const onNodeDrag = (event: { movementX: any; movementY: any }) => {
     // TODO: movement feels a bit strange as it doesn't follow exactly the mouse
     // seems like we are missing a scaling factor
     const { x: dx, y: dy } = { x: event.movementX, y: event.movementY };
-    editor.incrementOperatorPosition(draggingNodeId.current as string, dx, dy);
+    editor.incrementOperatorPosition(programId, draggingNodeId.current as string, dx, dy);
   };
 
-  const onNodeDragStart = useCallback((_, { id }) => {
+  const onNodeDragStart = useCallback((_: any, { id }: any) => {
     draggingNodeId.current = id;
   }, []);
 
   return (
     <div className="wrapper" ref={reactFlowWrapper}>
-      <RunBtn />
+      <RunBtn programId={programId} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -124,8 +132,8 @@ const AddNodeOnEdgeDrop = () => {
   );
 };
 
-export const GraphEditor = () => (
+export const GraphEditor = ({ programId }: { programId: string }) => (
   <ReactFlowProvider>
-    <AddNodeOnEdgeDrop />
+    <AddNodeOnEdgeDrop programId={programId} />
   </ReactFlowProvider>
 );

@@ -32,9 +32,11 @@ specifiers:
   react-router-dom: ^6.10.0
   reactflow: ^11.7.0
   rxjs: ^7.8.0
+  tailwind-styled-components: ^2.2.0
   tailwindcss: ^3.3.1
   typescript: 4.9.3
   vite: ^4.2.1
+  vite-plugin-custom-tsconfig: ^1.0.4
   vite-tsconfig-paths: ^4.0.8
   zod: ^3.21.4
   zod-to-json-schema: ^3.20.4
@@ -66,6 +68,8 @@ dependencies:
   react-router-dom: 6.10.0_biqbaboplfbrettd7655fr4n2y
   reactflow: 11.7.0_biqbaboplfbrettd7655fr4n2y
   rxjs: 7.8.0
+  tailwind-styled-components: 2.2.0_biqbaboplfbrettd7655fr4n2y
+  vite-plugin-custom-tsconfig: 1.0.4
   zod: 3.21.4
   zod-to-json-schema: 3.20.4_zod@3.21.4
 
@@ -7336,6 +7340,21 @@ packages:
       svg-path-bounds: 1.0.2
     dev: false
 
+  /tailwind-merge/1.12.0:
+    resolution: {integrity: sha512-Y17eDp7FtN1+JJ4OY0Bqv9OA41O+MS8c1Iyr3T6JFLnOgLg3EvcyMKZAnQ8AGyvB5Nxm3t9Xb5Mhe139m8QT/g==}
+    dev: false
+
+  /tailwind-styled-components/2.2.0_biqbaboplfbrettd7655fr4n2y:
+    resolution: {integrity: sha512-Ogemwk0p69aU8WE/ooJZHjqstdJgT5R6HGU6TFz2uSnveSEtvW+C6aWOjGCvCr5H/bREv0IbbQ4yODknRrLBRQ==}
+    peerDependencies:
+      react: '>= 16.8.0'
+      react-dom: '>= 16.8.0'
+    dependencies:
+      react: 18.2.0
+      react-dom: 18.2.0_react@18.2.0
+      tailwind-merge: 1.12.0
+    dev: false
+
   /tailwindcss/3.3.1_postcss@8.4.21:
     resolution: {integrity: sha512-Vkiouc41d4CEq0ujXl6oiGFQ7bA3WEhUZdTgXAhtKxSy49OmKs8rEfQmupsfF0IGW8fv2iQkp1EVUuapCFrZ9g==}
     engines: {node: '>=12.13.0'}
@@ -7895,6 +7914,11 @@ packages:
       assert-plus: 1.0.0
       core-util-is: 1.0.2
       extsprintf: 1.3.0
+    dev: false
+
+  /vite-plugin-custom-tsconfig/1.0.4:
+    resolution: {integrity: sha512-IoNkbaRsg/GJaf+k/iVvKVd2jSOSzkh6qo0f5lT2VyddTzYF2NOIMgvMjR+kA6yiu4EDdwSP5/AAsJEgOWRL1Q==}
+    engines: {node: '>=14'}
     dev: false
 
   /vite-tsconfig-paths/4.0.8_mwzck4g24dzgrbxzhprzxkurtm:

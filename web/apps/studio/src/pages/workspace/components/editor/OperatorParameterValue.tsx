@@ -21,7 +21,7 @@ export const OperatorParameterValue = ({ parameter, value }: OperatorParameterVa
     );
   } else {
     return (
-      <div key={parameter}>
+      <div>
         {parameter}={value}
       </div>
     );

@@ -44,7 +44,7 @@ function App() {
           title="hello"
           id="2"
           zIndex={1}
-          initialStyle={{ width: "200px", height: "300px", left: "100px" }}
+          initialStyle={{ width: "200px", height: "300px", top: "150px", left: "100px" }}
           notClosable={true}
         >
           Hello, it's me

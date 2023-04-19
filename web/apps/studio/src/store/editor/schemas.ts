@@ -7,6 +7,14 @@ export const connectionSchema = z.object({
 });
 export type Connection = z.infer<typeof connectionSchema>;
 
+export const programMetadataStyleSchema = z.object({
+  type: z.enum(["scattergl"]),
+  lineWidth: z.number().gt(0).optional(),
+  color: z.string().optional(),
+});
+
+export type PlotStyle = z.infer<typeof programMetadataStyleSchema>;
+
 export const programMetadataSchema = z.object({
   id: z.string().optional(),
   title: z.string().optional(),
@@ -18,6 +26,8 @@ export const programMetadataSchema = z.object({
   version: z.string().optional(),
   author: z.string().optional(),
   license: z.string().optional(),
+  style: programMetadataStyleSchema.optional(),
+  computing: z.boolean().optional(),
 });
 export const programSchema = z.object({
   metadata: programMetadataSchema.optional(),
