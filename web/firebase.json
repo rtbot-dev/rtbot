@@ -1,0 +1,10 @@
+{
+  "hosting": {
+    "public": "dist/bin/apps/studio/build.sh.runfiles/web/apps/studio/dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

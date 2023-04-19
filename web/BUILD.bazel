@@ -1,0 +1,58 @@
+load("@aspect_bazel_lib//lib:copy_to_bin.bzl", "copy_to_bin")
+load("@npm//:vite/package_json.bzl", "bin")
+load("@aspect_rules_js//js:defs.bzl", "js_run_devserver")
+load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
+load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+
+npm_link_all_packages()
+
+genrule(
+    name = "package_json",
+    outs = ["package.json"],
+    cmd = """
+            echo "{
+    \\"name\\": \\"@rtbot/core\\",
+    \\"version\\": \\"0.1.0\\",
+    \\"main\\": \\"./wasm/bindings-cpp-wasm.js\\"
+}" > $@
+    """,
+)
+
+# npm package for wasm code
+copy_to_directory(
+    name = "wasm",
+    srcs = [
+        "@rtbot//libs/core/lib:rtbot-wasm",
+    ],
+    include_external_repositories = ["*"],
+    replace_prefixes = {
+        "libs/core/lib/rtbot-wasm": ".",
+    },
+)
+
+npm_package(
+    name = "rtbot",
+    srcs = [
+        ":package_json",
+        ":wasm",
+    ],
+    package = "@rtbot/core",
+)
+
+npm_link_package(
+    name = "node_modules/@rtbot/core",
+    src = ":rtbot",
+)
+
+# here we declare our internal package definitions
+npm_link_package(
+    name = "node_modules/@rtbot/ui-windows-manager",
+    src = "//libs/windows-manager:js",
+)
+
+copy_to_bin(
+    name = "common-config",
+    srcs = glob(["*.cjs"]),
+    visibility = ["//visibility:public"],
+)
