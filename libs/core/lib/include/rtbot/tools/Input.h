@@ -7,55 +7,69 @@
 
 namespace rtbot {
 
-template<class T=double>
-struct InputCosine: public Operator<T>
-{
-    
-    using Operator<T>::Operator;    
+enum Type { cosine, hermite, chebyshev };
 
-    InputCosine(string const &id_,unsigned int dt_ = 1000)
-        : Operator<T>(id_),dt(dt_),anchorTime(0),lastTime(0),carryOver(0)
+struct Input: public Buffer<double>
+{
+    Input()=default;
+
+    Input(string const &id_, Type type_ , unsigned int dt_=100)
+        : Buffer<double>(id_, 4),type(type_), dt(dt_), carryOver(0)
     {}
 
-    string typeName() const override { return "InputCosine"; }
+    string typeName() const override { return "Input"; }
 
-    map<string,std::vector<Message<T>>> receive(Message<T> const& msg) override 
-    {        
-
-        if (msg.time < lastTime) return {};
-
-        lastTime = msg.time;
-
-        if (anchorValue.size() == 0)  {
-            anchorTime = msg.time;
-            anchorValue = std::move(msg.value);
-            return {};
+    map<string,std::vector<Message<>>> processData() override
+    {
+        switch (type) {
+            case Type::cosine: return cosine();
+            case Type::hermite: return hermite();                
+            case Type::chebyshev: return chebyshev();
+            default: return cosine();
         }
-        
+    }
+
+    map<string,std::vector<Message<>>> cosine()
+    {
+        if (size() < 2) return {};
+        else if (at(1).time - at(0).time <= 0) return {};
+
         int j = 1;
 
-        std::vector<Message<T>> toEmit;
+        std::vector<Message<>> toEmit;
 
-        while (lastTime - anchorTime >= (j * dt) - carryOver) {
-            Message<T> out;
-            double mu = ((j * dt) - carryOver)/(lastTime - anchorTime);
-            for(auto i = 0; i < msg.value.size(); i++) {
-                out.value.push_back(cosineInterpolate(anchorValue.at(i), msg.value.at(i), mu));
+        while (at(1).time - at(0).time >= (j * dt) - carryOver) {
+            Message<> out;
+            double mu = ((j * dt) - carryOver)/(at(1).time - at(0).time);
+            for(size_t i = 0; i < at(0).value.size(); i++) {
+                out.value.push_back(cosineInterpolate(at(0).value.at(i), at(1).value.at(i), mu));
             }
-            out.time = anchorTime + ((j * dt) - carryOver);            
+            out.time = at(0).time + ((j * dt) - carryOver);            
             toEmit.push_back(out);
             j++;            
         }
 
-        if (toEmit.size() > 0) {
-            carryOver = lastTime - (anchorTime + (((j-1) * dt) - carryOver));
-            anchorTime = lastTime;
-            anchorValue = std::move(msg.value);            
-            return this->emit(toEmit);
-        }
-        else return {}; 
-        
+        carryOver = at(1).time - (at(0).time + (((j-1) * dt) - carryOver));
+
+        if (toEmit.size() > 0) return this->emit(toEmit); else return {};
     }
+
+    
+    map<string,std::vector<Message<>>> hermite()
+    {
+        return {};
+    }
+
+    map<string,std::vector<Message<>>> chebyshev()
+    {
+        return {};
+    }
+
+    private:        
+        Type type;
+        unsigned int dt;
+        std::uint64_t carryOver;
+
 
     double cosineInterpolate(double y1,double y2,double mu)
     {
@@ -63,13 +77,6 @@ struct InputCosine: public Operator<T>
         mu2 = (1-std::cos(mu * 3.14159265 ))/2;
         return(y1*(1-mu2)+y2*mu2);
     }
-
-    private:
-        std::uint64_t anchorTime;
-        std::vector<T> anchorValue;
-        std::uint64_t lastTime;
-        unsigned int dt;
-        unsigned int carryOver;
 
 };
 

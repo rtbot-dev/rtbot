@@ -12,7 +12,7 @@ using namespace std;
 
 TEST_CASE("Join peak and value")
 {
-    auto i1 = InputCosine<double>("i1");
+    auto i1 = Input("i1",Type::cosine);
     auto peak = PeakDetector("b1", 3);
     auto o1 = Output_os("o1",std::cout);
     auto join = Join<double>("j1",2);
