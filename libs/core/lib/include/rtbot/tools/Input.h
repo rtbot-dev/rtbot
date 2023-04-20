@@ -19,7 +19,7 @@ struct InputCosine: public Operator<T>
 
     string typeName() const override { return "InputCosine"; }
 
-    map<string,std::vector<Message<T>>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override 
+    map<string,std::vector<Message<T>>> receive(Message<T> const& msg) override 
     {        
 
         if (msg.time < lastTime) return {};
