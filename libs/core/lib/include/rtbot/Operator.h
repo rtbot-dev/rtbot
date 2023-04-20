@@ -34,7 +34,13 @@ template <class T> class Operator;
 template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
 
 template <class T=double> class Operator {
-    vector<Operator<T> *> children;
+    struct Connection {
+        Operator<T> * const dest;
+        int toPort=-1;
+        int fromPort=-1;
+    };
+
+    vector<Connection> children;
 
 public:
 
@@ -57,7 +63,10 @@ public:
    * current processing cycle.
    * @param t {int} Timestamp of the message.
    */
-  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr)
+
+  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg, int port) { return receive(msg); }
+
+  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg)
   {
       auto out=msg;
       if (f)
@@ -75,7 +84,7 @@ public:
       for(unsigned int i=0; i < msgs.size(); i++) {
         
         for (auto x : children) {
-            auto outi=x->receive(msgs.at(i),this);
+            auto outi=x.dest->receive(msgs.at(i));
             for(const auto& it : outi)
                 out.emplace(it);
         }
@@ -83,15 +92,10 @@ public:
       return out;
   }
 
-  friend void connect(Operator<T>* from, Operator<T>* to) { from->addChildren(to); to->addSender(from); }
-
-protected:
-  virtual void addChildren(Operator<T>* child) { children.push_back(child); }
-  virtual void addSender(const Operator<T>*) { }
+  Operator<T>& connect(Operator<T>& child, int toPort=-1, int fromPort=-1) { children.push_back({&child, toPort, fromPort}); return child; }
+  void connect( Operator<T>* const child, int toPort=-1, int fromPort=-1) { children.push_back({child, toPort, fromPort}); }
 };
 
-template<class T>
-Operator<T>& operator|(Operator<T>& A, Operator<T>& B) { connect(&A,&B); return B; }
 
 template<class T>
 Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }

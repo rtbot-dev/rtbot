@@ -31,7 +31,12 @@ template<class T, class Out> struct Output : public Operator<T>
         : Operator<T>(id_), out(&out_) {}
 
     string typeName() const override { return "Output"; }
-    map<string,std::vector<Message<T>>> receive(Message<T> const &msg, const Operator<T> *sender=nullptr) override { out->push_back(msg); return this->emit(msg); }
+    map<string,std::vector<Message<T>>> receive(Message<T> const &msg) override { 
+        out->push_back(msg);
+        std::vector<Message<>> msgs;
+        msgs.push_back(msg);
+        return this->emit(msgs);  
+    }
 };
 
 
@@ -41,7 +46,7 @@ using Output_os=Output<double, std::ostream>;
 
 
 template<>
-inline map<string,std::vector<Message<>>> Output_os::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,std::vector<Message<>>> Output_os::receive(Message<> const &msg)
 {
     (*out)<<id<<" "<<msg<<"\n";
     std::vector<Message<>> msgs;
@@ -50,7 +55,7 @@ inline map<string,std::vector<Message<>>> Output_os::receive(Message<> const &ms
 }
 
 template<>
-inline map<string,std::vector<Message<>>> Output_opt::receive(Message<> const &msg, const Operator<> *sender)
+inline map<string,std::vector<Message<>>> Output_opt::receive(Message<> const &msg)
 {
     *out=msg;
     std::vector<Message<>> msgs;

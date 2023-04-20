@@ -8,7 +8,7 @@
 namespace rtbot {
 
 template<class T>
-struct Composite: public Operator<T>
+struct Composite: public Operator<T>        // TODO: improve from chain to graph
 {
     vector<Op_ptr<T>> op;
     Composite(string const &id_, vector<Op_ptr<T>> &&op_)
@@ -21,9 +21,13 @@ struct Composite: public Operator<T>
 
     virtual ~Composite()=default;
 
-protected:
-    void addChildren(Operator<T>* child) override { op.back()->addChildren(child); }
-    void addSender(const Operator<T>* sender) override { op.front()->addSender(sender); }
+    virtual map<string,Message<T>> receive(Message<T> const& msg, int port)
+    {
+        auto out = op.front().receive(msg,port);
+        if (auto it=out.find(op.back().id); it!=out.end()) // check if the message reached the last operator of the composite
+            emit(it.second);
+        else return {};
+    }
 };
 
 

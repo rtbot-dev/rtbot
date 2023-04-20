@@ -15,13 +15,13 @@ TEST_CASE("Join peak and value")
     auto i1 = InputCosine<double>("i1");
     auto peak = PeakDetector("b1", 3);
     auto o1 = Output_os("o1",std::cout);
-    auto join = Join<double>("j1");
+    auto join = Join<double>("j1",2);
 
-    i1 | peak | join | o1 ;
-    i1        | join ;
+    i1.connect(peak).connect(join,0).connect(o1) ;
+    i1.connect(join,1) ;
 
     // process the data
     for(int i=0; i<26; i++)
-        Message<>(i, i%5) | i1;
+        i1.receive( Message<>(i, i%5) );
 
 }

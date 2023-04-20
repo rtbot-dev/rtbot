@@ -20,7 +20,7 @@ public:
     Buffer(string const &id_, int n_): n(n_), Operator<T>(id_) {}
     virtual ~Buffer()=default;
 
-    map<string,std::vector<Message<T>>> receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override
+    map<string,std::vector<Message<T>>> receive(Message<T> const& msg) override
     {
         if (this->size()==n) this->pop_front();
         this->push_back(msg);
@@ -50,7 +50,7 @@ struct AutoBuffer: public Operator<T>, public std::deque<Message<T>>
     AutoBuffer(string const &id_, int n_): n(n_), Operator<T>(id_) {}
     virtual ~AutoBuffer()=default;
 
-    void receive(Message<T> const& msg, const Operator<T> *sender=nullptr) override
+    void receive(Message<T> const& msg) override
     {
         while (this->size()<n)
             this->push_front( Message<T>(0, vector<T>(msg.value.size(),T{}) ));  // boundary conditions=T{}
