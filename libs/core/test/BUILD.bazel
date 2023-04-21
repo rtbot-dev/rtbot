@@ -2,8 +2,17 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
     name = "rtbot",
-    srcs = ["test_join.cpp"],
-    defines = ["CATCH_CONFIG_MAIN"],
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.h",
+    ]),
+    #defines = ["CATCH_CONFIG_MAIN"],
+    data = glob([
+        "**/*.json",
+        "**/*.csv",
+    ]) + [
+        "//examples/data:ppg.csv",
+    ],
     deps = [
         "//libs/core/lib:rtbot",
         "@catch2",
