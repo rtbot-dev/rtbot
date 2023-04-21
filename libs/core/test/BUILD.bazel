@@ -4,8 +4,15 @@ cc_test(
     name = "rtbot",
     srcs = glob([
         "**/*.cpp",
+        "**/*.h",
     ]),
-    defines = ["CATCH_CONFIG_MAIN"],
+    #defines = ["CATCH_CONFIG_MAIN"],
+    data = glob([
+        "**/*.json",
+        "**/*.csv",
+    ]) + [
+        "//examples/data:ppg.csv",
+    ],
     deps = [
         "//libs/core/lib:rtbot",
         "@catch2",
