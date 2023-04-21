@@ -38,7 +38,7 @@ TEST_CASE("simple peak detector")
 
 TEST_CASE("ppg peak detector")
 {
-    auto s=SamplePPG("ppg.csv");
+    auto s=SamplePPG("examples/data/ppg.csv");
 
     auto i1 = Input<double>("i1");
     auto ma1 = MovingAverage("ma1", round(50/s.dt()) );

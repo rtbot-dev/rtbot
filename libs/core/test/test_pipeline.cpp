@@ -14,11 +14,11 @@ TEST_CASE("read ppg pipeline")
 {
     nlohmann::json json;
     {
-        ifstream in("ppg.json");
+        ifstream in("libs/core/test/ppg.json");
         in>>json;
     }
 
-    auto s=SamplePPG("ppg.csv");
+    auto s=SamplePPG("examples/data/ppg.csv");
 
     SECTION("using the pipeline")
     {
