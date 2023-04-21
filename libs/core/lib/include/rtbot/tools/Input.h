@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include"rtbot/Buffer.h"
+
 namespace rtbot {
 
 enum Type { cosine, hermite, chebyshev };
@@ -13,8 +15,18 @@ struct Input: public Buffer<double>
 {
     Input()=default;
 
+    static int getSize(Type type) //static function declaration
+    {
+         switch (type) {
+            case Type::cosine: return 2;
+            case Type::hermite: return 4;                
+            case Type::chebyshev: return 4;
+            default: return 2;
+        }
+    };
+
     Input(string const &id_, Type type_ , unsigned int dt_=100)
-        : Buffer<double>(id_, 4),type(type_), dt(dt_), carryOver(0)
+        : Buffer<double>(id_, Input::getSize(type_)),type(type_), dt(dt_), carryOver(0)
     {}
 
     string typeName() const override { return "Input"; }
@@ -31,12 +43,11 @@ struct Input: public Buffer<double>
 
     map<string,std::vector<Message<>>> cosine()
     {
-        if (size() < 2) return {};
-        else if (at(1).time - at(0).time <= 0) return {};
-
-        int j = 1;
-
         std::vector<Message<>> toEmit;
+        
+        if (at(1).time - at(0).time <= 0) return {};
+
+        int j = 1;        
 
         while (at(1).time - at(0).time >= (j * dt) - carryOver) {
             Message<> out;
@@ -74,7 +85,7 @@ struct Input: public Buffer<double>
     double cosineInterpolate(double y1,double y2,double mu)
     {
         double mu2;
-        mu2 = (1-std::cos(mu * 3.14159265 ))/2;
+        mu2 = (1-std::cos(mu * 3.141592653589 ))/2;
         return(y1*(1-mu2)+y2*mu2);
     }
 
