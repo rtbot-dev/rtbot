@@ -24,6 +24,10 @@ public:
     {
         if (this->size()==n) this->pop_front();
         this->push_back(msg);
+        for(int pos=this->size()-1; pos>0; pos--)  // keep sorted
+          if (this->at(pos).time < this->at(pos-1).time)
+            std::swap(this->at(pos-1),this->at(pos));
+          else break;
         if (this->size()==n) return processData();
         return {};
     }
