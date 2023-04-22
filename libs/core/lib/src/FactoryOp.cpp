@@ -1,4 +1,7 @@
+#define JSON_DISABLE_ENUM_SERIALIZATION 1
+
 #include "rtbot/FactoryOp.h"
+#include "rtbot/Enums.h"
 #include "rtbot/Operator.h"
 #include "rtbot/tools/MovingAverage.h"
 #include "rtbot/tools/PeakDetector.h"
@@ -10,9 +13,19 @@
 #include <nlohmann/json.hpp>
 
 
+
+
 namespace rtbot {
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input,id);
+
+
+NLOHMANN_JSON_SERIALIZE_ENUM( Type, {
+    {cosine, "cosine"},
+    {hermite, "hermite"},
+    {chebyshev, "chebyshev"},
+})
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input,id,iType,dt);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);

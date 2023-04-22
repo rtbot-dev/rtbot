@@ -6,18 +6,22 @@
 #include <cstdint>
 
 #include"rtbot/Buffer.h"
+#include "rtbot/Enums.h"
 
 namespace rtbot {
 
-enum Type { cosine, hermite, chebyshev };
-
 struct Input: public Buffer<double>
-{
+{   
+
+    Type iType;
+    unsigned int dt;
+
     Input()=default;
 
-    static int getSize(Type type) //static function declaration
-    {
-         switch (type) {
+    static int getSize(Type iType_)
+    {      
+        
+        switch (iType_) {
             case Type::cosine: return 2;
             case Type::hermite: return 4;                
             case Type::chebyshev: return 4;
@@ -25,23 +29,23 @@ struct Input: public Buffer<double>
         }
     };
 
-    Input(string const &id_, Type type_ , unsigned int dt_=100)
-        : Buffer<double>(id_, Input::getSize(type_)),type(type_), dt(dt_), carryOver(0)
+    Input(string const &id_, Type iType_ , unsigned int dt_)
+        : Buffer<double>(id_, Input::getSize(iType_)),iType(iType_), dt(dt_), carryOver(0)
     {}
 
     string typeName() const override { return "Input"; }
 
     map<string,std::vector<Message<>>> processData() override
     {
-        switch (type) {
-            case Type::cosine: return cosine();
-            case Type::hermite: return hermite();                
-            case Type::chebyshev: return chebyshev();
-            default: return cosine();
+        switch (iType) {
+            case Type::cosine: return cosineDef();
+            case Type::hermite: return hermiteDef();                
+            case Type::chebyshev: return chebyshevDef();
+            default: return cosineDef();
         }
     }
 
-    map<string,std::vector<Message<>>> cosine()
+    map<string,std::vector<Message<>>> cosineDef()
     {
         std::vector<Message<>> toEmit;
         
@@ -66,19 +70,18 @@ struct Input: public Buffer<double>
     }
 
     
-    map<string,std::vector<Message<>>> hermite()
+    map<string,std::vector<Message<>>> hermiteDef()
     {
         return {};
     }
 
-    map<string,std::vector<Message<>>> chebyshev()
+    map<string,std::vector<Message<>>> chebyshevDef()
     {
         return {};
     }
 
-    private:        
-        Type type;
-        unsigned int dt;
+    private:       
+        
         std::uint64_t carryOver;
 
 
