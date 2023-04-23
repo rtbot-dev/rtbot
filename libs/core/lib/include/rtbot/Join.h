@@ -31,7 +31,7 @@ public:
 
     virtual string typeName() const override { return "Join"; }
 
-    map<string,Message<T>> receive(Message<T> const &msg, int port) override
+    map<string,std::vector<Message<T>>> receive(Message<T> const &msg, int port) override
     {
         // add the incoming message to the correct channel
         if (nInput > data.size()) data.resize(nInput);
@@ -60,7 +60,11 @@ public:
      *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
      *  It is responsible to emit().
      */
-    virtual map<string,Message<T>> processData(Message<T> const &msg) { return this->emit(msg); };
+    virtual map<string,std::vector<Message<T>>> processData(Message<T> const &msg) {
+        std::vector<Message<>> msgs;
+        msgs.push_back(msg);            
+        return this->emit(msgs);
+    };
 
 private:
     // build a message by concatenating all channels front() data. Remove the used data.
@@ -89,9 +93,12 @@ struct Difference: public Join<double>
 
     string typeName() const override { return "Difference"; }
 
-    map<string,Message<>> processData(Message<double> const &msg) override
+    map<string,std::vector<Message<>>> processData(Message<double> const &msg) override
     {
-        return emit(Message<>(msg.time, msg.value.at(0)-msg.value.at(1)));
+        Message<> out(msg.time, msg.value.at(0)-msg.value.at(1));
+        std::vector<Message<>> msgs;
+        msgs.push_back(out);
+        return emit(msgs);        
     }
 };
 

@@ -20,10 +20,10 @@ public:
     Buffer(string const &id_, int n_): n(n_), Operator<T>(id_) {}
     virtual ~Buffer()=default;
 
-    map<string,Message<T>> receive(Message<T> const& msg) override
+    map<string,std::vector<Message<T>>> receive(Message<T> const& msg) override
     {
         if (this->size()==n) this->pop_front();
-        this->push_back(msg);
+        if (this->empty()) this->push_back(msg); else if (this->back().time < msg.time) this->push_back(msg); else return {};
         if (this->size()==n) return processData();
         return {};
     }
@@ -32,7 +32,7 @@ public:
      *  This is a replacement of Operator::receive but using the Buffer full data (a std::deque<Message>)
      *  It is responsible to emit().
      */
-    virtual map<string,Message<T>> processData()=0;
+    virtual map<string,std::vector<Message<T>>> processData()=0;
 };
 
 

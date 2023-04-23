@@ -64,23 +64,30 @@ public:
    * @param t {int} Timestamp of the message.
    */
 
-  virtual map<string,Message<T>> receive(Message<T> const& msg, int port) { return receive(msg); }
+  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg, int port) { return receive(msg); }
 
-  virtual map<string,Message<T>> receive(Message<T> const& msg)
+  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg)
   {
       auto out=msg;
       if (f)
           std::transform(msg.value.begin(), msg.value.end(),
                          out.value.begin(),f);
-      return emit(out);
+      std::vector<Message<>> msgs;
+      msgs.push_back(out);                   
+      return emit(msgs);
   }
 
-  map<string,Message<T>> emit(Message<T> const& msg) const {
-      map<string,Message<T>> out={{id,msg}};
-      for (auto [x,to,from] : children) {
-          auto outi=x->receive(msg,to);
-          for(const auto& it : outi)
-              out.emplace(it);
+  map<string,std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
+     
+      std::map<string,std::vector<Message<T>>> out;
+      out.insert(std::pair<string,std::vector<Message<T>>>(id,msgs)); 
+      for(unsigned int i=0; i < msgs.size(); i++) {
+        
+        for (auto x : children) {
+            auto outi=x.dest->receive(msgs.at(i));
+            for(const auto& it : outi)
+                out.emplace(it);
+        }
       }
       return out;
   }
@@ -90,20 +97,8 @@ public:
 };
 
 
-///------------------------------- Example of Operator: the struct Input ------------------
-
-template<class T=double>
-struct Input: public Operator<T>
-{
-    using Operator<T>::Operator;
-
-    string typeName() const override { return "Input"; }
-    map<string,Message<T>> receive(Message<T> const& msg) override { if (int64_t(msg.time)<=t0) return {}; t0=msg.time; return this->emit(msg); }
-
-private:
-    std::int64_t t0 = std::numeric_limits<int64_t>::lowest();
-};
-
+template<class T>
+Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
 
 
 } // end namespace rtbot

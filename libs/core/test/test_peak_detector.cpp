@@ -1,4 +1,5 @@
 #include "rtbot/tools/PeakDetector.h"
+#include "rtbot/tools/Input.h"
 #include "rtbot/Output.h"
 #include "rtbot/Join.h"
 #include "rtbot/tools/MovingAverage.h"
@@ -40,7 +41,7 @@ TEST_CASE("ppg peak detector")
 {
     auto s=SamplePPG("examples/data/ppg.csv");
 
-    auto i1 = Input<double>("i1");
+    auto i1 = Input("i1",Type::cosine,99);
     auto ma1 = MovingAverage("ma1", round(50/s.dt()) );
     auto ma2 = MovingAverage("ma2", round(2000/s.dt()) );
     auto diff = Difference("diff");

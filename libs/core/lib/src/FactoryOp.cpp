@@ -1,7 +1,11 @@
+#define JSON_DISABLE_ENUM_SERIALIZATION 1
+
 #include "rtbot/FactoryOp.h"
+#include "rtbot/Enums.h"
 #include "rtbot/Operator.h"
 #include "rtbot/tools/MovingAverage.h"
 #include "rtbot/tools/PeakDetector.h"
+#include "rtbot/tools/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 
@@ -9,9 +13,19 @@
 #include <nlohmann/json.hpp>
 
 
+
+
 namespace rtbot {
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input<double>,id);
+
+
+NLOHMANN_JSON_SERIALIZE_ENUM( Type, {
+    {cosine, "cosine"},
+    {hermite, "hermite"},
+    {chebyshev, "chebyshev"},
+})
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input,id,iType,dt);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
@@ -41,7 +55,7 @@ std::string FactoryOp::createPipeline(std::string const& id, std::string const& 
 /// whenever we create a static instance later, as  below:
 FactoryOp::FactoryOp()
 {
-    op_registry_add< Input<>      , nlohmann::json >();
+    op_registry_add< Input, nlohmann::json >();
     op_registry_add< MovingAverage, nlohmann::json >();
     op_registry_add< PeakDetector , nlohmann::json >();
     op_registry_add< Join<>       , nlohmann::json >();

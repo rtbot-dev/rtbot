@@ -12,7 +12,9 @@
   "operators": [
     {
         "id": "i1",
-        "type": "Input"
+        "type": "Input",
+        "iType": "cosine",
+        "dt": 3
     },
     {
         "id": "ma1",

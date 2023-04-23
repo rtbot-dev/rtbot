@@ -38,7 +38,7 @@ struct Pipeline {
     }
 
     /// return a list of the operator that emit: id, output message
-    map<string,Message<>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
+    map<string,std::vector<Message<>>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
 };
 
 }
