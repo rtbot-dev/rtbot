@@ -4,6 +4,7 @@ import { baseOperatorSchema } from "./operator.schemas";
 export const connectionSchema = z.object({
   from: z.string(),
   to: z.string(),
+  toPort: z.number().gte(0).optional(),
 });
 export type Connection = z.infer<typeof connectionSchema>;
 

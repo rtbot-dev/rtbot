@@ -35,6 +35,30 @@ export const inputSchema = z.object({
   }),
 });
 
+export const joinSchema = z.object({
+  title: z.literal("Join"),
+  opType: z.literal("Join"),
+  parameters: z.object({
+    nInput: z.number().gt(1),
+  }),
+});
+
+export const localExtremeSchema = z.object({
+  title: z.literal("Local Extreme"),
+  opType: z.literal("PeakDetector"),
+  parameters: z.object({
+    n: z.number().gt(0),
+  }),
+});
+
+export const differenceSchema = z.object({
+  title: z.literal("Difference"),
+  opType: z.literal("Difference"),
+  parameters: z.object({
+    nInput: z.number().gt(1).lte(2), // 2
+  }),
+});
+
 export const metadataSchema = z.object({
   position: z
     .object({
@@ -64,6 +88,11 @@ export const baseOperatorSchema = z.object({
 });
 export type BaseOperator = z.infer<typeof baseOperatorSchema>;
 
-export const operatorSchemaList = [movingAverageSchema, standardDeviationSchema, inputSchema].map((s) =>
-  baseOperatorSchema.merge(s)
-);
+export const operatorSchemaList = [
+  movingAverageSchema,
+  standardDeviationSchema,
+  inputSchema,
+  joinSchema,
+  localExtremeSchema,
+  differenceSchema,
+].map((s) => baseOperatorSchema.merge(s));

@@ -1,13 +1,20 @@
 import React, { MouseEventHandler, useCallback, useLayoutEffect, useRef, useState } from "react";
 import { nanoid } from "nanoid";
-import ReactFlow, { Connection, Edge, Position, ReactFlowProvider, useReactFlow, XYPosition } from "reactflow";
+import ReactFlow, {
+  Connection,
+  Edge,
+  Position,
+  ReactFlowProvider,
+  useReactFlow,
+  XYPosition,
+  MarkerType,
+} from "reactflow";
 import "reactflow/dist/style.css";
 
 import "./reactflow.css";
 import { OperatorNode } from "./OperatorNode";
 import editor from "@/store/editor";
 import { RunBtn } from "./RunBtn";
-import { Program } from "@/store/editor/schemas";
 
 const getNode = (position?: { x?: number; y?: number }) => {
   const id = nanoid(4);
@@ -50,23 +57,30 @@ const AddNodeOnEdgeDrop = ({ programId }: { programId: string }) => {
 
   const { project } = useReactFlow();
 
-  const onConnect = useCallback(
-    (edge: Edge | Connection) => editor.addConnection(programId, edge.source as string, edge.target as string),
-    []
-  );
+  const onConnect = useCallback((edge: Edge | Connection) => {
+    console.log("Adding connection", edge);
+    editor.addConnection(
+      programId,
+      edge.source as string,
+      edge.target as string,
+      edge.sourceHandle as string,
+      edge.targetHandle as string
+    );
+  }, []);
 
   const onConnectStart = useCallback((_: any, { nodeId }: { nodeId: string | null }) => {
     connectingNodeId.current = nodeId;
   }, []);
 
   const onConnectEnd = (event: any) => {
+    console.log("On connect ends");
     handleAddNode(event);
   };
   const handleAddNode: MouseEventHandler<HTMLDivElement> = (event) => {
-    console.log("Adding node", event);
     const targetIsPane = (event.target as HTMLDivElement).classList.contains("react-flow__pane");
 
     if (targetIsPane) {
+      console.log("Adding node", event);
       // we need to remove the wrapper bounds, in order to get the correct position
       const { top, left } = (reactFlowWrapper as any).current.getBoundingClientRect();
       const id = addNode({ x: event.clientX - left - 75, y: event.clientY - top });
@@ -96,7 +110,15 @@ const AddNodeOnEdgeDrop = ({ programId }: { programId: string }) => {
     : [];
 
   const edges = state.program
-    ? state.program.connections.map((con) => ({ id: `${con.from}-${con.to}`, source: con.from, target: con.to }))
+    ? state.program.connections.map((con) => ({
+        id: `${con.from}-${con.to}`,
+        source: con.from,
+        target: con.to,
+        targetHandle: `${con.toPort ?? "out"}`,
+        markerEnd: {
+          type: MarkerType.Arrow,
+        },
+      }))
     : [];
 
   const onNodeDrag = (event: { movementX: any; movementY: any }) => {
