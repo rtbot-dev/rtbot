@@ -15,7 +15,7 @@ export interface DataApi {
   update(dataId: string, data: any): Promise<void>;
   list(): Promise<Data[]>;
   delete(dataId: string): Promise<void>;
-  uploadFile(file: File): Promise<void>;
+  uploadFile(file: File, setUploadProgress: (progress: number) => void): Promise<void>;
   load(dataId: string): Promise<number[][]>;
   clearCache(): Promise<void>;
 }

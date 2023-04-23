@@ -3,6 +3,8 @@ import { Program } from "@/store/editor/schemas";
 import { programApi } from "@/api/program";
 import auth from "./auth";
 import { Data, dataApi } from "@/api/data";
+import { Simulate } from "react-dom/test-utils";
+import progress = Simulate.progress;
 
 const subject = new Subject<IMenuState>();
 
@@ -27,27 +29,11 @@ export const initialState: IMenuState = {
 };
 
 let state = initialState;
-
-const refreshProgramList = () => {
-  programApi.list().then((programs) => {
-    console.log("list of programs", programs);
-    state.programs = programs;
-    subject.next({ ...state });
-  });
-};
-
-const refreshDataList = () => {
-  dataApi.list().then((data) => {
-    console.log("list of data", data);
-    state.data = data;
-    subject.next({ ...state });
-  });
-};
 auth.subscribe(({ user }) => {
   console.log("Refreshing program list");
   if (user) {
-    refreshProgramList();
-    refreshDataList();
+    store.refreshProgramList();
+    store.refreshDataList();
   }
 });
 // store
@@ -58,6 +44,21 @@ export const store = {
     subject.next(state);
   },
   subscribe: (setState: (value: IMenuState) => void) => subject.subscribe(setState),
+
+  refreshProgramList() {
+    programApi.list().then((programs) => {
+      console.log("list of programs", programs);
+      state.programs = programs;
+      subject.next({ ...state });
+    });
+  },
+  refreshDataList() {
+    dataApi.list().then((data) => {
+      console.log("list of data", data);
+      state.data = data;
+      subject.next({ ...state });
+    });
+  },
   setUploadProgress(progress: number) {
     state.uploadProgress = progress;
     subject.next({ ...state });
@@ -69,8 +70,8 @@ export const store = {
   toggle() {
     state.sideMenuOpen = !state.sideMenuOpen;
     subject.next({ ...state });
-    refreshProgramList();
-    refreshDataList();
+    this.refreshProgramList();
+    this.refreshDataList();
   },
   createProgram(title: string = "New program") {
     state = { ...state, editingProgramList: true };
@@ -86,7 +87,7 @@ export const store = {
       .then(() => {
         state = { ...state, editingProgramList: false };
         subject.next(state);
-        refreshProgramList();
+        this.refreshProgramList();
       });
   },
   deleteProgram(programId: string) {
@@ -95,17 +96,35 @@ export const store = {
     programApi.delete(programId).then(() => {
       state = { ...state, editingProgramList: false };
       subject.next(state);
-      refreshProgramList();
+      this.refreshProgramList();
     });
   },
   uploadFile(file: File) {
     state = { ...state, uploadingFile: true, uploadProgress: 0 };
     subject.next({ ...state });
-    dataApi.uploadFile(file).then(() => {
-      state = { ...state, uploadingFile: false, uploadProgress: 0 };
-      subject.next({ ...state });
-      refreshDataList();
-    });
+    dataApi
+      .uploadFile(file, (progress) => {
+        state = { ...state, uploadProgress: progress };
+        subject.next({ ...state });
+      })
+      .then(() => {
+        state = { ...state, uploadingFile: false, uploadProgress: 0 };
+        subject.next({ ...state });
+        this.refreshDataList();
+      });
+  },
+  updateDataTitle(dataId: string, title: string) {
+    state = { ...state, editingDataList: true };
+    subject.next(state);
+    dataApi
+      .update(dataId, {
+        title,
+      })
+      .then(() => {
+        state = { ...state, editingDataList: false };
+        subject.next({ ...state });
+        this.refreshDataList();
+      });
   },
   deleteData(dataId: string) {
     state = { ...state, editingDataList: true };
@@ -113,7 +132,7 @@ export const store = {
     dataApi.delete(dataId).then(() => {
       state = { ...state, editingDataList: false };
       subject.next(state);
-      refreshDataList();
+      this.refreshDataList();
     });
   },
   loadData(dataId: string) {

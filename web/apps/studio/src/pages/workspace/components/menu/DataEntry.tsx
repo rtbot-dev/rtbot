@@ -12,9 +12,9 @@ export const DataEntry = (props: Data) => {
     editing: false,
     showEditBtn: false,
     showDeleteBtn: false,
-    title: props.title,
+    newTitle: props.title,
   });
-  const onTitleKeyUp = async (event) => {
+  const onTitleKeyUp = async (event: KeyboardEvent) => {
     if (event.key === "Escape") {
       setState({ ...state, editing: false });
     }
@@ -30,11 +30,7 @@ export const DataEntry = (props: Data) => {
     // finish edition
     setState({ ...state, editing: false });
     // save new data title in database
-    await dataApi.update(props.metadata.id, {
-      title: state.title,
-    });
-    // refresh the list
-    await dataApi.list();
+    menu.updateDataTitle(props.metadata.id, state.newTitle);
   };
   return (
     <div
@@ -51,8 +47,8 @@ export const DataEntry = (props: Data) => {
           type="text"
           onKeyUp={onTitleKeyUp}
           onBlur={updateTitle}
-          onChange={(e) => setState({ ...state, title: e.target.value })}
-          value={state.title}
+          onChange={(e) => setState({ ...state, newTitle: e.target.value })}
+          value={state.newTitle}
           onClick={(event) => event.stopPropagation()}
         />
       ) : (
@@ -61,13 +57,13 @@ export const DataEntry = (props: Data) => {
           onMouseEnter={() => setState({ ...state, showEditBtn: true })}
           onMouseLeave={() => setState({ ...state, showEditBtn: false })}
         >
-          {state.title}
+          {props.title}
           {state.showEditBtn && (
             <small
               className="data-title-edit-btn"
               onClick={(event) => {
                 event.stopPropagation();
-                setState({ ...state, editing: true });
+                setState({ ...state, editing: true, newTitle: props.title });
               }}
             >
               edit
