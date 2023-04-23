@@ -244,16 +244,28 @@ export const store = {
     }
   },
   // TODO: generalize this to consider explicit connections between operator ports
-  addConnection(programId: string, from: string, to: string) {
+  addConnection(programId: string, from: string, to: string, sourceHandle?: string, targetHandle?: string) {
     const program = state.programs.find((p) => p.metadata?.id === programId);
     if (program) {
+      const toPort = targetHandle ? { toPort: parseInt(targetHandle) } : {};
       const programs: Program[] = state.programs.reduce(
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
             ? {
                 ...p,
-                connections: [...p.connections, { from, to }],
+                connections: [
+                  ...p.connections
+                    // remove dangling connections, if any
+                    .filter(
+                      (c) =>
+                        p.operators.map((o) => o.id).indexOf(c.from) > -1 &&
+                        p.operators.map((o) => o.id).indexOf(c.to) > -1
+                    )
+                    // remove previous connection, if exist
+                    .filter((c) => c.from !== from || c.to !== to),
+                  { from, to, ...toPort },
+                ],
               }
             : p,
         ],

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { memo, useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./form.css";
 import { FaChartLine, FaEdit, FaTrash } from "react-icons/all";
@@ -18,7 +18,7 @@ type State = {
   showMenu: boolean;
   plot: boolean;
 };
-export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => {
+export const OperatorNode = memo(({ id, isConnectable, data }: OperatorNodeInput) => {
   const { parameters, title, metadata, programId } = data;
   const formOpen = metadata && typeof metadata.editing !== "undefined" ? metadata.editing : false;
 
@@ -27,15 +27,22 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
     plot: metadata && typeof metadata.plot !== "undefined" ? metadata.plot : false,
   });
 
+  let numInputHandlers = parameters && parameters.nInput ? parameters.nInput : 1;
   return (
     <div>
-      <Handle
-        type="target"
-        position={Position.Left}
-        style={{ background: "#555" }}
-        onConnect={(params) => console.log("handle onConnect", params)}
-        isConnectable={isConnectable}
-      />
+      <div>
+        {[...Array(numInputHandlers)].map((_item, index) => (
+          <Handle
+            type="target"
+            key={index}
+            id={`${index}`}
+            position={Position.Left}
+            style={{ background: "#555", top: `${((index + 0.5) * 100.0) / numInputHandlers}%` }}
+            onConnect={(params) => console.log("handle onConnect", { ...params, port: index })}
+            isConnectable={isConnectable}
+          />
+        ))}
+      </div>
       {formOpen ? (
         <div className="card bg-base-100 shadow-xl form-card">
           <NodeForm programId={programId} schemas={operatorSchemaList} id={id} opDef={data} />
@@ -94,10 +101,10 @@ export const OperatorNode = ({ id, isConnectable, data }: OperatorNodeInput) => 
       <Handle
         type="source"
         position={Position.Right}
-        id="b"
-        style={{ bottom: 10, top: "auto", background: "#555" }}
+        id="out"
+        style={{ background: "#555" }}
         isConnectable={isConnectable}
       />
     </div>
   );
-};
+});
