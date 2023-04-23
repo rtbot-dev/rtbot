@@ -34,6 +34,7 @@ template <class T> class Operator;
 template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
 
 template <class T=double> class Operator {
+public:
     struct Connection {
         Operator<T> * const dest;
         int toPort=-1;
@@ -42,7 +43,6 @@ template <class T=double> class Operator {
 
     vector<Connection> children;
 
-public:
 
   string id;
   function<T(T)> f;

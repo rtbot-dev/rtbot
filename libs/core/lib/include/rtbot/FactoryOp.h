@@ -23,7 +23,7 @@ public:
 
     struct SerializerOp {
         function<Op_ptr<>(string)> from_string;
-        function<string(const Op_ptr<>&)> to_string;
+        function<string(const Operator<>&)> to_string;
         function<string()> to_string_default;
     };
 
@@ -40,10 +40,10 @@ public:
         {
             return std::make_unique<Op>(Format::parse(prog) );
         };
-        auto to_string=[](Op_ptr<> const& op)
+        auto to_string=[](Operator<> const& op)
         {
-            string type=op->typeName();
-            auto obj=Format( *dynamic_cast<Op*>(op.get()) );
+            string type=op.typeName();
+            auto obj=Format( dynamic_cast<const Op&>(op) );
             obj["type"]=type;
             return obj.dump();
         };
@@ -61,7 +61,9 @@ public:
     }
 
     static Op_ptr<> readOp(std::string const& json_string);
-    static std::string writeOp(Op_ptr<> const& op);
+    static vector<Op_ptr<>> readOps(std::string const& json_string);
+    static std::string writeOp(Operator<> const& op);
+    static std::string writeOps(vector<Operator<> *> const& ops);
     static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
 
     std::string createPipeline(std::string const& id, std::string const& json_program);

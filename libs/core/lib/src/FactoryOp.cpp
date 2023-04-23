@@ -18,6 +18,16 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>,id,nInput);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference,id);
 
+struct OpConnection
+{
+    string from;
+    string to;
+    int toPort=-1;
+    int fromPort=-1;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OpConnection,from,to,toPort,fromPort);
+
 
 std::string FactoryOp::createPipeline(std::string const& id, std::string const&  json_program)
 {
@@ -69,15 +79,52 @@ Op_ptr<> FactoryOp::readOp(const std::string &program)
     return it->second.from_string(program);
 }
 
-std::string FactoryOp::writeOp(Op_ptr<> const& op)
+std::string FactoryOp::writeOp(const Operator<> &op)
 {
-    string type=op->typeName();
+    string type=op.typeName();
     nlohmann::json j;
     j["type"]=type;
     auto it = op_registry().find(type);
     if (it == op_registry().end())
         throw std::runtime_error(string("invalid Operator type while parsing ") + type );
     return it->second.to_string(op);
+}
+
+vector<Op_ptr<>> FactoryOp::readOps(std::string const& json_string)
+{
+    std::map<std::string,Op_ptr<>> all_op;
+    auto json=nlohmann::json::parse(json_string);
+    for(const nlohmann::json& jop : json)
+        all_op.emplace(jop.at("id"),readOp(jop));
+    // connections
+    for(const OpConnection x : json.at("connections"))
+        all_op.at(x.from)->connect(all_op.at(x.to).get(), x.toPort, x.fromPort);
+
+    vector<Op_ptr<>> out;
+    for(auto& it : all_op)
+        out.push_back(std::move(it.second));
+    return out;
+}
+
+std::string FactoryOp::writeOps(vector<Operator<> *> const& ops)
+{
+    nlohmann::json j;
+    for(auto op : ops) {
+        auto jop=nlohmann::json::parse(writeOp(*op));
+        j["operators"].push_back(jop);
+    }
+
+    for(auto op : ops) {
+        nlohmann::json jc;
+        jc["from"]=op->id;
+        for (auto [x,toP,fromP] : op->children) {
+            jc["to"]=x->id;
+            if (toP!=-1) jc["toPort"]=toP;
+            if (fromP!=-1) jc["fromPort"]=fromP;
+            j["connections"].push_back(jc);
+        }
+    }
+    return j.dump();
 }
 
 

@@ -4,6 +4,7 @@
 #include "MovingAverage.h"
 #include "rtbot/Buffer.h"
 #include "rtbot/Composite.h"
+#include "rtbot/FactoryOp.h"
 
 namespace rtbot {
 
@@ -15,6 +16,8 @@ struct AutoRegressive: public AutoBuffer<double>
         : AutoBuffer<double>(id_, coeff_.size())
         , coeff(coeff_)
     {}
+
+    string typeName() const override { return "AutoRegressive"; }
 
     Message<> solve(Message<> const& msg) const override
     {
@@ -29,17 +32,18 @@ struct AutoRegressive: public AutoBuffer<double>
 
 struct ARMA: public Composite<double>
 {
-    ARMA(string const &id_, vector<double> const& ar_, vector<double> const& ma_)
-        : Composite<double>(id_, {
-                            std::make_unique<MovingAverage>(id_+"_ma",ma_),
-                            std::make_unique<AutoRegressive>(id_+"_ar",ar_) })
-    {}
+    vector<double> ar_coeff;
+    int ma_n;
 
-    ARMA(string const &id_, vector<double> const& ar_, int n_ma)
-        : Composite<double>(id_, {
-                            std::make_unique<MovingAverage>(id_+"_ma",n_ma),
-                            std::make_unique<AutoRegressive>(id_+"_ar",ar_) })
-    {}
+    void initializeGraph() override
+    {
+        MovingAverage ma(id+"_ma",ma_n);
+        AutoRegressive ar(id+"_ar",ar_coeff);
+        ma.connect(ar);
+        this->op=FactoryOp::readOps(FactoryOp::writeOps({&ma,&ar}));  // TODO: this is the moment to introduce clone()!!
+    }
+
+
 };
 
 
