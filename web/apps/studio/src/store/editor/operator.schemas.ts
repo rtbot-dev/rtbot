@@ -59,7 +59,7 @@ export const differenceSchema = z.object({
   }),
 });
 
-export const metadataSchema = z.object({
+export const operatorMetadataSchema = z.object({
   position: z
     .object({
       x: z.number().default(0).optional(),
@@ -68,22 +68,26 @@ export const metadataSchema = z.object({
     .optional(),
   style: z
     .object({
+      mode: z
+        .enum(["lines", "markers", "text", "lines+markers", "text+markers", "text+lines", "text+lines+markers"])
+        .optional(),
       color: z.string().optional(),
+      legend: z.string().optional(),
       lineType: z.string().optional(),
       lineWidth: z.number().optional(),
     })
     .optional(),
-  editing: z.boolean().optional(),
-  plot: z.boolean().optional(),
+  editing: z.union([z.boolean(), z.enum(["def", "plot"])]).optional(),
+  plot: z.boolean().default(false).optional(),
   source: z.string().optional(),
 });
 
-export type Metadata = z.infer<typeof metadataSchema>;
+export type Metadata = z.infer<typeof operatorMetadataSchema>;
 export const baseOperatorSchema = z.object({
   id: z.string(),
   title: z.string(),
   opType: z.string(),
-  metadata: metadataSchema,
+  metadata: operatorMetadataSchema,
   parameters: z.any(),
 });
 export type BaseOperator = z.infer<typeof baseOperatorSchema>;

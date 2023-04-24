@@ -7,6 +7,7 @@ specifiers:
   '@types/papaparse': ^5.3.7
   '@types/plotly.js': ^2.12.18
   '@types/react': ^18.0.33
+  '@types/react-color': ^3.0.6
   '@types/react-dom': ^18.0.11
   '@types/react-plotly.js': ^2.6.0
   '@vitejs/plugin-react': ^3.1.0
@@ -47,6 +48,7 @@ dependencies:
   '@monaco-editor/react': 4.5.0_3vguicescx7w3divwtpzvtv5wy
   '@types/papaparse': 5.3.7
   '@types/plotly.js': 2.12.18
+  '@types/react-color': 3.0.6
   '@types/react-plotly.js': 2.6.0
   '@vitejs/plugin-react': 3.1.0_vite@4.2.1
   comlink: 4.4.1
@@ -1849,6 +1851,13 @@ packages:
   /@types/prop-types/15.7.5:
     resolution: {integrity: sha512-JCB8C6SnDoQf0cNycqd/35A7MjcnK+ZTqE7judS6o7utxUCg6imJg3QK2qzHKszlTjcj2cn+NwMB2i96ubpj7w==}
 
+  /@types/react-color/3.0.6:
+    resolution: {integrity: sha512-OzPIO5AyRmLA7PlOyISlgabpYUa3En74LP8mTMa0veCA719SvYQov4WLMsHvCgXP+L+KI9yGhYnqZafVGG0P4w==}
+    dependencies:
+      '@types/react': 18.0.33
+      '@types/reactcss': 1.2.6
+    dev: false
+
   /@types/react-dom/18.0.11:
     resolution: {integrity: sha512-O38bPbI2CWtgw/OoQoY+BRelw7uysmXbWvw3nLWO21H1HSh+GOlqPuXshJfjmpNlKiiSDG9cc1JZAaMmVdcTlw==}
     dependencies:
@@ -1868,6 +1877,12 @@ packages:
       '@types/prop-types': 15.7.5
       '@types/scheduler': 0.16.3
       csstype: 3.1.2
+
+  /@types/reactcss/1.2.6:
+    resolution: {integrity: sha512-qaIzpCuXNWomGR1Xq8SCFTtF4v8V27Y6f+b9+bzHiv087MylI/nTCqqdChNeWS7tslgROmYB7yeiruWX7WnqNg==}
+    dependencies:
+      '@types/react': 18.0.33
+    dev: false
 
   /@types/rimraf/3.0.2:
     resolution: {integrity: sha512-F3OznnSLAUxFrCEu/L5PY8+ny8DtcFRjx7fZZ9bycvXRi3KPTRS9HOitGZwvPg0juRhXFWIeKX58cnX5YqLohQ==}

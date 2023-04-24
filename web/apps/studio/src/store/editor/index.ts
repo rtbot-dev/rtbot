@@ -42,6 +42,11 @@ export const merge = (objFrom: any, objTo: any) =>
     { ...objTo }
   );
 let debounce: NodeJS.Timeout | null = null;
+
+export enum OperatorForm {
+  DEF = "def",
+  PLOT = "plot",
+}
 // store
 export const store = {
   init: () => {
@@ -58,8 +63,8 @@ export const store = {
     state.programs = state.programs.filter((p) => p.metadata?.id !== programId);
     subject.next({ ...state });
   },
-  editOperator(programId: string, operatorId: string, value: boolean) {
-    console.log("Editing operator ", programId, operatorId, value);
+  editOperator(programId: string, operatorId: string, form?: OperatorForm) {
+    console.log("Editing operator ", programId, operatorId, form);
     const program = state.programs.find((p) => p.metadata?.id === programId);
     console.log("associated program", program);
     if (program) {
@@ -72,7 +77,7 @@ export const store = {
                 operators: program.operators.reduce(
                   (ops: BaseOperator[], op: BaseOperator) => [
                     ...ops,
-                    op.id === operatorId ? { ...op, metadata: { ...op.metadata, editing: value } } : { ...op },
+                    op.id === operatorId ? { ...op, metadata: { ...op.metadata, editing: form ?? false } } : { ...op },
                   ],
                   []
                 ),
@@ -305,12 +310,7 @@ export const store = {
         .run(program, dataId)
         .then((outputs) => {
           console.log("outputs", outputs);
-          plot.upsertPlot(
-            programId,
-            outputs,
-            program.metadata?.title ?? "Output",
-            program.metadata?.style ?? { type: "scattergl", lineWidth: 2 }
-          );
+          plot.upsertPlot(programId, outputs, program.metadata?.title ?? "Output", program.operators);
           plot.setPlotComputing(programId, false);
           this.setProgramComputing(programId, false);
         })
