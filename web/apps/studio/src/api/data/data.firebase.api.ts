@@ -204,7 +204,7 @@ export class DataFirebaseApi implements DataApi {
       console.log("Data downloaded and cached", dataId, data);
       return data;
     } catch (e) {
-      console.error("Error deleting data: ", e);
+      console.error("Error loading data: ", e);
     }
 
     return Promise.resolve([]);
