@@ -1,4 +1,3 @@
-#define JSON_DISABLE_ENUM_SERIALIZATION 1
 
 #include "rtbot/FactoryOp.h"
 #include "rtbot/Enums.h"
@@ -6,6 +5,7 @@
 #include "rtbot/tools/MovingAverage.h"
 #include "rtbot/tools/PeakDetector.h"
 #include "rtbot/tools/Input.h"
+#include "rtbot/tools/CosineResampler.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 
@@ -13,19 +13,30 @@
 #include <nlohmann/json.hpp>
 
 
-
+using json = nlohmann::json;
 
 namespace rtbot {
 
+void to_json(json& j, const Input& p) {
+        j = json{ {"type", p.typeName()}, {"id", p.id} };
+}
 
+void from_json(const json& j, Input& p) {
+    j.at("id").get_to(p.id);
+    p.n = Input::size;
+}
 
-NLOHMANN_JSON_SERIALIZE_ENUM( Type, {
-    {cosine, "cosine"},
-    {hermite, "hermite"},
-    {chebyshev, "chebyshev"},
-})
+void to_json(json& j, const CosineResampler& p) {
+        j = json{ {"type", p.typeName()}, {"id", p.id}, {"dt", p.dt} };
+}
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Input,id,iType,dt);
+void from_json(const json& j, CosineResampler& p) {
+    j.at("id").get_to(p.id);
+    j.at("dt").get_to(p.dt);
+    p.n = CosineResampler::size;
+    p.carryOver = CosineResampler::initinalCarryOver;
+}
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt,id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage,id,n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector,id,n);
@@ -56,6 +67,7 @@ std::string FactoryOp::createPipeline(std::string const& id, std::string const& 
 FactoryOp::FactoryOp()
 {
     op_registry_add< Input, nlohmann::json >();
+    op_registry_add< CosineResampler, nlohmann::json >();
     op_registry_add< MovingAverage, nlohmann::json >();
     op_registry_add< PeakDetector , nlohmann::json >();
     op_registry_add< Join<>       , nlohmann::json >();
