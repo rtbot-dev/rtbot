@@ -77,7 +77,7 @@ export const store = {
             type: "scattergl",
             mode: style.mode,
             marker: {
-              size: 4,
+              size: 6,
               color: style.color,
             },
             line: {
