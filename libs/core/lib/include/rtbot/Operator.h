@@ -82,8 +82,8 @@ public:
       std::map<string,std::vector<Message<T>>> out;
       out.insert(std::pair<string, std::vector<Message<T>>>(id, msgs));
       for(unsigned int i=0; i < msgs.size(); i++) {
-        for (auto x : children) {
-            auto outi=x.dest->receive(msgs.at(i));
+        for (auto [child, to, from] : children) {
+            auto outi= child->receive(msgs.at(i), to);
             for(const auto& it : outi) {
               // first time we insert an output of a child operator
               if(out.find(it.first) == out.end()) {
