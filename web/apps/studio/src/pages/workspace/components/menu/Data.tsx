@@ -8,7 +8,7 @@ import { DataEntry } from "./DataEntry";
 
 export const Data = () => {
   const [selectedFile, setSelectedFile] = useState();
-  const [state, setState] = useState(menu.getState());
+  const [state, setState] = useState(menu.getState);
   useLayoutEffect(() => {
     menu.subscribe(setState);
   }, []);
@@ -33,14 +33,21 @@ export const Data = () => {
           ))}
         </ul>
         <div className="divider"></div>
-        <span>
-          <input type="file" className="file-input w-full" accept="text/csv" onChange={fileHandler} />
-          {selectedFile && (
-            <button className="justify-center btn-xl" onClick={uploadFile}>
-              <IoCloudUpload />
-            </button>
-          )}
-        </span>
+        {state.uploadingFile ? (
+          <>
+            <div>uploading...</div>
+            <progress className="progress w-full" value={state.uploadProgress} max="1"></progress>
+          </>
+        ) : (
+          <div className="display-flex w-full">
+            <input type="file" className="file-input" accept="text/csv" onChange={fileHandler} />
+            {selectedFile && (
+              <button className="justify-center btn-xl" onClick={uploadFile}>
+                <IoCloudUpload />
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

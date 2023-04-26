@@ -1,4 +1,4 @@
-import { ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodString } from "zod";
+import { ZodAny, ZodEnum, ZodLiteral, ZodNumber, ZodObject, ZodString } from "zod";
 import "./nodeform.css";
 import { MdCheck, MdClose } from "react-icons/all";
 import React, { useLayoutEffect, useState } from "react";
@@ -18,12 +18,9 @@ type NodeFormState = {
   schema: ZodObject<any> | null;
   parameters: any;
   formErrors: any;
-  more: boolean;
-  pickColor: boolean;
-  colorSelected: string;
   source?: string;
 };
-export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
+export const OperatorDefForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
   const schema = schemas.filter((s) => s.shape.opType.value === opDef.opType)[0];
   const [menuState, setMenuState] = useState(menu.getState());
   useLayoutEffect(() => {
@@ -33,9 +30,6 @@ export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
     schema,
     parameters: opDef.parameters ?? {},
     formErrors: {},
-    more: false,
-    pickColor: false,
-    colorSelected: "rgb(233, 30, 99)",
     source: opDef.metadata.source,
   });
 
@@ -76,9 +70,9 @@ export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
         ))}
       </select>
       {state.schema &&
-        Object.entries(state.schema.shape.parameters.shape).map(([k, v], i) => {
+        Object.entries(state.schema.shape.parameters.shape).map(([k, v]: [string, any], i) => {
           let inputComponent;
-          switch (v.constructor) {
+          switch ((v as new () => ZodAny).constructor) {
             case ZodNumber:
               inputComponent = (
                 <input
@@ -130,67 +124,37 @@ export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
         })}
       {state.schema && (
         <>
-          <a className="options-btn" onClick={() => setState({ ...state, more: !state.more })}>
-            Options
-          </a>
-          {state.more && (
+          {opDef.opType === "Input" && (
             <div>
               <label className="input-group node-form-label">
-                <span className="label-text">color</span>
-                <span
+                <span className="label-text">source</span>
+                <select
                   className="select select-bordered"
-                  onClick={() => setState({ ...state, pickColor: !state.pickColor })}
+                  onChange={(event) => {
+                    setState({ ...state, source: event.target.value });
+                    editor.updateOperator(programId, { id, metadata: { source: event.target.value } });
+                  }}
                 >
-                  <div className="color-selected flex justify-center align-middle">
-                    <div
-                      className="color-selected-inner-div"
-                      style={{ boxShadow: `${state.colorSelected} 0px 0px 0px 15px inset` }}
-                    ></div>
-                  </div>
-                </span>
-              </label>
-              {state.pickColor && (
-                <div>
-                  <CirclePicker
-                    onChange={(e: any) =>
-                      setState({ ...state, pickColor: false, colorSelected: `rgb(${e.rgb.r}, ${e.rgb.g}, ${e.rgb.b})` })
-                    }
-                  />
-                </div>
-              )}
-              {opDef.opType === "Input" && (
-                <div>
-                  <label className="input-group node-form-label">
-                    <span className="label-text">source</span>
-                    <select
-                      className="select select-bordered"
-                      onChange={(event) => {
-                        setState({ ...state, source: event.target.value });
-                        editor.updateOperator(programId, { id, metadata: { source: event.target.value } });
-                      }}
+                  <option disabled selected>
+                    Select
+                  </option>
+                  {menuState.data.map((d, i) => (
+                    <option
+                      key={`${d.metadata.id}-${i}`}
+                      value={d.metadata.id}
+                      selected={d.metadata.id === state.source}
                     >
-                      <option disabled selected>
-                        Select
-                      </option>
-                      {menuState.data.map((d, i) => (
-                        <option
-                          key={`${d.metadata.id}-${i}`}
-                          value={d.metadata.id}
-                          selected={d.metadata.id === state.source}
-                        >
-                          {d.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              )}
+                      {d.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           )}
         </>
       )}
       <div className="node-form-buttons">
-        <button className="btn btn-circle" onClick={() => editor.editOperator(programId, id, false)}>
+        <button className="btn btn-circle" onClick={() => editor.editOperator(programId, id)}>
           <MdClose />
         </button>
         <div className="separator"></div>
@@ -205,18 +169,13 @@ export const NodeForm = ({ programId, schemas, id, opDef }: NodeFormProps) => {
             if (state.schema) {
               const opDef = {
                 id,
-                metadata: {
-                  style: {
-                    color: state.colorSelected,
-                  },
-                },
                 title: state.schema.shape.title.value,
                 opType: state.schema.shape.opType.value,
                 parameters: { ...state.parameters },
               };
               console.log("Saving", opDef);
               editor.updateOperator(programId, opDef);
-              editor.editOperator(programId, id, false);
+              editor.editOperator(programId, id);
             }
           }}
         >

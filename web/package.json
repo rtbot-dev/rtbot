@@ -9,6 +9,7 @@
     "@monaco-editor/react": "^4.5.0",
     "@types/papaparse": "^5.3.7",
     "@types/plotly.js": "^2.12.18",
+    "@types/react-color": "^3.0.6",
     "@types/react-plotly.js": "^2.6.0",
     "@vitejs/plugin-react": "^3.1.0",
     "comlink": "^4.4.1",
