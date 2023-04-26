@@ -35,7 +35,7 @@ export class RtBotRun {
       ...op.parameters,
       type: op.opType,
       // TODO: remove this patch when we complete the implementation of the Input and resamplers
-      ...(op.opType === "Input" ? { iType: "cosine", dt: 8 } : {}),
+      ...(op.opType === "Input" ? { iType: "cosine", dt: 7 } : {}),
     }));
     const connections = this.program.connections.filter((c) => c.from !== null && c.to !== null);
     return JSON.stringify({ ...this.program, operators, connections });
@@ -52,7 +52,7 @@ export class RtBotRun {
     // iterate over the data passed and send it to the rtbot program
     this.data.forEach(([time, ...value]) => {
       const iterationOutput = rtbot.receiveMessageInPipelineDebug(pipelineId, time, value);
-      //console.log("iteration output", iterationOutput);
+      //console.log("iteration ", time, value, "=>", iterationOutput);
       // record the outputs
       Object.entries(JSON.parse(iterationOutput) as RtBotIterationOutput).forEach(([k, msgs]) => {
         msgs.forEach(({ time, value }) => {
