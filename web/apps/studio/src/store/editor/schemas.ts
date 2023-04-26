@@ -9,7 +9,6 @@ export const connectionSchema = z.object({
 export type Connection = z.infer<typeof connectionSchema>;
 
 export const programMetadataStyleSchema = z.object({
-  type: z.enum(["scattergl"]),
   lineWidth: z.number().gt(0).optional(),
   color: z.string().optional(),
 });

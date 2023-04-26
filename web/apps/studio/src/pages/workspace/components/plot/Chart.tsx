@@ -20,10 +20,14 @@ export function Chart({ plotId }: ChartProps) {
       setState(plot);
     });
     if (ref.current !== null) {
-      const { width, height } = ref.current.getBoundingClientRect();
-      console.log("ref dimensions", width, height);
-      setWidth(width);
-      setHeight(height);
+      const updateDimensions = () => {
+        const { width, height } = ref.current.getBoundingClientRect();
+        setWidth(width);
+        setHeight(height);
+      };
+      const resizeObserver = new ResizeObserver(updateDimensions);
+      resizeObserver.observe(ref.current);
+      updateDimensions();
     }
   });
   return (
@@ -40,7 +44,7 @@ export function Chart({ plotId }: ChartProps) {
             xaxis: { color: "#a6adbb" },
             yaxis: { color: "#a6adbb" },
           }}
-          config={{ autosizable: true }}
+          config={{ responsive: true, autosizable: true }}
         />
       ) : state?.computing ? (
         <Lottie animationData={computingAnimation} style={{ height: "50%" }} />

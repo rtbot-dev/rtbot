@@ -29,6 +29,18 @@ const save = async (programId: string) => {
   }
 };
 
+const sanitizeProgram = (program: Program) => {
+  const operatorIds = program.operators.map((o) => o.id);
+  const originalConnections = program.connections.length;
+  program.connections = program.connections.filter(
+    (c) => operatorIds.indexOf(c.from) > -1 && operatorIds.indexOf(c.to) > -1
+  );
+  if (program.connections.length !== originalConnections) {
+    console.log("Sanitizing: removed", originalConnections - program.connections.length, "invalid connections");
+  }
+  return program;
+};
+
 // @see https://stackoverflow.com/questions/27936772/how-to-deep-merge-instead-of-shallow-merge
 export const merge = (objFrom: any, objTo: any) =>
   Object.keys(objFrom).reduce(
@@ -42,6 +54,11 @@ export const merge = (objFrom: any, objTo: any) =>
     { ...objTo }
   );
 let debounce: NodeJS.Timeout | null = null;
+
+export enum OperatorForm {
+  DEF = "def",
+  PLOT = "plot",
+}
 // store
 export const store = {
   init: () => {
@@ -58,8 +75,8 @@ export const store = {
     state.programs = state.programs.filter((p) => p.metadata?.id !== programId);
     subject.next({ ...state });
   },
-  editOperator(programId: string, operatorId: string, value: boolean) {
-    console.log("Editing operator ", programId, operatorId, value);
+  editOperator(programId: string, operatorId: string, form?: OperatorForm) {
+    console.log("Editing operator ", programId, operatorId, form);
     const program = state.programs.find((p) => p.metadata?.id === programId);
     console.log("associated program", program);
     if (program) {
@@ -67,16 +84,16 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...program,
                 operators: program.operators.reduce(
                   (ops: BaseOperator[], op: BaseOperator) => [
                     ...ops,
-                    op.id === operatorId ? { ...op, metadata: { ...op.metadata, editing: value } } : { ...op },
+                    op.id === operatorId ? { ...op, metadata: { ...op.metadata, editing: form ?? false } } : { ...op },
                   ],
                   []
                 ),
-              }
+              })
             : p,
         ],
         []
@@ -97,10 +114,10 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...p,
                 operators: [...p.operators, { ...operator }],
-              }
+              })
             : p,
         ],
         []
@@ -121,7 +138,7 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...program,
                 operators: program.operators.reduce(
                   (ops: BaseOperator[], op: BaseOperator) => [
@@ -132,7 +149,7 @@ export const store = {
                   ],
                   []
                 ),
-              }
+              })
             : p,
         ],
         []
@@ -153,7 +170,7 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...program,
                 operators: program.operators.reduce(
                   (ops: BaseOperator[], op: BaseOperator) => [
@@ -173,7 +190,7 @@ export const store = {
                   ],
                   []
                 ),
-              }
+              })
             : p,
         ],
         []
@@ -202,10 +219,10 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...p,
                 operators: p.operators.filter((op) => op.id != operator.id),
-              }
+              })
             : p,
         ],
         []
@@ -226,10 +243,10 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...p,
                 connections: p.connections.filter((con) => con.from !== from || con.to !== to),
-              }
+              })
             : p,
         ],
         []
@@ -243,7 +260,6 @@ export const store = {
       subject.next({ ...state });
     }
   },
-  // TODO: generalize this to consider explicit connections between operator ports
   addConnection(programId: string, from: string, to: string, sourceHandle?: string, targetHandle?: string) {
     const program = state.programs.find((p) => p.metadata?.id === programId);
     if (program) {
@@ -252,21 +268,15 @@ export const store = {
         (programs: Program[], p: Program) => [
           ...programs,
           p.metadata?.id === programId
-            ? {
+            ? sanitizeProgram({
                 ...p,
                 connections: [
                   ...p.connections
-                    // remove dangling connections, if any
-                    .filter(
-                      (c) =>
-                        p.operators.map((o) => o.id).indexOf(c.from) > -1 &&
-                        p.operators.map((o) => o.id).indexOf(c.to) > -1
-                    )
                     // remove previous connection, if exist
                     .filter((c) => c.from !== from || c.to !== to),
                   { from, to, ...toPort },
                 ],
-              }
+              })
             : p,
         ],
         []
@@ -284,7 +294,7 @@ export const store = {
     const programs: Program[] = state.programs.reduce(
       (programs: Program[], p: Program) => [
         ...programs,
-        p.metadata?.id === programId ? { ...p, metadata: { ...p.metadata, computing } } : p,
+        p.metadata?.id === programId ? sanitizeProgram({ ...p, metadata: { ...p.metadata, computing } }) : p,
       ],
       []
     );
@@ -302,15 +312,10 @@ export const store = {
     if (program) {
       this.setProgramComputing(programId, true);
       rtbotApi
-        .run(program, dataId)
+        .run(sanitizeProgram({ ...program }), dataId)
         .then((outputs) => {
           console.log("outputs", outputs);
-          plot.upsertPlot(
-            programId,
-            outputs,
-            program.metadata?.title ?? "Output",
-            program.metadata?.style ?? { type: "scattergl", lineWidth: 2 }
-          );
+          plot.upsertPlot(programId, outputs, program.metadata?.title ?? "Output", program.operators);
           plot.setPlotComputing(programId, false);
           this.setProgramComputing(programId, false);
         })

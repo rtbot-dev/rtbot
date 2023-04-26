@@ -2,6 +2,8 @@ import { Subject } from "rxjs";
 import { Figure } from "react-plotly.js";
 import * as Plotly from "plotly.js";
 import { PlotStyle } from "./editor/schemas";
+import { BaseOperator } from "./editor/operator.schemas";
+import { Dash } from "plotly.js";
 
 const subject = new Subject<IPlotState>();
 
@@ -51,7 +53,7 @@ export const store = {
     state = { ...state, plots };
     subject.next({ ...state });
   },
-  upsertPlot(plotId: string, outputs: { [operatorId: string]: number[][] }, title: string, style: PlotStyle) {
+  upsertPlot(plotId: string, outputs: { [operatorId: string]: number[][] }, title: string, opDefs: BaseOperator[]) {
     const plot = state.plots.find((p) => p.id === plotId);
     if (!plot) {
       // add a new plot to the list
@@ -59,22 +61,33 @@ export const store = {
     }
     const data: Plotly.Data[] = [];
     Object.entries(outputs).map(([operatorId, output]) => {
-      // TODO: handle case of larger vector output
-      console.log("Adding output for", operatorId, output);
-      data.push({
-        x: output[0],
-        y: output[1],
-        type: style.type,
-        mode: "lines+markers",
-        marker: {
-          size: 2,
-          color: style.color,
-        },
-        line: {
-          color: style.color,
-          width: style.lineWidth ?? 1,
-        },
-      });
+      // get the style for the operator id
+      const operator = opDefs.find((op) => op.id === operatorId)!;
+      if (operator.metadata.plot) {
+        const style = operator.metadata.style!;
+        for (let i = 1; i < output.length; i++) {
+          console.log("Adding output ", i, " for", operatorId, output);
+          let legend = style.legend ?? operatorId;
+          legend = i === 1 ? legend : `${legend} ${i}`;
+          data.push({
+            x: output[0],
+            y: output[i],
+            name: legend,
+            title: { text: legend },
+            type: "scattergl",
+            mode: style.mode,
+            marker: {
+              size: 6,
+              color: style.color,
+            },
+            line: {
+              color: style.color,
+              width: style.lineWidth ?? 1,
+              dash: ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"][(i - 1) % 6] as Dash,
+            },
+          });
+        }
+      }
     });
     // now update the plot in the list
     const plots = state.plots.reduce(

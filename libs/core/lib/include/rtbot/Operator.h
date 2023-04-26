@@ -21,7 +21,7 @@ using std::unique_ptr;
 
 
 /**
- * Represents a genereric operator that can receive a message and forward its
+ * Represents a generic operator that can receive a message and forward its
  * computed value to its children. This is one of the main building blocks of
  * rtbot framework.
  *
@@ -73,20 +73,28 @@ public:
           std::transform(msg.value.begin(), msg.value.end(),
                          out.value.begin(),f);
       std::vector<Message<>> msgs;
-      msgs.push_back(out);                   
+      msgs.push_back(out);
       return emit(msgs);
   }
 
   map<string,std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
      
       std::map<string,std::vector<Message<T>>> out;
-      out.insert(std::pair<string,std::vector<Message<T>>>(id,msgs)); 
+      out.insert(std::pair<string, std::vector<Message<T>>>(id, msgs));
       for(unsigned int i=0; i < msgs.size(); i++) {
-        
-        for (auto x : children) {
-            auto outi=x.dest->receive(msgs.at(i));
-            for(const auto& it : outi)
+        for (auto [child, to, from] : children) {
+            auto outi= child->receive(msgs.at(i), to);
+            for(const auto& it : outi) {
+              // first time we insert an output of a child operator
+              if(out.find(it.first) == out.end()) {
                 out.emplace(it);
+              } else {
+                // entry already on map, push the result to the correspondent vector
+                for(auto resultMessage: it.second) {
+                  out[it.first].push_back(resultMessage);
+                }
+              }
+            }
         }
       }
       return out;

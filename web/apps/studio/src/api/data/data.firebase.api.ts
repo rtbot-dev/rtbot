@@ -1,16 +1,6 @@
 import { Data, DataApi, DataMetadata } from "./index";
-import {
-  getStorage,
-  ref,
-  uploadBytesResumable,
-  getDownloadURL,
-  FirebaseStorage,
-  deleteObject,
-  getBlob,
-  getStream,
-} from "firebase/storage";
+import { getStorage, ref, uploadBytesResumable, FirebaseStorage, deleteObject, getBlob } from "firebase/storage";
 import { User } from "firebase/auth";
-import menu from "@/store/menu";
 import auth from "@/store/auth";
 import { app } from "@/api/firebase";
 import {
@@ -42,7 +32,7 @@ export class DataFirebaseApi implements DataApi {
       this.user = authState.user;
     });
   }
-  async uploadFile(file: File): Promise<void> {
+  async uploadFile(file: File, setUploadProgress: (progress: number) => void): Promise<void> {
     if (this.user === null) return;
 
     let parseMeta: DataMetadata;
@@ -74,16 +64,8 @@ export class DataFirebaseApi implements DataApi {
       (snapshot) => {
         // Get task progress, including the number of bytes uploaded and the total number of bytes to be uploaded
         const progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        menu.setUploadProgress(progress);
-        console.log("Upload is " + progress + "% done");
-        switch (snapshot.state) {
-          case "paused":
-            console.log("Upload is paused");
-            break;
-          case "running":
-            console.log("Upload is running");
-            break;
-        }
+        setUploadProgress(progress);
+        console.log("Upload is " + progress);
       },
       (error) => {
         // A full list of error codes is available at
@@ -104,7 +86,7 @@ export class DataFirebaseApi implements DataApi {
         }
       },
       async () => {
-        menu.setUploadProgress(0);
+        setUploadProgress(1);
         try {
           const docRef = await addDoc(collection(this.firestore, `data`), {
             title: file.name.replace(".csv", ""),
@@ -114,12 +96,13 @@ export class DataFirebaseApi implements DataApi {
             createdBy: this.user!!.uid,
             createdAt: serverTimestamp(),
           });
-          console.log("Program saved with id: ", docRef.id);
+          console.log("Data saved with id: ", docRef.id);
         } catch (e) {
-          console.error("Error adding program: ", e);
+          console.error("Error adding data: ", e);
         }
       }
     );
+    await new Promise((resolve) => uploadTask.then(resolve));
   }
 
   async list(): Promise<Data[]> {
@@ -221,7 +204,7 @@ export class DataFirebaseApi implements DataApi {
       console.log("Data downloaded and cached", dataId, data);
       return data;
     } catch (e) {
-      console.error("Error deleting data: ", e);
+      console.error("Error loading data: ", e);
     }
 
     return Promise.resolve([]);

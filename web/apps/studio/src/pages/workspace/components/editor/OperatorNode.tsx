@@ -2,11 +2,12 @@ import React, { memo, useState } from "react";
 import { Handle, Position } from "reactflow";
 import "./form.css";
 import { FaChartLine, FaEdit, FaTrash } from "react-icons/all";
-import { operatorSchemaList } from "@/store/editor/operator.schemas";
-import { NodeForm } from "./NodeForm";
+import { BaseOperator, operatorSchemaList } from "@/store/editor/operator.schemas";
+import { OperatorDefForm } from "./OperatorDefForm";
 import editor from "@/store/editor";
-import { BaseOperator } from "@/store/editor/operator.schemas";
 import { OperatorParameterValue } from "./OperatorParameterValue";
+import { OperatorForm } from "../../../../store/editor";
+import { OperatorPlotForm } from "./OperatorPlotForm";
 
 export type OperatorNodeInput = {
   id: string;
@@ -20,7 +21,7 @@ type State = {
 };
 export const OperatorNode = memo(({ id, isConnectable, data }: OperatorNodeInput) => {
   const { parameters, title, metadata, programId } = data;
-  const formOpen = metadata && typeof metadata.editing !== "undefined" ? metadata.editing : false;
+  const editing = metadata && metadata.editing;
 
   const [state, setState] = useState<State>({
     showMenu: false,
@@ -43,9 +44,12 @@ export const OperatorNode = memo(({ id, isConnectable, data }: OperatorNodeInput
           />
         ))}
       </div>
-      {formOpen ? (
+      {editing ? (
         <div className="card bg-base-100 shadow-xl form-card">
-          <NodeForm programId={programId} schemas={operatorSchemaList} id={id} opDef={data} />
+          {editing === OperatorForm.DEF && (
+            <OperatorDefForm programId={programId} schemas={operatorSchemaList} id={id} opDef={data} />
+          )}
+          {editing === OperatorForm.PLOT && <OperatorPlotForm programId={programId} id={id} opDef={data} />}
         </div>
       ) : (
         <div
@@ -55,15 +59,12 @@ export const OperatorNode = memo(({ id, isConnectable, data }: OperatorNodeInput
         >
           {state.showMenu && (
             <div className="btn-group node-menu">
-              <button className="btn" onClick={() => editor.editOperator(programId, id, true)}>
+              <button className="btn" onClick={() => editor.editOperator(programId, id, OperatorForm.DEF)}>
                 <FaEdit />
               </button>
               <button
                 className={`btn ${state.plot ? "btn-active" : ""}`}
-                onClick={() => {
-                  editor.updateOperator(programId, { id, metadata: { plot: !state.plot } });
-                  setState({ ...state, plot: !state.plot });
-                }}
+                onClick={() => editor.editOperator(programId, id, OperatorForm.PLOT)}
               >
                 <FaChartLine />
               </button>
@@ -85,7 +86,7 @@ export const OperatorNode = memo(({ id, isConnectable, data }: OperatorNodeInput
                   ))}
                 </>
               )}
-              {metadata.style && (
+              {metadata.style && metadata.plot && (
                 // show the style data
                 <>
                   <strong>style</strong>
