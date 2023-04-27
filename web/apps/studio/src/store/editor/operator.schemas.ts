@@ -30,7 +30,7 @@ export const inputSchema = z.object({
   title: z.literal("Input"),
   opType: z.literal("Input"),
   parameters: z.object({
-    resampler: z.enum(["None", "Hermite", "Chebyshev"]),
+    dt: z.number().gt(1).int("dt must be an integer"),
     sameTimestampInEntryPolicy: z.enum(["Ignore", "Forward"]),
   }),
 });
@@ -59,7 +59,7 @@ export const differenceSchema = z.object({
   }),
 });
 
-export const operatorMetadataSchema = z.object({
+export const metadataSchema = z.object({
   position: z
     .object({
       x: z.number().default(0).optional(),
@@ -68,26 +68,22 @@ export const operatorMetadataSchema = z.object({
     .optional(),
   style: z
     .object({
-      mode: z
-        .enum(["lines", "markers", "text", "lines+markers", "text+markers", "text+lines", "text+lines+markers"])
-        .optional(),
       color: z.string().optional(),
-      legend: z.string().optional(),
       lineType: z.string().optional(),
       lineWidth: z.number().optional(),
     })
     .optional(),
-  editing: z.union([z.boolean(), z.enum(["def", "plot"])]).optional(),
-  plot: z.boolean().default(false).optional(),
+  editing: z.boolean().optional(),
+  plot: z.boolean().optional(),
   source: z.string().optional(),
 });
 
-export type Metadata = z.infer<typeof operatorMetadataSchema>;
+export type Metadata = z.infer<typeof metadataSchema>;
 export const baseOperatorSchema = z.object({
   id: z.string(),
   title: z.string(),
   opType: z.string(),
-  metadata: operatorMetadataSchema,
+  metadata: metadataSchema,
   parameters: z.any(),
 });
 export type BaseOperator = z.infer<typeof baseOperatorSchema>;
