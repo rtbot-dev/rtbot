@@ -11,21 +11,6 @@ cc_library(
         "src/**/*.cpp",
     ]),
     hdrs = glob(["include/**/*.h"]),
-    # optimize binary size
-    # see http://ptspts.blogspot.com/2013/12/how-to-make-smaller-c-and-c-binaries.html
-    # currently it doesn't look like having any effect on the binary size
-    # as it seems like bazel already uses most of them by default
-    copts = [
-        "-s",
-        "-Os",
-        "-fno-exceptions",
-        "-fno-rtti",
-        "-fno-stack-protector",
-        "-ffunction-sections",
-        "-fdata-sections",
-        "-fno-math-errno",
-        "-Wall",
-    ],
     includes = ["include"],
     visibility = ["//visibility:public"],
 )
