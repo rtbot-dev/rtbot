@@ -1,24 +1,23 @@
 #ifndef OPERATOR_H
 #define OPERATOR_H
 
-#include "rtbot/Message.h"
-
+#include <functional>
+#include <limits>
+#include <map>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <map>
-#include <limits>
-#include <functional>
-#include <memory>
+
+#include "rtbot/Message.h"
 
 namespace rtbot {
 
-using std::string;
-using std::vector;
 using std::function;
 using std::map;
+using std::string;
 using std::unique_ptr;
-
+using std::vector;
 
 /**
  * Represents a generic operator that can receive a message and forward its
@@ -29,28 +28,29 @@ using std::unique_ptr;
  * etc.).
  */
 
+template <class T>
+class Operator;
+template <class T = double>
+using Op_ptr = unique_ptr<Operator<T>>;
 
-template <class T> class Operator;
-template <class T=double> using Op_ptr=unique_ptr<Operator<T>>;
+template <class T = double>
+class Operator {
+  struct Connection {
+    Operator<T>* const dest;
+    int toPort = -1;
+    int fromPort = -1;
+  };
 
-template <class T=double> class Operator {
-    struct Connection {
-        Operator<T> * const dest;
-        int toPort=-1;
-        int fromPort=-1;
-    };
+  vector<Connection> children;
 
-    vector<Connection> children;
-
-public:
-
+ public:
   string id;
   function<T(T)> f;
 
-  Operator()=default;
-  explicit Operator(string const &id_) : id(id_) {}
-  Operator(string const &id_, function<T(T)> f_) : id(id_), f(f_) {}
-  virtual ~Operator()=default;
+  Operator() = default;
+  explicit Operator(string const& id_) : id(id_) {}
+  Operator(string const& id_, function<T(T)> f_) : id(id_), f(f_) {}
+  virtual ~Operator() = default;
 
   virtual string typeName() const = 0;
 
@@ -64,52 +64,53 @@ public:
    * @param t {int} Timestamp of the message.
    */
 
-  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg, int port) { return receive(msg); }
+  virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg, int port) { return receive(msg); }
 
-  virtual map<string,std::vector<Message<T>>> receive(Message<T> const& msg)
-  {
-      auto out=msg;
-      if (f)
-          std::transform(msg.value.begin(), msg.value.end(),
-                         out.value.begin(),f);
-      std::vector<Message<>> msgs;
-      msgs.push_back(out);
-      return emit(msgs);
+  virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg) {
+    auto out = msg;
+    if (f) std::transform(msg.value.begin(), msg.value.end(), out.value.begin(), f);
+    std::vector<Message<>> msgs;
+    msgs.push_back(out);
+    return emit(msgs);
   }
 
-  map<string,std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
-     
-      std::map<string,std::vector<Message<T>>> out;
-      out.insert(std::pair<string, std::vector<Message<T>>>(id, msgs));
-      for(unsigned int i=0; i < msgs.size(); i++) {
-        for (auto [child, to, from] : children) {
-            auto outi= child->receive(msgs.at(i), to);
-            for(const auto& it : outi) {
-              // first time we insert an output of a child operator
-              if(out.find(it.first) == out.end()) {
-                out.emplace(it);
-              } else {
-                // entry already on map, push the result to the correspondent vector
-                for(auto resultMessage: it.second) {
-                  out[it.first].push_back(resultMessage);
-                }
-              }
+  map<string, std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
+    std::map<string, std::vector<Message<T>>> out;
+    out.insert(std::pair<string, std::vector<Message<T>>>(id, msgs));
+    for (unsigned int i = 0; i < msgs.size(); i++) {
+      for (auto [child, to, from] : children) {
+        auto outi = child->receive(msgs.at(i), to);
+        for (const auto& it : outi) {
+          // first time we insert an output of a child operator
+          if (out.find(it.first) == out.end()) {
+            out.emplace(it);
+          } else {
+            // entry already on map, push the result to the correspondent vector
+            for (auto resultMessage : it.second) {
+              out[it.first].push_back(resultMessage);
             }
+          }
         }
       }
-      return out;
+    }
+    return out;
   }
 
-  Operator<T>& connect(Operator<T>& child, int toPort=-1, int fromPort=-1) { children.push_back({&child, toPort, fromPort}); return child; }
-  void connect( Operator<T>* const child, int toPort=-1, int fromPort=-1) { children.push_back({child, toPort, fromPort}); }
+  Operator<T>& connect(Operator<T>& child, int toPort = -1, int fromPort = -1) {
+    children.push_back({&child, toPort, fromPort});
+    return child;
+  }
+  void connect(Operator<T>* const child, int toPort = -1, int fromPort = -1) {
+    children.push_back({child, toPort, fromPort});
+  }
 };
 
+template <class T>
+Operator<T>& operator|(Message<T> const& a, Operator<T>& B) {
+  B.receive(a, nullptr);
+  return B;
+}
 
-template<class T>
-Operator<T>& operator|(Message<T> const& a, Operator<T>& B) { B.receive(a, nullptr); return B; }
+}  // end namespace rtbot
 
-
-} // end namespace rtbot
-
-
-#endif // OPERATOR_H
+#endif  // OPERATOR_H

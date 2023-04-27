@@ -35,7 +35,7 @@ export class RtBotRun {
       ...op.parameters,
       type: op.opType,
       // TODO: remove this patch when we complete the implementation of the Input and resamplers
-      ...(op.opType === "Input" ? { iType: "cosine", dt: 7 } : {}),
+      ...(op.opType === "Input" ? { iType: "cosine" } : {}),
     }));
     const connections = this.program.connections.filter((c) => c.from !== null && c.to !== null);
     return JSON.stringify({ ...this.program, operators, connections });
