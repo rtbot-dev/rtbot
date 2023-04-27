@@ -22,12 +22,7 @@ class Buffer : public Operator<T>, public std::deque<Message<T>> {
 
   map<string, std::vector<Message<T>>> receive(Message<T> const& msg) override {
     if (this->size() == n) this->pop_front();
-    if (this->empty())
-      this->push_back(msg);
-    else if (this->back().time < msg.time)
-      this->push_back(msg);
-    else
-      return {};
+    this->push_back(msg);
     if (this->size() == n) return processData();
     return {};
   }

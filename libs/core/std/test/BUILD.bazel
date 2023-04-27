@@ -1,0 +1,21 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.h",
+    ]),
+    data = glob([
+        "**/*.json",
+        "**/*.csv",
+    ]) + [
+        "//examples/data:ppg.csv",
+    ],
+    # defines = ["CATCH_CONFIG_MAIN"],
+    deps = [
+        "//libs/core/lib:rtbot",
+        "//libs/core/std:rtbot-std",
+        "@catch2",
+    ],
+)

@@ -1,13 +1,14 @@
-#include "rtbot/tools/PeakDetector.h"
-#include "rtbot/tools/Input.h"
-#include "rtbot/Output.h"
-#include "rtbot/Join.h"
-#include "rtbot/tools/MovingAverage.h"
-#include "tools.h"
-
+#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <iostream>
 #include <algorithm>
+
+#include "rtbot/Input.h"
+#include "rtbot/Output.h"
+#include "rtbot/Join.h"
+#include "rtbot/std/MovingAverage.h"
+#include "rtbot/std/PeakDetector.h"
+#include "tools.h"
 
 using namespace rtbot;
 using namespace std;
