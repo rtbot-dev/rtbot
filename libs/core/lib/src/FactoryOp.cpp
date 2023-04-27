@@ -80,6 +80,7 @@ FactoryOp::FactoryOp()
 {
     op_registry_add< Input, nlohmann::json >();
     op_registry_add< CosineResampler, nlohmann::json >();
+    op_registry_add< HermiteResampler, nlohmann::json >();
     op_registry_add< MovingAverage, nlohmann::json >();
     op_registry_add< PeakDetector , nlohmann::json >();
     op_registry_add< Join<>       , nlohmann::json >();
