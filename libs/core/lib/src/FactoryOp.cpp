@@ -1,11 +1,11 @@
 
 #include "rtbot/FactoryOp.h"
-#include "rtbot/Enums.h"
 #include "rtbot/Operator.h"
 #include "rtbot/tools/MovingAverage.h"
 #include "rtbot/tools/PeakDetector.h"
 #include "rtbot/tools/Input.h"
 #include "rtbot/tools/CosineResampler.h"
+#include "rtbot/tools/HermiteResampler.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
 
@@ -35,6 +35,18 @@ void from_json(const json& j, CosineResampler& p) {
     j.at("dt").get_to(p.dt);
     p.n = CosineResampler::size;
     p.carryOver = CosineResampler::initinalCarryOver;
+}
+
+void to_json(json& j, const HermiteResampler& p) {
+        j = json{ {"type", p.typeName()}, {"id", p.id}, {"dt", p.dt} };
+}
+
+void from_json(const json& j, HermiteResampler& p) {
+    j.at("id").get_to(p.id);
+    j.at("dt").get_to(p.dt);
+    p.n = HermiteResampler::size;
+    p.carryOver = HermiteResampler::initinalCarryOver;
+    p.iteration = HermiteResampler::initialIteration;
 }
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt,id);

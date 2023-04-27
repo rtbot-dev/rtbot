@@ -7,7 +7,6 @@
  #include <iostream>
 
 #include"rtbot/Buffer.h"
-#include "rtbot/Enums.h"
 
 namespace rtbot {
 
@@ -26,8 +25,11 @@ struct Input: public Buffer<double>
 
     map<string,std::vector<Message<>>> processData() override
     {
-        if (at(1).time - at(0).time <= 0) return {};
-
+        
+        if ((std::int64_t)(at(1).time - at(0).time) <= 0) {            
+            return {};
+        }
+        
         Message<> out;
         std::vector<Message<>> toEmit;
             

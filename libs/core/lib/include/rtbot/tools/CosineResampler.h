@@ -6,7 +6,6 @@
 #include <cstdint>
 
 #include"rtbot/Buffer.h"
-#include "rtbot/Enums.h"
 
 namespace rtbot {
 
@@ -30,7 +29,7 @@ struct CosineResampler: public Buffer<double>
     {
         std::vector<Message<>> toEmit;
         
-        if (at(1).time - at(0).time <= 0) return {};
+        if ((std::int64_t)(at(1).time - at(0).time) <= 0) return {};
 
         int j = 1;        
 
@@ -50,10 +49,7 @@ struct CosineResampler: public Buffer<double>
         if (toEmit.size() > 0) return this->emit(toEmit); else return {};
     }
 
-    private:       
-        
-        
-
+    private:
 
     double cosineInterpolate(double y1,double y2,double mu)
     {
