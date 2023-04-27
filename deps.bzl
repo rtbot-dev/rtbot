@@ -16,7 +16,7 @@ def deps():
 
     http_archive(
         name = "yaml-cpp",
-        build_file = "@rtbot//libs/core/external:yaml-cpp.BUILD",
+        build_file = "@rtbot//libs/external:yaml-cpp.BUILD",
         sha256 = "4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5",
         strip_prefix = "yaml-cpp-yaml-cpp-0.7.0",
         url = "https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.zip",
@@ -24,7 +24,7 @@ def deps():
 
     http_archive(
         name = "json-cpp",
-        build_file = "@rtbot//libs/core/external:json-cpp.BUILD",
+        build_file = "@rtbot//libs/external:json-cpp.BUILD",
         sha256 = "95651d7d1fcf2e5c3163c3d37df6d6b3e9e5027299e6bd050d157322ceda9ac9",
         strip_prefix = "json-3.11.2",
         url = "https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.zip",
@@ -32,7 +32,7 @@ def deps():
 
     http_archive(
         name = "fast_double_parser",
-        build_file = "@rtbot//libs/core/external:fast_double_parser.BUILD",
+        build_file = "@rtbot//libs/external:fast_double_parser.BUILD",
         sha256 = "fc408309a03dc1606620c8be358e98c652479766afd50e5cdb22032a3f09b5d8",
         strip_prefix = "fast_double_parser-0.7.0",
         url = "https://github.com/lemire/fast_double_parser/archive/refs/tags/v0.7.0.zip",
@@ -40,7 +40,7 @@ def deps():
 
     http_archive(
         name = "quill",
-        build_file = "@rtbot//libs/core/external:quill.BUILD",
+        build_file = "@rtbot//libs/external:quill.BUILD",
         strip_prefix = "quill-6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce/quill",
         url = "https://github.com/odygrd/quill/archive/6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce.zip",
     )

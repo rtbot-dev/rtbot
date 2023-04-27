@@ -5,7 +5,7 @@ load("@aspect_rules_js//npm:defs.bzl", "npm_package")
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "rtbotapi",
+    name = "rtbot-api",
     srcs = glob([
         "src/**/*.cpp",
     ]),
@@ -14,12 +14,16 @@ cc_library(
         "-Ilibs/core/lib/include/rtbot",
         # this is needed when building from another workspace
         "-Iexternal/rtbot/libs/core/lib/include/rtbot",
+        # this is only needed for wasm compilation, we may want to create
+        # a different rule later
         "-fexceptions",
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
+        "//libs/core/finance:rtbot-finance",
         "//libs/core/lib:rtbot",
+        "//libs/core/std:rtbot-std",
         "@json-cpp//:lib",
         "@yaml-cpp//:lib",
     ],
@@ -35,7 +39,7 @@ cc_binary(
     name = "bindings-cpp-wasm",
     srcs = ["wasm/emscripten-bindings.cpp"],
     linkopts = BASE_LINKOPTS,
-    deps = [":rtbotapi"],
+    deps = [":rtbot-api"],
 )
 
 wasm_cc_binary(
