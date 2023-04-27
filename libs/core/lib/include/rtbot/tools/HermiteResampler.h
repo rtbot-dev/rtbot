@@ -6,6 +6,7 @@
 #include <cstdint>
 
 #include"rtbot/Buffer.h"
+#include "rtbot/tools/CosineResampler.h"
 
 namespace rtbot {
 
@@ -57,6 +58,13 @@ struct HermiteResampler: public Buffer<double>
 
     private:
 
+    /*
+      This function will conveniently select what type of resampling will be used depending on 
+      the indexes of the points where the dt will fall into. cosineInterpolate will only be call
+      for those dts in the first iteration that fall into point 0 and 1, hermiteInterpolate will
+      be use for all other cases regarless the iteration.    
+    */
+
     std::vector<Message<>> lookAt(int from, int to) {
 
         std::vector<Message<>> toEmit;
@@ -66,8 +74,8 @@ struct HermiteResampler: public Buffer<double>
             Message<> out;
             double mu = ((j * dt) - carryOver)/(at(to).time - at(from).time);
             for(size_t i = 0; i < at(from).value.size(); i++) {
-                if (from == 0 && to == 1) out.value.push_back(cosineInterpolate( at(from).value.at(i), at(to).value.at(i), mu));
-                else if (from == 1 && to == 2) out.value.push_back(hermiteInterpolate( at(from - 1).value.at(i), at(from).value.at(i), at(to).value.at(i) , at(to + 1).value.at(i) , mu));
+                if (from == 0 && to == 1) out.value.push_back(CosineResampler::cosineInterpolate( at(from).value.at(i), at(to).value.at(i), mu));
+                else if (from == 1 && to == 2) out.value.push_back(HermiteResampler::hermiteInterpolate( at(from - 1).value.at(i), at(from).value.at(i), at(to).value.at(i) , at(to + 1).value.at(i) , mu));
             }
             out.time = at(from).time + ((j * dt) - carryOver);            
             toEmit.push_back(out);
@@ -79,14 +87,16 @@ struct HermiteResampler: public Buffer<double>
         return toEmit;
     }
 
-
+    /*
+        Calculations taken from http://paulbourke.net/miscellaneous/interpolation/
+    */
     /*
         Tension: 1 is high, 0 normal, -1 is low
         Bias: 0 is even,
                 positive is towards first segment,
                 negative towards the other
     */
-    double hermiteInterpolate(double y0,double y1, double y2,double y3, double mu, double tension = 0, double bias = 0)
+    static double hermiteInterpolate(double y0,double y1, double y2,double y3, double mu, double tension = 0, double bias = 0)
     {
         double m0,m1,mu2,mu3;
         double a0,a1,a2,a3;
@@ -103,14 +113,7 @@ struct HermiteResampler: public Buffer<double>
         a3 = -2*mu3 + 3*mu2;
 
         return(a0*y1+a1*m0+a2*m1+a3*y2);
-    }
-
-    double cosineInterpolate(double y1,double y2,double mu)
-    {
-        double mu2;
-        mu2 = (1-std::cos(mu * 3.141592653589 ))/2;
-        return(y1*(1-mu2)+y2*mu2);
-    }
+    }   
 
 };
 

@@ -37,7 +37,7 @@ struct CosineResampler: public Buffer<double>
             Message<> out;
             double mu = ((j * dt) - carryOver)/(at(1).time - at(0).time);
             for(size_t i = 0; i < at(0).value.size(); i++) {
-                out.value.push_back(cosineInterpolate(at(0).value.at(i), at(1).value.at(i), mu));
+                out.value.push_back(CosineResampler::cosineInterpolate(at(0).value.at(i), at(1).value.at(i), mu));
             }
             out.time = at(0).time + ((j * dt) - carryOver);            
             toEmit.push_back(out);
@@ -47,11 +47,12 @@ struct CosineResampler: public Buffer<double>
         carryOver = at(1).time - (at(0).time + (((j-1) * dt) - carryOver));
 
         if (toEmit.size() > 0) return this->emit(toEmit); else return {};
-    }
+    }    
 
-    private:
-
-    double cosineInterpolate(double y1,double y2,double mu)
+    /*
+        Calculations taken from http://paulbourke.net/miscellaneous/interpolation/
+    */
+    static double cosineInterpolate(double y1,double y2,double mu)
     {
         double mu2;
         mu2 = (1-std::cos(mu * 3.141592653589 ))/2;
