@@ -47,6 +47,8 @@ export const OperatorDefForm = ({ programId, schemas, id, opDef }: NodeFormProps
     }
   };
 
+  console.log("state.schema", state.schema);
+  const hasParameters = state.schema && state.schema.shape.parameters && state.schema.shape.parameters.shape;
   return (
     <div className="form-control node-form">
       <select
@@ -69,8 +71,8 @@ export const OperatorDefForm = ({ programId, schemas, id, opDef }: NodeFormProps
           </option>
         ))}
       </select>
-      {state.schema &&
-        Object.entries(state.schema.shape.parameters.shape).map(([k, v]: [string, any], i) => {
+      {hasParameters &&
+        Object.entries(state.schema!.shape.parameters.shape).map(([k, v]: [string, any], i) => {
           let inputComponent;
           switch ((v as new () => ZodAny).constructor) {
             case ZodNumber:
@@ -161,8 +163,8 @@ export const OperatorDefForm = ({ programId, schemas, id, opDef }: NodeFormProps
         <button
           className="btn btn-circle"
           disabled={
-            Object.keys(state.formErrors).length !== 0 ||
-            Object.keys(state.parameters).length === 0 ||
+            (hasParameters &&
+              (Object.keys(state.formErrors).length !== 0 || Object.keys(state.parameters).length === 0)) ||
             state.schema === null
           }
           onClick={() => {

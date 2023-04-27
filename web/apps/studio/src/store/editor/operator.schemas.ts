@@ -29,9 +29,21 @@ export const standardDeviationSchema = z.object({
 export const inputSchema = z.object({
   title: z.literal("Input"),
   opType: z.literal("Input"),
+});
+
+export const cosineResamplerSchema = z.object({
+  title: z.literal("Resampler Cosine"),
+  opType: z.literal("CosineResampler"),
   parameters: z.object({
     dt: z.number().gt(1).int("dt must be an integer"),
-    sameTimestampInEntryPolicy: z.enum(["Ignore", "Forward"]),
+  }),
+});
+
+export const hermiteResamplerSchema = z.object({
+  title: z.literal("Resampler Hermite"),
+  opType: z.literal("HermiteResampler"),
+  parameters: z.object({
+    dt: z.number().gt(1).int("dt must be an integer"),
   }),
 });
 
@@ -92,6 +104,8 @@ export const operatorSchemaList = [
   movingAverageSchema,
   standardDeviationSchema,
   inputSchema,
+  cosineResamplerSchema,
+  hermiteResamplerSchema,
   joinSchema,
   localExtremeSchema,
   differenceSchema,
