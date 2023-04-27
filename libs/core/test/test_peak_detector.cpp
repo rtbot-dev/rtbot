@@ -41,7 +41,7 @@ TEST_CASE("ppg peak detector")
 {
     auto s=SamplePPG("examples/data/ppg.csv");
 
-    auto i1 = Input("i1",Type::cosine,99);
+    auto i1 = Input("i1");
     auto ma1 = MovingAverage("ma1", round(50/s.dt()) );
     auto ma2 = MovingAverage("ma2", round(2000/s.dt()) );
     auto diff = Difference("diff");

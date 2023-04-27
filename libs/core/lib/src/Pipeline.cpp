@@ -24,17 +24,7 @@ Pipeline::Pipeline(const std::string &json_string)
         
         std::pair<std::map<std::string, rtbot::Op_ptr<double>>::iterator, bool> it;
         
-        if (x.at("type")=="Input") 
-        {
-            Input *  i = (Input *) FactoryOp::readOp(x.dump().c_str()).release();          
-            it = all_op.emplace(x["id"], (rtbot::Op_ptr<double>) std::make_unique<Input>(i->id,i->iType,i->dt) );
-            delete i;
-
-        }
-        else 
-        {
-            it = all_op.emplace(x["id"], FactoryOp::readOp(x.dump().c_str()) );
-        } 
+        it = all_op.emplace(x["id"], FactoryOp::readOp(x.dump().c_str()) );
 
         if (x.at("type")=="Input") {
             input=it.first->second.get();            

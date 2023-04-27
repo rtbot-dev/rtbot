@@ -9,10 +9,11 @@
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Join peak and value") {
-  auto i1 = Input("i1", Type::cosine, 3);
-  auto peak = PeakDetector("b1", 3);
-  auto join = Join<double>("j1", 2);
+TEST_CASE("Join peak and value")
+{
+    auto i1 = Input("i1");
+    auto peak = PeakDetector("b1", 3);    
+    auto join = Join<double>("j1",2);
 
   i1.connect(peak).connect(join, 0);
   i1.connect(join, 1);

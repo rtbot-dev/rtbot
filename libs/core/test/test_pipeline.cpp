@@ -2,7 +2,6 @@
 #include "rtbot/FactoryOp.h"
 #include "tools.h"
 #include "rtbot/bindings.h"
-#include "rtbot/tools/Input.h"
 
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -24,14 +23,12 @@ TEST_CASE("read ppg pipeline")
     SECTION("using the pipeline")
     {
         auto pipe = FactoryOp::createPipeline(json.dump().c_str());
-        std::cout << "iType " << (((Input*)pipe.input)->iType) << std::endl;
-        std::cout << "n " << (((Input*)pipe.input)->n) << std::endl;
-        std::cout << "dt " << (((Input*)pipe.input)->dt) << std::endl;
+      
         // process the data
         for(auto i=0u; i<s.ti.size(); i++) {
 
             auto y=pipe.receive( Message<>(s.ti[i], s.ppg[i]) )[0];
-            if (y) cout<<y.value()<<"\n";
+            if (y) cout<<y.value()<<endl;
         }
     }
 
@@ -41,7 +38,7 @@ TEST_CASE("read ppg pipeline")
         // process the data
         for(auto i=0u; i<s.ti.size(); i++) {
             auto y=receiveMessageInPipeline("pipe1", Message<>(s.ti[i], s.ppg[i]) )[0];
-            if (y) cout<<y.value()<<"\n";
+            if (y) cout<<y.value()<<endl;
         }
     }
 }
