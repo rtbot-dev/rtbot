@@ -10,50 +10,22 @@ cc_library(
     srcs = glob([
         "src/**/*.cpp",
     ]),
-    hdrs = glob([
-        "include/**/*.h",
-        "include/**/*.hpp",
-    ]),
+    hdrs = glob(["include/**/*.h"]),
+    # optimize binary size
+    # see http://ptspts.blogspot.com/2013/12/how-to-make-smaller-c-and-c-binaries.html
+    # currently it doesn't look like having any effect on the binary size
+    # as it seems like bazel already uses most of them by default
+    copts = [
+        "-s",
+        "-Os",
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-fno-stack-protector",
+        "-ffunction-sections",
+        "-fdata-sections",
+        "-fno-math-errno",
+        "-Wall",
+    ],
     includes = ["include"],
     visibility = ["//visibility:public"],
-    deps = [
-        "@json-cpp//:lib",
-        "@yaml-cpp//:lib",
-    ],
-)
-
-BASE_LINKOPTS = [
-    "--bind",  # Enable embind
-    "-s MODULARIZE",
-    #"-s EXPORT_ES6=1",
-]
-
-cc_binary(
-    name = "bindings-cpp-wasm",
-    srcs = ["wasm/emscripten-bindings.cpp"],
-    linkopts = BASE_LINKOPTS,
-    deps = [":rtbot"],
-)
-
-wasm_cc_binary(
-    name = "rtbot-wasm",
-    cc_target = ":bindings-cpp-wasm",
-)
-
-genrule(
-    name = "index",
-    outs = ["index.js"],
-    cmd = """
-    echo "export * from './rtbot-wasm/bindings-cpp-wasm';" > $@
-    """,
-)
-
-# npm package for wasm code
-npm_package(
-    name = "js",
-    srcs = [
-        ":index",
-        ":rtbot-wasm",
-    ],
-    package = "@rtbot/core",
 )

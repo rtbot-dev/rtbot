@@ -1,0 +1,62 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "rtbotapi",
+    srcs = glob([
+        "src/**/*.cpp",
+    ]),
+    hdrs = glob(["include/**/*.h"]),
+    copts = [
+        "-Ilibs/core/lib/include/rtbot",
+        # this is needed when building from another workspace
+        "-Iexternal/rtbot/libs/core/lib/include/rtbot",
+        "-fexceptions",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core/lib:rtbot",
+        "@json-cpp//:lib",
+        "@yaml-cpp//:lib",
+    ],
+)
+
+BASE_LINKOPTS = [
+    "--bind",  # Enable embind
+    "-s MODULARIZE",
+    #"-s EXPORT_ES6=1",
+]
+
+cc_binary(
+    name = "bindings-cpp-wasm",
+    srcs = ["wasm/emscripten-bindings.cpp"],
+    linkopts = BASE_LINKOPTS,
+    deps = [":rtbotapi"],
+)
+
+wasm_cc_binary(
+    name = "rtbot-wasm",
+    cc_target = ":bindings-cpp-wasm",
+)
+
+genrule(
+    name = "index",
+    outs = ["index.js"],
+    cmd = """
+    echo "export * from './rtbot-wasm/bindings-cpp-wasm';" > $@
+    """,
+)
+
+# npm package for wasm code
+npm_package(
+    name = "js",
+    srcs = [
+        ":index",
+        ":rtbot-wasm",
+    ],
+    package = "@rtbot/core",
+)

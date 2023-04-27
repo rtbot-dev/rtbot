@@ -12,6 +12,7 @@ cc_library(
     srcs = glob(["src/**/*.cpp", "src/**/*.h"]),
     copts = [
         "-Iexternal/yaml-cpp/include",
+        "-fexceptions",
     ],
     defines = yaml_cpp_defines,
 )

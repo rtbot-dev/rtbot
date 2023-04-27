@@ -23,11 +23,11 @@ genrule(
 copy_to_directory(
     name = "wasm",
     srcs = [
-        "@rtbot//libs/core/lib:rtbot-wasm",
+        "@rtbot//libs/core/api:rtbot-wasm",
     ],
     include_external_repositories = ["*"],
     replace_prefixes = {
-        "libs/core/lib/rtbot-wasm": ".",
+        "libs/core/api/rtbot-wasm": ".",
     },
 )
 
