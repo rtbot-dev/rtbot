@@ -13,12 +13,6 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-  pybind11
-  GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG        master
-)
-
-FetchContent_Declare(
   json
   GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
   GIT_PROGRESS TRUE
