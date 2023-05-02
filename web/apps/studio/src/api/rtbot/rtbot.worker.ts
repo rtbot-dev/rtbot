@@ -45,7 +45,7 @@ export class RtBotRun {
     const rtbot: RtBot = await bindings();
     const pipelineId = nanoid(10);
     const rtbotProgram = this.getRtBotProgram();
-    console.log("Creating pipeline", pipelineId, "program\n", rtbotProgram);
+    console.log("Creating pipeline", pipelineId, "program\n", JSON.parse(rtbotProgram));
     rtbot.createPipeline(pipelineId, rtbotProgram);
     console.log("Pipeline", pipelineId, "created, sending data to it");
 

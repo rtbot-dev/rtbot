@@ -83,6 +83,9 @@ export const metadataSchema = z.object({
       color: z.string().optional(),
       lineType: z.string().optional(),
       lineWidth: z.number().optional(),
+      legend: z.string().optional(),
+      mode: z.string().optional(),
+      stack: z.number().default(0),
     })
     .optional(),
   editing: z.boolean().optional(),
