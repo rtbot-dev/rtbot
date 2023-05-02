@@ -3,7 +3,8 @@ import { Figure } from "react-plotly.js";
 import * as Plotly from "plotly.js";
 import { PlotStyle } from "./editor/schemas";
 import { BaseOperator } from "./editor/operator.schemas";
-import { Dash } from "plotly.js";
+import { Dash, PlotData } from "plotly.js";
+import { string } from "zod";
 
 const subject = new Subject<IPlotState>();
 
@@ -60,22 +61,29 @@ export const store = {
       state.plots = [...state.plots, { id: plotId, data: [], frames: null, layout: {}, computing: false }];
     }
     const data: Plotly.Data[] = [];
+    const stacks: { [stack: string]: number } = {};
     Object.entries(outputs).map(([operatorId, output]) => {
       // get the style for the operator id
       const operator = opDefs.find((op) => op.id === operatorId)!;
       if (operator.metadata.plot) {
         const style = operator.metadata.style!;
+        // by now we assign the same weight to all stacks
+        // we can change later this in order to make some charts
+        // to look larger inside the stack
+        stacks[`${style.stack}`] = 1;
+
         for (let i = 1; i < output.length; i++) {
           console.log("Adding output ", i, " for", operatorId, output);
           let legend = style.legend ?? operatorId;
           legend = i === 1 ? legend : `${legend} ${i}`;
+          // push the data
           data.push({
             x: output[0],
             y: output[i],
             name: legend,
             title: { text: legend },
             type: "scattergl",
-            mode: style.mode,
+            mode: style.mode as PlotData["mode"],
             marker: {
               size: 6,
               color: style.color,
@@ -85,11 +93,24 @@ export const store = {
               width: style.lineWidth ?? 1,
               dash: ["solid", "dot", "dash", "longdash", "dashdot", "longdashdot"][(i - 1) % 6] as Dash,
             },
+            ...(style.stack > 1 ? { yaxis: `y${style.stack}` } : {}),
           });
         }
       }
     });
     // now update the plot in the list
+    const totalStacks = Object.keys(stacks).length;
+    // notice that the Object.keys output comes ordered
+    const cursor = 0;
+    const yAxisDomains = Object.keys(stacks).reduce(
+      (acc, v) => ({
+        ...acc,
+        [`yaxis${v === "1" ? "" : v}`]: {
+          domain: [Object.keys(acc).length / totalStacks, (Object.keys(acc).length + 1) / totalStacks],
+        },
+      }),
+      {}
+    );
     const plots = state.plots.reduce(
       (plots: SinglePlotState[], p: SinglePlotState) => [
         ...plots,
@@ -99,7 +120,10 @@ export const store = {
               computing: false,
               data,
               frames: null,
-              layout: { title },
+              layout: {
+                title,
+                ...yAxisDomains,
+              },
             }
           : p,
       ],
