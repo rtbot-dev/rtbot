@@ -66,13 +66,12 @@ struct HermiteResampler : public Buffer<double> {
     while (at(to).time - at(from).time >= (j * dt) - carryOver) {
       Message<> out;
       double mu = ((j * dt) - carryOver) / (at(to).time - at(from).time);
-      for (size_t i = 0; i < at(from).value.size(); i++) {
-        if (from == 0 && to == 1)
-          out.value.push_back(CosineResampler::cosineInterpolate(at(from).value.at(i), at(to).value.at(i), mu));
-        else if (from == 1 && to == 2)
-          out.value.push_back(HermiteResampler::hermiteInterpolate(at(from - 1).value.at(i), at(from).value.at(i),
-                                                                   at(to).value.at(i), at(to + 1).value.at(i), mu));
-      }
+      if (from == 0 && to == 1)
+        out.value = CosineResampler::cosineInterpolate(at(from).value, at(to).value, mu);
+      else if (from == 1 && to == 2)
+        out.value = HermiteResampler::hermiteInterpolate(at(from - 1).value, at(from).value, at(to).value,
+                                                         at(to + 1).value, mu);
+
       out.time = at(from).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;

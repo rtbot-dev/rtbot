@@ -64,7 +64,8 @@
     },
     {
         "from": "join",
-        "to": "o1"
+        "to": "o1",
+        "fromPort": 1
     },
     {
         "from": "i1",

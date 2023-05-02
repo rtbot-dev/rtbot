@@ -5,8 +5,8 @@
 #include <memory>
 #include <optional>
 
-#include "Output.h"
 #include "rtbot/Operator.h"
+#include "rtbot/Output.h"
 
 namespace rtbot {
 

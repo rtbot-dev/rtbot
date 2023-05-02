@@ -21,44 +21,35 @@ struct MovingAverage : public Buffer<T> {
 
     std::vector<Message<T>> toEmit;
     Message<T> out;
-    std::vector<T> average;
+    T average;    
 
-    size_t size = this->at(0).value.size();
-
-    average.assign(size, 0);    
+    average = 0;
 
     if(iteration == 0) {
 
-        sum.assign(size, 0);
-
-        for (size_t i = 0; i < sum.size(); i++)
+        sum = 0;
+        
+        for (size_t j = 0; j < this->size(); j++) 
         {
-            for (size_t j = 0; j < this->size(); j++) 
-            {
-                sum[i] += this->at(j).value[i];
-            }
-            average[i] = sum[i] / this->size();
+            sum = sum + this->at(j).value;
         }
+        average = sum / this->size();        
         
     }
     else 
     {
-        for (size_t i = 0; i < sum.size(); i++)
-        {                
-            sum[i] += this->back().value[i]; 
-            average[i] = sum[i] / this->size();              
-        }            
+        
+        sum = sum + this->back().value; 
+        average = sum / this->size();              
+                   
     }
 
-    iteration++;
+    iteration++;    
+                   
+    sum = sum - this->front().value; 
 
-    for (size_t i = 0; i < sum.size(); i++)
-    {                
-        sum[i] -= this->front().value[i];                       
-    }
-
-    out.time = this->at(this->size() - 1).time;
-    out.value = std::move(average);
+    out.time = this->back().time;
+    out.value = average;
 
     toEmit.push_back(out);
     return this->emit(toEmit);
@@ -67,7 +58,7 @@ struct MovingAverage : public Buffer<T> {
 
   private:
 
-    std::vector<T> sum;
+    T sum;
 
 };
 

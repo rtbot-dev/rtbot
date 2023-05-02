@@ -1,8 +1,9 @@
+#include "rtbot/Pipeline.h"
+
 #include <nlohmann/json.hpp>
 
-#include "rtbot/Input.h"
 #include "rtbot/FactoryOp.h"
-#include "rtbot/Pipeline.h"
+#include "rtbot/Input.h"
 
 namespace rtbot {
 

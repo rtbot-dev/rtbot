@@ -56,22 +56,19 @@ class Join : public Operator<T> {
    *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
    *  It is responsible to emit().
    */
-  virtual map<string, std::vector<Message<T>>> processData(Message<T> const &msg) {
-    std::vector<Message<>> msgs;
-    msgs.push_back(msg);
-    return this->emit(msgs);
-  };
+  virtual map<string, std::vector<Message<T>>> processData(vector<Message<T>> const &msgs) {
+    return this->emitParallel(msgs);
+  }
 
  private:
   // build a message by concatenating all channels front() data. Remove the used data.
-  Message<T> makeMessage() {
-    Message<T> msg;
-    msg.time = data.at(0).front().time;
-    for (const auto &x : data)
-      for (const T &xi : x.front().value) msg.value.push_back(xi);
+  vector<Message<T>> makeMessage() {
+    vector<Message<T>> msgs;
+    for (const auto &x : data) msgs.push_back(x.front());
 
     for (auto &x : data) x.pop();
-    return msg;
+
+    return msgs;
   }
 };
 
@@ -83,11 +80,9 @@ struct Difference : public Join<double> {
 
   string typeName() const override { return "Difference"; }
 
-  map<string, std::vector<Message<>>> processData(Message<double> const &msg) override {
-    Message<> out(msg.time, msg.value.at(0) - msg.value.at(1));
-    std::vector<Message<>> msgs;
-    msgs.push_back(out);
-    return emit(msgs);
+  map<string, std::vector<Message<>>> processData(vector<Message<double>> const &msgs) override {
+    Message<> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
+    return emit(out);
   }
 };
 

@@ -3,7 +3,7 @@
 
 #include <functional>
 
-#include "Operator.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 template <class T>

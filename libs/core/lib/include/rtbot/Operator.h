@@ -68,31 +68,25 @@ class Operator {
 
   virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg) {
     auto out = msg;
-    if (f) std::transform(msg.value.begin(), msg.value.end(), out.value.begin(), f);
-    std::vector<Message<>> msgs;
-    msgs.push_back(out);
-    return emit(msgs);
+    if (f) out.value = f(msg.value);
+    return emit(out);
+  }
+
+  map<string, std::vector<Message<T>>> emit(Message<T> const& msg) const {
+    std::map<string, std::vector<Message<T>>> out = {{id, {msg}}};
+    for (auto [child, to, _] : children) mergeOutput(out, child->receive(msg, to));
+    return out;
   }
 
   map<string, std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
     std::map<string, std::vector<Message<T>>> out;
-    out.insert(std::pair<string, std::vector<Message<T>>>(id, msgs));
-    for (unsigned int i = 0; i < msgs.size(); i++) {
-      for (auto [child, to, from] : children) {
-        auto outi = child->receive(msgs.at(i), to);
-        for (const auto& it : outi) {
-          // first time we insert an output of a child operator
-          if (out.find(it.first) == out.end()) {
-            out.emplace(it);
-          } else {
-            // entry already on map, push the result to the correspondent vector
-            for (auto resultMessage : it.second) {
-              out[it.first].push_back(resultMessage);
-            }
-          }
-        }
-      }
-    }
+    for (const auto& msg : msgs) mergeOutput(out, emit(msg));
+    return out;
+  }
+
+  map<string, std::vector<Message<T>>> emitParallel(vector<Message<T>> const& msgs) const {
+    std::map<string, std::vector<Message<T>>> out = {{id, msgs}};
+    for (auto [child, to, from] : children) mergeOutput(out, child->receive(msgs.at(from), to));
     return out;
   }
 
@@ -102,6 +96,14 @@ class Operator {
   }
   void connect(Operator<T>* const child, int toPort = -1, int fromPort = -1) {
     children.push_back({child, toPort, fromPort});
+  }
+
+ protected:
+  static void mergeOutput(map<string, std::vector<Message<T>>>& out, map<string, std::vector<Message<T>>> const& x) {
+    for (const auto& [id, msgs] : x) {
+      auto& vec = out[id];
+      for (auto resultMessage : msgs) vec.push_back(resultMessage);
+    }
   }
 };
 
