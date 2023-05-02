@@ -22,7 +22,7 @@ TEST_CASE("Join peak and value")
     for (int i = 0; i < 26; i++) {
       auto output = i1.receive(Message<>(i, i % 5));
       if (output.find("j1") != output.end()) {
-        REQUIRE(output["j1"][0].value.size() == 2);
+        REQUIRE(output["j1"].size() == 2);
       }
     }
   }

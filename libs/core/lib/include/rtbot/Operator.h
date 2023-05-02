@@ -86,6 +86,13 @@ class Operator {
     return out;
   }
 
+  map<string, std::vector<Message<T>>> emitParallel(vector<Message<T>> const& msgs) const {
+    std::map<string, std::vector<Message<T>>> out = {{id,msgs}};
+    for (auto [child, to, from] : children)
+      mergeOutput(out, child->receive(msgs.at(from), to));
+    return out;
+  }
+
   Operator<T>& connect(Operator<T>& child, int toPort = -1, int fromPort = -1) {
     children.push_back({&child, toPort, fromPort});
     return child;
@@ -95,8 +102,7 @@ class Operator {
   }
 
  protected:
-  static void mergeOutput(map<string, std::vector<Message<T>>>& out,
-                          map<string, std::vector<Message<T>>> const& x)
+  static void mergeOutput(map<string, std::vector<Message<T>>>& out, map<string, std::vector<Message<T>>> const& x)
   {
     for (const auto& [id,msgs] : x) {
       auto &vec=out[id];

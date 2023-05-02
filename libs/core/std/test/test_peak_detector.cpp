@@ -53,7 +53,7 @@ TEST_CASE("ppg peak detector")
 
     // draw the pipeline
 
-    i1.connect(ma1).connect(diff,0).connect(peak).connect(join,0).connect(o1) ;
+    i1.connect(ma1).connect(diff,0).connect(peak).connect(join,0).connect(o1,0,1) ;
     i1.connect(ma2).connect(diff,1) ;
     i1.connect(                                           join,1) ;
 
