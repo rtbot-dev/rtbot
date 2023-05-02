@@ -1,3 +1,4 @@
+#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -12,11 +13,12 @@ using namespace std;
 TEST_CASE("read ppg pipeline") {
   nlohmann::json json;
   {
-    ifstream in("libs/core/api/test/ppg.json");
+    ifstream in("ppg.json");
+    if (!in) throw runtime_error("file ppg.json not found");
     in >> json;
   }
 
-  auto s = SamplePPG("examples/data/ppg.csv");
+  auto s = SamplePPG("ppg.csv");
 
   SECTION("using the pipeline") {
     auto pipe = FactoryOp::createPipeline(json.dump().c_str());

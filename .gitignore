@@ -1,6 +1,6 @@
 dist/
 .vscode/
-build/
+build*/
 *.txt.user
 *.ipynb_checkpoints/
 CMakeFiles

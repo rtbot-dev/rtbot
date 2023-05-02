@@ -2,7 +2,6 @@
 #include <iostream>
 
 #include "rtbot/Join.h"
-#include "rtbot/Output.h"
 #include "rtbot/Input.h"
 #include "rtbot/std/PeakDetector.h"
 
