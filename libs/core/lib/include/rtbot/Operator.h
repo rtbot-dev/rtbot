@@ -82,12 +82,12 @@ class Operator {
         auto outi = child->receive(msgs.at(i), to);
         for (const auto& it : outi) {
           // first time we insert an output of a child operator
-          if (out.find(it.first) == out.end()) {
+          if (auto it2=out.find(it.first); it2 == out.end()) {
             out.emplace(it);
           } else {
             // entry already on map, push the result to the correspondent vector
             for (auto resultMessage : it.second) {
-              out[it.first].push_back(resultMessage);
+              it2->second.push_back(resultMessage);
             }
           }
         }
