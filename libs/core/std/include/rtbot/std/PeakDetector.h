@@ -15,9 +15,7 @@ struct PeakDetector : Buffer<double> {
     for (auto i = 0u; i < size(); i++)
       for (auto j = 0u; j < this->at(i).value.size(); j++)
         if (at(pos).value[j] < at(i).value[j]) return {};
-    std::vector<Message<>> msgs;
-    msgs.push_back(at(pos));
-    return emit(msgs);
+    return emit(at(pos));
   }
 };
 

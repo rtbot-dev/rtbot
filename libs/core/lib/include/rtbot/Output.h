@@ -31,9 +31,7 @@ struct Output : public Operator<T> {
   string typeName() const override { return "Output"; }
   map<string, std::vector<Message<T>>> receive(Message<T> const& msg) override {
     out->push_back(msg);
-    std::vector<Message<>> msgs;
-    msgs.push_back(msg);
-    return this->emit(msgs);
+    return this->emit(msg);
   }
 };
 
@@ -44,17 +42,13 @@ using Output_os = Output<double, std::ostream>;
 template <>
 inline map<string, std::vector<Message<>>> Output_os::receive(Message<> const& msg) {
   (*out) << id << " " << msg << "\n";
-  std::vector<Message<>> msgs;
-  msgs.push_back(msg);
-  return emit(msgs);
+  return emit(msg);
 }
 
 template <>
 inline map<string, std::vector<Message<>>> Output_opt::receive(Message<> const& msg) {
   *out = msg;
-  std::vector<Message<>> msgs;
-  msgs.push_back(msg);
-  return emit(msgs);
+  return emit(msg);
 }
 
 }  // end namespace rtbot

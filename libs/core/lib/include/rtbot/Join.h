@@ -56,11 +56,7 @@ class Join : public Operator<T> {
    *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
    *  It is responsible to emit().
    */
-  virtual map<string, std::vector<Message<T>>> processData(Message<T> const &msg) {
-    std::vector<Message<>> msgs;
-    msgs.push_back(msg);
-    return this->emit(msgs);
-  };
+  virtual map<string, std::vector<Message<T>>> processData(Message<T> const &msg) { return this->emit(msg); }
 
  private:
   // build a message by concatenating all channels front() data. Remove the used data.
@@ -85,9 +81,7 @@ struct Difference : public Join<double> {
 
   map<string, std::vector<Message<>>> processData(Message<double> const &msg) override {
     Message<> out(msg.time, msg.value.at(0) - msg.value.at(1));
-    std::vector<Message<>> msgs;
-    msgs.push_back(out);
-    return emit(msgs);
+    return emit(out);
   }
 };
 
