@@ -68,7 +68,7 @@ class Operator {
 
   virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg) {
     auto out = msg;
-    if (f) std::transform(msg.value.begin(), msg.value.end(), out.value.begin(), f);
+    if (f) out.value=f(msg.value);
     return emit(out);
   }
 

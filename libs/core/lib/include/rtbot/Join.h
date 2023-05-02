@@ -80,7 +80,7 @@ struct Difference : public Join<double> {
   string typeName() const override { return "Difference"; }
 
   map<string, std::vector<Message<>>> processData(vector<Message<double>> const &msgs) override {
-    Message<> out(msgs.at(0).time, msgs.at(0).value[0] - msgs.at(1).value[0]);
+    Message<> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
     return emit(out);
   }
 };

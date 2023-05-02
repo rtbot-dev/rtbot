@@ -13,8 +13,7 @@ struct PeakDetector : Buffer<double> {
   map<string, std::vector<Message<>>> processData() override {
     int pos = size() / 2;  // expected position of the max
     for (auto i = 0u; i < size(); i++)
-      for (auto j = 0u; j < this->at(i).value.size(); j++)
-        if (at(pos).value[j] < at(i).value[j]) return {};
+        if (at(pos).value < at(i).value) return {};
     return emit(at(pos));
   }
 };

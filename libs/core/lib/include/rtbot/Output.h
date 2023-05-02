@@ -16,8 +16,7 @@ using std::function;
 
 template <class T>
 std::ostream& operator<<(std::ostream& out, Message<T> const& msg) {
-  out << msg.time;
-  for (auto x : msg.value) out << " " << x;
+  out << msg.time<< " " << msg.value;
   return out;
 }
 
