@@ -56,14 +56,15 @@ class Join : public Operator<T> {
    *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
    *  It is responsible to emit().
    */
-  virtual map<string, std::vector<Message<T>>> processData(vector<Message<T>> const& msgs) { return this->emitParallel(msgs); }
+  virtual map<string, std::vector<Message<T>>> processData(vector<Message<T>> const &msgs) {
+    return this->emitParallel(msgs);
+  }
 
  private:
   // build a message by concatenating all channels front() data. Remove the used data.
   vector<Message<T>> makeMessage() {
     vector<Message<T>> msgs;
-    for (const auto &x : data)
-      msgs.push_back(x.front());
+    for (const auto &x : data) msgs.push_back(x.front());
 
     for (auto &x : data) x.pop();
 

@@ -33,7 +33,7 @@ struct CosineResampler : public Buffer<double> {
     while (at(1).time - at(0).time >= (j * dt) - carryOver) {
       Message<> out;
       double mu = ((j * dt) - carryOver) / (at(1).time - at(0).time);
-        out.value=CosineResampler::cosineInterpolate(at(0).value, at(1).value, mu);
+      out.value = CosineResampler::cosineInterpolate(at(0).value, at(1).value, mu);
       out.time = at(0).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;

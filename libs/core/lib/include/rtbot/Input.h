@@ -20,8 +20,7 @@ struct Input : public Buffer<double> {
   string typeName() const override { return "Input"; }
 
   map<string, std::vector<Message<>>> processData() override {
-    if ((std::int64_t)(at(1).time - at(0).time) <= 0)
-      return {};
+    if ((std::int64_t)(at(1).time - at(0).time) <= 0) return {};
     return emit(at(0));
   }
 };

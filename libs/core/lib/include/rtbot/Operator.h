@@ -68,28 +68,25 @@ class Operator {
 
   virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg) {
     auto out = msg;
-    if (f) out.value=f(msg.value);
+    if (f) out.value = f(msg.value);
     return emit(out);
   }
 
   map<string, std::vector<Message<T>>> emit(Message<T> const& msg) const {
-    std::map<string, std::vector<Message<T>>> out = {{id,{msg}}};
-    for (auto [child, to, _] : children)
-      mergeOutput(out, child->receive(msg, to));
+    std::map<string, std::vector<Message<T>>> out = {{id, {msg}}};
+    for (auto [child, to, _] : children) mergeOutput(out, child->receive(msg, to));
     return out;
   }
 
   map<string, std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
     std::map<string, std::vector<Message<T>>> out;
-    for (const auto& msg: msgs)
-      mergeOutput(out, emit(msg));
+    for (const auto& msg : msgs) mergeOutput(out, emit(msg));
     return out;
   }
 
   map<string, std::vector<Message<T>>> emitParallel(vector<Message<T>> const& msgs) const {
-    std::map<string, std::vector<Message<T>>> out = {{id,msgs}};
-    for (auto [child, to, from] : children)
-      mergeOutput(out, child->receive(msgs.at(from), to));
+    std::map<string, std::vector<Message<T>>> out = {{id, msgs}};
+    for (auto [child, to, from] : children) mergeOutput(out, child->receive(msgs.at(from), to));
     return out;
   }
 
@@ -102,12 +99,10 @@ class Operator {
   }
 
  protected:
-  static void mergeOutput(map<string, std::vector<Message<T>>>& out, map<string, std::vector<Message<T>>> const& x)
-  {
-    for (const auto& [id,msgs] : x) {
-      auto &vec=out[id];
-      for (auto resultMessage : msgs)
-        vec.push_back(resultMessage);
+  static void mergeOutput(map<string, std::vector<Message<T>>>& out, map<string, std::vector<Message<T>>> const& x) {
+    for (const auto& [id, msgs] : x) {
+      auto& vec = out[id];
+      for (auto resultMessage : msgs) vec.push_back(resultMessage);
     }
   }
 };
