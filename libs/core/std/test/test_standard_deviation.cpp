@@ -20,7 +20,7 @@ TEST_CASE("Standard deviation") {
         REQUIRE(emitted.empty());
       }
       else
-        REQUIRE(emitted.find("i1")->second.at(0).value.at(0) == 0);
+        REQUIRE(emitted.find("i1")->second.at(0).value == 0);
     }
   }
 
@@ -32,7 +32,7 @@ TEST_CASE("Standard deviation") {
         REQUIRE(emitted.empty());
       }
       else
-        REQUIRE(((int)emitted.find("i2")->second.at(0).value.at(0)) == 3);
+        REQUIRE(((int)emitted.find("i2")->second.at(0).value) == 3);
     }
   }
 

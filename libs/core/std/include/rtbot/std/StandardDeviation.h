@@ -26,54 +26,40 @@ struct StandardDeviation : public Buffer<T> {
         std::vector<Message<T>> toEmit;
         Message<T> out;
 
-        std::vector<T> average;
-        std::vector<T> std;
-
-        size_t size = this->at(0).value.size();
-        average.assign(size, 0);
-        std.assign(size, 0);
+        T average;
+        T std = 0;
 
         if(iteration == 0) {
 
-            sum.assign(size, 0);
-
-            for (size_t i = 0; i < sum.size(); i++)
-            {
-                for (size_t j = 0; j < this->size(); j++) 
-                {
-                    sum[i] += this->at(j).value[i];
-                }
-                average[i] = sum[i] / this->size();
-            }
-            
-        }
-        else 
-        {
-            for (size_t i = 0; i < sum.size(); i++)
-            {                
-                sum[i] += this->back().value[i]; 
-                average[i] = sum[i] / this->size();              
-            }            
-        }
-
-        iteration++;
-        
-        for (size_t i = 0; i < size; i++) {
+            sum = 0;
             
             for (size_t j = 0; j < this->size(); j++) 
             {
-                std[i] = std[i] + pow(this->at(j).value[i] - average[i], 2);
-            }        
-            std[i] = sqrt(std[i] / (this->size() - 1));
+                sum = sum + this->at(j).value;
+            }
+            average = sum / this->size();            
+        }
+        else 
+        {
+                           
+            sum += this->back().value; 
+            average = sum / this->size();              
+                        
         }
 
-        for (size_t i = 0; i < sum.size(); i++)
-        {                
-            sum[i] -= this->front().value[i];                       
-        } 
+        iteration++;       
+            
+        for (size_t j = 0; j < this->size(); j++) 
+        {
+            std = std + pow(this->at(j).value - average, 2);
+        }
+               
+        std = sqrt(std / (this->size() - 1));        
 
-        out.time = this->at(this->size()-1).time;    
-        out.value = std::move(std);
+        sum = sum - this->front().value;
+
+        out.time = this->back().time;    
+        out.value = std;
         toEmit.push_back(out);
 
         return this->emit(toEmit);
@@ -82,7 +68,7 @@ struct StandardDeviation : public Buffer<T> {
 
     private:
 
-        std::vector<T> sum;
+        T sum;
 
 };
 

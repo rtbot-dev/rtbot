@@ -19,7 +19,7 @@ TEST_CASE("Moving  average") {
         REQUIRE(emitted.empty());
       }
       else
-        REQUIRE(emitted.find("i1")->second.at(0).value.at(0) == 10);
+        REQUIRE(emitted.find("i1")->second.at(0).value == 10);
     }
   }
 
@@ -31,7 +31,7 @@ TEST_CASE("Moving  average") {
         REQUIRE(emitted.empty());
       }
       else {
-        REQUIRE(((int)emitted.find("i2")->second.at(0).value.at(0)) == i - 5);
+        REQUIRE(emitted.find("i2")->second.at(0).value == i - 5);
       }
       
     }
