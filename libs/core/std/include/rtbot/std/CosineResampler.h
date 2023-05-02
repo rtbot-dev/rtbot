@@ -10,7 +10,7 @@
 namespace rtbot {
 
 struct CosineResampler : public Buffer<double> {
-  static const std::uint64_t initialCarryOver = 0;
+  
   static const int size = 2;
 
   unsigned int dt;

@@ -11,6 +11,7 @@
 namespace rtbot {
 
 struct Input : public Buffer<double> {
+  
   static const int size = 2;
 
   Input() = default;

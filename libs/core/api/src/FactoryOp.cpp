@@ -12,6 +12,7 @@
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/StandardDeviation.h"
 
 using json = nlohmann::json;
 
@@ -30,7 +31,7 @@ void from_json(const json& j, CosineResampler& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
   p.n = CosineResampler::size;
-  p.carryOver = CosineResampler::initialCarryOver;
+  p.carryOver = 0;
 }
 
 void to_json(json& j, const HermiteResampler& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}}; }
@@ -39,12 +40,33 @@ void from_json(const json& j, HermiteResampler& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
   p.n = HermiteResampler::size;
-  p.carryOver = HermiteResampler::initialCarryOver;
-  p.iteration = HermiteResampler::initialIteration;
+  p.carryOver = 0;
+  p.iteration = 0;
 }
 
+template <class T = double>
+void to_json(json& j, const StandardDeviation<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}}; }
+
+template <class T = double>
+void from_json(const json& j, StandardDeviation<T>& p) {
+  j.at("id").get_to(p.id);
+  j.at("n").get_to(p.n);
+  p.iteration = 0;
+}
+
+template <class T = double>
+void to_json(json& j, const MovingAverage<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}}; }
+
+template <class T = double>
+void from_json(const json& j, MovingAverage<T>& p) {
+  j.at("id").get_to(p.id);
+  j.at("n").get_to(p.n);
+  p.iteration = 0;
+}
+
+
+
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt, id);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MovingAverage, id, n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector, id, n);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Join<double>, id, nInput);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference, id);
