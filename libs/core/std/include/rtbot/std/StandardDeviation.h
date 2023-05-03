@@ -23,31 +23,15 @@ struct StandardDeviation : public Buffer<T> {
     std::vector<Message<T>> toEmit;
     Message<T> out;
 
-    T average;
-    T std = 0;
-
-    if (iteration == 0) {
-      sum = 0;
-
-      for (size_t j = 0; j < this->size(); j++) {
-        sum = sum + this->at(j).value;
-      }
-      average = sum / this->size();
-    } else {
-      sum += this->back().value;
-      average = sum / this->size();
-    }
-
-    iteration++;
+    T average = this->sum / this->size();
+    T std = 0;    
 
     for (size_t j = 0; j < this->size(); j++) {
       std = std + pow(this->at(j).value - average, 2);
     }
 
     std = sqrt(std / (this->size() - 1));
-
-    sum = sum - this->front().value;
-
+    
     out.time = this->back().time;
     out.value = std;
     toEmit.push_back(out);
@@ -55,8 +39,6 @@ struct StandardDeviation : public Buffer<T> {
     return this->emit(toEmit);
   }
 
- private:
-  T sum;
 };
 
 }  // namespace rtbot
