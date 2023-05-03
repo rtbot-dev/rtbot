@@ -15,9 +15,10 @@ export const OperatorPlotForm = ({ programId, id, opDef }: NodePlotFormProps) =>
   const [state, setState] = useState({
     pickColor: false,
     newColor: color,
-    addToPlot: opDef.metadata?.plot,
-    mode: opDef.metadata?.style?.mode,
-    legend: opDef.metadata?.style?.legend,
+    addToPlot: opDef.metadata!.plot,
+    mode: opDef.metadata!.style!.mode,
+    legend: opDef.metadata!.style!.legend,
+    stack: opDef.metadata!.style!.stack,
   });
   return (
     <div className="form-control node-form">
@@ -79,6 +80,21 @@ export const OperatorPlotForm = ({ programId, id, opDef }: NodePlotFormProps) =>
               defaultValue={opDef.metadata?.style?.legend}
             />
           </label>
+          <label className="input-group node-form-label">
+            <span className="label-text">stack</span>
+            <select
+              className="select select-bordered"
+              onChange={(event) => setState({ ...state, stack: parseInt(event.target.value) })}
+            >
+              {Array(5)
+                .fill(1)
+                .map((_, i) => (
+                  <option key={`stack-${i}`} value={i + 1} selected={i + 1 === state.stack}>
+                    {i === 0 ? "default" : i + 1}
+                  </option>
+                ))}
+            </select>
+          </label>
         </>
       )}
       {state.pickColor && (
@@ -103,6 +119,7 @@ export const OperatorPlotForm = ({ programId, id, opDef }: NodePlotFormProps) =>
               metadata: {
                 style: {
                   color: state.newColor,
+                  stack: state.stack,
                   ...(state.legend ? { legend: state.legend } : {}),
                   ...(state.mode ? { mode: state.mode } : {}),
                 },

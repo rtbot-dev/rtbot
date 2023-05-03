@@ -36,15 +36,14 @@ export function Chart({ plotId }: ChartProps) {
         <Plot
           data={state.data}
           layout={{
-            ...state.layout,
             plot_bgcolor: "#1e293b",
             paper_bgcolor: "#1e293b",
             width,
             height,
             xaxis: { color: "#a6adbb" },
-            yaxis: { color: "#a6adbb" },
+            yaxis: { color: "#a6adbb", ...state.layout.yaxis },
+            ...state.layout,
           }}
-          config={{ responsive: true, autosizable: true }}
         />
       ) : state?.computing ? (
         <Lottie animationData={computingAnimation} style={{ height: "50%" }} />
