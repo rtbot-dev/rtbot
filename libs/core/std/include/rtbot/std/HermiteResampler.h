@@ -11,8 +11,6 @@
 namespace rtbot {
 
 struct HermiteResampler : public Buffer<double> {
-  static const std::uint64_t initialCarryOver = 0;
-  static const unsigned int initialIteration = 0;
   static const int size = 4;
 
   unsigned int dt;
