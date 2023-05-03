@@ -11,7 +11,6 @@
 namespace rtbot {
 
 struct HermiteResampler : public Buffer<double> {
-  
   static const int size = 4;
 
   unsigned int dt;

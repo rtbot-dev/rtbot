@@ -45,7 +45,9 @@ void from_json(const json& j, HermiteResampler& p) {
 }
 
 template <class T = double>
-void to_json(json& j, const StandardDeviation<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}}; }
+void to_json(json& j, const StandardDeviation<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
+}
 
 template <class T = double>
 void from_json(const json& j, StandardDeviation<T>& p) {
@@ -55,7 +57,9 @@ void from_json(const json& j, StandardDeviation<T>& p) {
 }
 
 template <class T = double>
-void to_json(json& j, const MovingAverage<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}}; }
+void to_json(json& j, const MovingAverage<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
+}
 
 template <class T = double>
 void from_json(const json& j, MovingAverage<T>& p) {
@@ -65,15 +69,15 @@ void from_json(const json& j, MovingAverage<T>& p) {
 }
 
 template <class T = double>
-void to_json(json& j, const Join<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.nInput}}; }
+void to_json(json& j, const Join<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.nInput}};
+}
 
 template <class T = double>
 void from_json(const json& j, Join<T>& p) {
   j.at("id").get_to(p.id);
-  j.at("nInput").get_to(p.nInput); 
+  j.at("nInput").get_to(p.nInput);
 }
-
-
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Output_opt, id);
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector, id, n);

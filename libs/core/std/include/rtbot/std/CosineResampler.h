@@ -10,7 +10,6 @@
 namespace rtbot {
 
 struct CosineResampler : public Buffer<double> {
-  
   static const int size = 2;
 
   unsigned int dt;
