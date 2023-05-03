@@ -3,7 +3,7 @@
 
 #include <memory>
 
-#include "Operator.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 

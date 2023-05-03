@@ -9,11 +9,10 @@ namespace rtbot {
 template <class T = double>
 struct Message {
   std::uint64_t time;
-  std::vector<T> value;
+  T value;
 
   Message() = default;
-  Message(std::uint64_t time_, T value_) : time(time_), value(1, value_) {}
-  Message(std::uint64_t time_, std::vector<T> const& value_) : time(time_), value(value_) {}
+  Message(std::uint64_t time_, T value_) : time(time_), value(value_) {}
 };
 
 template <class T>

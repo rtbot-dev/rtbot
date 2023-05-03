@@ -40,7 +40,7 @@ TEST_CASE("simple peak detector")
 
 TEST_CASE("ppg peak detector")
 {
-    auto s=SamplePPG("examples/data/ppg.csv");
+    auto s=SamplePPG("ppg.csv");
 
     auto i1 = Input("i1");
     auto ma1 = MovingAverage("ma1", round(50/s.dt()) );
@@ -53,7 +53,7 @@ TEST_CASE("ppg peak detector")
 
     // draw the pipeline
 
-    i1.connect(ma1).connect(diff,0).connect(peak).connect(join,0).connect(o1) ;
+    i1.connect(ma1).connect(diff,0).connect(peak).connect(join,0).connect(o1,0,1) ;
     i1.connect(ma2).connect(diff,1) ;
     i1.connect(                                           join,1) ;
 

@@ -1,22 +1,19 @@
-add_executable(${PROJECT_NAME}_test
+add_executable(test-api
     tools.h
-    test_buffer.cpp
-    test_peak_detector.cpp
-    test_join.cpp
     test_pipeline.cpp
+    ppg.json
 )
 
-#target_compile_definitions(${PROJECT_NAME}_test PRIVATE -DCATCH_CONFIG_MAIN)
 
-target_include_directories(${PROJECT_NAME}_test INTERFACE Catch2::Catch2)
-target_link_libraries(${PROJECT_NAME}_test PRIVATE ${PROJECT_NAME})
-target_link_libraries(${PROJECT_NAME}_test PRIVATE Catch2::Catch2)
+target_include_directories(test-api INTERFACE Catch2::Catch2)
+target_link_libraries(test-api PRIVATE ${PROJECT_NAME}-api)
+target_link_libraries(test-api PRIVATE Catch2::Catch2)
 
 list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/contrib/)
 include(CTest)
 include(Catch)
-catch_discover_tests(${PROJECT_NAME}_test)
+catch_discover_tests(test-api)
 
 
-target_include_directories(${PROJECT_NAME}_test INTERFACE nlohmann_json::nlohmann_json)
-target_link_libraries(${PROJECT_NAME}_test PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(test-api INTERFACE nlohmann_json::nlohmann_json)
+target_link_libraries(test-api PRIVATE nlohmann_json::nlohmann_json)

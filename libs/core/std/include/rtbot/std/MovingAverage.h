@@ -13,14 +13,9 @@ struct MovingAverage : public Buffer<double> {
   string typeName() const override { return "MovingAverage"; }
 
   map<string, std::vector<Message<>>> processData() override {
-    Message<> out;
-    out.time = at(size() / 2).time;
-    out.value.assign(at(0).value.size(), 0);
-    for (auto const& x : (*this))
-      for (auto j = 0u; j < x.value.size(); j++) out.value[j] += x.value[j] / size();
-    std::vector<Message<>> msgs;
-    msgs.push_back(out);
-    return emit(msgs);
+    Message<> out = {at(size() / 2).time, 0};
+    for (auto const& x : (*this)) out.value += x.value / size();
+    return emit(out);
   }
 };
 
