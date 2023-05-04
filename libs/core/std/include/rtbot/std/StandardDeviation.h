@@ -11,11 +11,10 @@ namespace rtbot {
 
 template <class T = double>
 struct StandardDeviation : public Buffer<T> {
-  unsigned int iteration;
 
   StandardDeviation() = default;
 
-  StandardDeviation(string const &id_, unsigned int n_) : Buffer<T>(id_, n_), iteration(0) {}
+  StandardDeviation(string const &id_, unsigned int n_) : Buffer<T>(id_, n_) {}
 
   string typeName() const override { return "StandardDeviation"; }
 

@@ -10,18 +10,19 @@
 
 namespace rtbot {
 
-struct Input : public Buffer<double> {
+template <class T = double>
+struct Input : public Buffer<T> {
   static const int size = 2;
 
   Input() = default;
 
-  Input(string const &id_) : Buffer<double>(id_, Input::size) {}
+  Input(string const &id_) : Buffer<T>(id_, Input::size) {}
 
   string typeName() const override { return "Input"; }
 
-  map<string, std::vector<Message<>>> processData() override {
-    if ((std::int64_t)(at(1).time - at(0).time) <= 0) return {};
-    return emit(at(0));
+  map<string, std::vector<Message<T>>> processData() override {
+    if ((std::int64_t)(this->at(1).time - this->at(0).time) <= 0) return {};
+    return this->emit(this->at(0));
   }
 };
 

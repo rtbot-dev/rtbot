@@ -20,35 +20,56 @@ std::ostream& operator<<(std::ostream& out, Message<T> const& msg) {
   return out;
 }
 
-template <class T, class Out>
-struct Output : public Operator<T> {
-  Out* out = nullptr;
+template <class T = double>
+struct Output_vec : public Operator<T> {
 
-  Output() = default;
-  Output(string const& id_, Out& out_) : Operator<T>(id_), out(&out_) {}
+  std::vector<Message<T>>* out = nullptr;
+
+  Output_vec() = default;
+  Output_vec(string const& id_, std::vector<Message<T>>& out_) : Operator<T>(id_), out(&out_) {}
 
   string typeName() const override { return "Output"; }
+
   map<string, std::vector<Message<T>>> receive(Message<T> const& msg) override {
     out->push_back(msg);
     return this->emit(msg);
   }
 };
 
-using Output_vec = Output<double, std::vector<Message<>>>;
-using Output_opt = Output<double, std::optional<Message<>>>;
-using Output_os = Output<double, std::ostream>;
+template <class T = double>
+struct Output_opt : public Operator<T> {
 
-template <>
-inline map<string, std::vector<Message<>>> Output_os::receive(Message<> const& msg) {
-  (*out) << id << " " << msg << "\n";
-  return emit(msg);
-}
+  std::optional<Message<T>>* out = nullptr;
 
-template <>
-inline map<string, std::vector<Message<>>> Output_opt::receive(Message<> const& msg) {
-  *out = msg;
-  return emit(msg);
-}
+  Output_opt() = default;
+  Output_opt(string const& id_, std::optional<Message<T>>& out_) : Operator<T>(id_), out(&out_) {}
+
+  string typeName() const override { return "Output"; }
+
+  map<string, std::vector<Message<T>>> receive(Message<T> const& msg) override {
+    *out = msg;
+    return this->emit(msg);
+  }
+
+  
+   
+};
+
+template <class T = double>
+struct Output_os : public Operator<T> {
+
+  std::ostream* out = nullptr;
+
+  Output_os() = default;
+  Output_os(string const& id_, std::ostream& out_) : Operator<T>(id_), out(&out_) {}
+
+  string typeName() const override { return "Output"; }
+
+  map<string, std::vector<Message<T>>> receive(Message<T> const& msg) override {
+    (*out) << this->id << " " << msg << "\n";
+    return this->emit(msg);
+  }
+};
 
 }  // end namespace rtbot
 

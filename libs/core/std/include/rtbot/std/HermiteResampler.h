@@ -10,7 +10,8 @@
 
 namespace rtbot {
 
-struct HermiteResampler : public Buffer<double> {
+template <class T = double>
+struct HermiteResampler : public Buffer<T> {
   static const int size = 4;
 
   unsigned int dt;
@@ -22,15 +23,15 @@ struct HermiteResampler : public Buffer<double> {
   HermiteResampler() = default;
 
   HermiteResampler(string const &id_, unsigned int dt_)
-      : Buffer<double>(id_, HermiteResampler::size), dt(dt_), iteration(0), carryOver(0) {}
+      : Buffer<T>(id_, HermiteResampler::size), dt(dt_), iteration(0), carryOver(0) {}
 
   string typeName() const override { return "HermiteResampler"; }
 
-  map<string, std::vector<Message<>>> processData() override {
-    std::vector<Message<>> toEmit;
+  map<string, std::vector<Message<T>>> processData() override {
+    std::vector<Message<T>> toEmit;
 
-    if ((std::int64_t)(at(1).time - at(0).time) <= 0 || (std::int64_t)(at(2).time - at(1).time) <= 0 ||
-        (std::int64_t)(at(3).time - at(2).time <= 0))
+    if ((std::int64_t)(this->at(1).time - this->at(0).time) <= 0 || (std::int64_t)(this->at(2).time - this->at(1).time) <= 0 ||
+        (std::int64_t)(this->at(3).time - this->at(2).time <= 0))
       return {};
 
     if (iteration == 0) {
@@ -58,25 +59,25 @@ struct HermiteResampler : public Buffer<double> {
     be use for all other cases regarless the iteration.
   */
 
-  std::vector<Message<>> lookAt(int from, int to) {
-    std::vector<Message<>> toEmit;
+  std::vector<Message<T>> lookAt(int from, int to) {
+    std::vector<Message<T>> toEmit;
     int j = 1;
 
-    while (at(to).time - at(from).time >= (j * dt) - carryOver) {
+    while (this->at(to).time - this->at(from).time >= (j * dt) - carryOver) {
       Message<> out;
-      double mu = ((j * dt) - carryOver) / (at(to).time - at(from).time);
+      double mu = ((j * dt) - carryOver) / (this->at(to).time - this->at(from).time);
       if (from == 0 && to == 1)
-        out.value = CosineResampler::cosineInterpolate(at(from).value, at(to).value, mu);
+        out.value = CosineResampler<T>::cosineInterpolate(this->at(from).value, this->at(to).value, mu);
       else if (from == 1 && to == 2)
-        out.value = HermiteResampler::hermiteInterpolate(at(from - 1).value, at(from).value, at(to).value,
-                                                         at(to + 1).value, mu);
+        out.value = HermiteResampler<T>::hermiteInterpolate(this->at(from - 1).value, this->at(from).value, this->at(to).value,
+                                                         this->at(to + 1).value, mu);
 
-      out.time = at(from).time + ((j * dt) - carryOver);
+      out.time = this->at(from).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver = at(to).time - (at(from).time + (((j - 1) * dt) - carryOver));
+    carryOver = this->at(to).time - (this->at(from).time + (((j - 1) * dt) - carryOver));
 
     return toEmit;
   }
@@ -90,10 +91,10 @@ struct HermiteResampler : public Buffer<double> {
               positive is towards first segment,
               negative towards the other
   */
-  static double hermiteInterpolate(double y0, double y1, double y2, double y3, double mu, double tension = 0,
+  static T hermiteInterpolate(T y0, T y1, T y2, T y3, double mu, double tension = 0,
                                    double bias = 0) {
     double m0, m1, mu2, mu3;
-    double a0, a1, a2, a3;
+    T a0, a1, a2, a3;
 
     mu2 = mu * mu;
     mu3 = mu2 * mu;
