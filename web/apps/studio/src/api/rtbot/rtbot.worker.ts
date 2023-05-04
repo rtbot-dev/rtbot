@@ -5,13 +5,13 @@ import bindings from "@rtbot/core";
 
 interface RtBotMessage {
   time: number;
-  value: number[];
+  value: number;
 }
 
 interface RtBot {
   createPipeline(pipelineId: string, programStr: string): string;
   deletePipeline(pipelineId: string): string;
-  receiveMessageInPipelineDebug(pipelineId: string, time: number, value: number[]): string;
+  receiveMessageInPipelineDebug(pipelineId: string, time: number, value: number): string;
 }
 
 export interface RtBotIterationOutput {
@@ -51,17 +51,18 @@ export class RtBotRun {
 
     // iterate over the data passed and send it to the rtbot program
     this.data.forEach(([time, ...value]) => {
-      const iterationOutput = rtbot.receiveMessageInPipelineDebug(pipelineId, time, value);
+      // TODO generalize to the case where we have several inputs
+      const iterationOutput = rtbot.receiveMessageInPipelineDebug(pipelineId, time, value[0]);
       //console.log("iteration ", time, value, "=>", iterationOutput);
       // record the outputs
       Object.entries(JSON.parse(iterationOutput) as RtBotIterationOutput).forEach(([k, msgs]) => {
         msgs.forEach(({ time, value }) => {
-          if (!this.outputs[k]) this.outputs[k] = [[], ...value.map((_) => [])];
+          if (!this.outputs[k]) this.outputs[k] = [[], []];
 
           // add the time to the first list in the output
           this.outputs[k][0].push(time);
           // add the values to the correspondent lists in the output
-          value.forEach((v, i) => this.outputs[k][i + 1].push(v));
+          this.outputs[k][1].push(value);
         });
       });
     });

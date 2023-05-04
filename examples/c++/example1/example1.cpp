@@ -1,13 +1,13 @@
+#include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
-#include "rtbot/tools/Input.h"
-#include "rtbot/tools/PeakDetector.h"
+#include "rtbot/std/PeakDetector.h"
 
 using namespace rtbot;
 using namespace std;
 
 int main(int argc, char **argv) {
-  auto i1 = Input("i1", Type::cosine, 3);
+  auto i1 = Input("i1");
   auto peak = PeakDetector("b1", 3);
   auto join = Join<double>("j1", 2);
 
