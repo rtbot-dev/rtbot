@@ -72,8 +72,18 @@ struct HermiteResampler : public Buffer<T> {
     return toEmit;
   }
   
+  /*
+    To store a message(point) created artificially that will help us to interpolate on the interval [0,1]
+    This message(point) will be exclusively used for interpolating on the interval [0,1] using the first 
+    group of equidistant dts that fall into the interval [0,1].
+  */
   std::unique_ptr<Message<T>> before = nullptr;
 
+  /*
+    This function decides whether data from the buffer should be used to suffice the request 
+    or to artificially create a message(point) at the left of the interval [0,1] using the 
+    least squares numeric method.
+  */
   Message<T>& get(int index) {
 
     if (index >= 0) return this->at(index);
@@ -90,7 +100,7 @@ struct HermiteResampler : public Buffer<T> {
           average = average + this->at(i).time;
         }
         average = average / n;
-        std::pair<T,T> pair = getLineLeastSquares(x,y);
+        std::pair<T,T> pair = this->getLineLeastSquares(x,y);
         std::uint64_t time = this->at(0).time - (-1 * index * average);
         T value = pair.second * time + pair.first;
         before = std::make_unique<Message<T>>(Message(time,value));
@@ -99,7 +109,6 @@ struct HermiteResampler : public Buffer<T> {
     return *(before.get());
 
   }
-
 
   std::pair<T,T> getLineLeastSquares(std::vector<uint64_t> x, std::vector<T> y)
   {
