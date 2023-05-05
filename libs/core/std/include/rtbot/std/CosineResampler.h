@@ -24,9 +24,7 @@ struct CosineResampler : public Buffer<T> {
   string typeName() const override { return "CosineResampler"; }
 
   map<string, std::vector<Message<T>>> processData() override {
-    std::vector<Message<T>> toEmit;
-
-    if ((std::int64_t)(this->at(1).time - this->at(0).time) <= 0) throw std::runtime_error(typeName() + ": Data received is not in the expected order");
+    std::vector<Message<T>> toEmit;    
 
     int j = 1;
 
@@ -46,6 +44,8 @@ struct CosineResampler : public Buffer<T> {
     else
       return {};
   }
+
+  private:
 
   /**
    * Calculations taken from http://paulbourke.net/miscellaneous/interpolation/

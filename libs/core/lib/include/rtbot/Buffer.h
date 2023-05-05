@@ -14,7 +14,7 @@ namespace rtbot {
 template <class T>
 class Buffer : public Operator<T>, public std::deque<Message<T>> {
  public:
-  int n = 1;  //< number of message to keep in memory
+  int n = 1;  // number of message to keep in memory
 
   using Operator<T>::Operator;
   Buffer(string const& id_, int n_) : n(n_), Operator<T>(id_) {}
@@ -26,7 +26,7 @@ class Buffer : public Operator<T>, public std::deque<Message<T>> {
       sum = sum - this->front().value; 
       this->pop_front(); 
     }
-    this->push_back(msg);
+    this->push_back(msg);    
     sum = sum + this->back().value;
     if (this->size() == n) return processData();
     return {};

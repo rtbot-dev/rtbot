@@ -21,7 +21,7 @@ struct Input : public Buffer<T> {
   string typeName() const override { return "Input"; }
 
   map<string, std::vector<Message<T>>> processData() override {
-    if ((std::int64_t)(this->at(1).time - this->at(0).time) <= 0) return {};
+    if (this->at(1).time <= this->at(0).time) return {};
     return this->emit(this->at(0));
   }
 };

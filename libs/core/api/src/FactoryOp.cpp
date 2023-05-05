@@ -46,8 +46,7 @@ void from_json(const json& j, HermiteResampler<T>& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
   p.n = HermiteResampler<T>::size;
-  p.carryOver = 0;
-  p.iteration = 0;
+  p.carryOver = 0;  
 }
 
 template <class T = double>
@@ -93,9 +92,26 @@ void from_json(const json& j, Output_opt<T>& p) {
   j.at("id").get_to(p.id);
 }
 
+template <class T = double>
+void to_json(json& j, const PeakDetector<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
+}
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PeakDetector, id, n);
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Difference, id);
+template <class T = double>
+void from_json(const json& j, PeakDetector<T>& p) {
+  j.at("id").get_to(p.id);
+  j.at("n").get_to(p.n);
+}
+
+template <class T = double>
+void to_json(json& j, const Difference<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T = double>
+void from_json(const json& j, Difference<T>& p) {
+  j.at("id").get_to(p.id);
+}
 
 std::string FactoryOp::createPipeline(std::string const& id, std::string const& json_program) {
   try {
@@ -117,9 +133,9 @@ FactoryOp::FactoryOp() {
   op_registry_add<CosineResampler<double>, nlohmann::json>();
   op_registry_add<HermiteResampler<double>, nlohmann::json>();
   op_registry_add<MovingAverage<double>, nlohmann::json>();
-  op_registry_add<PeakDetector, nlohmann::json>();
+  op_registry_add<PeakDetector<double>, nlohmann::json>();
   op_registry_add<Join<double>, nlohmann::json>();
-  op_registry_add<Difference, nlohmann::json>();
+  op_registry_add<Difference<double>, nlohmann::json>();
   op_registry_add<Output_opt<double>, nlohmann::json>();
 
   nlohmann::json j;

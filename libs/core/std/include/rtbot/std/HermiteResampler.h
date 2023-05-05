@@ -14,36 +14,29 @@ template <class T = double>
 struct HermiteResampler : public Buffer<T> {
   static const int size = 4;
 
-  unsigned int dt;
-
-  unsigned int iteration;
+  unsigned int dt;  
 
   std::uint64_t carryOver;
 
   HermiteResampler() = default;
 
   HermiteResampler(string const &id_, unsigned int dt_)
-      : Buffer<T>(id_, HermiteResampler::size), dt(dt_), iteration(0), carryOver(0) {}
+      : Buffer<T>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "HermiteResampler"; }
 
   map<string, std::vector<Message<T>>> processData() override {
+    
     std::vector<Message<T>> toEmit;
 
-    if ((std::int64_t)(this->at(1).time - this->at(0).time) <= 0 || (std::int64_t)(this->at(2).time - this->at(1).time) <= 0 ||
-        (std::int64_t)(this->at(3).time - this->at(2).time <= 0))
-      return {};
-
-    if (iteration == 0) {
-      toEmit = lookAt(0, 1);
-      auto toAdd = lookAt(1, 2);
+    if (before.get() == nullptr) {
+      toEmit = this->lookAt(0, 1);
+      auto toAdd = this->lookAt(1, 2);
       toEmit.insert(toEmit.end(), toAdd.begin(), toAdd.end());
 
     } else {
-      toEmit = lookAt(1, 2);
-    }
-
-    iteration++;
+      toEmit = this->lookAt(1, 2);
+    }    
 
     if (toEmit.size() > 0)
       return this->emit(toEmit);
@@ -52,34 +45,87 @@ struct HermiteResampler : public Buffer<T> {
   }
 
  private:
+  
   /*
-    This function will conveniently select what type of resampling will be used depending on
-    the indexes of the points where the dt will fall into. cosineInterpolate will only be call
-    for those dts in the first iteration that fall into point 0 and 1, hermiteInterpolate will
-    be use for all other cases regarless the iteration.
+    This function will conveniently execute the Hermite Interpolation centered on the interval
+    [0,1] or on the interval [1,2]. For the case of interval [0,1] it artificially creates a 
+    point to the left of the first one at position [-1] so that we can interpolate using the 
+    four points required for the Hermite Interpolation to be executed.
   */
 
   std::vector<Message<T>> lookAt(int from, int to) {
+
     std::vector<Message<T>> toEmit;
     int j = 1;
 
-    while (this->at(to).time - this->at(from).time >= (j * dt) - carryOver) {
-      Message<> out;
-      double mu = ((j * dt) - carryOver) / (this->at(to).time - this->at(from).time);
-      if (from == 0 && to == 1)
-        out.value = CosineResampler<T>::cosineInterpolate(this->at(from).value, this->at(to).value, mu);
-      else if (from == 1 && to == 2)
-        out.value = HermiteResampler<T>::hermiteInterpolate(this->at(from - 1).value, this->at(from).value, this->at(to).value,
-                                                         this->at(to + 1).value, mu);
-
-      out.time = this->at(from).time + ((j * dt) - carryOver);
+    while (this->get(to).time - this->get(from).time >= (j * dt) - carryOver) {
+      Message<T> out;
+      double mu = ((j * dt) - carryOver) / (this->get(to).time - this->get(from).time);      
+      out.value = HermiteResampler<T>::hermiteInterpolate(this->get(from - 1).value, this->get(from).value, this->get(to).value,this->get(to + 1).value, mu);
+      out.time = this->get(from).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver = this->at(to).time - (this->at(from).time + (((j - 1) * dt) - carryOver));
+    carryOver = this->get(to).time - (this->get(from).time + (((j - 1) * dt) - carryOver));
 
     return toEmit;
+  }
+  
+  std::unique_ptr<Message<T>> before = nullptr;
+
+  Message<T>& get(int index) {
+
+    if (index >= 0) return this->at(index);
+    else if (before.get() == nullptr)
+    {
+        std::vector<std::uint64_t> x;
+        std::vector<T> y;
+        std::uint64_t average = 0;
+        int n = ((Buffer<T>*)this)->size();
+        for(int i = 0; i < n; i++ )
+        {
+          x.push_back(this->at(i).time);
+          y.push_back(this->at(i).value);
+          average = average + this->at(i).time;
+        }
+        average = average / n;
+        std::pair<T,T> pair = getLineLeastSquares(x,y);
+        std::uint64_t time = this->at(0).time - (-1 * index * average);
+        T value = pair.second * time + pair.first;
+        before = std::make_unique<Message<T>>(Message(time,value));
+
+    }
+    return *(before.get());
+
+  }
+
+
+  std::pair<T,T> getLineLeastSquares(std::vector<uint64_t> x, std::vector<T> y)
+  {
+      T sumY = 0, sumXY = 0, n , m;
+      std::uint64_t sumX = 0, sumX2 = 0;
+      for(size_t i = 0; i < x.size(); i++) {
+        sumX = sumX + x.at(i);
+        sumY = sumY + y.at(i);
+        sumXY = sumXY + x.at(i) * y.at(i);
+        sumX2 = sumX2 + pow(x.at(i), 2);
+      }
+
+      std::uint64_t denominator = (x.size() * sumX2 - pow(sumX,2));
+
+      if (denominator == 0) {
+
+        m = (y.at(1) - y.at(0)) / (x.at(1) - x.at(0));
+        n = y.at(0) - m * x.at(0);
+      }
+      else
+      {
+        n = (sumX2 * sumY - sumXY * sumX) / denominator;
+        m = (x.size() * sumXY -sumX * sumY) / denominator;
+      }
+
+      return std::pair<T,T>(n,m);
   }
 
   /*
