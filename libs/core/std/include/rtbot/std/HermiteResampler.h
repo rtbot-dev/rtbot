@@ -48,9 +48,9 @@ struct HermiteResampler : public Buffer<T> {
   
   /*
     This function will conveniently execute the Hermite Interpolation centered on the interval
-    [0,1] or on the interval [1,2]. For the case of interval [0,1] it artificially creates a 
-    point to the left of the first one at position [-1] so that we can interpolate using the 
-    four points required for the Hermite Interpolation to be executed.
+    [0,1] or on the interval [1,2]. For the case of the interval [0,1] it artificially creates a 
+    message(point) at the left of the first one at position [-1] so that we can interpolate using 
+    the four points required for the Hermite Interpolation execution.
   */
 
   std::vector<Message<T>> lookAt(int from, int to) {
