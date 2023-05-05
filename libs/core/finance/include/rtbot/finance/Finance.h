@@ -7,22 +7,24 @@ namespace rtbot {
 
 namespace tools {
 
-template <class T>
-struct Count : public Operator<T> {
-  Count(string const &id_) : Operator<T>(id_, [c = 0](const T &) mutable { return T(++c); }) {}
+template <class V = double>
+struct Count : public Operator<V> {
+  Count(string const &id_) : Operator<V>(id_, [c = 0](const V &) mutable { return V(++c); }) {}
 };
 
-template <class T>
-struct PartialSum : public Operator<T> {
-  PartialSum(string const &id_) : Operator<T>(id_, [s = T(0)](const T &x) mutable { return s += x; }) {}
+template <class V = double>
+struct PartialSum : public Operator<V> {
+  PartialSum(string const &id_) : Operator<V>(id_, [s = V(0)](const V &x) mutable { return s += x; }) {}
 };
 
-struct FilterGreaterThan : public FilterByValue<double> {
-  FilterGreaterThan(string const &id_, double x0 = 0) : FilterByValue<double>(id_, [=](double x) { return x > x0; }) {}
+template <class V = double>
+struct FilterGreaterThan : public FilterByValue<V> {
+  FilterGreaterThan(string const &id_, double x0 = 0) : FilterByValue<V>(id_, [=](double x) { return x > x0; }) {}
 };
 
-struct FilterLessThan : public FilterByValue<double> {
-  FilterLessThan(string const &id_, double x0 = 0) : FilterByValue<double>(id_, [=](double x) { return x < x0; }) {}
+template <class V = double>
+struct FilterLessThan : public FilterByValue<V> {
+  FilterLessThan(string const &id_, double x0 = 0) : FilterByValue<V>(id_, [=](double x) { return x < x0; }) {}
 };
 
 }  // namespace tools

@@ -18,104 +18,104 @@ using json = nlohmann::json;
 
 namespace rtbot {
 
-template <class T = double>
-void to_json(json& j, const Input<T>& p) {
+template <class V = double>
+void to_json(json& j, const Input<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
-template <class T = double>
-void from_json(const json& j, Input<T>& p) {
+template <class V = double>
+void from_json(const json& j, Input<V>& p) {
   j.at("id").get_to(p.id);
-  p.n = Input<T>::size;
+  p.n = Input<V>::size;
 }
 
-template <class T = double>
-void to_json(json& j, const CosineResampler<T>& p) {
+template <class V = double>
+void to_json(json& j, const CosineResampler<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
 }
 
-template <class T = double>
-void from_json(const json& j, CosineResampler<T>& p) {
+template <class V = double>
+void from_json(const json& j, CosineResampler<V>& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
-  p.n = CosineResampler<T>::size;
+  p.n = CosineResampler<V>::size;
   p.carryOver = 0;
 }
 
-template <class T = double>
-void to_json(json& j, const HermiteResampler<T>& p) {
+template <class V = double>
+void to_json(json& j, const HermiteResampler<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
 }
 
-template <class T = double>
-void from_json(const json& j, HermiteResampler<T>& p) {
+template <class V = double>
+void from_json(const json& j, HermiteResampler<V>& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
-  p.n = HermiteResampler<T>::size;
+  p.n = HermiteResampler<V>::size;
   p.carryOver = 0;
 }
 
-template <class T = double>
-void to_json(json& j, const StandardDeviation<T>& p) {
+template <class V = double>
+void to_json(json& j, const StandardDeviation<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
-template <class T = double>
-void from_json(const json& j, StandardDeviation<T>& p) {
+template <class V = double>
+void from_json(const json& j, StandardDeviation<V>& p) {
   j.at("id").get_to(p.id);
   j.at("n").get_to(p.n);
 }
 
-template <class T = double>
-void to_json(json& j, const MovingAverage<T>& p) {
+template <class V = double>
+void to_json(json& j, const MovingAverage<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
-template <class T = double>
-void from_json(const json& j, MovingAverage<T>& p) {
+template <class V = double>
+void from_json(const json& j, MovingAverage<V>& p) {
   j.at("id").get_to(p.id);
   j.at("n").get_to(p.n);
 }
 
-template <class T = double>
-void to_json(json& j, const Join<T>& p) {
+template <class V = double>
+void to_json(json& j, const Join<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.nInput}};
 }
 
-template <class T = double>
-void from_json(const json& j, Join<T>& p) {
+template <class V = double>
+void from_json(const json& j, Join<V>& p) {
   j.at("id").get_to(p.id);
   j.at("nInput").get_to(p.nInput);
 }
 
-template <class T = double>
-void to_json(json& j, const Output_opt<T>& p) {
+template <class V = double>
+void to_json(json& j, const Output_opt<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
-template <class T = double>
-void from_json(const json& j, Output_opt<T>& p) {
+template <class V = double>
+void from_json(const json& j, Output_opt<V>& p) {
   j.at("id").get_to(p.id);
 }
 
-template <class T = double>
-void to_json(json& j, const PeakDetector<T>& p) {
+template <class V = double>
+void to_json(json& j, const PeakDetector<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
-template <class T = double>
-void from_json(const json& j, PeakDetector<T>& p) {
+template <class V = double>
+void from_json(const json& j, PeakDetector<V>& p) {
   j.at("id").get_to(p.id);
   j.at("n").get_to(p.n);
 }
 
-template <class T = double>
-void to_json(json& j, const Difference<T>& p) {
+template <class V = double>
+void to_json(json& j, const Difference<V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
-template <class T = double>
-void from_json(const json& j, Difference<T>& p) {
+template <class V = double>
+void from_json(const json& j, Difference<V>& p) {
   j.at("id").get_to(p.id);
 }
 

@@ -10,13 +10,13 @@ using json = nlohmann::json;
 
 namespace rtbot {
 
-template <class T = double>
-void to_json(json& j, const Message<T>& p) {
+template <class V = double>
+void to_json(json& j, const Message<V>& p) {
   j = json{{"time", p.time}, {"value", p.value}};
 }
 
-template <class T = double>
-void from_json(const json& j, Message<T>& p) {
+template <class V = double>
+void from_json(const json& j, Message<V>& p) {
   j.at("time").get_to(p.time);
   j.at("value").get_to(p.value);
 }

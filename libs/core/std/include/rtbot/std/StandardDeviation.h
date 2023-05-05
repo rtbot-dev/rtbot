@@ -9,20 +9,20 @@
 
 namespace rtbot {
 
-template <class T = double>
-struct StandardDeviation : public Buffer<T> {
+template <class V = double>
+struct StandardDeviation : public Buffer<V> {
   StandardDeviation() = default;
 
-  StandardDeviation(string const &id_, unsigned int n_) : Buffer<T>(id_, n_) {}
+  StandardDeviation(string const &id_, unsigned int n_) : Buffer<V>(id_, n_) {}
 
   string typeName() const override { return "StandardDeviation"; }
 
-  map<string, std::vector<Message<T>>> processData() override {
-    std::vector<Message<T>> toEmit;
-    Message<T> out;
+  map<string, std::vector<Message<V>>> processData() override {
+    std::vector<Message<V>> toEmit;
+    Message<V> out;
 
-    T average = this->sum / this->size();
-    T std = 0;
+    V average = this->sum / this->size();
+    V std = 0;
 
     for (size_t j = 0; j < this->size(); j++) {
       std = std + pow(this->at(j).value - average, 2);
