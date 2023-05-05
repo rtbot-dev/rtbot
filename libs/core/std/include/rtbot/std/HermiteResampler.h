@@ -96,8 +96,11 @@ struct HermiteResampler : public Buffer<T> {
         for(int i = 0; i < n; i++ )
         {
           x.push_back(this->at(i).time);
-          y.push_back(this->at(i).value);
-          average = average + this->at(i).time;
+          y.push_back(this->at(i).value);          
+        }
+        for(int i = 1; i < n; i++)
+        {
+          average = average + (this->at(i).time - this->at(i-1).time);
         }
         average = average / n;
         std::pair<T,T> pair = this->getLineLeastSquares(x,y);
