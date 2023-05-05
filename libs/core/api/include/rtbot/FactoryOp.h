@@ -19,8 +19,8 @@ class FactoryOp {
   FactoryOp();
 
   struct SerializerOp {
-    function<Op_ptr<>(string)> from_string;
-    function<string(const Op_ptr<>&)> to_string;
+    function<Op_ptr<double>(string)> from_string;
+    function<string(const Op_ptr<double>&)> to_string;
     function<string()> to_string_default;
   };
 
@@ -32,7 +32,7 @@ class FactoryOp {
   template <class Op, class Format>
   static void op_registry_add() {
     auto from_string = [](string const& prog) { return std::make_unique<Op>(Format::parse(prog)); };
-    auto to_string = [](Op_ptr<> const& op) {
+    auto to_string = [](Op_ptr<double> const& op) {
       string type = op->typeName();
       auto obj = Format(*dynamic_cast<Op*>(op.get()));
       obj["type"] = type;
@@ -50,8 +50,8 @@ class FactoryOp {
     op_registry()[Op().typeName()] = SerializerOp{from_string, to_string, to_string_default};
   }
 
-  static Op_ptr<> readOp(std::string const& json_string);
-  static std::string writeOp(Op_ptr<> const& op);
+  static Op_ptr<double> readOp(std::string const& json_string);
+  static std::string writeOp(Op_ptr<double> const& op);
   static Pipeline createPipeline(std::string const& json_string) { return Pipeline(json_string); }
 
   std::string createPipeline(std::string const& id, std::string const& json_program);
@@ -61,13 +61,13 @@ class FactoryOp {
     return "";
   }
 
-  std::vector<std::optional<Message<>>> receiveMessageInPipeline(std::string const& id, Message<> const& msg) {
+  std::vector<std::optional<Message<double>>> receiveMessageInPipeline(std::string const& id, Message<double> const& msg) {
     auto it = pipelines.find(id);
     if (it == pipelines.end()) return {};
     return it->second.receive(msg);
   }
 
-  map<string, std::vector<Message<>>> receiveMessageInPipelineDebug(std::string const& id, Message<> const& msg) {
+  map<string, std::vector<Message<double>>> receiveMessageInPipelineDebug(std::string const& id, Message<double> const& msg) {
     auto it = pipelines.find(id);
     if (it == pipelines.end()) return {};
     return it->second.receiveDebug(msg);

@@ -29,14 +29,14 @@ struct Pipeline {
     output->out = &out;
   }
 
-  std::vector<std::optional<Message<>>> receive(const Message<>& msg) {
+  std::vector<std::optional<Message<double>>> receive(const Message<double>& msg) {
     out.reset();
     input->receive(msg);
     return {out};
   }
 
   /// return a list of the operator that emit: id, output message
-  map<string, std::vector<Message<>>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
+  map<string, std::vector<Message<double>>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
 };
 
 }  // namespace rtbot

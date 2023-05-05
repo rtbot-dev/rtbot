@@ -155,7 +155,7 @@ FactoryOp::FactoryOp() {
 
 static FactoryOp factory;
 
-Op_ptr<> FactoryOp::readOp(const std::string& program) {
+Op_ptr<double> FactoryOp::readOp(const std::string& program) {
   auto json = nlohmann::json::parse(program);
   string type = json.at("type");
   auto it = op_registry().find(type);
@@ -163,7 +163,7 @@ Op_ptr<> FactoryOp::readOp(const std::string& program) {
   return it->second.from_string(program);
 }
 
-std::string FactoryOp::writeOp(Op_ptr<> const& op) {
+std::string FactoryOp::writeOp(Op_ptr<double> const& op) {
   string type = op->typeName();
   nlohmann::json j;
   j["type"] = type;

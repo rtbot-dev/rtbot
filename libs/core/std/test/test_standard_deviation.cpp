@@ -14,7 +14,7 @@ TEST_CASE("Standard deviation") {
 
   SECTION("emits zeros") {
     for (int i = 0; i < 20; i++) {
-      map<string, std::vector<Message<>>> emitted = i1.receive(Message<>(i * 100, 10));
+      map<string, std::vector<Message<double>>> emitted = i1.receive(Message<double>(i * 100, 10));
       if (i <= 3) {
         REQUIRE(emitted.empty());
       } else
@@ -24,7 +24,7 @@ TEST_CASE("Standard deviation") {
 
   SECTION("emits correct std") {
     for (int i = 0; i < 10; i++) {
-      map<string, std::vector<Message<>>> emitted = i2.receive(Message<>(i * 100, i + 1));
+      map<string, std::vector<Message<double>>> emitted = i2.receive(Message<double>(i * 100, i + 1));
       if (i <= 8) {
         REQUIRE(emitted.empty());
       } else

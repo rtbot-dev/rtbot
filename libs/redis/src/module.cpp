@@ -119,7 +119,7 @@ int RtBotRun_RedisCommand(RedisModuleCtx *ctx, RedisModuleString **argv, int arg
       return RedisModule_ReplyWithError(ctx, "Value in timeseries is not a valid double");
     }
 
-    std::optional<rtbot::Message<double>> result = pipeline.receive(rtbot::Message<>((int)timestamp, value));
+    std::optional<rtbot::Message<double>> result = pipeline.receive(rtbot::Message<double>((int)timestamp, value));
     if (result.has_value()) {
       // RedisModule_Log(ctx, "warning", "New result received (%i, %f)", result->time, result->value.at(0));
       RedisModuleCallReply *addReply = RedisModule_Call(ctx, "ts.add", "slc", argv[3], (long long)result->time,
