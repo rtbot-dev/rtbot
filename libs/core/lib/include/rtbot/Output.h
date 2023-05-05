@@ -22,7 +22,6 @@ std::ostream& operator<<(std::ostream& out, Message<T> const& msg) {
 
 template <class T = double>
 struct Output_vec : public Operator<T> {
-
   std::vector<Message<T>>* out = nullptr;
 
   Output_vec() = default;
@@ -38,7 +37,6 @@ struct Output_vec : public Operator<T> {
 
 template <class T = double>
 struct Output_opt : public Operator<T> {
-
   std::optional<Message<T>>* out = nullptr;
 
   Output_opt() = default;
@@ -50,14 +48,10 @@ struct Output_opt : public Operator<T> {
     *out = msg;
     return this->emit(msg);
   }
-
-  
-   
 };
 
 template <class T = double>
 struct Output_os : public Operator<T> {
-
   std::ostream* out = nullptr;
 
   Output_os() = default;

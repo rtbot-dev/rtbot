@@ -11,20 +11,18 @@ namespace rtbot {
 
 template <class T = double>
 struct CosineResampler : public Buffer<T> {
-
   static const int size = 2;
   unsigned int dt;
   std::uint64_t carryOver;
 
   CosineResampler() = default;
 
-  CosineResampler(string const &id_, unsigned int dt_)
-      : Buffer<T>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
+  CosineResampler(string const &id_, unsigned int dt_) : Buffer<T>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "CosineResampler"; }
 
   map<string, std::vector<Message<T>>> processData() override {
-    std::vector<Message<T>> toEmit;    
+    std::vector<Message<T>> toEmit;
 
     int j = 1;
 
@@ -45,8 +43,7 @@ struct CosineResampler : public Buffer<T> {
       return {};
   }
 
-  private:
-
+ private:
   /**
    * Calculations taken from http://paulbourke.net/miscellaneous/interpolation/
    */

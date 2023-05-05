@@ -19,7 +19,9 @@ using json = nlohmann::json;
 namespace rtbot {
 
 template <class T = double>
-void to_json(json& j, const Input<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}}; }
+void to_json(json& j, const Input<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
 
 template <class T = double>
 void from_json(const json& j, Input<T>& p) {
@@ -28,7 +30,9 @@ void from_json(const json& j, Input<T>& p) {
 }
 
 template <class T = double>
-void to_json(json& j, const CosineResampler<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}}; }
+void to_json(json& j, const CosineResampler<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
+}
 
 template <class T = double>
 void from_json(const json& j, CosineResampler<T>& p) {
@@ -39,14 +43,16 @@ void from_json(const json& j, CosineResampler<T>& p) {
 }
 
 template <class T = double>
-void to_json(json& j, const HermiteResampler<T>& p) { j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}}; }
+void to_json(json& j, const HermiteResampler<T>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
+}
 
 template <class T = double>
 void from_json(const json& j, HermiteResampler<T>& p) {
   j.at("id").get_to(p.id);
   j.at("dt").get_to(p.dt);
   p.n = HermiteResampler<T>::size;
-  p.carryOver = 0;  
+  p.carryOver = 0;
 }
 
 template <class T = double>
@@ -68,7 +74,7 @@ void to_json(json& j, const MovingAverage<T>& p) {
 template <class T = double>
 void from_json(const json& j, MovingAverage<T>& p) {
   j.at("id").get_to(p.id);
-  j.at("n").get_to(p.n);  
+  j.at("n").get_to(p.n);
 }
 
 template <class T = double>

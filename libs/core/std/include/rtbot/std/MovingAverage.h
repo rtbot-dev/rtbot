@@ -7,7 +7,6 @@ namespace rtbot {
 
 template <class T = double>
 struct MovingAverage : public Buffer<T> {
-  
   MovingAverage() = default;
 
   MovingAverage(string const& id_, int n_) : Buffer<T>(id_, n_) {}
@@ -17,14 +16,13 @@ struct MovingAverage : public Buffer<T> {
   map<string, std::vector<Message<T>>> processData() override {
     std::vector<Message<T>> toEmit;
     Message<T> out;
-       
+
     out.time = this->back().time;
     out.value = this->sum / this->size();
 
     toEmit.push_back(out);
     return this->emit(toEmit);
   }
- 
 };
 
 }  // namespace rtbot

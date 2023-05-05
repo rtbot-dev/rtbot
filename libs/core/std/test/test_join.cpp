@@ -1,18 +1,17 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
-#include "rtbot/Join.h"
 #include "rtbot/Input.h"
+#include "rtbot/Join.h"
 #include "rtbot/std/PeakDetector.h"
 
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Join peak and value")
-{
-    auto i1 = Input<double>("i1");
-    auto peak = PeakDetector<double>("b1", 3);    
-    auto join = Join<double>("j1",2);
+TEST_CASE("Join peak and value") {
+  auto i1 = Input<double>("i1");
+  auto peak = PeakDetector<double>("b1", 3);
+  auto join = Join<double>("j1", 2);
 
   i1.connect(peak).connect(join, 0);
   i1.connect(join, 1);

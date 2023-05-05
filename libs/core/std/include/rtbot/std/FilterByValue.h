@@ -6,10 +6,9 @@
 #include "rtbot/Operator.h"
 
 namespace rtbot {
-  
+
 template <class T = double>
 struct FilterByValue : public Operator<T> {
-  
   std::function<bool(T)> filter;
 
   FilterByValue(string const& id_, std::function<bool(T)> filter_) : Operator<T>(id_), filter(filter_) {}
