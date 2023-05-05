@@ -110,6 +110,14 @@ struct HermiteResampler : public Buffer<T> {
 
   }
 
+  /*
+    Calculation taken from http://www.ccas.ru/mmes/educat/lab04/02/least-squares.c
+  */
+  /*
+      x is the vector of the x-axis
+      y is the vector of the y-axis
+      the coordinates of a point are (x_i;y_i)
+  */
   std::pair<T,T> getLineLeastSquares(std::vector<uint64_t> x, std::vector<T> y)
   {
       T sumY = 0, sumXY = 0, n , m;
