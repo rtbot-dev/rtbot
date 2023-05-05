@@ -40,7 +40,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
 
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
-      map<string, std::vector<Message<>>> emitted = i1.receive(Message<>(i * 100, i * i));
+      map<string, std::vector<Message<double>>> emitted = i1.receive(Message<double>(i * 100, i * i));
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
       else if (i == 3) {

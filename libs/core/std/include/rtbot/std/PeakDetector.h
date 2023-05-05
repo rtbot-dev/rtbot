@@ -5,16 +5,17 @@
 
 namespace rtbot {
 
-struct PeakDetector : Buffer<double> {
-  using Buffer<double>::Buffer;
+template <class T = double>
+struct PeakDetector : Buffer<T> {
+  using Buffer<T>::Buffer;
 
   string typeName() const override { return "PeakDetector"; }
 
-  map<string, std::vector<Message<>>> processData() override {
-    int pos = size() / 2;  // expected position of the max
-    for (auto i = 0u; i < size(); i++)
-      if (at(pos).value < at(i).value) return {};
-    return emit(at(pos));
+  map<string, std::vector<Message<T>>> processData() override {
+    int pos = this->size() / 2;  // expected position of the max
+    for (auto i = 0u; i < this->size(); i++)
+      if (this->at(pos).value < this->at(i).value) return {};
+    return this->emit(this->at(pos));
   }
 };
 

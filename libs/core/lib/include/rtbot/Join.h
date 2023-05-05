@@ -75,14 +75,15 @@ class Join : public Operator<T> {
 /**
  * @brief The Difference class as example of application of Join
  */
-struct Difference : public Join<double> {
-  Difference(string const &id_ = "diff") : Join(id_, 2) {}
+template <class T = double>
+struct Difference : public Join<T> {
+  Difference(string const &id_ = "diff") : Join<T>(id_, 2) {}
 
   string typeName() const override { return "Difference"; }
 
-  map<string, std::vector<Message<>>> processData(vector<Message<double>> const &msgs) override {
-    Message<> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
-    return emit(out);
+  map<string, std::vector<Message<T>>> processData(vector<Message<T>> const &msgs) override {
+    Message<T> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
+    return this->emit(out);
   }
 };
 

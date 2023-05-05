@@ -13,7 +13,7 @@ namespace rtbot {
 struct Pipeline {
   std::map<std::string, Op_ptr<double>> all_op;  // from id to operator
   Operator<double>* input;
-  Output_opt* output;
+  Output_opt<double>* output;
   std::optional<Message<double>> out;
 
   explicit Pipeline(std::string const& json_string);

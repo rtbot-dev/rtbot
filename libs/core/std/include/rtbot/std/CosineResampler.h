@@ -9,36 +9,33 @@
 
 namespace rtbot {
 
-struct CosineResampler : public Buffer<double> {
+template <class T = double>
+struct CosineResampler : public Buffer<T> {
   static const int size = 2;
-
   unsigned int dt;
   std::uint64_t carryOver;
 
   CosineResampler() = default;
 
-  CosineResampler(string const &id_, unsigned int dt_)
-      : Buffer<double>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
+  CosineResampler(string const &id_, unsigned int dt_) : Buffer<T>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "CosineResampler"; }
 
-  map<string, std::vector<Message<>>> processData() override {
-    std::vector<Message<>> toEmit;
-
-    if ((std::int64_t)(at(1).time - at(0).time) <= 0) return {};
+  map<string, std::vector<Message<T>>> processData() override {
+    std::vector<Message<T>> toEmit;
 
     int j = 1;
 
-    while (at(1).time - at(0).time >= (j * dt) - carryOver) {
-      Message<> out;
-      double mu = ((j * dt) - carryOver) / (at(1).time - at(0).time);
-      out.value = CosineResampler::cosineInterpolate(at(0).value, at(1).value, mu);
-      out.time = at(0).time + ((j * dt) - carryOver);
+    while (this->at(1).time - this->at(0).time >= (j * dt) - carryOver) {
+      Message<T> out;
+      double mu = ((j * dt) - carryOver) / (this->at(1).time - this->at(0).time);
+      out.value = CosineResampler<T>::cosineInterpolate(this->at(0).value, this->at(1).value, mu);
+      out.time = this->at(0).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver = at(1).time - (at(0).time + (((j - 1) * dt) - carryOver));
+    carryOver = this->at(1).time - (this->at(0).time + (((j - 1) * dt) - carryOver));
 
     if (toEmit.size() > 0)
       return this->emit(toEmit);
@@ -46,10 +43,11 @@ struct CosineResampler : public Buffer<double> {
       return {};
   }
 
+ private:
   /**
    * Calculations taken from http://paulbourke.net/miscellaneous/interpolation/
    */
-  static double cosineInterpolate(double y1, double y2, double mu) {
+  static T cosineInterpolate(T y1, T y2, double mu) {
     double mu2;
     mu2 = (1 - std::cos(mu * 3.141592653589)) / 2;
     return (y1 * (1 - mu2) + y2 * mu2);
