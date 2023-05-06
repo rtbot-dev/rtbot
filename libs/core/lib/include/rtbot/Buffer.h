@@ -11,16 +11,16 @@ namespace rtbot {
  * A buffer to store the last-n incoming data
  *
  */
-template <class V>
-class Buffer : public Operator<V>, public std::deque<Message<V>> {
+template <class T, class V>
+class Buffer : public Operator<T,V>, public std::deque<Message<T,V>> {
  public:
   int n = 1;  // number of message to keep in memory
 
-  using Operator<V>::Operator;
-  Buffer(string const& id_, int n_) : n(n_), Operator<V>(id_) {}
+  using Operator<T,V>::Operator;
+  Buffer(string const& id_, int n_) : n(n_), Operator<T,V>(id_) {}
   virtual ~Buffer() = default;
 
-  map<string, std::vector<Message<V>>> receive(Message<V> const& msg) override {
+  map<string, std::vector<Message<T,V>>> receive(Message<T,V> const& msg) override {
     if (this->size() == n) 
     {
       sum = sum - this->front().value; 
@@ -32,16 +32,20 @@ class Buffer : public Operator<V>, public std::deque<Message<V>> {
     return {};
   }
 
+  V getSum() {
+    return sum;
+  }
+
   /**
    *  This is a replacement of Operator::receive but using the Buffer full data (a std::deque<Message>)
    *  It is responsible to emit().
    */
-  virtual map<string, std::vector<Message<V>>> processData() = 0;
+  virtual map<string, std::vector<Message<T,V>>> processData() = 0;
 
   /*
     This is to store the sum of all the message values in the buffer
   */
-  protected:
+  private:
     V sum = 0;
 };
 
@@ -49,17 +53,17 @@ class Buffer : public Operator<V>, public std::deque<Message<V>> {
  * A buffer to store the last-n previously computed data
  *
  */
-template <class V>
-struct AutoBuffer : public Operator<V>, public std::deque<Message<V>> {
+template <class T,class V>
+struct AutoBuffer : public Operator<T,V>, public std::deque<Message<T,V>> {
   int n = 1;  //< number of message to keep in memory
 
-  using Operator<V>::Operator;
-  AutoBuffer(string const& id_, int n_) : n(n_), Operator<V>(id_) {}
+  using Operator<T,V>::Operator;
+  AutoBuffer(string const& id_, int n_) : n(n_), Operator<T,V>(id_) {}
   virtual ~AutoBuffer() = default;
 
-  void receive(Message<V> const& msg) override {
+  void receive(Message<T,V> const& msg) override {
     while (this->size() < n)
-      this->push_front(Message<V>(0, vector<V>(msg.value.size(), V{})));  // boundary conditions=V{}
+      this->push_front(Message<T,V>(0, vector<V>(msg.value.size(), V{})));  // boundary conditions=V{}
     this->pop_front();
     this->push_back(solve(msg));
     this->emit(this->back());
@@ -71,7 +75,7 @@ struct AutoBuffer : public Operator<V>, public std::deque<Message<V>> {
    * value of the incoming message and y(t) the message to return, would return: Message { t, ( x(t) - a1 at(n-1) -
    * ... )/a0 }
    */
-  virtual Message<V> solve(Message<V> const& msg) const { return msg; }
+  virtual Message<T,V> solve(Message<T,V> const& msg) const { return msg; }
   
 };
 

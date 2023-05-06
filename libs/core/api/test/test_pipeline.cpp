@@ -25,7 +25,7 @@ TEST_CASE("read ppg pipeline") {
 
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
-      auto y = pipe.receive(Message<double>(s.ti[i], s.ppg[i]))[0];
+      auto y = pipe.receive(Message<std::uint64_t,double>(s.ti[i], s.ppg[i]))[0];
       if (y) cout << y.value() << endl;
     }
   }
@@ -34,7 +34,7 @@ TEST_CASE("read ppg pipeline") {
     createPipeline("pipe1", json.dump());
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
-      auto y = receiveMessageInPipeline("pipe1", Message<double>(s.ti[i], s.ppg[i]))[0];
+      auto y = receiveMessageInPipeline("pipe1", Message<std::uint64_t,double>(s.ti[i], s.ppg[i]))[0];
       if (y) cout << y.value() << endl;
     }
   }

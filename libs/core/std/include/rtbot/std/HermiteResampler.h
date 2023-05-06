@@ -10,23 +10,23 @@
 
 namespace rtbot {
 
-template <class V = double>
-struct HermiteResampler : public Buffer<V> {
+template <class T, class V>
+struct HermiteResampler : public Buffer<T,V> {
   static const int size = 4;
 
-  unsigned int dt;
+  T dt;
 
-  std::uint64_t carryOver;
+  T carryOver;
 
   HermiteResampler() = default;
 
   HermiteResampler(string const& id_, unsigned int dt_)
-      : Buffer<V>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
+      : Buffer<T,V>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "HermiteResampler"; }
 
-  map<string, std::vector<Message<V>>> processData() override {
-    std::vector<Message<V>> toEmit;
+  map<string, std::vector<Message<T,V>>> processData() override {
+    std::vector<Message<T,V>> toEmit;
 
     if (before.get() == nullptr) {
       toEmit = this->lookAt(0, 1);
@@ -51,14 +51,14 @@ struct HermiteResampler : public Buffer<V> {
     the four points required for the Hermite Interpolation execution.
   */
 
-  std::vector<Message<V>> lookAt(int from, int to) {
-    std::vector<Message<V>> toEmit;
+  std::vector<Message<T,V>> lookAt(int from, int to) {
+    std::vector<Message<T,V>> toEmit;
     int j = 1;
 
     while (this->get(to).time - this->get(from).time >= (j * dt) - carryOver) {
-      Message<V> out;
-      double mu = ((j * dt) - carryOver) / (this->get(to).time - this->get(from).time);
-      out.value = HermiteResampler<V>::hermiteInterpolate(this->get(from - 1).value, this->get(from).value,
+      Message<T,V> out;
+      V mu = ((j * dt) - carryOver) / (this->get(to).time - this->get(from).time);
+      out.value = HermiteResampler<T,V>::hermiteInterpolate(this->get(from - 1).value, this->get(from).value,
                                                           this->get(to).value, this->get(to + 1).value, mu);
       out.time = this->get(from).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
@@ -75,21 +75,21 @@ struct HermiteResampler : public Buffer<V> {
     This message(point) will be exclusively used for interpolating on the interval [0,1] using the first
     group of equidistant dts that fall into the interval [0,1].
   */
-  std::unique_ptr<Message<V>> before = nullptr;
+  std::unique_ptr<Message<T,V>> before = nullptr;
 
   /*
     This function decides whether data from the buffer should be used to suffice the request
     or to artificially create a message(point) at the left of the interval [0,1] using the
     least squares numeric method.
   */
-  Message<V>& get(int index) {
+  Message<T,V>& get(int index) {
     if (index >= 0)
       return this->at(index);
     else if (before.get() == nullptr) {
-      std::vector<std::uint64_t> x;
+      std::vector<T> x;
       std::vector<V> y;
-      std::uint64_t average = 0;
-      int n = ((Buffer<V>*)this)->size();
+      T average = 0;
+      int n = ((Buffer<T,V>*)this)->size();
       for (int i = 0; i < n; i++) {
         x.push_back(this->at(i).time);
         y.push_back(this->at(i).value);
@@ -99,9 +99,9 @@ struct HermiteResampler : public Buffer<V> {
       }
       average = average / n;
       std::pair<V, V> pair = this->getLineLeastSquares(x, y);
-      std::uint64_t time = this->at(0).time - (-1 * index * average);
+      T time = this->at(0).time - (-1 * index * average);
       V value = pair.second * time + pair.first;
-      before = std::make_unique<Message<V>>(Message(time, value));
+      before = std::make_unique<Message<T,V>>(Message<T,V>(time, value));
     }
     return *(before.get());
   }
@@ -114,9 +114,9 @@ struct HermiteResampler : public Buffer<V> {
       y is the vector of the y-axis
       the coordinates of a point are (x_i;y_i)
   */
-  std::pair<V, V> getLineLeastSquares(std::vector<uint64_t> x, std::vector<V> y) {
+  std::pair<V, V> getLineLeastSquares(std::vector<T> x, std::vector<V> y) {
     V sumY = 0, sumXY = 0, n, m;
-    std::uint64_t sumX = 0, sumX2 = 0;
+    T sumX = 0, sumX2 = 0;
     for (size_t i = 0; i < x.size(); i++) {
       sumX = sumX + x.at(i);
       sumY = sumY + y.at(i);
@@ -124,7 +124,7 @@ struct HermiteResampler : public Buffer<V> {
       sumX2 = sumX2 + pow(x.at(i), 2);
     }
 
-    std::uint64_t denominator = (x.size() * sumX2 - pow(sumX, 2));
+    T denominator = (x.size() * sumX2 - pow(sumX, 2));
 
     if (denominator == 0) {
       m = (y.at(1) - y.at(0)) / (x.at(1) - x.at(0));
@@ -146,8 +146,8 @@ struct HermiteResampler : public Buffer<V> {
               positive is towards first segment,
               negative towards the other
   */
-  static V hermiteInterpolate(V y0, V y1, V y2, V y3, double mu, double tension = 0, double bias = 0) {
-    double m0, m1, mu2, mu3;
+  static V hermiteInterpolate(V y0, V y1, V y2, V y3, V mu, V tension = 0, V bias = 0) {
+    V m0, m1, mu2, mu3;
     V a0, a1, a2, a3;
 
     mu2 = mu * mu;

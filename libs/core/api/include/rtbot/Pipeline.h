@@ -11,10 +11,10 @@
 namespace rtbot {
 
 struct Pipeline {
-  std::map<std::string, Op_ptr<double>> all_op;  // from id to operator
-  Operator<double>* input;
-  Output_opt<double>* output;
-  std::optional<Message<double>> out;
+  std::map<std::string, Op_ptr<std::uint64_t,double>> all_op;  // from id to operator
+  Operator<std::uint64_t,double>* input;
+  Output_opt<std::uint64_t,double>* output;
+  std::optional<Message<std::uint64_t,double>> out;
 
   explicit Pipeline(std::string const& json_string);
 
@@ -29,14 +29,14 @@ struct Pipeline {
     output->out = &out;
   }
 
-  std::vector<std::optional<Message<double>>> receive(const Message<double>& msg) {
+  std::vector<std::optional<Message<std::uint64_t,double>>> receive(const Message<std::uint64_t,double>& msg) {
     out.reset();
     input->receive(msg);
     return {out};
   }
 
   /// return a list of the operator that emit: id, output message
-  map<string, std::vector<Message<double>>> receiveDebug(const Message<double>& msg) { return input->receive(msg); }
+  map<string, std::vector<Message<std::uint64_t,double>>> receiveDebug(const Message<std::uint64_t,double>& msg) { return input->receive(msg); }
 };
 
 }  // namespace rtbot

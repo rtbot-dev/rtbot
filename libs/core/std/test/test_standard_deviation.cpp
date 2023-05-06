@@ -9,12 +9,12 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Standard deviation") {
-  auto i1 = StandardDeviation("i1", 5);
-  auto i2 = StandardDeviation("i2", 10);
+  auto i1 = StandardDeviation<std::uint64_t,double>("i1", 5);
+  auto i2 = StandardDeviation<std::uint64_t,double>("i2", 10);
 
   SECTION("emits zeros") {
     for (int i = 0; i < 20; i++) {
-      map<string, std::vector<Message<double>>> emitted = i1.receive(Message<double>(i * 100, 10));
+      map<string, std::vector<Message<std::uint64_t,double>>> emitted = i1.receive(Message<std::uint64_t,double>(i * 100, 10));
       if (i <= 3) {
         REQUIRE(emitted.empty());
       } else
@@ -24,7 +24,7 @@ TEST_CASE("Standard deviation") {
 
   SECTION("emits correct std") {
     for (int i = 0; i < 10; i++) {
-      map<string, std::vector<Message<double>>> emitted = i2.receive(Message<double>(i * 100, i + 1));
+      map<string, std::vector<Message<std::uint64_t,double>>> emitted = i2.receive(Message<std::uint64_t,double>(i * 100, i + 1));
       if (i <= 8) {
         REQUIRE(emitted.empty());
       } else

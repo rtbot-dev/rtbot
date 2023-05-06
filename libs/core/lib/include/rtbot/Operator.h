@@ -28,15 +28,15 @@ using std::vector;
  * etc.).
  */
 
-template <class V>
+template <class T, class V>
 class Operator;
-template <class V = double>
-using Op_ptr = unique_ptr<Operator<V>>;
+template <class T, class V>
+using Op_ptr = unique_ptr<Operator<T,V>>;
 
-template <class V = double>
+template <class T, class V>
 class Operator {
   struct Connection {
-    Operator<V>* const dest;
+    Operator<T,V>* const dest;
     int toPort = -1;
     int fromPort = -1;
   };
@@ -64,42 +64,42 @@ class Operator {
    * @param t {int} Timestamp of the message.
    */
 
-  virtual map<string, std::vector<Message<V>>> receive(Message<V> const& msg, int port) { return receive(msg); }
+  virtual map<string, std::vector<Message<T,V>>> receive(Message<T,V> const& msg, int port) { return receive(msg); }
 
-  virtual map<string, std::vector<Message<V>>> receive(Message<V> const& msg) {
+  virtual map<string, std::vector<Message<T,V>>> receive(Message<T,V> const& msg) {
     auto out = msg;
     if (f) out.value = f(msg.value);
     return emit(out);
   }
 
-  map<string, std::vector<Message<V>>> emit(Message<V> const& msg) const {
-    std::map<string, std::vector<Message<V>>> out = {{id, {msg}}};
+  map<string, std::vector<Message<T,V>>> emit(Message<T,V> const& msg) const {
+    std::map<string, std::vector<Message<T,V>>> out = {{id, {msg}}};
     for (auto [child, to, _] : children) mergeOutput(out, child->receive(msg, to));
     return out;
   }
 
-  map<string, std::vector<Message<V>>> emit(std::vector<Message<V>> const& msgs) const {
-    std::map<string, std::vector<Message<V>>> out;
+  map<string, std::vector<Message<T,V>>> emit(std::vector<Message<T,V>> const& msgs) const {
+    std::map<string, std::vector<Message<T,V>>> out;
     for (const auto& msg : msgs) mergeOutput(out, emit(msg));
     return out;
   }
 
-  map<string, std::vector<Message<V>>> emitParallel(vector<Message<V>> const& msgs) const {
-    std::map<string, std::vector<Message<V>>> out = {{id, msgs}};
+  map<string, std::vector<Message<T,V>>> emitParallel(vector<Message<T,V>> const& msgs) const {
+    std::map<string, std::vector<Message<T,V>>> out = {{id, msgs}};
     for (auto [child, to, from] : children) mergeOutput(out, child->receive(msgs.at(from), to));
     return out;
   }
 
-  Operator<V>& connect(Operator<V>& child, int toPort = -1, int fromPort = -1) {
+  Operator<T,V>& connect(Operator<T,V>& child, int toPort = -1, int fromPort = -1) {
     children.push_back({&child, toPort, fromPort});
     return child;
   }
-  void connect(Operator<V>* const child, int toPort = -1, int fromPort = -1) {
+  void connect(Operator<T,V>* const child, int toPort = -1, int fromPort = -1) {
     children.push_back({child, toPort, fromPort});
   }
 
  protected:
-  static void mergeOutput(map<string, std::vector<Message<V>>>& out, map<string, std::vector<Message<V>>> const& x) {
+  static void mergeOutput(map<string, std::vector<Message<T,V>>>& out, map<string, std::vector<Message<T,V>>> const& x) {
     for (const auto& [id, msgs] : x) {
       auto& vec = out[id];
       for (auto resultMessage : msgs) vec.push_back(resultMessage);
@@ -107,8 +107,8 @@ class Operator {
   }
 };
 
-template <class V>
-Operator<V>& operator|(Message<V> const& a, Operator<V>& B) {
+template <class T, class V>
+Operator<T,V>& operator|(Message<T,V> const& a, Operator<T,V>& B) {
   B.receive(a, nullptr);
   return B;
 }

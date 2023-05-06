@@ -17,7 +17,7 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(rtbot, m) {
   m.doc() = "Python interface for real time bot library (rtbot)";
 
-  using Bufferd = Buffer<double>;
+  using Bufferd = Buffer<std::uint64_t,double>;
 //  py::class_<Bufferd>(m, "Buffer")
 //      .def(py::init<int, int>(), "channelSize"_a = 1, "windowSize"_a = 1)
 //      .def_readonly("channelSize", &Bufferd::channelSize)

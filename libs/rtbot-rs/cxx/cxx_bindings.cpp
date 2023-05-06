@@ -33,7 +33,7 @@ rust::Vec<RtBotMessage> receive_message_in_pipeline(rust::String id, RtBotMessag
   rust::Vec<RtBotMessage> r;
   auto t = rtBotMessage.timestamp;
   auto v = rtBotMessage.values[0];
-  auto result = receiveMessageInPipeline(id.c_str(), Message<double>(t, v));
+  auto result = receiveMessageInPipeline(id.c_str(), Message<std::uint64_t,double>(t, v));
 
   if(result[0].has_value()) {
     auto data = result[0].value();
