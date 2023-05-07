@@ -24,5 +24,6 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [
         "//libs/core/lib:rtbot",
+        "//libs/core/api:rtbot-api",
     ],
 )
