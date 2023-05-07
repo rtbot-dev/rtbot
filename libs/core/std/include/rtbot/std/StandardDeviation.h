@@ -10,16 +10,16 @@
 namespace rtbot {
 
 template <class T, class V>
-struct StandardDeviation : public Buffer<T,V> {
+struct StandardDeviation : public Buffer<T, V> {
   StandardDeviation() = default;
 
-  StandardDeviation(string const &id_, unsigned int n_) : Buffer<T,V>(id_, n_) {}
+  StandardDeviation(string const &id_, unsigned int n_) : Buffer<T, V>(id_, n_) {}
 
   string typeName() const override { return "StandardDeviation"; }
 
-  map<string, std::vector<Message<T,V>>> processData() override {
-    std::vector<Message<T,V>> toEmit;
-    Message<T,V> out;
+  map<string, std::vector<Message<T, V>>> processData() override {
+    std::vector<Message<T, V>> toEmit;
+    Message<T, V> out;
 
     V average = this->getSum() / this->size();
     V std = 0;

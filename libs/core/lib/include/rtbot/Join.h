@@ -22,17 +22,17 @@ namespace rtbot {
  * given.
  */
 template <class T, class V>
-class Join : public Operator<T,V> {
-  vector<std::queue<Message<T,V>>> data;  //< the waiting Messages for each port
+class Join : public Operator<T, V> {
+  vector<std::queue<Message<T, V>>> data;  //< the waiting Messages for each port
  public:
   int nInput = 2;
-  using Operator<T,V>::Operator;
-  Join(string const &id_, int nInput_) : Operator<T,V>(id_), nInput(nInput_) {}
+  using Operator<T, V>::Operator;
+  Join(string const &id_, int nInput_) : Operator<T, V>(id_), nInput(nInput_) {}
   virtual ~Join() = default;
 
   virtual string typeName() const override { return "Join"; }
 
-  map<string, std::vector<Message<T,V>>> receive(Message<T,V> const &msg, int port) override {
+  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, int port) override {
     // add the incoming message to the correct channel
     if (nInput > data.size()) data.resize(nInput);
     data.at(port).push(msg);
@@ -56,14 +56,14 @@ class Join : public Operator<T,V> {
    *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
    *  It is responsible to emit().
    */
-  virtual map<string, std::vector<Message<T,V>>> processData(vector<Message<T,V>> const &msgs) {
+  virtual map<string, std::vector<Message<T, V>>> processData(vector<Message<T, V>> const &msgs) {
     return this->emitParallel(msgs);
   }
 
  private:
   // build a message by concatenating all channels front() data. Remove the used data.
-  vector<Message<T,V>> makeMessage() {
-    vector<Message<T,V>> msgs;
+  vector<Message<T, V>> makeMessage() {
+    vector<Message<T, V>> msgs;
     for (const auto &x : data) msgs.push_back(x.front());
 
     for (auto &x : data) x.pop();
@@ -76,13 +76,13 @@ class Join : public Operator<T,V> {
  * @brief The Difference class as example of application of Join
  */
 template <class T, class V>
-struct Difference : public Join<T,V> {
-  Difference(string const &id_ = "diff") : Join<T,V>(id_, 2) {}
+struct Difference : public Join<T, V> {
+  Difference(string const &id_ = "diff") : Join<T, V>(id_, 2) {}
 
   string typeName() const override { return "Difference"; }
 
-  map<string, std::vector<Message<T,V>>> processData(vector<Message<T,V>> const &msgs) override {
-    Message<T,V> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
+  map<string, std::vector<Message<T, V>>> processData(vector<Message<T, V>> const &msgs) override {
+    Message<T, V> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
     return this->emit(out);
   }
 };

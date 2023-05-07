@@ -6,16 +6,16 @@
 namespace rtbot {
 
 template <class T, class V>
-struct MovingAverage : public Buffer<T,V> {
+struct MovingAverage : public Buffer<T, V> {
   MovingAverage() = default;
 
-  MovingAverage(string const& id_, int n_) : Buffer<T,V>(id_, n_) {}
+  MovingAverage(string const& id_, int n_) : Buffer<T, V>(id_, n_) {}
 
   string typeName() const override { return "MovingAverage"; }
 
-  map<string, std::vector<Message<T,V>>> processData() override {
-    std::vector<Message<T,V>> toEmit;
-    Message<T,V> out;
+  map<string, std::vector<Message<T, V>>> processData() override {
+    std::vector<Message<T, V>> toEmit;
+    Message<T, V> out;
 
     out.time = this->back().time;
     out.value = this->getSum() / this->size();

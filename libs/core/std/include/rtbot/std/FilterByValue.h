@@ -8,12 +8,12 @@
 namespace rtbot {
 
 template <class T, class V>
-struct FilterByValue : public Operator<T,V> {
+struct FilterByValue : public Operator<T, V> {
   std::function<bool(V)> filter;
 
-  FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T,V>(id_), filter(filter_) {}
+  FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T, V>(id_), filter(filter_) {}
 
-  map<string, Message<T,V>> receive(Message<T,V> const& msg) override {
+  map<string, Message<T, V>> receive(Message<T, V> const& msg) override {
     if (filter(msg.value)) return this->emit(msg);
     return {};
   }

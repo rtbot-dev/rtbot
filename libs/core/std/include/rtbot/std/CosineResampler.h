@@ -10,26 +10,27 @@
 namespace rtbot {
 
 template <class T, class V>
-struct CosineResampler : public Buffer<T,V> {
+struct CosineResampler : public Buffer<T, V> {
   static const int size = 2;
   T dt;
   T carryOver;
 
   CosineResampler() = default;
 
-  CosineResampler(string const &id_, unsigned int dt_) : Buffer<T,V>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
+  CosineResampler(string const &id_, unsigned int dt_)
+      : Buffer<T, V>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "CosineResampler"; }
 
-  map<string, std::vector<Message<T,V>>> processData() override {
-    std::vector<Message<T,V>> toEmit;
+  map<string, std::vector<Message<T, V>>> processData() override {
+    std::vector<Message<T, V>> toEmit;
 
     int j = 1;
 
     while (this->at(1).time - this->at(0).time >= (j * dt) - carryOver) {
-      Message<T,V> out;
+      Message<T, V> out;
       V mu = ((j * dt) - carryOver) / (this->at(1).time - this->at(0).time);
-      out.value = CosineResampler<T,V>::cosineInterpolate(this->at(0).value, this->at(1).value, mu);
+      out.value = CosineResampler<T, V>::cosineInterpolate(this->at(0).value, this->at(1).value, mu);
       out.time = this->at(0).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;

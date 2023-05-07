@@ -20,7 +20,7 @@ Pipeline::Pipeline(const std::string& json_string) {
   auto json = nlohmann::json::parse(json_string);
 
   for (const nlohmann::json& x : json.at("operators")) {
-    std::pair<std::map<std::string, rtbot::Op_ptr<std::uint64_t,double>>::iterator, bool> it;
+    std::pair<std::map<std::string, rtbot::Op_ptr<std::uint64_t, double>>::iterator, bool> it;
 
     it = all_op.emplace(x["id"], FactoryOp::readOp(x.dump().c_str()));
 

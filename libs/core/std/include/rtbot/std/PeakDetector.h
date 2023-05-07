@@ -6,12 +6,12 @@
 namespace rtbot {
 
 template <class T, class V>
-struct PeakDetector : Buffer<T,V> {
-  using Buffer<T,V>::Buffer;
+struct PeakDetector : Buffer<T, V> {
+  using Buffer<T, V>::Buffer;
 
   string typeName() const override { return "PeakDetector"; }
 
-  map<string, std::vector<Message<T,V>>> processData() override {
+  map<string, std::vector<Message<T, V>>> processData() override {
     int pos = this->size() / 2;  // expected position of the max
     for (auto i = 0u; i < this->size(); i++)
       if (this->at(pos).value < this->at(i).value) return {};
