@@ -34,9 +34,9 @@ struct TypeID<T,
 }  // namespace emscripten
 
 EMSCRIPTEN_BINDINGS(RtBot) {
-  value_object<rtbot::Message<double>>("Message")
-      .field("time", &rtbot::Message<double>::time)
-      .field("value", &rtbot::Message<double>::value);
+  value_object<rtbot::Message<std::uint64_t,double>>("Message")
+      .field("time", &rtbot::Message<std::uint64_t,double>::time)
+      .field("value", &rtbot::Message<std::uint64_t,double>::value);
 
     function("createPipeline", &createPipeline);
     function("deletePipeline", &deletePipeline);

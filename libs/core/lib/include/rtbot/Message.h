@@ -6,17 +6,17 @@
 
 namespace rtbot {
 
-template <class T = double>
+template <class T, class V>
 struct Message {
-  std::uint64_t time;
-  T value;
+  T time;
+  V value;
 
   Message() = default;
-  Message(std::uint64_t time_, T value_) : time(time_), value(value_) {}
+  Message(T time_, V value_) : time(time_), value(value_) {}
 };
 
-template <class T>
-bool operator==(Message<T> const& a, Message<T> const& b) {
+template <class T, class V>
+bool operator==(Message<T, V> const& a, Message<T, V> const& b) {
   return a.time == b.time && a.value == b.value;
 }
 

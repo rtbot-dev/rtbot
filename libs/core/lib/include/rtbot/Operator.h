@@ -24,19 +24,19 @@ using std::vector;
  * computed value to its children. This is one of the main building blocks of
  * rtbot framework.
  *
- * @tparam T Numeric type used for floating computations, (`float`, `double`,
+ * @tparam V Numeric type used for floating computations, (`float`, `double`,
  * etc.).
  */
 
-template <class T>
+template <class T, class V>
 class Operator;
-template <class T = double>
-using Op_ptr = unique_ptr<Operator<T>>;
+template <class T, class V>
+using Op_ptr = unique_ptr<Operator<T, V>>;
 
-template <class T = double>
+template <class T, class V>
 class Operator {
   struct Connection {
-    Operator<T>* const dest;
+    Operator<T, V>* const dest;
     int toPort = -1;
     int fromPort = -1;
   };
@@ -45,11 +45,11 @@ class Operator {
 
  public:
   string id;
-  function<T(T)> f;
+  function<V(V)> f;
 
   Operator() = default;
   explicit Operator(string const& id_) : id(id_) {}
-  Operator(string const& id_, function<T(T)> f_) : id(id_), f(f_) {}
+  Operator(string const& id_, function<V(V)> f_) : id(id_), f(f_) {}
   virtual ~Operator() = default;
 
   virtual string typeName() const = 0;
@@ -64,42 +64,43 @@ class Operator {
    * @param t {int} Timestamp of the message.
    */
 
-  virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg, int port) { return receive(msg); }
+  virtual map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg, int port) { return receive(msg); }
 
-  virtual map<string, std::vector<Message<T>>> receive(Message<T> const& msg) {
+  virtual map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg) {
     auto out = msg;
     if (f) out.value = f(msg.value);
     return emit(out);
   }
 
-  map<string, std::vector<Message<T>>> emit(Message<T> const& msg) const {
-    std::map<string, std::vector<Message<T>>> out = {{id, {msg}}};
+  map<string, std::vector<Message<T, V>>> emit(Message<T, V> const& msg) const {
+    std::map<string, std::vector<Message<T, V>>> out = {{id, {msg}}};
     for (auto [child, to, _] : children) mergeOutput(out, child->receive(msg, to));
     return out;
   }
 
-  map<string, std::vector<Message<T>>> emit(std::vector<Message<T>> const& msgs) const {
-    std::map<string, std::vector<Message<T>>> out;
+  map<string, std::vector<Message<T, V>>> emit(std::vector<Message<T, V>> const& msgs) const {
+    std::map<string, std::vector<Message<T, V>>> out;
     for (const auto& msg : msgs) mergeOutput(out, emit(msg));
     return out;
   }
 
-  map<string, std::vector<Message<T>>> emitParallel(vector<Message<T>> const& msgs) const {
-    std::map<string, std::vector<Message<T>>> out = {{id, msgs}};
+  map<string, std::vector<Message<T, V>>> emitParallel(vector<Message<T, V>> const& msgs) const {
+    std::map<string, std::vector<Message<T, V>>> out = {{id, msgs}};
     for (auto [child, to, from] : children) mergeOutput(out, child->receive(msgs.at(from), to));
     return out;
   }
 
-  Operator<T>& connect(Operator<T>& child, int toPort = -1, int fromPort = -1) {
+  Operator<T, V>& connect(Operator<T, V>& child, int toPort = -1, int fromPort = -1) {
     children.push_back({&child, toPort, fromPort});
     return child;
   }
-  void connect(Operator<T>* const child, int toPort = -1, int fromPort = -1) {
+  void connect(Operator<T, V>* const child, int toPort = -1, int fromPort = -1) {
     children.push_back({child, toPort, fromPort});
   }
 
  protected:
-  static void mergeOutput(map<string, std::vector<Message<T>>>& out, map<string, std::vector<Message<T>>> const& x) {
+  static void mergeOutput(map<string, std::vector<Message<T, V>>>& out,
+                          map<string, std::vector<Message<T, V>>> const& x) {
     for (const auto& [id, msgs] : x) {
       auto& vec = out[id];
       for (auto resultMessage : msgs) vec.push_back(resultMessage);
@@ -107,8 +108,8 @@ class Operator {
   }
 };
 
-template <class T>
-Operator<T>& operator|(Message<T> const& a, Operator<T>& B) {
+template <class T, class V>
+Operator<T, V>& operator|(Message<T, V> const& a, Operator<T, V>& B) {
   B.receive(a, nullptr);
   return B;
 }
