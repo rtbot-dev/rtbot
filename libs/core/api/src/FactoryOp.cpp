@@ -8,7 +8,9 @@
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
+#include "rtbot/std/AutoRegressive.h"
 #include "rtbot/std/CosineResampler.h"
+#include "rtbot/std/Difference.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
@@ -23,10 +25,16 @@ void to_json(json& j, const Input<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
+/*
+{
+    "type": "Input",
+    "id": "in"
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, Input<T, V>& p) {
-  j.at("id").get_to(p.id);
-  p.n = Input<T, V>::size;
+  p = Input<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -34,12 +42,17 @@ void to_json(json& j, const CosineResampler<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
 }
 
+/*
+{
+    "type": "CosineResampler",
+    "id": "cr"
+    "dt": 100
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, CosineResampler<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("dt").get_to(p.dt);
-  p.n = CosineResampler<T, V>::size;
-  p.carryOver = 0;
+  p = CosineResampler<T, V>(j["id"].get<string>(), j["dt"].get<T>());
 }
 
 template <class T, class V>
@@ -47,12 +60,17 @@ void to_json(json& j, const HermiteResampler<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
 }
 
+/*
+{
+    "type": "HermiteResampler",
+    "id": "hr"
+    "dt": 100
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, HermiteResampler<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("dt").get_to(p.dt);
-  p.n = HermiteResampler<T, V>::size;
-  p.carryOver = 0;
+  p = HermiteResampler<T, V>(j["id"].get<string>(), j["dt"].get<T>());
 }
 
 template <class T, class V>
@@ -60,10 +78,17 @@ void to_json(json& j, const StandardDeviation<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
+/*
+{
+    "type": "StandardDeviation",
+    "id": "sd"
+    "n": 5
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, StandardDeviation<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("n").get_to(p.n);
+  p = StandardDeviation<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
 
 template <class T, class V>
@@ -71,21 +96,35 @@ void to_json(json& j, const MovingAverage<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
+/*
+{
+    "type": "MovingAverage",
+    "id": "ma"
+    "n": 5
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, MovingAverage<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("n").get_to(p.n);
+  p = MovingAverage<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.nInput}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.numPorts}};
 }
+
+/*
+{
+    "type": "Join",
+    "id": "j1"
+    "numPorts": 2
+}
+*/
 
 template <class T, class V>
 void from_json(const json& j, Join<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("nInput").get_to(p.nInput);
+  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
 }
 
 template <class T, class V>
@@ -93,9 +132,16 @@ void to_json(json& j, const Output_opt<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
+/*
+{
+    "type": "Output",
+    "id": "opt"
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, Output_opt<T, V>& p) {
-  j.at("id").get_to(p.id);
+  p = Output_opt<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -103,10 +149,17 @@ void to_json(json& j, const PeakDetector<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
 }
 
+/*
+{
+    "type": "PeakDetector",
+    "id": "p1",
+    "n": 5
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, PeakDetector<T, V>& p) {
-  j.at("id").get_to(p.id);
-  j.at("n").get_to(p.n);
+  p = PeakDetector<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
 
 template <class T, class V>
@@ -114,9 +167,34 @@ void to_json(json& j, const Difference<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
+/*
+{
+    "type": "Difference",
+    "id": "d1"
+}
+*/
+
 template <class T, class V>
 void from_json(const json& j, Difference<T, V>& p) {
-  j.at("id").get_to(p.id);
+  p = Difference<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const AutoRegressive<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.coeff}};
+}
+
+/*
+{
+    "type": "AutoRegressive",
+    "id": "ar"
+    "coef": [1,2,3,4]
+}
+*/
+
+template <class T, class V>
+void from_json(const json& j, AutoRegressive<T, V>& p) {
+  p = AutoRegressive<T, V>(j["id"].get<string>(), j["coeff"].get<std::vector<V>>());
 }
 
 std::string FactoryOp::createPipeline(std::string const& id, std::string const& json_program) {
@@ -142,6 +220,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<PeakDetector<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Join<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Difference<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<AutoRegressive<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Output_opt<std::uint64_t, double>, nlohmann::json>();
 
   nlohmann::json j;

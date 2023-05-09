@@ -9,9 +9,9 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Join peak and value") {
-  auto i1 = Input<std::uint64_t,double>("i1");
-  auto peak = PeakDetector<std::uint64_t,double>("b1", 3);
-  auto join = Join<std::uint64_t,double>("j1", 2);
+  auto i1 = Input<std::uint64_t, double>("i1");
+  auto peak = PeakDetector<std::uint64_t, double>("b1", 3);
+  auto join = Join<std::uint64_t, double>("j1", 2);
 
   i1.connect(peak).connect(join, 0);
   i1.connect(join, 1);
@@ -19,7 +19,7 @@ TEST_CASE("Join peak and value") {
   // process the data
   SECTION("Join output size should be 2") {
     for (int i = 0; i < 26; i++) {
-      auto output = i1.receive(Message<std::uint64_t,double>(i, i % 5));
+      auto output = i1.receive(Message<std::uint64_t, double>(i, i % 5));
       if (output.find("j1") != output.end()) {
         REQUIRE(output["j1"].size() == 2);
       }

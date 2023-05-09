@@ -12,7 +12,7 @@ namespace rtbot {
 
 template <class T, class V>
 struct HermiteResampler : public Buffer<T, V> {
-  static const int size = 4;
+  static const size_t size = 4;
 
   T dt;
 
@@ -20,8 +20,7 @@ struct HermiteResampler : public Buffer<T, V> {
 
   HermiteResampler() = default;
 
-  HermiteResampler(string const& id_, unsigned int dt_)
-      : Buffer<T, V>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
+  HermiteResampler(string const& id_, T dt_) : Buffer<T, V>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
 
   string typeName() const override { return "HermiteResampler"; }
 

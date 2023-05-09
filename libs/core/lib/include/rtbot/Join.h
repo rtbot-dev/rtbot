@@ -23,18 +23,24 @@ namespace rtbot {
  */
 template <class T, class V>
 class Join : public Operator<T, V> {
-  vector<std::queue<Message<T, V>>> data;  //< the waiting Messages for each port
+  vector<std::queue<Message<T, V>>> data;  // the waiting Messages for each port
  public:
-  int nInput = 2;
+  size_t numPorts;
   using Operator<T, V>::Operator;
-  Join(string const &id_, int nInput_) : Operator<T, V>(id_), nInput(nInput_) {}
+  Join(string const &id_, int numPorts_) : Operator<T, V>(id_) {
+    if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
+    data.resize(numPorts_);
+    numPorts = numPorts_;
+  }
   virtual ~Join() = default;
 
   virtual string typeName() const override { return "Join"; }
 
   map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, int port) override {
     // add the incoming message to the correct channel
-    if (nInput > data.size()) data.resize(nInput);
+
+    if (port > data.size() - 1 || port < 0) throw std::runtime_error(typeName() + ": port out of index");
+
     data.at(port).push(msg);
 
     // remove old messages
@@ -69,21 +75,6 @@ class Join : public Operator<T, V> {
     for (auto &x : data) x.pop();
 
     return msgs;
-  }
-};
-
-/**
- * @brief The Difference class as example of application of Join
- */
-template <class T, class V>
-struct Difference : public Join<T, V> {
-  Difference(string const &id_ = "diff") : Join<T, V>(id_, 2) {}
-
-  string typeName() const override { return "Difference"; }
-
-  map<string, std::vector<Message<T, V>>> processData(vector<Message<T, V>> const &msgs) override {
-    Message<T, V> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
-    return this->emit(out);
   }
 };
 
