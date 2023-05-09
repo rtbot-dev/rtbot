@@ -17,6 +17,7 @@ using namespace std;
 TEST_CASE("simple peak detector") {
   int nlag = 3;
   auto op = PeakDetector<std::uint64_t, double>("b1", nlag);
+  auto pd = PeakDetector<std::uint64_t, double>("b2", nlag);
 
   vector<Message<std::uint64_t, double>> msg_l;
   auto o1 = Output_vec<std::uint64_t, double>("o1", msg_l);
@@ -33,6 +34,29 @@ TEST_CASE("simple peak detector") {
     REQUIRE(msg_l.size() == 2);
     REQUIRE(msg_l[0] == Message<std::uint64_t, double>(4, 4.0));
     REQUIRE(msg_l[1] == Message<std::uint64_t, double>(9, 4.0));
+  }
+
+  SECTION("only one peak") {
+    int t = 0;
+    int sign = 1;
+    double v = 0.0;
+
+    map<string, std::vector<Message<std::uint64_t, double>>> emitted;
+    for (int i = 1; i <= 10; i++) {
+      t++;
+      v += sign * 0.1;
+      if (t % 5 == 0) sign = -sign;
+      emitted = pd.receive(Message<std::uint64_t, double>(i, v));
+      if (i < 6) {
+        REQUIRE(emitted.empty());
+      } else if (i == 6) {
+        REQUIRE(emitted.find("b2")->second.at(0).value == 0.5);
+        REQUIRE(emitted.find("b2")->second.at(0).time == 5);
+        REQUIRE(emitted.find("b2")->second.size() == 1);
+      } else if (i > 6) {
+        REQUIRE(emitted.empty());
+      }
+    }
   }
 }
 
