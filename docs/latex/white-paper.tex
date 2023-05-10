@@ -1,0 +1,295 @@
+%% Use the option review to obtain double line spacing
+%% \documentclass[authoryear,preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+\documentclass[preprint,1p,times]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn]{elsarticle}
+%% \documentclass[final,3p,times]{elsarticle}
+%% \documentclass[final,3p,times,twocolumn]{elsarticle}
+%% \documentclass[final,5p,times]{elsarticle}
+%% \documentclass[final,5p,times,twocolumn]{elsarticle}
+
+%% For including figures, graphicx.sty has been loaded in
+%% elsarticle.cls. If you prefer to use the old commands
+%% please give \usepackage{epsfig}
+
+%% The amssymb package provides various useful mathematical symbols
+\usepackage{amssymb}
+\usepackage{tikz}
+%% The amsthm package provides extended theorem environments
+%% \usepackage{amsthm}
+
+%% The lineno packages adds line numbers. Start line numbering with
+%% \begin{linenumbers}, end it with \end{linenumbers}. Or switch it on
+%% for the whole article with \linenumbers.
+%% \usepackage{lineno}
+
+% \journal{Nuclear Physics B}
+
+%% this is to export tikz graphics
+% set up externalization
+\usetikzlibrary{external} % set up externalization
+
+\tikzexternalize[shell escape=-enable-write18] % activate externalisation
+
+\tikzset{external/system call={latex \tikzexternalcheckshellescape -halt-on-error
+-interaction=batchmode -jobname "\image" "\texsource" && 
+dvips -o "\image".ps "\image".dvi &&
+ps2eps -l "\image.ps"}}
+\begin{document}
+
+\begin{frontmatter}
+
+%% Title, authors and addresses
+
+%% use the tnoteref command within \title for footnotes;
+%% use the tnotetext command for theassociated footnote;
+%% use the fnref command within \author or \address for footnotes;
+%% use the fntext command for theassociated footnote;
+%% use the corref command within \author for corresponding author footnotes;
+%% use the cortext command for theassociated footnote;
+%% use the ead command for the email address,
+%% and the form \ead[url] for the home page:
+%% \title{Title\tnoteref{label1}}
+%% \tnotetext[label1]{}
+%% \author{Name\corref{cor1}\fnref{label2}}
+%% \ead{email address}
+%% \ead[url]{home page}
+%% \fntext[label2]{}
+%% \cortext[cor1]{}
+%% \affiliation{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%% \fntext[label3]{}
+
+\title{RtBot: a signal processing framework focused on early anomaly detection}
+
+%% use optional labels to link authors explicitly to addresses:
+%% \author[label1,label2]{}
+%% \affiliation[label1]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+%%
+%% \affiliation[label2]{organization={},
+%%             addressline={},
+%%             city={},
+%%             postcode={},
+%%             state={},
+%%             country={}}
+
+\author{Robert Carcassés Quevedo}
+\author{Eduardo Pérez Verdecia}
+\author{Yuriel Núñez Jiménez}
+
+% \affiliation{organization={},%Department and Organization
+%            addressline={}, 
+%            city={},
+%            postcode={}, 
+%            state={},
+%            country={}}
+
+\begin{abstract}
+%% Text of abstract
+RtBot framework is presented as a general purpose digital signal processing
+framework focused on anomaly detection.
+\end{abstract}
+
+
+\begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+digital signal processing \sep open source \sep anomaly detection
+\end{keyword}
+
+\end{frontmatter}
+
+%% \linenumbers
+
+%% main text
+\section{Introduction}
+\label{}
+RtBot is a general purpose digital signal processing framework focused on early anomaly detection. It’s written in c++ and has been built with performance in mind.
+
+Wrapper libraries exist for python, javascript (using wasm) and rust, and in the future we plan to support java and swift languages as well. In this sense RtBot can be easily adapted in any existing codebase, as it already provides interfaces to the most popular existing computer languages or new ones can be built for those missing languages using their native interface with c++. RtBot programs are very fast and have a low footprint, being able to run even in microcontrollers with very limited resources, such a raspberry pi pico or the esp32.
+
+As a digital processing framework, it contains the common pieces found in such frameworks such as high and low pass filters, finite response filters, signal re-samplers and so on. 
+
+As an anomaly detector framework it is designed to give developers the tools to minimize the time difference between the moment when the anomaly is detected and the moment when the anomaly actually happened.
+
+
+\section{Architecture}
+\subsection{Modules}
+RtBot framework is divided into a set of modules: core, api and std ones. This 
+list is likely to grow in the future and users can also extend it with their own 
+private business model specific ones.
+
+
+The core module contains the general definitions and it does not depend on any 
+other. You can write a program using only the core module, but you will have to 
+write it in c++ and explicitly construct the operators and their connections. 
+
+
+The api module allows users to easily interact with the core module. For instance 
+it can read RtBot programs saved in json format and construct the correspondent 
+internal pipeline of operators at runtime. In this module is also where the 
+external bindings are defined, giving a simplified api to run programs. If you are 
+developing a web or desktop app, or even a mobile app, you will likely use this 
+module. On the other hand, if you are building an embedded application for a 
+microcontroller, including this module in your build will cause a large binary 
+output that probably won’t fit on the device. In this case you will have to rely 
+only on the core and std modules to make sure you produce binaries small enough.
+
+
+The std module represents a standard library of commonly used operators that can 
+be used to build programs. Operators defined here are general purpose ones, like 
+the inputs, resampler or finite response operators, which are ubiquitous used in 
+any kinds of input signals. In practice this module and the core one will be the 
+minimal components you will need in order to create some non trivial program.
+
+\subsection{Inside the core}
+An RtBot program expects a signal as input, which is a time-ordered stream of 
+messages to be fed to it, one at the time, in what we call a program iteration. 
+This iteration may or may not produce an output, which will be defined later.
+
+A message is a tuple of timestamp and value. It is important to remark, even if 
+obvious, that the timestamp in the message is the one used for any internal 
+analysis, and not the time that the message arrives. RtBot has no clock inside or 
+anything similar, so it has no way of counting real life time.
+
+
+RtBot assumes the time inside a message to be an integer. The main motivation for 
+this is that comparing two timestamps is more efficient and meaningful in this 
+case than if we allow the timestamps to be of float type. This allows, for 
+instance, to synchronize signals according to its timestamp in a much simplified 
+and efficient way. This shall not, however, be a hurdle to adopt RtBot to process 
+signals with fractionary timestamps, as a rescaling in the time dimension of the 
+signal prior to sending it to the RtBot program will solve any type mismatch. This 
+time scale, i.e. seconds or milliseconds, depends on the nature of the signal 
+being processed and it is up to the programmer to decide which makes sense for the 
+given type of signal.
+
+
+Multidimensional signals can be processed by sending their components to specified input operators.
+
+\subsection{Operators}
+The main concept in the RtBot architecture is that of an operator. An operator 
+it’s simply a computational unit that takes an input, transforms it and produces 
+an output. Operators take messages as inputs and produce other messages as 
+outputs. Remarkably, operators assume that they will receive messages with 
+increasing timestamps, this is, ordered in time.
+
+
+Operators can be connected with other operators, in a directed way, such that one 
+operator can have children operators. If an operator has children then whenever it 
+produces an output it will be sent to its children which will consider those 
+messages as its own input, and so on. Operators may change the throughput of the 
+stream they receive, producing any number of messages, or none, per each message 
+it receives. In this sense they are also flow controllers, deciding when and what 
+to forward to its children operators.
+
+
+\subsubsection{Input}
+An RtBot program is then this set of operators connected in a graph structure, 
+a pipeline, where the external signal entry points are marked by the input 
+operators. An input operator is just an operator that is designed to be a good 
+intake of the external signal. Input operators are not mandatory but recommended 
+entry points, as they perform sanity checks on the input signal before forwarding 
+the message to others. For example, an input operator will discard new messages 
+with timestamps prior or equal to the last message received, guaranteeing the time 
+order in the messages it forwards.
+
+
+\begin{figure}
+    \label{fig:input operator action}
+    \begin{center}
+        
+    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {draw}] 
+    \node[main] (1) {$Input$}; 
+    \node[signal] (2) [left of=1] {
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            .    & . \\
+            2010 & 2.34 \\  
+            2020 & 2.53 \\  
+            \textit{2020} & 0.82 \\  
+            2030 & 5.67 \\  
+            2040 & 7.04 \\  
+            .    & . \\
+            \end{tabular}
+    };
+    \node[signal] (3) [right of=1] {
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            .    & . \\
+            2010 & 2.34 \\  
+            2020 & 2.53 \\  
+            2030 & 5.67 \\  
+            2040 & 7.04 \\  
+            .    & . \\
+            \end{tabular}
+    }; 
+    \draw[->] (2) -- (1);
+    \draw[->] (1) -- (3);
+    \end{tikzpicture} 
+    \end{center}
+    \caption{Action of the $Input$ operator in the incoming signal. Notice how the second message with the same timestamp $t=2020$ is ignored. The same would happen if the message timestamp would have been less than the previous one.}
+\end{figure}
+
+
+\subsubsection{Resamplers}
+
+All operators that implement some math over their input assume that the messages 
+it will receive are not only time ordered but also equidistant in time, or equally
+spaced in time. We will call this type of signal a regular one, while those that
+don't fulfill this will be named irregular. This is a strong assumption and it 
+will likely be the case that input signals are irregular. This is why we have a
+special set of operators called resamplers. A resampler operator will take an
+irregular input signal and will produce a regular one. Internally, it will use
+the irregular signal as its source of truth, to find a realistic interpolation 
+over the time grid points. The interpolation algorithm depends on the resampler
+used. In practice this means that, while not strictly necessary, programs will 
+start with input operators followed by resampler ones.
+
+
+\section{Use cases}
+\subsection{Network traffic monitoring and statistics}
+\subsection{Real time biofeedback}
+\subsection{Trading bots}
+
+
+%% The Appendices part is started with the command \appendix;
+%% appendix sections are then done as normal sections
+%% \appendix
+
+%% \section{}
+%% \label{}
+
+%% If you have bibdatabase file and want bibtex to generate the
+%% bibitems, please use
+%%
+%%  \bibliographystyle{elsarticle-num} 
+%%  \bibliography{<your bibdatabase>}
+
+%% else use the following coding to input the bibitems directly in the
+%% TeX file.
+
+\begin{thebibliography}{00}
+
+%% \bibitem{label}
+%% Text of bibliographic item
+
+\bibitem{}
+
+\end{thebibliography}
+\end{document}
+\endinput
+%%
+%% End of file `elsarticle-template-num.tex'.
