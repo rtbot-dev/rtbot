@@ -10,7 +10,7 @@ namespace rtbot {
  */
 template <class T, class V>
 struct Difference : public Join<T, V> {
-  using Join<T, V>::Join;
+  Difference() = default;
   Difference(string const &id_) : Join<T, V>(id_, 2) {}
 
   string typeName() const override { return "Difference"; }

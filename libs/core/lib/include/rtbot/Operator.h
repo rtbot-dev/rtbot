@@ -94,6 +94,7 @@ class Operator {
     children.push_back({&child, toPort, fromPort});
     return child;
   }
+
   void connect(Operator<T, V>* const child, int toPort = -1, int fromPort = -1) {
     children.push_back({child, toPort, fromPort});
   }
