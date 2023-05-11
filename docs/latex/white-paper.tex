@@ -17,6 +17,7 @@
 %% The amssymb package provides various useful mathematical symbols
 \usepackage{amssymb}
 \usepackage{tikz}
+\usepackage{pgfplots}
 %% The amsthm package provides extended theorem environments
 %% \usepackage{amsthm}
 
@@ -28,15 +29,6 @@
 % \journal{Nuclear Physics B}
 
 %% this is to export tikz graphics
-% set up externalization
-\usetikzlibrary{external} % set up externalization
-
-\tikzexternalize[shell escape=-enable-write18] % activate externalisation
-
-\tikzset{external/system call={latex \tikzexternalcheckshellescape -halt-on-error
--interaction=batchmode -jobname "\image" "\texsource" && 
-dvips -o "\image".ps "\image".dvi &&
-ps2eps -l "\image.ps"}}
 \begin{document}
 
 \begin{frontmatter}
@@ -125,17 +117,17 @@ As an anomaly detector framework it is designed to give developers the tools to 
 
 \section{Architecture}
 \subsection{Modules}
-RtBot framework is divided into a set of modules: core, api and std ones. This 
+RtBot framework is divided into a set of modules: \textit{core}, \textit{api} and \textit{std} ones. This 
 list is likely to grow in the future and users can also extend it with their own 
 private business model specific ones.
 
 
-The core module contains the general definitions and it does not depend on any 
+The \textit{core} module contains the general definitions and it does not depend on any 
 other. You can write a program using only the core module, but you will have to 
 write it in c++ and explicitly construct the operators and their connections. 
 
 
-The api module allows users to easily interact with the core module. For instance 
+The \textit{api} module allows users to easily interact with the core module. For instance 
 it can read RtBot programs saved in json format and construct the correspondent 
 internal pipeline of operators at runtime. In this module is also where the 
 external bindings are defined, giving a simplified api to run programs. If you are 
@@ -146,7 +138,7 @@ output that probably won’t fit on the device. In this case you will have to re
 only on the core and std modules to make sure you produce binaries small enough.
 
 
-The std module represents a standard library of commonly used operators that can 
+The \textit{std} module represents a standard library of commonly used operators that can 
 be used to build programs. Operators defined here are general purpose ones, like 
 the inputs, resampler or finite response operators, which are ubiquitous used in 
 any kinds of input signals. In practice this module and the core one will be the 
@@ -247,21 +239,148 @@ order in the messages it forwards.
 \subsubsection{Resamplers}
 
 All operators that implement some math over their input assume that the messages 
-it will receive are not only time ordered but also equidistant in time, or equally
-spaced in time. We will call this type of signal a regular one, while those that
+it will receive are not only time ordered but also \textit{equidistant in time}, or \textit{equally
+spaced in time}. We will call this type of signal a regular one, while those that
 don't fulfill this will be named irregular. This is a strong assumption and it 
 will likely be the case that input signals are irregular. This is why we have a
-special set of operators called resamplers. A resampler operator will take an
-irregular input signal and will produce a regular one. Internally, it will use
-the irregular signal as its source of truth, to find a realistic interpolation 
+special set of operators called resamplers.
+
+A resampler operator will take an irregular input signal and will produce a regular one. 
+Internally, it will use the irregular signal as its source of truth, to find a realistic interpolation 
 over the time grid points. The interpolation algorithm depends on the resampler
 used. In practice this means that, while not strictly necessary, programs will 
 start with input operators followed by resampler ones.
+
+\begin{figure}[ht]
+    \label{fig:resamplers}
+    \begin{center}
+        
+    \begin{tikzpicture}[node distance={40mm}, main/.style = {draw, circle}, signal/.style = {}] 
+    \node[main] (1) {$Resampler$}; 
+    \node[signal] (2) [left of=1] {
+        \begin{tikzpicture}
+        \begin{axis}[width=6cm, xlabel={$t$}]
+        \addplot[mark=*]
+                coordinates {
+                (10, 10.2)(20, 13.7)(23, 14.6)(55, 13.8)(60, 10.2)(70, 9.5)(73, 8.8)(120, 12.2)(130, 13.3)
+                };
+        \end{axis}
+        \end{tikzpicture}
+    };
+    \node[signal] (3) [right of=1] {
+        \begin{tikzpicture}
+        \begin{axis}[width=6cm, xlabel={$t$}]
+        \addplot[mark=*]
+                coordinates {
+                        (10, 10.2)(20, 13.7)(30, 14.58)(40, 14.48)(50, 14.07)(60, 10.2)
+                        (70, 9.5)(80, 8.92)(90, 9.45)(100, 10.27)(110, 11.237531)(120, 12.200000)(130, 13.30)
+                };
+        \end{axis}
+        \end{tikzpicture}
+    }; 
+    \draw[->] (2) -- (1);
+    \draw[->] (1) -- (3);
+    \end{tikzpicture} 
+    \end{center}
+    \caption{Action of a resampler operator. On the left an irregular signal, whose messages are not 
+    uniformly distributed in time. On the right the output of the resampler operator: the produced stream
+    of messages now are equidistant in time.}
+\end{figure}
+
+\begin{figure}[ht]
+    \label{fig:resampler operator action table}
+    \begin{center}
+        
+    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {draw}] 
+    \node[main] (1) {$Resampler$}; 
+    \node[signal] (2) [left of=1] {
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            10 & 10.2  \\
+            20 & 13.7  \\
+            23 & 14.6  \\
+            55 & 13.8  \\
+            60 & 10.2  \\
+            70 & 9.5  \\
+            73 & 8.8  \\
+            120 & 12.2  \\
+            130 & 13.3  \\
+            \end{tabular}
+    };
+    \node[signal] (3) [right of=1] {
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            10 & 10.2 \\
+            20 & 13.7 \\
+            30 & 14.6 \\
+            40 & 14.6 \\
+            50 & 14.1 \\
+            60 & 10.2 \\
+            70 & 9.5 \\
+            80 & 8.9 \\
+            90 & 9.5 \\
+            100 & 10.3 \\
+            110 & 11.2 \\
+            120 & 12.2 \\
+            130 & 13.3 \\
+            \end{tabular}
+    }; 
+    \draw[->] (2) -- (1);
+    \draw[->] (1) -- (3);
+    \end{tikzpicture} 
+    \end{center}
+    \caption{Action of the $Resampler$ operator in the incoming signal. 
+    This is the same data presented in figure \ref{fig:resamplers} but in tabular format.
+    Notice how the signal gets augmented by the resampler in order to fulfill the requirement
+    of emitting regular time intervals. In this case the grid step is $\Delta t=10$.
+    }
+\end{figure}
 
 
 \section{Use cases}
 \subsection{Network traffic monitoring and statistics}
 \subsection{Real time biofeedback}
+
+In recent years we have experienced an explosion regarding wearable devices with the capacity to
+constantly monitor our health. They can measure our heart rate, oxygen or sugar level in blood,
+for instance. They constantly gather information about our bodies and can offer us feedback about
+how we performed in certain activities, like how well did we sleep last night and can provide 
+suggestions for our day accordingly.
+
+Cheap wristbands, through its \textit{photoplethysmography} sensor, commonly known as PPG, are able to detect
+heart pulses by injecting light into our tissue and measuring the luminosity changes of the reflected 
+light. As the blood goes through our veins, it causes a measurable variation in this luminosity,
+phenomena that can be used to infer our heart rate. From the patterns of variability of the heart 
+rate in time, and also combining this with data of other sensors, many other things can be derived. 
+The device can know whether we are running, sleeping or exercising, or even count how many repetitions 
+of a given exercise type we have done in the gym.
+
+There is one big caveat though: the measurements coming out of these devices often do not reflect reality 
+and it is full of artifacts. There are many causes to this, like wearable devices not being used properly,
+the quality of the sensor or having a low battery. But even the underlying physics itself of the measuring
+mechanism is challenging if we want to get a reliable measurement. For example, the shape of the signal
+coming out of a PPG sensor, the one that doctors put you on the tip of your finger when you first arrive
+at urgent care, is considerably different, and less trustworthy,  than the signal coming out of an 
+\textit{electrocardiogram} (ECG) equipment, which finds your heart rate by measuring the electrical signals that 
+propagate over your body when the heart beats. The last one has sharper peaks compared with the first one, 
+which are easier to detect, leading to better results. It comes to no surprise then that ECG equipment is 
+the standard found in intensive care units.
+
+In any case measurement's quality can be improved in many ways, like for instance improving the wearable 
+analytics software capabilities. RtBot has been designed specifically to excel in this type of environment 
+where cpu and memory are scarce. Its low resource usage footprint, together with the ecosystem productivity 
+tools, allows it to easily create optimized algorithms to get best results per device type. It can help to 
+improve peak detection as well as to flag signal parts as unusable, preventing the output of nonsense 
+measurements. Moreover, due to the broad scope of the operators provided by the framework, it also opens 
+the door for more complex analytics like secondary peak detection, pulse shape and more which can provide 
+valuable information about our physical and even mental health.
+
+The same argument applies to a large extent to professional health devices like ECG. RtBot can be used as 
+well on their software to provide better analytics with a short development cycle from conceptualization to 
+production phases.
+
 \subsection{Trading bots}
 
 
