@@ -58,7 +58,7 @@
 %%             country={}}
 %% \fntext[label3]{}
 
-\title{RtBot: a signal processing framework focused on early anomaly detection}
+\title{RtBot: a signal processing framework focused on early event detection}
 
 %% use optional labels to link authors explicitly to addresses:
 %% \author[label1,label2]{}
@@ -90,13 +90,13 @@
 \begin{abstract}
 %% Text of abstract
 RtBot framework is presented as a general purpose digital signal processing
-framework focused on anomaly detection.
+framework focused on event detection.
 \end{abstract}
 
 
 \begin{keyword}
 %% keywords here, in the form: keyword \sep keyword
-digital signal processing \sep open source \sep anomaly detection
+digital signal processing \sep open source \sep event detection
 \end{keyword}
 
 \end{frontmatter}
@@ -106,13 +106,22 @@ digital signal processing \sep open source \sep anomaly detection
 %% main text
 \section{Introduction}
 \label{}
-RtBot is a general purpose digital signal processing framework focused on early anomaly detection. It’s written in c++ and has been built with performance in mind.
+RtBot is a general purpose digital signal processing framework focused on early event detection. 
+It’s written in c++ and has been built with performance in mind.
 
-Wrapper libraries exist for python, javascript (using wasm) and rust, and in the future we plan to support java and swift languages as well. In this sense RtBot can be easily adapted in any existing codebase, as it already provides interfaces to the most popular existing computer languages or new ones can be built for those missing languages using their native interface with c++. RtBot programs are very fast and have a low footprint, being able to run even in microcontrollers with very limited resources, such a raspberry pi pico or the esp32.
+Wrapper libraries exist for python, javascript (using wasm) and rust, and in the future we plan 
+to support java and swift languages as well. In this sense RtBot can be easily adapted in any 
+existing codebase, as it already provides interfaces to the most popular existing computer 
+languages or new ones can be built for those missing languages using their native interface 
+with c++. RtBot programs are very fast and have a low footprint, being able to run even in 
+microcontrollers with very limited resources, such a raspberry pi pico or the esp32.
 
-As a digital processing framework, it contains the common pieces found in such frameworks such as high and low pass filters, finite response filters, signal re-samplers and so on. 
+As a digital processing framework, it contains the common pieces found in such frameworks such as 
+high and low pass filters, finite response filters, signal re-samplers and so on. 
 
-As an anomaly detector framework it is designed to give developers the tools to minimize the time difference between the moment when the anomaly is detected and the moment when the anomaly actually happened.
+As an event detector framework it is designed to give developers the tools to minimize the time 
+difference between the moment when the event is detected and the moment when the event actually 
+happened.
 
 
 \section{Architecture}
@@ -378,8 +387,8 @@ the door for more complex analytics like secondary peak detection, pulse shape a
 valuable information about our physical and even mental health.
 
 The same argument applies to a large extent to professional health devices like ECG. RtBot can be used as 
-well on their software to provide better analytics with a short development cycle from conceptualization to 
-production phases.
+well on their software to provide better analytics while providing a short development cycle from 
+conceptualization to production phases.
 
 \subsection{Trading bots}
 
