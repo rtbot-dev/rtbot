@@ -1,0 +1,28 @@
+load("@rules_pico//pico:defs.bzl", "pico_binary", "pico_add_uf2_output", "pico_build_with_config")
+
+pico_binary(
+    name = "rtbot.elf",
+    srcs = [
+        "rtbot-pico.cpp",
+    ],
+    deps = [
+        "@rules_pico//pico:pico_stdlib",
+        # "@rules_pico//pico:adc_read",
+        "@rules_pico//pico:hardware_adc",
+        "@rtbot//libs/core/lib:rtbot",
+        "@rtbot//libs/core/std:rtbot-std",
+    ],
+)
+
+pico_build_with_config(
+    name = "rtbot_usb.elf",
+    input = "rtbot.elf",
+    stdio_uart = False,
+    stdio_usb = True,
+)
+
+pico_add_uf2_output(
+    name = "rtbot.uf2",
+    input = "rtbot_usb.elf",
+)
+

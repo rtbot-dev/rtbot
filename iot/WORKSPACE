@@ -1,0 +1,24 @@
+workspace(name = "iot")
+
+local_repository(
+    name = "rtbot",
+    path = "../",
+)
+
+load("@rtbot//:deps.bzl", "deps")
+
+deps()
+
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "rules_pico",
+    url = "https://github.com/dfr/rules_pico/archive/refs/heads/main.zip",
+    # sha256 = "...",
+    strip_prefix = "rules_pico-main",
+)
+
+load("@rules_pico//pico:repositories.bzl", "rules_pico_dependencies", "rules_pico_toolchains")
+
+rules_pico_dependencies()
+rules_pico_toolchains()
