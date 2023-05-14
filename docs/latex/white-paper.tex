@@ -392,6 +392,24 @@ conceptualization to production phases.
 
 \subsection{Trading bots}
 
+Trading bots are computer programs that trade on behalf of humans in financial markets. They aim to profit by 
+buying or selling some assets timely. This type of trading works best at time scales where technical analysis 
+rather than fundamental analysis is relevant, usually in the scale of hours and down to the microseconds.
+
+Trading bots perform decisions according to the historical data received in the recent past. Trading strategies 
+usually involve watching some indicator, or set of indicators, and to trigger bull or sell orders according to 
+whether these indicators fulfill certain conditions. This fits well into the pattern of RtBot as a framework for 
+event detection. In this case the events would be for instance an indicator going beyond certain predefined 
+boundaries, indicating that it is a good moment for selling or buying an asset. Programmers can use RtBot building 
+blocks to build their strategy and to get as outputs signals that trigger market orders accordingly. For the broad 
+public perhaps more important is the fact that, as RtBot framework is an open source software, they can retain 
+ownership of their trading ideas by running everything locally. This way it can be guaranteed that there is no one 
+observing in secret the bot code, as it could potentially happen when it’s being backtested on a cloud environment.
+
+While not completely developed yet, we plan to release a finance module that will contain most of the more useful 
+trading indicators, in addition to other resources that would allow the execution and monitoring of the bot locally, 
+where broker api secrets can be securely configured, for instance.
+
 
 %% The Appendices part is started with the command \appendix;
 %% appendix sections are then done as normal sections
