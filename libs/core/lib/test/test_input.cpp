@@ -1,3 +1,4 @@
+#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <iostream>
 
@@ -27,7 +28,7 @@ TEST_CASE("Input test emit at right frequencies") {
       if (i == 0)
         REQUIRE(emitted.empty());
       else {
-        REQUIRE(emitted.find("i2")->second.at(0).time == (i - 1) * 200);
+        REQUIRE(emitted.find("i2")->second.at(0).time == (i - 1) * 200u);
       }
     }
   }

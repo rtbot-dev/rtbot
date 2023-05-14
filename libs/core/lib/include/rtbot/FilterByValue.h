@@ -11,7 +11,7 @@ template <class T, class V>
 struct FilterByValue : public Operator<T, V> {
   std::function<bool(V)> filter;
 
-  using Operator<T, V>::Operator;
+  FilterByValue()=default;
   FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T, V>(id_), filter(filter_) {}
 
   map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg) override {
