@@ -8,7 +8,7 @@
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
-#include "rtbot/std/AutoRegressive.h"
+#include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
 #include "rtbot/std/Difference.h"
