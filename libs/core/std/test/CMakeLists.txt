@@ -1,9 +1,6 @@
-add_executable(test-std
-    test_join.cpp
-    test_peak_detector.cpp
-    test_resamplers.cpp
-    tools.h
-)
+file(GLOB test_std_SRC CONFIGURE_DEPENDS "*.h" "*.cpp")
+
+add_executable(test-std ${test_std_SRC})
 
 target_include_directories(test-std INTERFACE Catch2::Catch2)
 target_link_libraries(test-std PRIVATE ${PROJECT_NAME}-std)

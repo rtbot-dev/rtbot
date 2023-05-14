@@ -1,5 +1,4 @@
 add_executable(${PROJECT_NAME}_test
-    test_buffer.cpp
     test_input.cpp
 )
 

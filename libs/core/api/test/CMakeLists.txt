@@ -1,7 +1,6 @@
 add_executable(test-api
     tools.h
     test_pipeline.cpp
-    ppg.json
 )
 
 
