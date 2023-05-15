@@ -20,7 +20,7 @@ add_subdirectory(core/api/test)
 
 #---------- pybinding ---------------
 
-#add_subdirectory(core/wrappers/python)
+add_subdirectory(core/wrappers/python)
 
 #----------- example -----------------
 
