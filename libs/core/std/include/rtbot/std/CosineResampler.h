@@ -11,7 +11,7 @@ namespace rtbot {
 
 template <class T, class V>
 struct CosineResampler : public Buffer<T, V> {
-  static const int size = 2;
+  static const size_t size = 2;
   T dt;
   T carryOver;
 

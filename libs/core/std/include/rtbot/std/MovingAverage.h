@@ -9,7 +9,7 @@ template <class T, class V>
 struct MovingAverage : public Buffer<T, V> {
   MovingAverage() = default;
 
-  MovingAverage(string const& id_, int n_) : Buffer<T, V>(id_, n_) {}
+  MovingAverage(string const& id_, size_t n_) : Buffer<T, V>(id_, n_) {}
 
   string typeName() const override { return "MovingAverage"; }
 

@@ -1,7 +1,6 @@
 #include "rtbot/Message.h"
 #include "rtbot/Output.h"
 #include "rtbot/std/MovingAverage.h"
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <map>
 

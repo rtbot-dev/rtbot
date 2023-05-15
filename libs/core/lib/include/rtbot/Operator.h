@@ -36,7 +36,7 @@ using Op_ptr = unique_ptr<Operator<T, V>>;
 template <class T, class V>
 class Operator {
   struct Connection {
-    Operator<T, V>* const dest;
+    Operator<T, V>* dest;
     int toPort = -1;
     int fromPort = -1;
   };
@@ -94,6 +94,7 @@ class Operator {
     children.push_back({&child, toPort, fromPort});
     return child;
   }
+
   void connect(Operator<T, V>* const child, int toPort = -1, int fromPort = -1) {
     children.push_back({child, toPort, fromPort});
   }

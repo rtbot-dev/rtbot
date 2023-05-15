@@ -41,6 +41,7 @@ struct Output_opt : public Operator<T, V> {
 
   Output_opt() = default;
   Output_opt(string const& id_, std::optional<Message<T, V>>& out_) : Operator<T, V>(id_), out(&out_) {}
+  Output_opt(string const& id_) : Operator<T, V>(id_) {}
 
   string typeName() const override { return "Output"; }
 
