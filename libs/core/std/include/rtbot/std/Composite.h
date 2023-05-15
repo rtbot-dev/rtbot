@@ -27,7 +27,6 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
     auto it = out.find(op.back()->id);
 
     if (it != out.end()) {
-      std::cout << "here empty inside" << std::endl;
       return this->emit(it->second);
     } else
       return {};
