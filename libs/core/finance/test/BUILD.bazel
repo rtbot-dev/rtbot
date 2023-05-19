@@ -14,8 +14,8 @@ cc_test(
     ],
     #defines = ["CATCH_CONFIG_MAIN"],
     deps = [
-        "//libs/core/lib:rtbot",
-        "//libs/core/std:rtbot-std",
+        "//libs/core/lib:rtbot",        
+        "//libs/core/finance:rtbot-finance",
         "@catch2",
     ],
 )

@@ -1,9 +1,10 @@
+#define CATCH_CONFIG_MAIN
 #include <math.h>
 
 #include <catch2/catch.hpp>
 #include <iostream>
 
-#include "rtbot/std/RelativeStrengthIndex.h"
+#include "rtbot/finance/RelativeStrengthIndex.h"
 
 using namespace rtbot;
 using namespace std;
