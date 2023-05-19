@@ -13,7 +13,7 @@ template <class T, class V>
 struct RelativeStrengthIndex : public Buffer<T, V> {
   RelativeStrengthIndex() = default;
 
-  RelativeStrengthIndex(string const& id_, size_t n_) : Buffer<T, V>(id_, n_), initialized(false) {}
+  RelativeStrengthIndex(string const& id_, size_t n_) : Buffer<T, V>(id_, n_ + 1), initialized(false) {}
 
   string typeName() const override { return "RelativeStrengthIndex"; }
 

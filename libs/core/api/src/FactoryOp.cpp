@@ -8,6 +8,7 @@
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
+#include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
@@ -18,7 +19,6 @@
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PartialSum.h"
 #include "rtbot/std/PeakDetector.h"
-#include "rtbot/std/RelativeStrengthIndex.h"
 #include "rtbot/std/StandardDeviation.h"
 
 using json = nlohmann::json;

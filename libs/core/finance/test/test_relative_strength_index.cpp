@@ -10,7 +10,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Relative Strength Index") {
-  auto rsi = RelativeStrengthIndex<std::uint64_t, double>("rsi", 15);
+  auto rsi = RelativeStrengthIndex<std::uint64_t, double>("rsi", 14);
   std::vector<double> values = {54.8,  56.8,  57.85, 59.85, 60.57, 61.1,  62.17, 60.6,  62.35, 62.15,
                                 62.35, 61.45, 62.8,  61.37, 62.5,  62.57, 60.8,  59.37, 60.35, 62.35,
                                 62.17, 62.55, 64.55, 64.37, 65.3,  64.42, 62.9,  61.6,  62.05, 60.05,
