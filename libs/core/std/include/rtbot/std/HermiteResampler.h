@@ -86,7 +86,7 @@ struct HermiteResampler : public Buffer<T, V> {
     else if (before.get() == nullptr) {
       std::vector<T> x;
       std::vector<V> y;
-      T average = 0;
+      V average = 0;
       int n = ((Buffer<T, V>*)this)->size();
       for (int i = 0; i < n; i++) {
         x.push_back(this->at(i).time);
@@ -95,9 +95,9 @@ struct HermiteResampler : public Buffer<T, V> {
       for (int i = 1; i < n; i++) {
         average = average + (this->at(i).time - this->at(i - 1).time);
       }
-      average = average / n;
+      average = average / (n - 1);
       std::pair<V, V> pair = this->getLineLeastSquares(x, y);
-      T time = this->at(0).time + (index * average);
+      T time = this->at(0).time + (index * ((T)average));
       V value = pair.second * time + pair.first;
       before = std::make_unique<Message<T, V>>(Message<T, V>(time, value));
     }

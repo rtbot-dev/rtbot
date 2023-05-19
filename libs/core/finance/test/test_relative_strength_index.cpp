@@ -29,7 +29,6 @@ TEST_CASE("Relative Strength Index") {
       if (i < 14) {
         REQUIRE(emitted.empty());
       } else {
-        std::cout << emitted.find("rsi")->second.at(0).value << std::endl;
         REQUIRE(abs(emitted.find("rsi")->second.at(0).value - rsis.at(i)) <= 0.0001);
       }
     }

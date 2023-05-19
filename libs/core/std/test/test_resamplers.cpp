@@ -17,8 +17,9 @@ TEST_CASE("Cosine Resampler test emit at right frequencies") {
           i1.receive(Message<std::uint64_t, double>(i * 100, i * i));
       if (i == 0)
         REQUIRE(emitted.empty());
-      else
+      else {
         REQUIRE(emitted.find("i1")->second.at(0).time == 99 * i);
+      }
     }
   }
 
