@@ -6,7 +6,6 @@
 #include <vector>
 
 #include "rtbot/Buffer.h"
-#include "rtbot/std/CosineResampler.h"
 
 namespace rtbot {
 
@@ -56,7 +55,7 @@ struct HermiteResampler : public Buffer<T, V> {
 
     while (this->get(to).time - this->get(from).time >= (j * dt) - carryOver) {
       Message<T, V> out;
-      V mu = ((j * dt) - carryOver) / (this->get(to).time - this->get(from).time);
+      V mu = (V)((j * dt) - carryOver) / (V)(this->get(to).time - this->get(from).time);
       out.value = HermiteResampler<T, V>::hermiteInterpolate(this->get(from - 1).value, this->get(from).value,
                                                              this->get(to).value, this->get(to + 1).value, mu);
       out.time = this->get(from).time + ((j * dt) - carryOver);
@@ -87,7 +86,7 @@ struct HermiteResampler : public Buffer<T, V> {
     else if (before.get() == nullptr) {
       std::vector<T> x;
       std::vector<V> y;
-      T average = 0;
+      V average = 0;
       int n = ((Buffer<T, V>*)this)->size();
       for (int i = 0; i < n; i++) {
         x.push_back(this->at(i).time);
@@ -96,9 +95,9 @@ struct HermiteResampler : public Buffer<T, V> {
       for (int i = 1; i < n; i++) {
         average = average + (this->at(i).time - this->at(i - 1).time);
       }
-      average = average / n;
+      average = average / (n - 1);
       std::pair<V, V> pair = this->getLineLeastSquares(x, y);
-      T time = this->at(0).time - (-1 * index * average);
+      T time = this->at(0).time + (index * ((T)average));
       V value = pair.second * time + pair.first;
       before = std::make_unique<Message<T, V>>(Message<T, V>(time, value));
     }
@@ -126,11 +125,11 @@ struct HermiteResampler : public Buffer<T, V> {
     T denominator = (x.size() * sumX2 - pow(sumX, 2));
 
     if (denominator == 0) {
-      m = (y.at(1) - y.at(0)) / (x.at(1) - x.at(0));
-      n = y.at(0) - m * x.at(0);
+      m = (V)(y.at(1) - y.at(0)) / (V)(x.at(1) - x.at(0));
+      n = (V)(y.at(0) - m * x.at(0));
     } else {
-      n = (sumX2 * sumY - sumXY * sumX) / denominator;
-      m = (x.size() * sumXY - sumX * sumY) / denominator;
+      n = (V)(sumX2 * sumY - sumXY * sumX) / denominator;
+      m = (V)(x.size() * sumXY - sumX * sumY) / denominator;
     }
 
     return std::pair<V, V>(n, m);

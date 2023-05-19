@@ -8,6 +8,7 @@
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
+#include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
@@ -273,6 +274,24 @@ void from_json(const json& j, Count<T, V>& p) {
   p = Count<T, V>(j["id"].get<string>());
 }
 
+/*
+{
+    "type": "RelativeStrengthIndex",
+    "id": "rsi"
+    "n": 200
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const RelativeStrengthIndex<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.n}};
+}
+
+template <class T, class V>
+void from_json(const json& j, RelativeStrengthIndex<T, V>& p) {
+  p = RelativeStrengthIndex<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
+}
+
 /* Operators serialization - deserialization - end */
 
 std::string FactoryOp::createPipeline(std::string const& id, std::string const& json_program) {
@@ -305,6 +324,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<LessThan<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<PartialSum<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Count<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, nlohmann::json>();
 
   nlohmann::json j;
   for (auto const& it : op_registry()) {
