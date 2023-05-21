@@ -8,6 +8,7 @@
 
 #include "rtbot/std/Matching.h"
 #include "rtbot/Pipeline.h"
+#include "rtbot/CostFunction.h"
 
 using namespace std;
 using namespace rtbot;
@@ -27,6 +28,7 @@ void defineInModule(py::module& m)
       .def_readonly("extraB", &Matching<T>::extraB)
       .def("fScore", &Matching<T>::fScore)
       .def("averageDistanceOfMatched", &Matching<T>::averageDistanceOfMatched)
+      .def("cost", &Matching<T>::cost)
       ;
 
   using Msg=Message<std::uint64_t,double>;
@@ -40,6 +42,19 @@ void defineInModule(py::module& m)
       .def(py::init<string>(),"json_prog"_a)
       .def("receiveDebug", &Pipeline::receiveDebug);
       ;
+
+
+  py::class_<Sample>(m,"Sample")
+          .def(py::init<vector<Message<>>, vector<std::uint64_t>>(),"messages"_a, "expected_times"_a)
+          .def_readwrite("msgs",&Sample::msgs)
+          .def_readwrite("value",&Sample::expected_times)
+          ;
+
+  py::class_<CostFunction>(m, "CostFuncion")
+          .def(py::init<string, string, vector<Sample>>(), "prog_json"_a, "params_json"_a, "samples"_a)
+          .def("__eval__", &CostFunction::operator())
+          .def("get_prog_json", &CostFunction::get_prog_json)
+          ;
 }
 
 
