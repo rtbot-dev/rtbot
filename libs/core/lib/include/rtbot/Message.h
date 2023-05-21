@@ -6,7 +6,7 @@
 
 namespace rtbot {
 
-template <class T, class V>
+template <class T=std::uint64_t, class V=double>
 struct Message {
   T time;
   V value;

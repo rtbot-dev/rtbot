@@ -14,7 +14,7 @@ struct Pipeline {
   std::map<std::string, Op_ptr<std::uint64_t, double>> all_op;  // from id to operator
   Operator<std::uint64_t, double>* input;
   Output_opt<std::uint64_t, double>* output;
-  std::optional<Message<std::uint64_t, double>> out;
+  std::optional<Message<std::uint64_t, double>> out;  // TODO: remove this please!!!
 
   explicit Pipeline(std::string const& json_string);
 

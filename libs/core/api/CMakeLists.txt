@@ -1,19 +1,6 @@
-set(header
-    include/rtbot/bindings.h
-    include/rtbot/FactoryOp.h
-    include/rtbot/Pipeline.h
-)
+file(GLOB api_SRC CONFIGURE_DEPENDS "include/rtbot/*.h" "src/*.cpp")
 
-set(source
-	src/bindings.cpp
-	src/FactoryOp.cpp
-	src/Pipeline.cpp
-)
-
-add_library(${PROJECT_NAME}-api STATIC
-    ${header}
-    ${source}
-)
+add_library(${PROJECT_NAME}-api STATIC ${api_SRC})
 
 set_property(TARGET ${PROJECT_NAME}-api PROPERTY POSITION_INDEPENDENT_CODE ON)
 

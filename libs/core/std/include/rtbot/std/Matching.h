@@ -74,15 +74,20 @@ public:
     {
         double sum=0.0;
         for(auto i=0u;i<matchA.size();i++)
-            sum+=std::abs(matchA[i]-matchB[i]);
+            sum+=std::abs(double(matchA[i])-matchB[i]);
         return sum/matchA.size();
+    }
+
+    double cost() const
+    {
+        return aCost*extraA.size()+bCost*extraB.size()+averageDistanceOfMatched()*matchA.size();
     }
 private:
     void minimizeCost()
     {
         for (auto i=0u;i<a.size();i++)
             for (auto j=0u;j<b.size();j++) {
-                auto cost = std::abs(a[i]-b[j]);
+                auto cost = std::abs(double(a[i])-b[j]);
                 auto matchF =
                         (!match_condition || match_condition(a[i],b[j]))
                         ? fm(i, j) + cost
@@ -99,7 +104,7 @@ private:
         int j = b.size() - 1;
         while (i >= 0 || j >= 0) {
             if (i >= 0 && j >= 0 &&
-                std::abs( fm(i + 1, j + 1) - fm(i, j) - std::abs(a[i] - b[j]) ) < tol
+                std::abs( fm(i + 1, j + 1) - fm(i, j) - std::abs(double(a[i]) - b[j]) ) < tol
             ) {
                 matchA.push_back(a[i]);
                 matchB.push_back(b[j]);
