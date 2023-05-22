@@ -44,15 +44,25 @@ void defineInModule(py::module& m)
       ;
 
 
-  py::class_<Sample>(m,"Sample")
+      py::class_<Sample>(m,"Sample")
           .def(py::init<vector<Message<>>, vector<std::uint64_t>>(),"messages"_a, "expected_times"_a)
           .def_readwrite("msgs",&Sample::msgs)
           .def_readwrite("value",&Sample::expected_times)
           ;
 
-  py::class_<CostFunction>(m, "CostFuncion")
-          .def(py::init<string, string, vector<Sample>>(), "prog_json"_a, "params_json"_a, "samples"_a)
-          .def("__eval__", &CostFunction::operator())
+
+      py::class_<CostFunction::ParamData>(m, "ParamData")
+          .def_readwrite("op_id", &CostFunction::ParamData::op_id)
+          .def_readwrite("paramName", &CostFunction::ParamData::paramName)
+          .def_readwrite("current", &CostFunction::ParamData::current)
+          .def_readwrite("lower", &CostFunction::ParamData::lower)
+          .def_readwrite("upper", &CostFunction::ParamData::upper)
+          ;
+
+      py::class_<CostFunction>(m, "CostFuncion")
+          .def(py::init<string, vector<Sample>>(), "prog_json"_a, "samples"_a)
+          .def_readwrite("paramsData", &CostFunction::paramsData)
+          .def("__call__", &CostFunction::operator())
           .def("get_prog_json", &CostFunction::get_prog_json)
           ;
 }

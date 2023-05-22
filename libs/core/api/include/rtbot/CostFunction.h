@@ -23,9 +23,9 @@ struct CostFunction {
     vector<ParamData> paramsData;
     vector<Sample> data;
 
-    CostFunction(std::string const& prog_json_, std::string const& params_json, vector<Sample> const& data_)
+    CostFunction(std::string const& prog_json_, vector<Sample> const& data_)
         : prog_json(prog_json_)
-        , paramsData(createParamData(prog_json, params_json))
+        , paramsData(createParamData(prog_json))
         , data(data_)
     {}
 
@@ -48,7 +48,7 @@ struct CostFunction {
 
     string get_prog_json(vector<double> const& params) const;
 
-    static vector<ParamData> createParamData(std::string const& prog_json, std::string const& params_json);
+    static vector<ParamData> createParamData(std::string const& prog_json);
 };
 
 

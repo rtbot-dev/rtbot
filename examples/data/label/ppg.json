@@ -81,5 +81,13 @@
             "to": "join",
             "toPort": 1
         }
+    ],
+    "optimization": [
+        {
+            "op_id": "peak",
+            "paramName": "n",
+            "lower": 80,
+            "upper": 1000
+        }
     ]
 }

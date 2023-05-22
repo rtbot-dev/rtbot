@@ -1,12 +1,11 @@
 #include "rtbot/CostFunction.h"
-#include "rtbot/FactoryOp.h"
 #include <nlohmann/json.hpp>
 
 namespace rtbot {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(CostFunction::ParamData, op_id, paramName, current, lower, upper);
 
-vector<CostFunction::ParamData> CostFunction::createParamData(std::string const& prog_json, std::string const& params_json)
+vector<CostFunction::ParamData> CostFunction::createParamData(std::string const& prog_json)
 {
     auto prog=nlohmann::json::parse(prog_json);
     map<string, nlohmann::json&> op_list;
@@ -14,7 +13,7 @@ vector<CostFunction::ParamData> CostFunction::createParamData(std::string const&
         op_list.emplace(x.at("id"), x);
 
     vector<CostFunction::ParamData> out;
-    for(ParamData x : nlohmann::json::parse(params_json)) {
+    for(ParamData x : prog.at("optimization")) {
         x.current=op_list.at(x.op_id).at(x.paramName);
         out.push_back(x);
     }
