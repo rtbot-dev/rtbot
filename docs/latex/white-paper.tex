@@ -154,11 +154,11 @@ any kinds of input signals. In practice this module and the core one will be the
 minimal components you will need in order to create some non trivial program.
 
 \subsection{Inside the core}
-An RtBot program expects a signal as input, which is a time-ordered stream of 
-messages to be fed to it, one at the time, in what we call a program iteration. 
+An RtBot program expects a \textit{signal} as input, which is a time-ordered stream of 
+messages to be fed to it, one at the time, in what we call a \textit{program iteration}. 
 This iteration may or may not produce an output, which will be defined later.
 
-A message is a tuple of timestamp and value. It is important to remark, even if 
+A \textit{message} is a tuple of timestamp and value. It is important to remark, even if 
 obvious, that the timestamp in the message is the one used for any internal 
 analysis, and not the time that the message arrives. RtBot has no clock inside or 
 anything similar, so it has no way of counting real life time.
@@ -176,7 +176,9 @@ being processed and it is up to the programmer to decide which makes sense for t
 given type of signal.
 
 
-Multidimensional signals can be processed by sending their components to specified input operators.
+Vectors are represented as a \textit{burst of messages} that all have the same timestamp,
+where the emission order matches the vector components' order, being the last received
+correspondent with the last index.
 
 \subsection{Operators}
 The main concept in the RtBot architecture is that of an operator. An operator 
@@ -210,7 +212,7 @@ order in the messages it forwards.
     \label{fig:input operator action}
     \begin{center}
         
-    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {draw}] 
+    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {}] 
     \node[main] (1) {$Input$}; 
     \node[signal] (2) [left of=1] {
             \begin{tabular}{ c | c }
@@ -300,7 +302,7 @@ start with input operators followed by resampler ones.
     \label{fig:resampler operator action table}
     \begin{center}
         
-    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {draw}] 
+    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {}] 
     \node[main] (1) {$Resampler$}; 
     \node[signal] (2) [left of=1] {
             \begin{tabular}{ c | c }
@@ -347,6 +349,71 @@ start with input operators followed by resampler ones.
     }
 \end{figure}
 
+\subsubsection{Join operators}
+
+Join operators combine two streams of messages into a single one. It tries to resemble sql join operation, 
+where two tables are combined into a new one. They are perhaps RtBot special ingredients,
+and will be used whenever we need some sort of synchronization to happen between two signals.
+
+\begin{figure}[ht]
+    \label{fig:join operator action}
+    \begin{center}
+        
+    \begin{tikzpicture}[node distance={30mm}, main/.style = {draw, circle}, signal/.style = {}] 
+    \node[main] (1) {$Join$}; 
+    \node[signal] (2) [above left of=1] {
+       $i_0(t)$
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            8  & 0.0 \\
+            10 & 1.0  \\
+            12 & 2.0  \\
+            14 & 6.0  \\
+            16 & 8.0  \\
+            \end{tabular}
+    };
+    \node[signal] (3) [below left of=1] {
+       $i_1(t)$
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            7  & -1.0 \\
+            9  & 3.0  \\
+            12 & 4.0  \\
+            13 & 5.0  \\
+            14 & 7.0  \\
+            \end{tabular}
+    }; 
+    \node[signal] (4) [right of=1] {
+       $out(t)$
+            \begin{tabular}{ c | c }
+            time & value \\ 
+            \hline
+            12 & 2.0  \\
+            12 & 4.0  \\
+            14 & 6.0  \\
+            14 & 7.0  \\
+            \end{tabular}
+    }; 
+    \draw[->] (2) -- node[above, right, pos=0.4] {\tiny{port 0}}(1);
+    \draw[->] (3) -- node[below, right, pos=0.4] {\tiny{port 1}}(1);
+    \draw[->] (1) -- (4);
+    \end{tikzpicture} 
+    \end{center}
+    \caption{Action of the $Join$ operator in the incoming signals. $Join$ takes the two signals and emit 
+    values with the same time in both input signals $i_0(t)$ and $i_1(t)$, like $t=12$ in the present example.
+    The output will be a sequence of messages with the same $t$, ordered by incoming port number, and the value
+    equal to the incoming signal value for the matched time.}
+\end{figure}
+
+These operators can have multiple inputs, each one bound internally to a port. They can have any number of \textit{ports}, 
+or input channels, from where the streams of other operators can be received. Messages received through the ports 
+are queued efficiently inside the $Join$ operator. In the default mode, the operator will emit whenever it receives 
+a message in any of the ports with time $t$ and there exists \textit{at least one message} across \textit{all} the queues with that 
+time. In such a scenario, all these messages with same timestamp are popped out from the internal queue, and emitted 
+in a burst of messages. The queue also remove all the old messages that there is no chance that can be emitted
+because they are too old, keeping the process memory efficient. A visual example can be seen in figure \ref{fig:join operator action}.
 
 \section{Use cases}
 \subsection{Network traffic monitoring and statistics}
