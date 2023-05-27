@@ -67,14 +67,11 @@ class Operator {
     return 0;
   }
 
-  size_t getMaxSize() {
-    string inputPort;
-    auto in = this->getInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw std::runtime_error(typeName() +
-                               ": more than 1 inputPorts found, please use size_t getSize(string inputPort)");
+  size_t getMaxSize(string inputPort = "") {
+    if (inputPort.empty()) {
+      auto in = this->getInputs();
+      if (in.size() == 1) inputPort = in.at(0);
+    }
 
     if (sizes.count(inputPort) > 0)
       return sizes.find(inputPort)->second;
