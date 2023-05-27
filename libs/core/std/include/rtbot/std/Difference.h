@@ -11,13 +11,24 @@ namespace rtbot {
 template <class T, class V>
 struct Difference : public Join<T, V> {
   Difference() = default;
-  Difference(string const &id_) : Join<T, V>(id_, 2) {}
+  Difference(string const &id_) {
+    this->id = id_;
+    this->addInput("i1");
+    this->addInput("i2");
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "Difference"; }
 
-  map<string, std::vector<Message<T, V>>> processData(vector<Message<T, V>> const &msgs) override {
-    Message<T, V> out(msgs.at(0).time, msgs.at(0).value - msgs.at(1).value);
-    return this->emit(out);
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+    Message<T, V> m1 = this->getMessage("i2", 0);
+    Message<T, V> m0 = this->getMessage("i1", 0);
+    Message<T, V> out(m0.time, m0.value - m1.value);
+    map<string, std::vector<Message<T, V>>> toEmit;
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    toEmit.emplace("o1", v);
+    return toEmit;
   }
 };
 

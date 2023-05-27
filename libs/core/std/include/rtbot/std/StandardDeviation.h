@@ -5,32 +5,36 @@
 #include <cstdint>
 #include <vector>
 
-#include "rtbot/Buffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
 template <class T, class V>
-struct StandardDeviation : public Buffer<T, V> {
+struct StandardDeviation : public Operator<T, V> {
   StandardDeviation() = default;
 
-  StandardDeviation(string const &id_, size_t n_) : Buffer<T, V>(id_, n_) {}
+  StandardDeviation(string const &id_, size_t n_) : Operator<T, V>(id_) {
+    this->addInput("i1", n_);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "StandardDeviation"; }
 
-  map<string, std::vector<Message<T, V>>> processData() override {
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     std::vector<Message<T, V>> toEmit;
     Message<T, V> out;
+    size_t size = this->getSize(inputPort);
 
-    V average = this->getSum() / this->size();
+    V average = this->getSum(inputPort) / size;
     V std = 0;
 
-    for (size_t j = 0; j < this->size(); j++) {
-      std = std + pow(this->at(j).value - average, 2);
+    for (size_t j = 0; j < size; j++) {
+      std = std + pow(this->getMessage(inputPort, j).value - average, 2);
     }
 
-    std = sqrt(std / (this->size() - 1));
+    std = sqrt(std / (size - 1));
 
-    out.time = this->back().time;
+    out.time = this->getLastMessage(inputPort).time;
     out.value = std;
     toEmit.push_back(out);
 

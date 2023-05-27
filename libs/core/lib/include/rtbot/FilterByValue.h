@@ -11,11 +11,15 @@ template <class T, class V>
 struct FilterByValue : public Operator<T, V> {
   std::function<bool(V)> filter;
 
-  FilterByValue()=default;
-  FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T, V>(id_), filter(filter_) {}
+  FilterByValue() = default;
+  FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T, V>(id_), filter(filter_) {
+    this->addInput("i1", 1);
+    this->addOutput("o1");
+  }
 
-  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg) override {
-    if (filter(msg.value)) return this->emit(msg);
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+    Message<T, V> out = this->getLastMessage(inputPort);
+    if (filter(out.value)) return this->emit(out);
     return {};
   }
 };

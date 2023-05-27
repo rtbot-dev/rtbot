@@ -5,12 +5,12 @@
 #include <cstdint>
 #include <vector>
 
-#include "rtbot/Buffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
 template <class T, class V>
-struct HermiteResampler : public Buffer<T, V> {
+struct HermiteResampler : public Operator<T, V> {
   static const size_t size = 4;
 
   T dt;
@@ -19,20 +19,23 @@ struct HermiteResampler : public Buffer<T, V> {
 
   HermiteResampler() = default;
 
-  HermiteResampler(string const& id_, T dt_) : Buffer<T, V>(id_, HermiteResampler::size), dt(dt_), carryOver(0) {}
+  HermiteResampler(string const& id_, T dt_) : Operator<T, V>(id_), dt(dt_), carryOver(0) {
+    this->addInput("i1", HermiteResampler::size);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "HermiteResampler"; }
 
-  map<string, std::vector<Message<T, V>>> processData() override {
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     std::vector<Message<T, V>> toEmit;
 
     if (before.get() == nullptr) {
-      toEmit = this->lookAt(0, 1);
-      auto toAdd = this->lookAt(1, 2);
+      toEmit = this->lookAt(0, 1, inputPort);
+      auto toAdd = this->lookAt(1, 2, inputPort);
       toEmit.insert(toEmit.end(), toAdd.begin(), toAdd.end());
 
     } else {
-      toEmit = this->lookAt(1, 2);
+      toEmit = this->lookAt(1, 2, inputPort);
     }
 
     if (toEmit.size() > 0)
@@ -49,21 +52,22 @@ struct HermiteResampler : public Buffer<T, V> {
     the four points required for the Hermite Interpolation execution.
   */
 
-  std::vector<Message<T, V>> lookAt(int from, int to) {
+  std::vector<Message<T, V>> lookAt(int from, int to, string inputPort) {
     std::vector<Message<T, V>> toEmit;
     int j = 1;
 
-    while (this->get(to).time - this->get(from).time >= (j * dt) - carryOver) {
+    while (this->get(to, inputPort).time - this->get(from, inputPort).time >= (j * dt) - carryOver) {
       Message<T, V> out;
-      V mu = (V)((j * dt) - carryOver) / (V)(this->get(to).time - this->get(from).time);
-      out.value = HermiteResampler<T, V>::hermiteInterpolate(this->get(from - 1).value, this->get(from).value,
-                                                             this->get(to).value, this->get(to + 1).value, mu);
-      out.time = this->get(from).time + ((j * dt) - carryOver);
+      V mu = (V)((j * dt) - carryOver) / (V)(this->get(to, inputPort).time - this->get(from, inputPort).time);
+      out.value = HermiteResampler<T, V>::hermiteInterpolate(
+          this->get(from - 1, inputPort).value, this->get(from, inputPort).value, this->get(to, inputPort).value,
+          this->get(to + 1, inputPort).value, mu);
+      out.time = this->get(from, inputPort).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver = this->get(to).time - (this->get(from).time + (((j - 1) * dt) - carryOver));
+    carryOver = this->get(to, inputPort).time - (this->get(from, inputPort).time + (((j - 1) * dt) - carryOver));
 
     return toEmit;
   }
@@ -80,24 +84,24 @@ struct HermiteResampler : public Buffer<T, V> {
     or to artificially create a message(point) at the left of the interval [0,1] using the
     least squares numeric method.
   */
-  Message<T, V>& get(int index) {
+  Message<T, V> get(int index, string inputPort) {
     if (index >= 0)
-      return this->at(index);
+      return this->getMessage(inputPort, index);
     else if (before.get() == nullptr) {
       std::vector<T> x;
       std::vector<V> y;
       V average = 0;
-      int n = ((Buffer<T, V>*)this)->size();
+      size_t n = this->getSize(inputPort);
       for (int i = 0; i < n; i++) {
-        x.push_back(this->at(i).time);
-        y.push_back(this->at(i).value);
+        x.push_back(this->getMessage(inputPort, i).time);
+        y.push_back(this->getMessage(inputPort, i).value);
       }
-      for (int i = 1; i < n; i++) {
-        average = average + (this->at(i).time - this->at(i - 1).time);
+      for (size_t i = 1; i < n; i++) {
+        average = average + (this->getMessage(inputPort, i).time - this->getMessage(inputPort, i - 1).time);
       }
       average = average / (n - 1);
       std::pair<V, V> pair = this->getLineLeastSquares(x, y);
-      T time = this->at(0).time + (index * ((T)average));
+      T time = this->getMessage(inputPort, 0).time + (index * ((T)average));
       V value = pair.second * time + pair.first;
       before = std::make_unique<Message<T, V>>(Message<T, V>(time, value));
     }
