@@ -64,11 +64,6 @@ struct Output_os : public Operator<T, V> {
 
   string typeName() const override { return "Output"; }
 
-  /*map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg) override {
-    (*out) << this->id << " " << msg << "\n";
-    return this->emit(msg);
-  }*/
-
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> toEmit = this->getLastMessage(inputPort);
     (*out) << this->id << " " << toEmit << "\n";
