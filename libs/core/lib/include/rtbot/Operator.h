@@ -63,7 +63,7 @@ class Operator {
     if (sum.count(inputPort) > 0)
       return sum.find(inputPort)->second;
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
@@ -76,14 +76,14 @@ class Operator {
     if (sizes.count(inputPort) > 0)
       return sizes.find(inputPort)->second;
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
   size_t getSize(string inputPort) {
     if (inputs.count(inputPort) > 0)
       return inputs.find(inputPort)->second.size();
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
@@ -94,7 +94,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
@@ -105,7 +105,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
@@ -164,7 +164,8 @@ class Operator {
     for (auto it = outputMsgs.begin(); it != outputMsgs.end(); ++it) {
       if (this->outputIds.count(it->first) > 0) {
         mergeOutput(out, emit(it->second, {it->first}));
-      }
+      } else
+        throw std::runtime_error(typeName() + ": " + it->first + " refers to a non existing output port");
     }
     return out;
   }
