@@ -1,7 +1,7 @@
 #ifndef AUTOREGRESSIVE_H
 #define AUTOREGRESSIVE_H
 
-#include "rtbot/ARBuffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
