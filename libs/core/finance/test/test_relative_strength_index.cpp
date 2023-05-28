@@ -29,7 +29,7 @@ TEST_CASE("Relative Strength Index") {
       if (i < 14) {
         REQUIRE(emitted.empty());
       } else {
-        REQUIRE(abs(emitted.find("rsi")->second.at(0).value - rsis.at(i)) <= 0.0001);
+        REQUIRE(abs(emitted.find("rsi")->second.at(0).value - rsis.at(i)) <= 0.00001);
       }
     }
   }
