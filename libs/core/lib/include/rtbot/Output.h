@@ -41,14 +41,17 @@ struct Output_opt : public Operator<T, V> {
   std::optional<Message<T, V>>* out = nullptr;
 
   Output_opt() = default;
-  Output_opt(string const& id_, std::optional<Message<T, V>>& out_) : Operator<T, V>(id_), out(&out_) {}
-  Output_opt(string const& id_) : Operator<T, V>(id_) {}
+  Output_opt(string const& id_) : Operator<T, V>(id_) {
+    this->addInput("i1", 1);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "Output"; }
 
-  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const& msg) override {
-    *out = msg;
-    return this->emit(msg);
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+    Message<T, V> toEmit = this->getLastMessage(inputPort);
+    *out = toEmit;
+    return this->emit(toEmit);
   }
 };
 

@@ -19,7 +19,6 @@ namespace rtbot {
 using namespace std;
 
 const string portsSuffix{"abcdefghijklmnopqrstuvwxyz"};
-
 /**
  * Represents a generic operator that can receive a message and forward its
  * computed value to its children. This is one of the main building blocks of
@@ -67,7 +66,7 @@ class Operator {
     return 0;
   }
 
-  size_t getMaxSize(string inputPort = "") {
+  size_t getMaxSize(string inputPort = "") const {
     if (inputPort.empty()) {
       auto in = this->getInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -195,6 +194,8 @@ class Operator {
     vOutputs.assign(outputIds.begin(), outputIds.end());
     return vOutputs;
   }
+
+  size_t getNumInputs() const { return this->inputs.size(); }
 
   Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
     return connect(&child, outputPort, inputPort);

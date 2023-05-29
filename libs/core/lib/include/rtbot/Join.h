@@ -28,7 +28,7 @@ class Join : public Operator<T, V> {
 
  public:
   Join() = default;
-  Join(string const &id_, int numPorts_) : Operator<T, V>(id_) {
+  Join(string const &id_, size_t numPorts_) : Operator<T, V>(id_) {
     if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
 
     for (int i = 1; i <= numPorts_; i++) {
