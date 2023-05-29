@@ -18,7 +18,6 @@ namespace rtbot {
 
 using namespace std;
 
-const string portsSuffix{"abcdefghijklmnopqrstuvwxyz"};
 /**
  * Represents a generic operator that can receive a message and forward its
  * computed value to its children. This is one of the main building blocks of
