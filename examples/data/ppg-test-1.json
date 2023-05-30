@@ -11,7 +11,7 @@
     },
     "operators": [
         {
-            "id": "i1",
+            "id": "in1",
             "type": "Input"
         },
         {
@@ -39,47 +39,58 @@
             "numPorts": 2
         },
         {
-            "id": "o1",
+            "id": "out1",
             "type": "Output"
         }
     ],
     "connections": [
         {
-            "from": "i1",
-            "to": "ma1"
+            "from": "in1",
+            "to": "ma1",
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "ma1",
             "to": "diff",
-            "toPort": 0
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "diff",
-            "to": "peak"
+            "to": "peak",
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "peak",
             "to": "join",
-            "toPort": 0
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "join",
-            "to": "o1",
-            "fromPort": 1
+            "to": "out1",
+            "fromPort": "o2",
+            "toPort": "i1"
         },
         {
-            "from": "i1",
-            "to": "ma2"
+            "from": "in1",
+            "to": "ma2",
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "ma2",
             "to": "diff",
-            "toPort": 1
+            "fromPort": "o1",
+            "toPort": "i2"
         },
         {
-            "from": "i1",
+            "from": "in1",
             "to": "join",
-            "toPort": 1
+            "fromPort": "o1",
+            "toPort": "i2"
         }
     ]
 }

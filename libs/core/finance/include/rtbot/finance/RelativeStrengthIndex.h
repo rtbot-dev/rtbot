@@ -5,28 +5,31 @@
 #include <cstdint>
 #include <vector>
 
-#include "rtbot/Buffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
 template <class T, class V>
-struct RelativeStrengthIndex : public Buffer<T, V> {
+struct RelativeStrengthIndex : public Operator<T, V> {
   RelativeStrengthIndex() = default;
 
-  RelativeStrengthIndex(string const& id_, size_t n_) : Buffer<T, V>(id_, n_ + 1), initialized(false) {}
+  RelativeStrengthIndex(string const& id_, size_t n_) : Operator<T, V>(id_), initialized(false) {
+    this->addInput("i1", n_ + 1);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "RelativeStrengthIndex"; }
 
-  map<string, std::vector<Message<T, V>>> processData() override {
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> out;
-    size_t n = this->size();
+    size_t n = this->getSize(inputPort);
     V diff, rs, rsi, gain, loss;
 
     if (!initialized) {
       averageGain = 0;
       averageLoss = 0;
       for (size_t i = 1; i < n; i++) {
-        diff = this->at(i).value - this->at(i - 1).value;
+        diff = this->getMessage(inputPort, i).value - this->getMessage(inputPort, i - 1).value;
         if (diff > 0)
           averageGain = averageGain + diff;
         else if (diff < 0)
@@ -37,7 +40,7 @@ struct RelativeStrengthIndex : public Buffer<T, V> {
 
       initialized = true;
     } else {
-      diff = this->at(n - 1).value - this->at(n - 2).value;
+      diff = this->getMessage(inputPort, n - 1).value - this->getMessage(inputPort, n - 2).value;
       if (diff > 0) {
         gain = diff;
         loss = 0;
@@ -59,7 +62,7 @@ struct RelativeStrengthIndex : public Buffer<T, V> {
     rsi = 100.0 - (100.0 / (1 + rs));
 
     out.value = rsi;
-    out.time = this->back().time;
+    out.time = this->getLastMessage(inputPort).time;
 
     return this->emit(out);
   }

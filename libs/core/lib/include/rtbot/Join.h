@@ -23,58 +23,66 @@ namespace rtbot {
  */
 template <class T, class V>
 class Join : public Operator<T, V> {
-  vector<std::queue<Message<T, V>>> data;  // the waiting Messages for each port
+ private:
+  map<string, string> fromTo;
+
  public:
-  size_t numPorts;
-  using Operator<T, V>::Operator;
-  Join(string const &id_, int numPorts_) : Operator<T, V>(id_) {
+  Join() = default;
+  Join(string const &id_, size_t numPorts_) : Operator<T, V>(id_) {
     if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-    data.resize(numPorts_);
-    numPorts = numPorts_;
+
+    for (int i = 1; i <= numPorts_; i++) {
+      string inputPort = string("i") + to_string(i);
+      string outputPort = string("o") + to_string(i);
+      this->addInput(inputPort);
+      this->addOutput(outputPort);
+      fromTo.emplace(inputPort, outputPort);
+    }
   }
   virtual ~Join() = default;
 
   virtual string typeName() const override { return "Join"; }
 
-  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, int port) override {
-    // add the incoming message to the correct channel
-
-    if (port > data.size() - 1 || port < 0) throw std::runtime_error(typeName() + ": port out of index");
-
-    data.at(port).push(msg);
-
-    // remove old messages
-    for (auto i = 0u; i < data.size(); i++) {
-      if (i == port) continue;
-      while (!data[i].empty() && data[i].front().time < msg.time) data[i].pop();
+  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, string inputPort = "") override {
+    if (inputPort.empty()) {
+      throw std::runtime_error(typeName() + " : inputPort have to be specified");
     }
 
-    // check if all queue match the current time
-    bool all_ready = true;
-    for (const auto &x : data)
-      if (x.empty() || x.front().time > msg.time) all_ready = false;
+    if (this->inputs.count(inputPort) > 0)
+      this->inputs.find(inputPort)->second.push_back(msg);
+    else
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
-    if (all_ready) return processData(makeMessage());
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      if (it->first == inputPort) continue;
+      while (!it->second.empty() && it->second.front().time < msg.time) it->second.pop_front();
+    }
+
+    bool all_ready = true;
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      if (it->second.empty() || it->second.front().time > msg.time) all_ready = false;
+    }
+
+    if (all_ready) {
+      auto toEmit = processData(inputPort);
+      for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+        this->inputs.find(it->first)->second.pop_front();
+      }
+      return this->emit(toEmit);
+    }
     return {};
   }
 
-  /**
-   *  This is a replacement of Operator::receive but using the already synchronized data provided in msg
-   *  It is responsible to emit().
-   */
-  virtual map<string, std::vector<Message<T, V>>> processData(vector<Message<T, V>> const &msgs) {
-    return this->emitParallel(msgs);
-  }
+  virtual map<string, vector<Message<T, V>>> processData(string inputPort) {
+    map<string, vector<Message<T, V>>> outputMsgs;
 
- private:
-  // build a message by concatenating all channels front() data. Remove the used data.
-  vector<Message<T, V>> makeMessage() {
-    vector<Message<T, V>> msgs;
-    for (const auto &x : data) msgs.push_back(x.front());
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      vector<Message<T, V>> v;
+      v.push_back(this->inputs.find(it->first)->second.front());
+      outputMsgs.emplace(fromTo.find(it->first)->second, v);
+    }
 
-    for (auto &x : data) x.pop();
-
-    return msgs;
+    return outputMsgs;
   }
 };
 

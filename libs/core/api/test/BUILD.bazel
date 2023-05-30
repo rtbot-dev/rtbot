@@ -11,7 +11,8 @@ cc_test(
         "**/*.csv",
     ]) + [
         "//examples/data:ppg.csv",
-        "//examples/data:ppg.json",
+        "//examples/data:ppg-test-1.json",
+        "//examples/data:ppg-test-2.json",
     ],
     # defines = ["CATCH_CONFIG_MAIN"],
     deps = [        

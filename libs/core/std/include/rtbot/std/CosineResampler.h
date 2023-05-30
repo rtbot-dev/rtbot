@@ -5,38 +5,42 @@
 #include <cstdint>
 #include <vector>
 
-#include "rtbot/Buffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
 template <class T, class V>
-struct CosineResampler : public Buffer<T, V> {
+struct CosineResampler : public Operator<T, V> {
   static const size_t size = 2;
   T dt;
   T carryOver;
 
   CosineResampler() = default;
 
-  CosineResampler(string const &id_, unsigned int dt_)
-      : Buffer<T, V>(id_, CosineResampler::size), dt(dt_), carryOver(0) {}
+  CosineResampler(string const &id_, unsigned int dt_) : Operator<T, V>(id_), dt(dt_), carryOver(0) {
+    this->addInput("i1", CosineResampler::size);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "CosineResampler"; }
 
-  map<string, std::vector<Message<T, V>>> processData() override {
+  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     std::vector<Message<T, V>> toEmit;
 
     int j = 1;
 
-    while (this->at(1).time - this->at(0).time >= (j * dt) - carryOver) {
+    while (this->getMessage(inputPort, 1).time - this->getMessage(inputPort, 0).time >= (j * dt) - carryOver) {
       Message<T, V> out;
-      V mu = (V)((j * dt) - carryOver) / (V)(this->at(1).time - this->at(0).time);
-      out.value = CosineResampler<T, V>::cosineInterpolate(this->at(0).value, this->at(1).value, mu);
-      out.time = this->at(0).time + ((j * dt) - carryOver);
+      V mu = (V)((j * dt) - carryOver) / (V)(this->getMessage(inputPort, 1).time - this->getMessage(inputPort, 0).time);
+      out.value = CosineResampler<T, V>::cosineInterpolate(this->getMessage(inputPort, 0).value,
+                                                           this->getMessage(inputPort, 1).value, mu);
+      out.time = this->getMessage(inputPort, 0).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver = this->at(1).time - (this->at(0).time + (((j - 1) * dt) - carryOver));
+    carryOver =
+        this->getMessage(inputPort, 1).time - (this->getMessage(inputPort, 0).time + (((j - 1) * dt) - carryOver));
 
     if (toEmit.size() > 0)
       return this->emit(toEmit);

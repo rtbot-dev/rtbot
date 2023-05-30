@@ -1,24 +1,29 @@
 #ifndef MOVINGAVERAGE_H
 #define MOVINGAVERAGE_H
 
-#include "rtbot/Buffer.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
-struct MovingAverage : public Buffer<T, V> {
+struct MovingAverage : public Operator<T, V> {
   MovingAverage() = default;
 
-  MovingAverage(string const& id_, size_t n_) : Buffer<T, V>(id_, n_) {}
+  MovingAverage(string const& id_, size_t n_) : Operator<T, V>(id_) {
+    this->addInput("i1", n_);
+    this->addOutput("o1");
+  }
 
   string typeName() const override { return "MovingAverage"; }
 
-  map<string, std::vector<Message<T, V>>> processData() override {
-    std::vector<Message<T, V>> toEmit;
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    vector<Message<T, V>> toEmit;
     Message<T, V> out;
 
-    out.time = this->back().time;
-    out.value = this->getSum() / this->size();
+    out.time = this->getLastMessage(inputPort).time;
+    out.value = this->getSum(inputPort) / this->getSize(inputPort);
 
     toEmit.push_back(out);
     return this->emit(toEmit);

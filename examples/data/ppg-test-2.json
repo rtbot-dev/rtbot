@@ -1,0 +1,68 @@
+{
+    "title": "Peak detector",
+    "description": "This is a program to detect peaks in PPG...",
+    "date": "now",
+    "version": "v1",
+    "author": "Eduardo",
+    "license": "MIT",
+    "entryNode": "ma1",
+    "optim": {
+        "algorithm": "Nelder-Mead"
+    },
+    "operators": [
+        {
+            "id": "in1",
+            "type": "Input"
+        },
+        {
+            "id": "peak",
+            "type": "PeakDetector",
+            "n": 3
+        },
+        {
+            "id": "join",
+            "type": "Join",
+            "numPorts": 2
+        },
+        {
+            "id": "out1",
+            "type": "Output"
+        },
+        {
+            "id": "out2",
+            "type": "Output"
+        }
+    ],
+    "connections": [
+        {
+            "from": "in1",
+            "to": "peak",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "peak",
+            "to": "join",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "join",
+            "to": "out1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "in1",
+            "to": "join",
+            "fromPort": "o1",
+            "toPort": "i2"
+        },
+        {
+            "from": "join",
+            "to": "out2",
+            "fromPort": "o2",
+            "toPort": "i1"
+        }
+    ]
+}

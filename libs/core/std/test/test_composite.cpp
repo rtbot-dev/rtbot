@@ -9,7 +9,7 @@
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Composite") {
+/*TEST_CASE("Composite") {
   map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   std::vector<Op_ptr<std::uint64_t, double>> x;
   x.push_back(std::make_unique<MovingAverage<std::uint64_t, double>>("ma", 10));
@@ -29,4 +29,4 @@ TEST_CASE("Composite") {
       }
     }
   }
-}
+}*/

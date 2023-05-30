@@ -40,6 +40,7 @@ TEST_CASE("Cosine Resampler test emit at right frequencies") {
 TEST_CASE("Hermite Resampler test emit at right frequencies") {
   auto i1 = HermiteResampler<std::uint64_t, double>("i1", 99);
   auto i2 = HermiteResampler<std::uint64_t, double>("i2", 99);
+  auto i3 = HermiteResampler<std::int64_t, double>("i3", 99);
 
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
@@ -70,6 +71,22 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
       } else {
         REQUIRE(emitted.find("i2")->second.at(0).time == 99 * (2 * i - 3));
         REQUIRE(emitted.find("i2")->second.at(1).time == 99 * (2 * i - 2));
+      }
+    }
+  }
+
+  SECTION("emits right values") {
+    for (int i = 0; i < 20; i++) {
+      map<string, std::vector<Message<std::int64_t, double>>> emitted =
+          i3.receive(Message<std::int64_t, double>(i * 100, i * i));
+      if (i == 0 || i == 1 || i == 2)
+        REQUIRE(emitted.empty());
+      else if (i == 3) {
+        REQUIRE((emitted.find("i3")->second.at(0).value - (i - 2) * (i - 2)) < 1);
+        REQUIRE((emitted.find("i3")->second.at(1).value - (i - 1) * (i - 1)) < 1);
+
+      } else {
+        REQUIRE((emitted.find("i3")->second.at(0).value - (i - 1) * (i - 1)) < 1);
       }
     }
   }
