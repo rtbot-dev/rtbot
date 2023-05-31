@@ -1,0 +1,12 @@
+load("//tools/python:wrapper.bzl", "rtbot_python_wrapper")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+
+copy_to_directory(
+    name = "srcs",
+    srcs = ["//libs/core/lib:srcs"],
+)
+
+rtbot_python_wrapper(
+    name = "generate",
+    srcs = ["srcs"],
+)

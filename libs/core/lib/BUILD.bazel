@@ -1,13 +1,26 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//tools/python:wrapper.bzl", "rtbot_python_wrapper")
 
 package(default_visibility = ["//visibility:public"])
 
+_SRCS = glob([
+    "src/**/*.cpp",
+])
+
+_HDRS = glob(["include/**/*.h"])
+
+exports_files(_SRCS + _HDRS)
+
+# will be used by the wrappers generators
+filegroup(
+    name = "srcs",
+    srcs = _SRCS + _HDRS,
+)
+
 cc_library(
     name = "rtbot",
-    srcs = glob([
-        "src/**/*.cpp",
-    ]),
-    hdrs = glob(["include/**/*.h"]),
+    srcs = _SRCS,
+    hdrs = _HDRS,
     includes = ["include"],
     visibility = ["//visibility:public"],
 )
