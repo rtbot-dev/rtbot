@@ -6,7 +6,7 @@
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Difference join") {
+TEST_CASE("Minus join") {
   map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   auto diff = Minus<std::uint64_t, double>("diff");
 
