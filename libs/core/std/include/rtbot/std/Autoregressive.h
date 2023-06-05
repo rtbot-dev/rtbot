@@ -25,7 +25,7 @@ struct AutoRegressive : public Operator<T, V> {
     }
 
     if (this->inputs.count(inputPort) > 0) {
-      size_t n = this->sizes.find(inputPort)->second;
+      size_t n = this->getMaxSize(inputPort);
       while (this->getSize(inputPort) < n)
         this->inputs.find(inputPort)->second.push_back(Message<T, V>(0, 0));  // boundary conditions=0
       Message<T, V> out = msg;

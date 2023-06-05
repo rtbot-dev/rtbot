@@ -12,10 +12,10 @@
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
-#include "rtbot/std/Difference.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/LessThan.h"
+#include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PartialSum.h"
 #include "rtbot/std/PeakDetector.h"
@@ -177,13 +177,13 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 */
 
 template <class T, class V>
-void to_json(json& j, const Difference<T, V>& p) {
+void to_json(json& j, const Minus<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Difference<T, V>& p) {
-  p = Difference<T, V>(j["id"].get<string>());
+void from_json(const json& j, Minus<T, V>& p) {
+  p = Minus<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -317,7 +317,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<StandardDeviation<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<PeakDetector<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Join<std::uint64_t, double>, nlohmann::json>();
-  op_registry_add<Difference<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<Minus<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<AutoRegressive<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Output_opt<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<GreaterThan<std::uint64_t, double>, nlohmann::json>();

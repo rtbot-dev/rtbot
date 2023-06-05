@@ -40,14 +40,48 @@ class Operator {
     string inputPort;
   };
   /********************************/
-
  public:
+  struct InputPolicy {
+   private:
+    bool eager;
+
+   public:
+    InputPolicy(bool _eager = false) { this->eager = _eager; }
+    bool isEager() { return this->eager; }
+  };
+
+  struct Input {
+    string id;
+
+    Input(string _id, size_t _max = 0, InputPolicy _policy = {}) {
+      id = _id;
+      max = (_max <= 0) ? numeric_limits<size_t>::max() : _max;
+      policy = _policy;
+      sum = 0;
+    }
+    bool isEager() { return policy.isEager(); }
+    Message<T, V> front() { return data.front(); }
+    Message<T, V> back() { return data.back(); }
+    Message<T, V> at(size_t index) { return data.at(index); }
+    bool empty() { return data.empty(); }
+    size_t size() const { return data.size(); }
+    void push_back(Message<T, V> msg) { data.push_back(msg); }
+    void pop_front() { data.pop_front(); }
+    V getSum() { return sum; }
+    void setSum(V value) { sum = value; }
+    size_t getMaxSize() const { return max; }
+
+   private:
+    deque<Message<T, V>> data;
+    size_t max;
+    InputPolicy policy;
+    V sum;
+  };
+
   string id;
-  map<string, deque<Message<T, V>>> inputs;
+  map<string, Input> inputs;
   set<string> outputIds;
   map<string, vector<Connection>> outputs;
-  map<string, size_t> sizes;
-  map<string, V> sum;
 
   Operator() = default;
   explicit Operator(string const& id_) : id(id_) {}
@@ -58,8 +92,8 @@ class Operator {
   virtual map<string, vector<Message<T, V>>> processData(string inputPort) = 0;
 
   V getSum(string inputPort) {
-    if (sum.count(inputPort) > 0)
-      return sum.find(inputPort)->second;
+    if (inputs.count(inputPort) > 0)
+      return inputs.find(inputPort)->second.getSum();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
@@ -71,8 +105,8 @@ class Operator {
       if (in.size() == 1) inputPort = in.at(0);
     }
 
-    if (sizes.count(inputPort) > 0)
-      return sizes.find(inputPort)->second;
+    if (inputs.count(inputPort) > 0)
+      return inputs.find(inputPort)->second.getMaxSize();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
@@ -107,9 +141,20 @@ class Operator {
     return {};
   }
 
+  Message<T, V> getFirstMessage(string inputPort) {
+    if (inputs.count(inputPort) > 0)
+      if (!inputs.find(inputPort)->second.empty())
+        return inputs.find(inputPort)->second.front();
+      else
+        return {};
+    else
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+    return {};
+  }
+
   bool allInputPortsFull() const {
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      if (sizes.find(it->first)->second > inputs.find(it->first)->second.size()) return false;
+      if (inputs.find(it->first)->second.getMaxSize() > inputs.find(it->first)->second.size()) return false;
     }
     return true;
   }
@@ -120,14 +165,16 @@ class Operator {
       if (in.size() == 1) inputPort = in.at(0);
     }
 
-    if (inputs.count(inputPort) > 0 && sizes.count(inputPort) > 0 && sum.count(inputPort) > 0) {
+    if (inputs.count(inputPort) > 0) {
       if (allInputPortsFull()) {
-        sum.find(inputPort)->second = sum.find(inputPort)->second - inputs.find(inputPort)->second.front().value;
+        inputs.find(inputPort)->second.setSum(inputs.find(inputPort)->second.getSum() -
+                                              inputs.find(inputPort)->second.front().value);
         inputs.find(inputPort)->second.pop_front();
       }
 
       inputs.find(inputPort)->second.push_back(msg);
-      sum.find(inputPort)->second = sum.find(inputPort)->second + inputs.find(inputPort)->second.back().value;
+      inputs.find(inputPort)->second.setSum(inputs.find(inputPort)->second.getSum() +
+                                            inputs.find(inputPort)->second.back().value);
 
       if (allInputPortsFull()) {
         return this->processData(inputPort);
@@ -168,10 +215,8 @@ class Operator {
     return out;
   }
 
-  Operator<T, V>* addInput(string inputId, size_t max = 0) {
-    inputs.emplace(inputId, deque<Message<T, V>>());
-    if (max > 0) sizes.emplace(inputId, max);
-    sum.emplace(inputId, 0);
+  Operator<T, V>* addInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
+    inputs.emplace(inputId, Input(inputId, max, policy));
     return this;
   }
 

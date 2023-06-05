@@ -5,7 +5,7 @@
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
-#include "rtbot/std/Difference.h"
+#include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
 #include "tools.h"
@@ -65,7 +65,7 @@ TEST_CASE("ppg peak detector") {
   auto i1 = Input<std::uint64_t, double>("i1");
   auto ma1 = MovingAverage<std::uint64_t, double>("ma1", round(50 / s.dt()));
   auto ma2 = MovingAverage<std::uint64_t, double>("ma2", round(2000 / s.dt()));
-  auto diff = Difference<std::uint64_t, double>("diff");
+  auto diff = Minus<std::uint64_t, double>("diff");
   auto peak = PeakDetector<std::uint64_t, double>("b1", 2 * ma1.getMaxSize() + 1);
   auto join = Join<std::uint64_t, double>("j1", 2);
   ofstream out("peak.txt");
