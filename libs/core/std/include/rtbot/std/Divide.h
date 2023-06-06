@@ -1,5 +1,5 @@
-#ifndef MINUS_H
-#define MINUS_H
+#ifndef DIVIDE_H
+#define DIVIDE_H
 
 #include "rtbot/Joint.h"
 
@@ -9,9 +9,9 @@ namespace rtbot {
  * @brief The Difference class as example of application of Join
  */
 template <class T, class V>
-struct Minus : public Joint<T, V> {
-  Minus() = default;
-  Minus(string const &id_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
+struct Divide : public Joint<T, V> {
+  Divide() = default;
+  Divide(string const &id_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
     this->id = id_;
     int eagerInputs = 0;
     int numPorts = 2;
@@ -28,14 +28,14 @@ struct Minus : public Joint<T, V> {
       throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
-  string typeName() const override { return "Minus"; }
+  string typeName() const override { return "Divide"; }
 
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> m1 = this->getMessage("i2", 0);
     Message<T, V> m0 = this->getMessage("i1", 0);
     Message<T, V> out;
     out.time = (this->isEager("i1")) ? m1.time : m0.time;
-    out.value = m0.value - m1.value;
+    out.value = m0.value / m1.value;
     map<string, vector<Message<T, V>>> toEmit;
     vector<Message<T, V>> v;
     v.push_back(out);
@@ -46,4 +46,4 @@ struct Minus : public Joint<T, V> {
 
 }  // namespace rtbot
 
-#endif  // MINUS_H
+#endif  // DIVIDE_H

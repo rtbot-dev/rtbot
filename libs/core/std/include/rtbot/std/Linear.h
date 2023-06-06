@@ -28,7 +28,7 @@ struct Linear : public Joint<T, V> {
     }
     this->addOutput("o1");
     if (eagerInputs == coeff.size())
-      throw std::runtime_error(typeName() + " : at least one input port should be not eager.");
+      throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
   string typeName() const override { return "Linear"; }
