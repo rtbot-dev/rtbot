@@ -37,12 +37,14 @@ struct Linear : public Joint<T, V> {
     map<outputPort, vector<Message<T, V>>>
   */
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> toEmit;
     int i = 0;
     Message<T, V> out;
     out.value = 0;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it, i++) {
-      out.value = out.value + it->second.front().value * coeff[i];
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      out.value = out.value + it->second.front().value * coeff.at(i);
       if (!it->second.isEager()) out.time = it->second.front().time;
+      i++;
     }
     vector<Message<T, V>> v;
     v.push_back(out);

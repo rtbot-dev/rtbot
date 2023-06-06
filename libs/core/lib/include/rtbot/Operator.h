@@ -99,6 +99,17 @@ class Operator {
     return 0;
   }
 
+  bool isEager(string inputPort = "") {
+    if (inputPort.empty()) {
+      auto in = this->getInputs();
+      if (in.size() == 1) inputPort = in.at(0);
+    }
+    if (inputs.count(inputPort) > 0)
+      return inputs.find(inputPort)->second.isEager();
+    else
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+  }
+
   size_t getMaxSize(string inputPort = "") const {
     if (inputPort.empty()) {
       auto in = this->getInputs();

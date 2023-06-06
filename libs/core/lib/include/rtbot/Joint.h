@@ -54,12 +54,16 @@ class Joint : public Operator<T, V> {
 
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
       if (it->first == inputPort || it->second.isEager()) continue;
-      while (!it->second.empty() && it->second.front().time < msg.time) it->second.pop_front();
+      while (!it->second.empty() &&
+             (it->second.front().time < msg.time && !this->inputs.find(inputPort)->second.isEager()))
+        it->second.pop_front();
     }
 
     bool all_ready = true;
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      if (it->second.empty() || (it->second.front().time > msg.time && !it->second.isEager())) all_ready = false;
+      if (it->second.empty() || (it->second.front().time > msg.time && !it->second.isEager() &&
+                                 !this->inputs.find(inputPort)->second.isEager()))
+        all_ready = false;
     }
 
     if (all_ready) {
@@ -79,10 +83,11 @@ class Joint : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
 
     int i = 1;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it, i++) {
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
       vector<Message<T, V>> v;
       v.push_back(this->inputs.find(it->first)->second.front());
       outputMsgs.emplace(string("o") + to_string(i), v);
+      i++;
     }
 
     return outputMsgs;

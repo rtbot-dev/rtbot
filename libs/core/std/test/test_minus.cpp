@@ -1,5 +1,4 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/std/Minus.h"
 
@@ -8,22 +7,22 @@ using namespace std;
 
 TEST_CASE("Minus join") {
   map<string, std::vector<Message<std::uint64_t, double>>> emitted;
-  auto diff = Minus<std::uint64_t, double>("diff");
+  auto minus = Minus<std::uint64_t, double>("minus");
 
-  diff.receive(Message<uint64_t, double>(1, 1), "i1");
-  diff.receive(Message<uint64_t, double>(2, 2), "i1");
-  diff.receive(Message<uint64_t, double>(3, 3), "i1");
-  diff.receive(Message<uint64_t, double>(4, 4), "i1");
+  minus.receive(Message<uint64_t, double>(1, 1), "i1");
+  minus.receive(Message<uint64_t, double>(2, 2), "i1");
+  minus.receive(Message<uint64_t, double>(3, 3), "i1");
+  minus.receive(Message<uint64_t, double>(4, 4), "i1");
 
-  emitted = diff.receive(Message<uint64_t, double>(2, 3), "i2");
+  emitted = minus.receive(Message<uint64_t, double>(2, 3), "i2");
 
-  REQUIRE(emitted.find("diff")->second.at(0).value == -1);
+  REQUIRE(emitted.find("minus")->second.at(0).value == -1);
 
-  emitted = diff.receive(Message<uint64_t, double>(4, 4), "i2");
+  emitted = minus.receive(Message<uint64_t, double>(4, 4), "i2");
 
-  REQUIRE(emitted.find("diff")->second.at(0).value == 0);
+  REQUIRE(emitted.find("minus")->second.at(0).value == 0);
 
-  emitted = diff.receive(Message<uint64_t, double>(5, 5), "i1");
+  emitted = minus.receive(Message<uint64_t, double>(3, 5), "i2");
 
   REQUIRE(emitted.empty());
 }
