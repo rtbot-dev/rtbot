@@ -15,6 +15,7 @@ struct Linear : public Join<T, V> {
   Linear() = default;
   Linear(string const& id_, vector<V> const& coeff_, map<string, typename Operator<T, V>::InputPolicy> _policies = {})
       : coeff(coeff_) {
+    if (coeff.size() < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->id = id_;
     int eagerInputs = 0;
     for (size_t i = 1; i <= coeff.size(); i++) {
@@ -27,7 +28,7 @@ struct Linear : public Join<T, V> {
     }
     this->addOutput("o1");
     if (eagerInputs == coeff.size())
-      throw std::runtime_error(typeName() + " : At least one input port should not be eager.");
+      throw std::runtime_error(typeName() + " : at least one input port should be not eager.");
   }
 
   string typeName() const override { return "Linear"; }
