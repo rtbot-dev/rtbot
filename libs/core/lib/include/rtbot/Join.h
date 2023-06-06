@@ -50,15 +50,10 @@ class Join : public Operator<T, V> {
     }
 
     if (this->inputs.count(inputPort) > 0) {
-      if (this->inputs.find(inputPort)->second.isEager()) {
-        while (!this->inputs.find(inputPort)->second.empty()) {
-          this->inputs.find(inputPort)->second.pop_front();
-        }
-        this->inputs.find(inputPort)->second.push_back(msg);
-        return {};
-
-      } else
-        this->inputs.find(inputPort)->second.push_back(msg);
+      if (this->inputs.find(inputPort)->second.isEager() && !this->inputs.find(inputPort)->second.empty()) {
+        this->inputs.find(inputPort)->second.pop_front();
+      }
+      this->inputs.find(inputPort)->second.push_back(msg);
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
