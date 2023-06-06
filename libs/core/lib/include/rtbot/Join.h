@@ -20,24 +20,19 @@ namespace rtbot {
  */
 template <class T, class V>
 class Join : public Operator<T, V> {
- private:
-  map<string, string> fromTo;
-
  public:
   Join() = default;
-  Join(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {})
-      : Operator<T, V>(id_) {
+  Join(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
     if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-
+    this->id = id_;
     for (int i = 1; i <= numPorts_; i++) {
       string inputPort = string("i") + to_string(i);
       string outputPort = string("o") + to_string(i);
       if (_policies.count(inputPort) > 0)
         this->addInput(inputPort, 0, _policies.find(inputPort)->second);
       else
-        this->addInput(inputPort);
+        this->addInput(inputPort, 0, {});
       this->addOutput(outputPort);
-      fromTo.emplace(inputPort, outputPort);
     }
   }
   virtual ~Join() = default;
@@ -83,10 +78,11 @@ class Join : public Operator<T, V> {
   virtual map<string, vector<Message<T, V>>> processData(string inputPort) {
     map<string, vector<Message<T, V>>> outputMsgs;
 
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    int i = 1;
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it, i++) {
       vector<Message<T, V>> v;
       v.push_back(this->inputs.find(it->first)->second.front());
-      outputMsgs.emplace(fromTo.find(it->first)->second, v);
+      outputMsgs.emplace(string("o") + to_string(i), v);
     }
 
     return outputMsgs;

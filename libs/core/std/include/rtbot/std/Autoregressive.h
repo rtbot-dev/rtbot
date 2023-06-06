@@ -7,7 +7,7 @@ namespace rtbot {
 
 template <class T, class V>
 struct AutoRegressive : public Operator<T, V> {
-  std::vector<V> coeff;
+  vector<V> coeff;
 
   AutoRegressive() = default;
 

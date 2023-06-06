@@ -18,7 +18,7 @@ struct Minus : public Join<T, V> {
     this->addOutput("o1");
   }
 
-  string typeName() const override { return "Difference"; }
+  string typeName() const override { return "Minus"; }
 
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> m1 = this->getMessage("i2", 0);
@@ -34,4 +34,4 @@ struct Minus : public Join<T, V> {
 
 }  // namespace rtbot
 
-#endif  // DIFFERENCE_H
+#endif  // MINUS_H
