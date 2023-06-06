@@ -1,7 +1,7 @@
 #ifndef MINUS_H
 #define MINUS_H
 
-#include "rtbot/Join.h"
+#include "rtbot/Joint.h"
 
 namespace rtbot {
 
@@ -9,7 +9,7 @@ namespace rtbot {
  * @brief The Difference class as example of application of Join
  */
 template <class T, class V>
-struct Minus : public Join<T, V> {
+struct Minus : public Joint<T, V> {
   Minus() = default;
   Minus(string const &id_) {
     this->id = id_;

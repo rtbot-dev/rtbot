@@ -1,5 +1,5 @@
-#ifndef JOIN_H
-#define JOIN_H
+#ifndef JOINT_H
+#define JOINT_H
 
 #include "Operator.h"
 
@@ -19,10 +19,10 @@ namespace rtbot {
  * given.
  */
 template <class T, class V>
-class Join : public Operator<T, V> {
+class Joint : public Operator<T, V> {
  public:
-  Join() = default;
-  Join(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
+  Joint() = default;
+  Joint(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
     if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->id = id_;
     for (int i = 1; i <= numPorts_; i++) {
@@ -35,9 +35,9 @@ class Join : public Operator<T, V> {
       this->addOutput(outputPort);
     }
   }
-  virtual ~Join() = default;
+  virtual ~Joint() = default;
 
-  virtual string typeName() const override { return "Join"; }
+  virtual string typeName() const override { return "Joint"; }
 
   map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, string inputPort = "") override {
     if (inputPort.empty()) {
@@ -91,4 +91,4 @@ class Join : public Operator<T, V> {
 
 }  // end namespace rtbot
 
-#endif  // JOIN_H
+#endif  // JOINT_H

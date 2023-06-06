@@ -25,8 +25,8 @@
             "n": 250
         },
         {
-            "id": "diff",
-            "type": "Difference"
+            "id": "minus",
+            "type": "Minus"
         },
         {
             "id": "peak",
@@ -35,7 +35,7 @@
         },
         {
             "id": "join",
-            "type": "Join",
+            "type": "Joint",
             "numPorts": 2
         },
         {
@@ -52,12 +52,12 @@
         },
         {
             "from": "ma1",
-            "to": "diff",
+            "to": "minus",
             "fromPort": "o1",
             "toPort": "i1"
         },
         {
-            "from": "diff",
+            "from": "minus",
             "to": "peak",
             "fromPort": "o1",
             "toPort": "i1"
@@ -82,7 +82,7 @@
         },
         {
             "from": "ma2",
-            "to": "diff",
+            "to": "minus",
             "fromPort": "o1",
             "toPort": "i2"
         },

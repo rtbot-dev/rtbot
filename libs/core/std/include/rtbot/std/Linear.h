@@ -1,7 +1,7 @@
 #ifndef LINEAR_H
 #define LINEAR_H
 
-#include "rtbot/Join.h"
+#include "rtbot/Joint.h"
 
 namespace rtbot {
 
@@ -9,7 +9,7 @@ namespace rtbot {
  * @brief The Difference class as example of application of Join
  */
 template <class T, class V>
-struct Linear : public Join<T, V> {
+struct Linear : public Joint<T, V> {
   vector<V> coeff;
 
   Linear() = default;
@@ -44,7 +44,6 @@ struct Linear : public Join<T, V> {
       out.value = out.value + it->second.front().value * coeff[i];
       if (!it->second.isEager()) out.time = it->second.front().time;
     }
-
     vector<Message<T, V>> v;
     v.push_back(out);
     toEmit.emplace("o1", v);

@@ -5,7 +5,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rtbot/Input.h"
-#include "rtbot/Join.h"
+#include "rtbot/Joint.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
@@ -125,13 +125,13 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 */
 
 template <class T, class V>
-void to_json(json& j, const Join<T, V>& p) {
+void to_json(json& j, const Joint<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumInputs()}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Join<T, V>& p) {
-  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
+void from_json(const json& j, Joint<T, V>& p) {
+  p = Joint<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
 }
 
 /*
@@ -316,7 +316,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<MovingAverage<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<StandardDeviation<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<PeakDetector<std::uint64_t, double>, nlohmann::json>();
-  op_registry_add<Join<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<Joint<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Minus<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<AutoRegressive<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Output_opt<std::uint64_t, double>, nlohmann::json>();

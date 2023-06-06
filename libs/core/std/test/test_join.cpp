@@ -2,7 +2,7 @@
 #include <iostream>
 
 #include "rtbot/Input.h"
-#include "rtbot/Join.h"
+#include "rtbot/Joint.h"
 #include "rtbot/Output.h"
 #include "rtbot/std/PeakDetector.h"
 
@@ -12,7 +12,7 @@ using namespace std;
 TEST_CASE("Join peak and value") {
   auto in1 = Input<uint64_t, double>("in1");
   auto peak = PeakDetector<uint64_t, double>("b1", 3);
-  auto join = Join<uint64_t, double>("j1", 2);
+  auto join = Joint<uint64_t, double>("j1", 2);
   auto out1 = Output_vec<uint64_t, double>("out1", 1);
   auto out2 = Output_vec<uint64_t, double>("out2", 1);
 

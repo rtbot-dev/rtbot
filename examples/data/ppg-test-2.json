@@ -21,7 +21,7 @@
         },
         {
             "id": "join",
-            "type": "Join",
+            "type": "Joint",
             "numPorts": 2
         },
         {
