@@ -12,9 +12,11 @@
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
+#include "rtbot/std/Divide.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/LessThan.h"
+#include "rtbot/std/Linear.h"
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PartialSum.h"
@@ -171,8 +173,8 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 
 /*
 {
-    "type": "Difference",
-    "id": "d1"
+    "type": "Minus",
+    "id": "m1"
 }
 */
 
@@ -188,9 +190,44 @@ void from_json(const json& j, Minus<T, V>& p) {
 
 /*
 {
+    "type": "Divide",
+    "id": "d1"
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Divide<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Divide<T, V>& p) {
+  p = Divide<T, V>(j["id"].get<string>());
+}
+
+/*
+{
+    "type": "Linear",
+    "id": "l1",
+    "coeff": [1,2,3,4]
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Linear<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.coeff}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Linear<T, V>& p) {
+  p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
+}
+
+/*
+{
     "type": "AutoRegressive",
     "id": "ar",
-    "coef": [1,2,3,4]
+    "coeff": [1,2,3,4]
 }
 */
 
@@ -201,7 +238,7 @@ void to_json(json& j, const AutoRegressive<T, V>& p) {
 
 template <class T, class V>
 void from_json(const json& j, AutoRegressive<T, V>& p) {
-  p = AutoRegressive<T, V>(j["id"].get<string>(), j["coeff"].get<std::vector<V>>());
+  p = AutoRegressive<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
 }
 
 /*
@@ -318,6 +355,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<PeakDetector<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Joint<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Minus<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<Divide<std::uint64_t, double>, nlohmann::json>();
+  op_registry_add<Linear<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<AutoRegressive<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<Output_opt<std::uint64_t, double>, nlohmann::json>();
   op_registry_add<GreaterThan<std::uint64_t, double>, nlohmann::json>();
