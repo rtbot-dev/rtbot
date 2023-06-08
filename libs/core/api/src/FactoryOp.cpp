@@ -437,8 +437,6 @@ Op_ptr<std::uint64_t, double> FactoryOp::readOp(const std::string& program) {
 
 std::string FactoryOp::writeOp(Op_ptr<std::uint64_t, double> const& op) {
   string type = op->typeName();
-  json j;
-  j["type"] = type;
   auto it = op_registry().find(type);
   if (it == op_registry().end()) throw std::runtime_error(string("invalid Operator type while parsing ") + type);
   return it->second.to_string(op);

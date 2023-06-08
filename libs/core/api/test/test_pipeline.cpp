@@ -100,5 +100,7 @@ TEST_CASE("read  pipeline test join eager port") {
         REQUIRE(output["out2"].at(0).value == (i - 1) % 5);
       }
     }
+
+    cout << pipe.getProgram() << endl;
   }
 }

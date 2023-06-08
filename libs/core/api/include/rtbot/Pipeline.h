@@ -39,6 +39,8 @@ struct Pipeline {
   map<string, std::vector<Message<std::uint64_t, double>>> receiveDebug(const Message<std::uint64_t, double>& msg) {
     return input->receive(msg);
   }
+
+  std::string getProgram();
 };
 
 }  // namespace rtbot
