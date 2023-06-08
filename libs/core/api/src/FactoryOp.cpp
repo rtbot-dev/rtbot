@@ -13,6 +13,7 @@
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
+#include "rtbot/std/Difference.h"
 #include "rtbot/std/Divide.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
@@ -364,6 +365,23 @@ void from_json(const json& j, Count<T, V>& p) {
 
 /*
 {
+    "type": "Difference",
+    "id": "diff"
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Difference<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Difference<T, V>& p) {
+  p = Difference<T, V>(j["id"].get<string>());
+}
+
+/*
+{
     "type": "RelativeStrengthIndex",
     "id": "rsi"
     "n": 200
@@ -414,6 +432,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<LessThan<std::uint64_t, double>, json>();
   op_registry_add<Accumulator<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
+  op_registry_add<Difference<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
 
   json j;
