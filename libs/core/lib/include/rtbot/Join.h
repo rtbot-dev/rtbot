@@ -1,5 +1,5 @@
-#ifndef JOINT_H
-#define JOINT_H
+#ifndef JOIN_H
+#define JOIN_H
 
 #include "Operator.h"
 
@@ -100,4 +100,4 @@ class Join : public Operator<T, V> {
 
 }  // end namespace rtbot
 
-#endif  // JOINT_H
+#endif  // JOIN_H
