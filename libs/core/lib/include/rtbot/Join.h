@@ -19,10 +19,10 @@ namespace rtbot {
  * given.
  */
 template <class T, class V>
-class Joint : public Operator<T, V> {
+class Join : public Operator<T, V> {
  public:
-  Joint() = default;
-  Joint(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
+  Join() = default;
+  Join(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
     if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->id = id_;
     int eagerInputs = 0;
@@ -39,9 +39,9 @@ class Joint : public Operator<T, V> {
     if (eagerInputs == numPorts_)
       throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
-  virtual ~Joint() = default;
+  virtual ~Join() = default;
 
-  virtual string typeName() const override { return "Joint"; }
+  virtual string typeName() const override { return "Join"; }
 
   map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, string inputPort = "") override {
     if (inputPort.empty()) {

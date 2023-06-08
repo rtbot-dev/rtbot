@@ -1,6 +1,6 @@
 {
-    "title": "Peak detector",
-    "description": "This is a program to detect peaks in PPG...",
+    "title": "Join eager Input test",
+    "description": "This is a program test the join operator with an eager input",
     "date": "now",
     "version": "v1",
     "author": "Eduardo",
@@ -15,14 +15,14 @@
             "type": "Input"
         },
         {
-            "id": "peak",
-            "type": "PeakDetector",
-            "n": 3
-        },
-        {
             "id": "join",
             "type": "Join",
-            "numPorts": 2
+            "numPorts": 2,
+            "policies": {
+                "i1": {
+                    "eager": true
+                }
+            }
         },
         {
             "id": "out1",
@@ -36,19 +36,7 @@
     "connections": [
         {
             "from": "in1",
-            "to": "peak",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "peak",
             "to": "join",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "join",
-            "to": "out1",
             "fromPort": "o1",
             "toPort": "i1"
         },
@@ -57,6 +45,12 @@
             "to": "join",
             "fromPort": "o1",
             "toPort": "i2"
+        },
+        {
+            "from": "join",
+            "to": "out1",
+            "fromPort": "o1",
+            "toPort": "i1"
         },
         {
             "from": "join",

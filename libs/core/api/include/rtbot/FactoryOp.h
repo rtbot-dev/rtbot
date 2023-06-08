@@ -41,7 +41,7 @@ class FactoryOp {
     auto to_string_default = []() {
       Op op;
       string type = op.typeName();
-      auto obj = Format(op);
+      auto obj = Format();
       obj["type"] = type;
       obj["id"] = type + "1";
       return obj.dump();

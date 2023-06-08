@@ -47,7 +47,7 @@ class Operator {
 
    public:
     InputPolicy(bool _eager = false) { this->eager = _eager; }
-    bool isEager() { return this->eager; }
+    bool isEager() const { return this->eager; }
   };
 
   struct Input {
@@ -59,7 +59,7 @@ class Operator {
       policy = _policy;
       sum = 0;
     }
-    bool isEager() { return policy.isEager(); }
+    bool isEager() const { return policy.isEager(); }
     Message<T, V> front() { return data.front(); }
     Message<T, V> back() { return data.back(); }
     Message<T, V> at(size_t index) { return data.at(index); }
@@ -70,6 +70,7 @@ class Operator {
     V getSum() { return sum; }
     void setSum(V value) { sum = value; }
     size_t getMaxSize() const { return max; }
+    InputPolicy getPolicy() const { return policy; }
 
    private:
     deque<Message<T, V>> data;
@@ -90,6 +91,14 @@ class Operator {
   virtual string typeName() const = 0;
 
   virtual map<string, vector<Message<T, V>>> processData(string inputPort) = 0;
+
+  map<string, typename Operator<T, V>::InputPolicy> getPolicies() const {
+    map<string, InputPolicy> out;
+    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      out.emplace(it->first, it->second.getPolicy());
+    }
+    return out;
+  }
 
   V getSum(string inputPort) {
     if (inputs.count(inputPort) > 0)
@@ -165,7 +174,7 @@ class Operator {
 
   bool allInputPortsFull() const {
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      if (inputs.find(it->first)->second.getMaxSize() > inputs.find(it->first)->second.size()) return false;
+      if (it->second.getMaxSize() > it->second.size()) return false;
     }
     return true;
   }

@@ -13,6 +13,7 @@ cc_test(
         "//examples/data:ppg.csv",
         "//examples/data:ppg-test-1.json",
         "//examples/data:ppg-test-2.json",
+        "//examples/data:ppg-test-3.json"
     ],
     # defines = ["CATCH_CONFIG_MAIN"],
     deps = [        
