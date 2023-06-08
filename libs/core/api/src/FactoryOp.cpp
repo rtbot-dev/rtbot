@@ -9,6 +9,7 @@
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
+#include "rtbot/std/Accumulator.h"
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
@@ -19,7 +20,6 @@
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
-#include "rtbot/std/PartialSum.h"
 #include "rtbot/std/PeakDetector.h"
 #include "rtbot/std/StandardDeviation.h"
 
@@ -330,19 +330,19 @@ void from_json(const json& j, LessThan<T, V>& p) {
 
 /*
 {
-    "type": "PartialSum",
-    "id": "ps"
+    "type": "Accumulator",
+    "id": "ac"
 }
 */
 
 template <class T, class V>
-void to_json(json& j, const PartialSum<T, V>& p) {
+void to_json(json& j, const Accumulator<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
-void from_json(const json& j, PartialSum<T, V>& p) {
-  p = PartialSum<T, V>(j["id"].get<string>());
+void from_json(const json& j, Accumulator<T, V>& p) {
+  p = Accumulator<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -412,7 +412,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Output_opt<std::uint64_t, double>, json>();
   op_registry_add<GreaterThan<std::uint64_t, double>, json>();
   op_registry_add<LessThan<std::uint64_t, double>, json>();
-  op_registry_add<PartialSum<std::uint64_t, double>, json>();
+  op_registry_add<Accumulator<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
 

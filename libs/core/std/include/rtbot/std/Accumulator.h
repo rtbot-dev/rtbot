@@ -1,5 +1,5 @@
-#ifndef PARTIALSUM_H
-#define PARTIALSUM_H
+#ifndef ACCUMULATOR_H
+#define ACCUMULATOR_H
 
 #include <cstdint>
 
@@ -8,14 +8,14 @@
 namespace rtbot {
 
 template <class T, class V>
-struct PartialSum : public Operator<T, V> {
+struct Accumulator : public Operator<T, V> {
   V partialSum;
-  PartialSum() = default;
-  PartialSum(string const &id_) : Operator<T, V>(id_), partialSum(0) {
+  Accumulator() = default;
+  Accumulator(string const &id_) : Operator<T, V>(id_), partialSum(0) {
     this->addInput("i1", 1);
     this->addOutput("o1");
   }
-  string typeName() const override { return "PartialSum"; }
+  string typeName() const override { return "Accumulator"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> out = this->getLastMessage(inputPort);
     partialSum = partialSum + out.value;
@@ -26,4 +26,4 @@ struct PartialSum : public Operator<T, V> {
 
 }  // namespace rtbot
 
-#endif  // PARTIALSUM_H
+#endif  // ACCUMULATOR_H
