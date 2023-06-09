@@ -1,8 +1,6 @@
 #ifndef GREATERTHAN_H
 #define GREATERTHAN_H
 
-#include <cstdint>
-
 #include "rtbot/FilterByValue.h"
 
 namespace rtbot {
@@ -17,4 +15,4 @@ struct GreaterThan : public FilterByValue<T, V> {
 
 }  // namespace rtbot
 
-#endif  // FINANCE_H
+#endif  // GREATERTHAN_H

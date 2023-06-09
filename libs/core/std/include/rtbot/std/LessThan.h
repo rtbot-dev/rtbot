@@ -1,8 +1,6 @@
 #ifndef LESSTHAN_H
 #define LESSTHAN_H
 
-#include <cstdint>
-
 #include "rtbot/FilterByValue.h"
 
 namespace rtbot {

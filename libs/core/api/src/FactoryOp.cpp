@@ -15,6 +15,7 @@
 #include "rtbot/std/Count.h"
 #include "rtbot/std/Difference.h"
 #include "rtbot/std/Divide.h"
+#include "rtbot/std/EqualTo.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/LessThan.h"
@@ -331,6 +332,24 @@ void from_json(const json& j, LessThan<T, V>& p) {
 
 /*
 {
+    "type": "EqualTo",
+    "id": "et",
+    "x": 0.5
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const EqualTo<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x0}};
+}
+
+template <class T, class V>
+void from_json(const json& j, EqualTo<T, V>& p) {
+  p = EqualTo<T, V>(j["id"].get<string>(), j["x"].get<V>());
+}
+
+/*
+{
     "type": "Accumulator",
     "id": "ac"
 }
@@ -430,6 +449,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Output_opt<std::uint64_t, double>, json>();
   op_registry_add<GreaterThan<std::uint64_t, double>, json>();
   op_registry_add<LessThan<std::uint64_t, double>, json>();
+  op_registry_add<EqualTo<std::uint64_t, double>, json>();
   op_registry_add<Accumulator<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<Difference<std::uint64_t, double>, json>();
