@@ -10,6 +10,7 @@
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Accumulator.h"
+#include "rtbot/std/Add.h"
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/CosineResampler.h"
@@ -334,6 +335,24 @@ void from_json(const json& j, Constant<T, V>& p) {
 
 /*
 {
+    "type": "Add",
+    "id": "add",
+    "a": 2
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Add<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"a", p.getAddend()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Add<T, V>& p) {
+  p = Add<T, V>(j["id"].get<string>(), j["a"].get<V>());
+}
+
+/*
+{
     "type": "LessThan",
     "id": "lt",
     "x": 0.5
@@ -492,6 +511,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Constant<std::uint64_t, double>, json>();
   op_registry_add<Accumulator<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
+  op_registry_add<Add<std::uint64_t, double>, json>();
   op_registry_add<Difference<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
 

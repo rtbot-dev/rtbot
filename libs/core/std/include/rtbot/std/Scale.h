@@ -16,7 +16,7 @@ struct Scale : public Operator<T, V> {
   string typeName() const override { return "Scale"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> out = this->getLastMessage(inputPort);
-    out.value = out.value * factor;
+    out.value = out.value * this->factor;
     return this->emit(out);
   }
 

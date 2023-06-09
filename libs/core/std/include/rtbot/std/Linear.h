@@ -42,7 +42,7 @@ struct Linear : public Join<T, V> {
     Message<T, V> out;
     out.value = 0;
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      out.value = out.value + it->second.front().value * coeff.at(i);
+      out.value = out.value + it->second.front().value * this->coeff.at(i);
       if (!it->second.isEager()) out.time = it->second.front().time;
       i++;
     }
