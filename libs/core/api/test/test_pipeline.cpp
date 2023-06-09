@@ -93,11 +93,11 @@ TEST_CASE("read  pipeline test join eager port") {
       if (i >= 2) {
         REQUIRE(output["out1"].size() == 1);
         REQUIRE(output["out1"].at(0).time == i - 1);
-        REQUIRE(output["out1"].at(0).value == (i - 1) % 5);
+        REQUIRE(output["out1"].at(0).value == 2 * ((i - 1) % 5));
 
         REQUIRE(output["out2"].size() == 1);
         REQUIRE(output["out2"].at(0).time == i - 1);
-        REQUIRE(output["out2"].at(0).value == (i - 1) % 5);
+        REQUIRE(output["out2"].at(0).value == 3 * ((i - 1) % 5));
       }
     }
 

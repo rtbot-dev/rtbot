@@ -25,6 +25,16 @@
             }
         },
         {
+            "id": "sc1",
+            "type": "Scale",
+            "f": 2
+        },
+        {
+            "id": "sc2",
+            "type": "Scale",
+            "f": 3
+        },
+        {
             "id": "out1",
             "type": "Output"
         },
@@ -48,14 +58,26 @@
         },
         {
             "from": "join",
-            "to": "out1",
+            "to": "sc1",
             "fromPort": "o1",
             "toPort": "i1"
         },
         {
             "from": "join",
-            "to": "out2",
+            "to": "sc2",
             "fromPort": "o2",
+            "toPort": "i1"
+        },
+        {
+            "from": "sc1",
+            "to": "out1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "sc2",
+            "to": "out2",
+            "fromPort": "o1",
             "toPort": "i1"
         }
     ]
