@@ -8,8 +8,8 @@ namespace rtbot {
 template <class T, class V>
 struct GreaterThan : public FilterByValue<T, V> {
   GreaterThan() = default;
-  V x0;
-  GreaterThan(string const &id_, V x0_) : x0(x0_), FilterByValue<T, V>(id_, [=](V x) { return x > x0_; }) {}
+  V x;
+  GreaterThan(string const &id, V x0) : x(x0), FilterByValue<T, V>(id, [=](V x) { return x > x0; }) {}
   string typeName() const override { return "GreaterThan"; }
 };
 

@@ -7,7 +7,6 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Accumulator test") {
-  map<string, std::vector<Message<uint64_t, double>>> emitted;
   auto ps = Accumulator<uint64_t, double>("ac");
 
   SECTION("emits  sum") {

@@ -23,6 +23,7 @@
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
 
 using json = nlohmann::json;
@@ -304,7 +305,7 @@ void from_json(const json& j, AutoRegressive<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const GreaterThan<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x0}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
 }
 
 template <class T, class V>
@@ -322,7 +323,7 @@ void from_json(const json& j, GreaterThan<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const LessThan<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x0}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
 }
 
 template <class T, class V>
@@ -340,7 +341,7 @@ void from_json(const json& j, LessThan<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const EqualTo<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x0}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
 }
 
 template <class T, class V>
@@ -380,6 +381,24 @@ void to_json(json& j, const Count<T, V>& p) {
 template <class T, class V>
 void from_json(const json& j, Count<T, V>& p) {
   p = Count<T, V>(j["id"].get<string>());
+}
+
+/*
+{
+    "type": "Scale",
+    "id": "sc",
+    "f": 0.5
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Scale<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"f", p.getFactor()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Scale<T, V>& p) {
+  p = Scale<T, V>(j["id"].get<string>(), j["f"].get<V>());
 }
 
 /*

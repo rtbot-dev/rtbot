@@ -22,21 +22,23 @@ template <class T, class V>
 class Join : public Operator<T, V> {
  public:
   Join() = default;
-  Join(string const &id_, size_t numPorts_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
-    if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-    this->id = id_;
+  Join(string const &id) : Operator<T, V>(id) {}
+  Join(string const &id, size_t numPorts, map<string, typename Operator<T, V>::InputPolicy> policies = {})
+      : Operator<T, V>(id) {
+    if (numPorts < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
+
     int eagerInputs = 0;
-    for (int i = 1; i <= numPorts_; i++) {
+    for (int i = 1; i <= numPorts; i++) {
       string inputPort = string("i") + to_string(i);
       string outputPort = string("o") + to_string(i);
-      if (_policies.count(inputPort) > 0) {
-        if (_policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, _policies.find(inputPort)->second);
+      if (policies.count(inputPort) > 0) {
+        if (policies.find(inputPort)->second.isEager()) eagerInputs++;
+        this->addInput(inputPort, 0, policies.find(inputPort)->second);
       } else
         this->addInput(inputPort, 0, {});
       this->addOutput(outputPort);
     }
-    if (eagerInputs == numPorts_)
+    if (eagerInputs == numPorts)
       throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
   virtual ~Join() = default;

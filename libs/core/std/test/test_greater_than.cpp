@@ -6,7 +6,6 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Greater Than") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   auto gt = GreaterThan<std::uint64_t, double>("gt", 0.4);
 
   SECTION("only one emission") {

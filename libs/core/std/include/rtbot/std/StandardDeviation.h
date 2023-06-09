@@ -13,8 +13,8 @@ template <class T, class V>
 struct StandardDeviation : public Operator<T, V> {
   StandardDeviation() = default;
 
-  StandardDeviation(string const &id_, size_t n_) : Operator<T, V>(id_) {
-    this->addInput("i1", n_);
+  StandardDeviation(string const &id, size_t n) : Operator<T, V>(id) {
+    this->addInput("i1", n);
     this->addOutput("o1");
   }
 

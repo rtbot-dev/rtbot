@@ -7,7 +7,6 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Less Than") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   auto lt = LessThan<std::uint64_t, double>("lt", 0.4);
 
   SECTION("only one emission") {

@@ -46,18 +46,16 @@ class Operator {
     bool eager;
 
    public:
-    InputPolicy(bool _eager = false) { this->eager = _eager; }
+    InputPolicy(bool eager = false) { this->eager = eager; }
     bool isEager() const { return this->eager; }
   };
 
   struct Input {
-    string id;
-
-    Input(string _id, size_t _max = 0, InputPolicy _policy = {}) {
-      id = _id;
-      max = (_max <= 0) ? numeric_limits<size_t>::max() : _max;
-      policy = _policy;
-      sum = 0;
+    Input(string id, size_t max = 0, InputPolicy policy = {}) {
+      this->id = id;
+      this->max = (max <= 0) ? numeric_limits<size_t>::max() : max;
+      this->policy = policy;
+      this->sum = 0;
     }
     bool isEager() const { return policy.isEager(); }
     Message<T, V> front() { return data.front(); }
@@ -73,6 +71,7 @@ class Operator {
     InputPolicy getPolicy() const { return policy; }
 
    private:
+    string id;
     deque<Message<T, V>> data;
     size_t max;
     InputPolicy policy;
@@ -85,7 +84,7 @@ class Operator {
   map<string, vector<Connection>> outputs;
 
   Operator() = default;
-  explicit Operator(string const& id_) : id(id_) {}
+  explicit Operator(string const& id) { this->id = id; }
   virtual ~Operator() = default;
 
   virtual string typeName() const = 0;

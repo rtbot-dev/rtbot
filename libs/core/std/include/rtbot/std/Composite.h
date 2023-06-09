@@ -13,8 +13,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
   Composite() = default;
 
   vector<Op_ptr<T, V>> op;
-  Composite(string const &id_, vector<Op_ptr<T, V>> &&op_) : Operator<T, V>(id_), op(std::move(op_)) {
-    for (auto i = 0u; i + 1 < op.size(); i++) op[i]->connect(op[i + 1].get());
+  Composite(string const &id, vector<Op_ptr<T, V>> &&op) : Operator<T, V>(id) {
+    this->op = std::move(op);
+    for (auto i = 0u; i + 1 < this->op.size(); i++) this->op[i]->connect(this->op[i + 1].get());
   }
 
   string typeName() const override { return "Composite"; }

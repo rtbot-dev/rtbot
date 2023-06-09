@@ -23,8 +23,8 @@ std::ostream& operator<<(std::ostream& out, Message<T, V> const& msg) {
 template <class T, class V>
 struct Output_vec : public Operator<T, V> {
   Output_vec() = default;
-  Output_vec(string const& id_, size_t n_) : Operator<T, V>(id_) {
-    this->addInput("i1", n_);
+  Output_vec(string const& id, size_t n) : Operator<T, V>(id) {
+    this->addInput("i1", n);
     this->addOutput("o1");
   }
 
@@ -41,7 +41,7 @@ struct Output_opt : public Operator<T, V> {
   std::optional<Message<T, V>>* out = nullptr;
 
   Output_opt() = default;
-  Output_opt(string const& id_) : Operator<T, V>(id_) {
+  Output_opt(string const& id) : Operator<T, V>(id) {
     this->addInput("i1", 1);
     this->addOutput("o1");
   }
@@ -60,7 +60,8 @@ struct Output_os : public Operator<T, V> {
   std::ostream* out = nullptr;
 
   Output_os() = default;
-  Output_os(string const& id_, std::ostream& out_) : Operator<T, V>(id_), out(&out_) {
+  Output_os(string const& id, std::ostream& out) : Operator<T, V>(id) {
+    this->out = &out;
     this->addInput("i1", 1);
     this->addOutput("o1");
   }

@@ -1,11 +1,6 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include <cmath>
-#include <cstdint>
-#include <iostream>
-#include <vector>
-
 #include "rtbot/Operator.h"
 
 namespace rtbot {
@@ -16,7 +11,7 @@ struct Input : public Operator<T, V> {
 
   Input() = default;
 
-  Input(string const &id_) : Operator<T, V>(id_) {
+  Input(string const &id) : Operator<T, V>(id) {
     this->addInput("i1", Input<T, V>::size);
     this->addOutput("o1");
   }

@@ -6,7 +6,6 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Count") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   auto c = Count<std::uint64_t, double>("c");
 
   SECTION("emits count") {

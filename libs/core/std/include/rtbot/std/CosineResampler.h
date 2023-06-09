@@ -17,7 +17,9 @@ struct CosineResampler : public Operator<T, V> {
 
   CosineResampler() = default;
 
-  CosineResampler(string const &id_, unsigned int dt_) : Operator<T, V>(id_), dt(dt_), carryOver(0) {
+  CosineResampler(string const &id, T dt) : Operator<T, V>(id) {
+    this->dt = dt;
+    this->carryOver = 0;
     this->addInput("i1", CosineResampler::size);
     this->addOutput("o1");
   }

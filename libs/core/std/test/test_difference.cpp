@@ -6,7 +6,6 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Difference") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
   auto diff = Difference<std::uint64_t, double>("diff");
 
   SECTION("emits difference") {

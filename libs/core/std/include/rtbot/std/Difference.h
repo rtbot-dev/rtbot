@@ -13,7 +13,7 @@ struct Difference : public Operator<T, V> {
 
   Difference() = default;
 
-  Difference(string const &id_) : Operator<T, V>(id_) {
+  Difference(string const &id) : Operator<T, V>(id) {
     this->addInput("i1", Difference<T, V>::size);
     this->addOutput("o1");
   }

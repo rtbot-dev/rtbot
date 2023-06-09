@@ -1,8 +1,6 @@
 #ifndef COUNT_H
 #define COUNT_H
 
-#include <cstdint>
-
 #include "rtbot/Operator.h"
 
 namespace rtbot {

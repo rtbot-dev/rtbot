@@ -11,8 +11,9 @@ struct AutoRegressive : public Operator<T, V> {
 
   AutoRegressive() = default;
 
-  AutoRegressive(string const& id_, vector<V> const& coeff_) : Operator<T, V>(id_), coeff(coeff_) {
-    this->addInput("i1", coeff_.size());
+  AutoRegressive(string const& id, vector<V> const& coeff) : Operator<T, V>(id) {
+    this->coeff = coeff;
+    this->addInput("i1", this->coeff.size());
     this->addOutput("o1");
   }
 

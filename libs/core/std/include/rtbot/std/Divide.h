@@ -11,15 +11,14 @@ namespace rtbot {
 template <class T, class V>
 struct Divide : public Join<T, V> {
   Divide() = default;
-  Divide(string const &id_, map<string, typename Operator<T, V>::InputPolicy> _policies = {}) {
-    this->id = id_;
+  Divide(string const &id, map<string, typename Operator<T, V>::InputPolicy> policies = {}) : Join<T, V>(id) {
     int eagerInputs = 0;
     int numPorts = 2;
     for (int i = 1; i <= numPorts; i++) {
       string inputPort = string("i") + to_string(i);
-      if (_policies.count(inputPort) > 0) {
-        if (_policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, _policies.find(inputPort)->second);
+      if (policies.count(inputPort) > 0) {
+        if (policies.find(inputPort)->second.isEager()) eagerInputs++;
+        this->addInput(inputPort, 0, policies.find(inputPort)->second);
       } else
         this->addInput(inputPort, 0, {});
     }

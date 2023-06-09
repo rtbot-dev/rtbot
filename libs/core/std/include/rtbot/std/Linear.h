@@ -13,21 +13,21 @@ struct Linear : public Join<T, V> {
   vector<V> coeff;
 
   Linear() = default;
-  Linear(string const& id_, vector<V> const& coeff_, map<string, typename Operator<T, V>::InputPolicy> _policies = {})
-      : coeff(coeff_) {
+  Linear(string const& id, vector<V> const& coeff, map<string, typename Operator<T, V>::InputPolicy> policies = {})
+      : Join<T, V>(id) {
     if (coeff.size() < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-    this->id = id_;
+    this->coeff = coeff;
     int eagerInputs = 0;
-    for (size_t i = 1; i <= coeff.size(); i++) {
+    for (size_t i = 1; i <= this->coeff.size(); i++) {
       string inputPort = string("i") + to_string(i);
-      if (_policies.count(inputPort) > 0) {
-        if (_policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, _policies.find(inputPort)->second);
+      if (policies.count(inputPort) > 0) {
+        if (policies.find(inputPort)->second.isEager()) eagerInputs++;
+        this->addInput(inputPort, 0, policies.find(inputPort)->second);
       } else
         this->addInput(inputPort, 0, {});
     }
     this->addOutput("o1");
-    if (eagerInputs == coeff.size())
+    if (eagerInputs == this->coeff.size())
       throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
