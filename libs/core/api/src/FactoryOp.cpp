@@ -25,6 +25,7 @@
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
 
@@ -437,6 +438,24 @@ void to_json(json& j, const Scale<T, V>& p) {
 template <class T, class V>
 void from_json(const json& j, Scale<T, V>& p) {
   p = Scale<T, V>(j["id"].get<string>(), j["f"].get<V>());
+}
+
+/*
+{
+    "type": "Power",
+    "id": "p",
+    "p": 2
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Power<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"p", p.getPower()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Power<T, V>& p) {
+  p = Power<T, V>(j["id"].get<string>(), j["p"].get<V>());
 }
 
 /*
