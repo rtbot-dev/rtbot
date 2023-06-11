@@ -20,6 +20,7 @@
 #include "rtbot/std/EqualTo.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
+#include "rtbot/std/Identity.h"
 #include "rtbot/std/LessThan.h"
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/Minus.h"
@@ -477,6 +478,24 @@ void from_json(const json& j, Delta<T, V>& p) {
 
 /*
 {
+    "type": "Identity",
+    "id": "id1",
+    "d": 0
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Identity<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"d", p.getDelay()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Identity<T, V>& p) {
+  p = Identity<T, V>(j["id"].get<string>(), j.value("d", 0));
+}
+
+/*
+{
     "type": "RelativeStrengthIndex",
     "id": "rsi"
     "n": 200
@@ -533,6 +552,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Add<std::uint64_t, double>, json>();
   op_registry_add<Delta<std::uint64_t, double>, json>();
   op_registry_add<Power<std::uint64_t, double>, json>();
+  op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
 
   json j;

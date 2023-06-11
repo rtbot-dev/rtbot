@@ -1,5 +1,5 @@
-#ifndef DIFFERENCE_H
-#define DIFFERENCE_H
+#ifndef DELTA_H
+#define DELTA_H
 
 #include <vector>
 
@@ -32,4 +32,4 @@ struct Delta : public Operator<T, V> {
 
 }  // namespace rtbot
 
-#endif  // DIFFERENCE_H
+#endif  // DELTA_H

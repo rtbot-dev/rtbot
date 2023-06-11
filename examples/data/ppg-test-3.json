@@ -15,6 +15,10 @@
             "type": "Input"
         },
         {
+            "id": "id1",
+            "type": "Identity"
+        },
+        {
             "id": "join",
             "type": "Join",
             "numPorts": 2,
@@ -46,12 +50,18 @@
     "connections": [
         {
             "from": "in1",
+            "to": "id1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "id1",
             "to": "join",
             "fromPort": "o1",
             "toPort": "i1"
         },
         {
-            "from": "in1",
+            "from": "id1",
             "to": "join",
             "fromPort": "o1",
             "toPort": "i2"
