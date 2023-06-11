@@ -8,17 +8,17 @@
 namespace rtbot {
 
 template <class T, class V>
-struct Difference : public Operator<T, V> {
+struct Delta : public Operator<T, V> {
   static const int size = 2;
 
-  Difference() = default;
+  Delta() = default;
 
-  Difference(string const &id) : Operator<T, V>(id) {
-    this->addInput("i1", Difference<T, V>::size);
+  Delta(string const &id) : Operator<T, V>(id) {
+    this->addInput("i1", Delta<T, V>::size);
     this->addOutput("o1");
   }
 
-  string typeName() const override { return "Difference"; }
+  string typeName() const override { return "Delta"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> m1 = this->getMessage(inputPort, 1);
