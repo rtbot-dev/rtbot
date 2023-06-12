@@ -1,5 +1,5 @@
-#ifndef DELTA_H
-#define DELTA_H
+#ifndef DIFFERENCE_H
+#define DIFFERENCE_H
 
 #include <vector>
 
@@ -8,13 +8,11 @@
 namespace rtbot {
 
 template <class T, class V>
-struct Delta : public Operator<T, V> {
-  static const int size = 2;
+struct Difference : public Operator<T, V> {
+  Difference() = default;
 
-  Delta() = default;
-
-  Delta(string const &id) : Operator<T, V>(id) {
-    this->addInput("i1", Delta<T, V>::size);
+  Difference(string const &id) : Operator<T, V>(id) {
+    this->addInput("i1", Difference<T, V>::size);
     this->addOutput("o1");
   }
 
@@ -28,8 +26,11 @@ struct Delta : public Operator<T, V> {
     out.time = m1.time;
     return this->emit(out);
   }
+
+ private:
+  static const int size = 2;
 };
 
 }  // namespace rtbot
 
-#endif  // DELTA_H
+#endif  // DIFFERENCE_H

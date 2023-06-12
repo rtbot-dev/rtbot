@@ -6,7 +6,7 @@
 namespace rtbot {
 
 /**
- * @brief The Difference class as example of application of Join
+ * @brief The Linear class as example of application of Join
  */
 template <class T, class V>
 struct Linear : public Join<T, V> {

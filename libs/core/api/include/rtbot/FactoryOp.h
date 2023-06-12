@@ -43,7 +43,6 @@ class FactoryOp {
       string type = op.typeName();
       auto obj = Format();
       obj["type"] = type;
-      obj["id"] = type + "1";
       return obj.dump();
     };
 

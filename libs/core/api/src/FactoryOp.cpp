@@ -15,7 +15,7 @@
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
-#include "rtbot/std/Delta.h"
+#include "rtbot/std/Difference.h"
 #include "rtbot/std/Divide.h"
 #include "rtbot/std/EqualTo.h"
 #include "rtbot/std/GreaterThan.h"
@@ -461,19 +461,19 @@ void from_json(const json& j, Power<T, V>& p) {
 
 /*
 {
-    "type": "Delta",
-    "id": "delta"
+    "type": "Difference",
+    "id": "diff"
 }
 */
 
 template <class T, class V>
-void to_json(json& j, const Delta<T, V>& p) {
+void to_json(json& j, const Difference<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Delta<T, V>& p) {
-  p = Delta<T, V>(j["id"].get<string>());
+void from_json(const json& j, Difference<T, V>& p) {
+  p = Difference<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -550,7 +550,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Accumulator<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<Add<std::uint64_t, double>, json>();
-  op_registry_add<Delta<std::uint64_t, double>, json>();
+  op_registry_add<Difference<std::uint64_t, double>, json>();
   op_registry_add<Power<std::uint64_t, double>, json>();
   op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
