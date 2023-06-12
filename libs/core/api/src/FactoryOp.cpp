@@ -270,7 +270,7 @@ void from_json(const json& j, Divide<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.coeff}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
   addPoliciesToJson<T, V>(j, p.getPolicies());
 }
 

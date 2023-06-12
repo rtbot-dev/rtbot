@@ -65,6 +65,7 @@ class Operator {
     size_t size() const { return data.size(); }
     void push_back(Message<T, V> msg) { data.push_back(msg); }
     void pop_front() { data.pop_front(); }
+    void pop_back() { data.pop_back(); }
     V getSum() { return sum; }
     void setSum(V value) { sum = value; }
     size_t getMaxSize() const { return max; }

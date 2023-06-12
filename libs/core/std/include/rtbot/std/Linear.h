@@ -10,8 +10,6 @@ namespace rtbot {
  */
 template <class T, class V>
 struct Linear : public Join<T, V> {
-  vector<V> coeff;
-
   Linear() = default;
   Linear(string const& id, vector<V> const& coeff, map<string, typename Operator<T, V>::InputPolicy> policies = {})
       : Join<T, V>(id) {
@@ -51,6 +49,11 @@ struct Linear : public Join<T, V> {
     toEmit.emplace("o1", v);
     return toEmit;
   }
+
+  vector<V> getCoefficients() const { return this->coeff; }
+
+ private:
+  vector<V> coeff;
 };
 
 }  // namespace rtbot
