@@ -17,6 +17,7 @@
 %% The amssymb package provides various useful mathematical symbols
 \usepackage{amssymb}
 \usepackage{tikz}
+\usepackage{circuitikz} 
 \usepackage{pgfplots}
 %% The amsthm package provides extended theorem environments
 %% \usepackage{amsthm}
@@ -107,10 +108,12 @@ digital signal processing \sep open source \sep event detection
 \section{Introduction}
 \label{}
 RtBot is a general purpose digital signal processing framework focused on early event detection. 
+It features a new paradigm for signal processing inspired in digital circuits, focusing the timeseries
+analysis in the time domain.
 It’s written in c++ and has been built with performance in mind.
 
 Wrapper libraries exist for python, javascript (using wasm) and rust, and in the future we plan 
-to support java and swift languages as well. In this sense RtBot can be easily adapted in any 
+to support java and swift languages as well. In this sense \emph{RtBot} can be easily adapted in any 
 existing codebase, as it already provides interfaces to the most popular existing computer 
 languages or new ones can be built for those missing languages using their native interface 
 with c++. RtBot programs are very fast and have a low footprint, being able to run even in 
@@ -414,6 +417,29 @@ a message in any of the ports with time $t$ and there exists \textit{at least on
 time. In such a scenario, all these messages with same timestamp are popped out from the internal queue, and emitted 
 in a burst of messages. The queue also remove all the old messages that there is no chance that can be emitted
 because they are too old, keeping the process memory efficient. A visual example can be seen in figure \ref{fig:join operator action}.
+
+\subsubsection{Multiplexer and demultiplexer}
+A common task that pops up while creating RtBot programs is to route a message stream through one subset of
+operators or another.
+This can be achieved easily with the help of the multiplexer and demultiplexer operators,
+which are inspired by their equivalent in digital circuits. With these you can design state machines, where
+the state is represented by which current output for the demultiplexer, or input for the multiplexer, is active.
+
+The multiplexer has two types of inputs: the set of streams to route through the single output and the inputs
+that select which stream to route.
+
+The demultiplexer has two types of inputs as well, the single input signal and the select inputs that choose
+in this case over which output the incoming signal will go through.
+
+Any message sent to the select inputs will cause the incoming traffic to be routed to the correspondent input/output
+in the next iteration cycle.
+
+\begin{figure}[h]
+  \begin{circuitikz}[]
+        \tikzset{demux/.style={muxdemux, muxdemux def={Lh=4, Rh=8, NL=1, NB=3, NR=3}}}
+    \draw (0,0) node[demux]{};
+  \end{circuitikz}
+\end{figure}
 
 \section{Use cases}
 \subsection{Network traffic monitoring and statistics}

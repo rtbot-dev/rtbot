@@ -7,6 +7,7 @@ CMakeFiles
 DartConfiguration.tcl
 CMakeCache.txt
 
+venv/
 **/*/Makefile
 Makefile
 **/*/librtbot.a
