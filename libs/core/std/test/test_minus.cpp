@@ -6,8 +6,8 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Minus joint") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
-  auto minus = Minus<std::uint64_t, double>("minus");
+  map<string, vector<Message<uint64_t, double>>> emitted;
+  auto minus = Minus<uint64_t, double>("minus");
 
   minus.receive(Message<uint64_t, double>(1, 1), "i1");
   minus.receive(Message<uint64_t, double>(2, 2), "i1");
@@ -28,8 +28,8 @@ TEST_CASE("Minus joint") {
 }
 
 TEST_CASE("Minus joint i1 eager") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
-  auto minus = Minus<std::uint64_t, double>("minus", {{"i1", Operator<uint64_t, double>::InputPolicy(true)}});
+  map<string, vector<Message<uint64_t, double>>> emitted;
+  auto minus = Minus<uint64_t, double>("minus", {{"i1", Operator<uint64_t, double>::InputPolicy(true)}});
 
   minus.receive(Message<uint64_t, double>(1, 1), "i1");
   minus.receive(Message<uint64_t, double>(2, 2), "i1");

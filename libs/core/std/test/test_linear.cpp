@@ -6,8 +6,8 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Linear joint no eager") {
-  map<string, vector<Message<std::uint64_t, double>>> emitted;
-  auto linear = Linear<std::uint64_t, double>("linear", {2, -1});
+  map<string, vector<Message<uint64_t, double>>> emitted;
+  auto linear = Linear<uint64_t, double>("linear", {2, -1});
 
   linear.receive(Message<uint64_t, double>(1, 1), "i1");
   linear.receive(Message<uint64_t, double>(2, 2), "i1");
@@ -28,7 +28,7 @@ TEST_CASE("Linear joint no eager") {
 }
 
 TEST_CASE("Linear joint i2 eager") {
-  map<string, vector<Message<std::uint64_t, double>>> emitted;
+  map<string, vector<Message<uint64_t, double>>> emitted;
   auto linear = Linear<uint64_t, double>("linear", {2, -1}, {{"i2", Operator<uint64_t, double>::InputPolicy(true)}});
 
   linear.receive(Message<uint64_t, double>(1, 1), "i1");

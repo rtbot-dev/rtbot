@@ -9,12 +9,12 @@
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
-#include "rtbot/std/Accumulator.h"
 #include "rtbot/std/Add.h"
 #include "rtbot/std/Autoregressive.h"
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
+#include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Difference.h"
 #include "rtbot/std/Divide.h"
 #include "rtbot/std/EqualTo.h"
@@ -391,19 +391,19 @@ void from_json(const json& j, EqualTo<T, V>& p) {
 
 /*
 {
-    "type": "Accumulator",
-    "id": "ac"
+    "type": "CumulativeSum",
+    "id": "cu"
 }
 */
 
 template <class T, class V>
-void to_json(json& j, const Accumulator<T, V>& p) {
+void to_json(json& j, const CumulativeSum<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Accumulator<T, V>& p) {
-  p = Accumulator<T, V>(j["id"].get<string>());
+void from_json(const json& j, CumulativeSum<T, V>& p) {
+  p = CumulativeSum<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -547,7 +547,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<EqualTo<std::uint64_t, double>, json>();
   op_registry_add<Scale<std::uint64_t, double>, json>();
   op_registry_add<Constant<std::uint64_t, double>, json>();
-  op_registry_add<Accumulator<std::uint64_t, double>, json>();
+  op_registry_add<CumulativeSum<std::uint64_t, double>, json>();
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<Add<std::uint64_t, double>, json>();
   op_registry_add<Difference<std::uint64_t, double>, json>();
