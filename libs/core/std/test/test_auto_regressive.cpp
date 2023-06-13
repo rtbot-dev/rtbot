@@ -1,7 +1,6 @@
 #include <math.h>
 
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/std/Autoregressive.h"
 

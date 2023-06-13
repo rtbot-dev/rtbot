@@ -1,29 +1,21 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/std/Difference.h"
 
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Difference join") {
-  map<string, std::vector<Message<std::uint64_t, double>>> emitted;
-  auto diff = Difference<std::uint64_t, double>("diff");
+TEST_CASE("Difference") {
+  auto diff = Difference<uint64_t, double>("diff");
 
-  diff.receive(Message<uint64_t, double>(1, 1), "i1");
-  diff.receive(Message<uint64_t, double>(2, 2), "i1");
-  diff.receive(Message<uint64_t, double>(3, 3), "i1");
-  diff.receive(Message<uint64_t, double>(4, 4), "i1");
-
-  emitted = diff.receive(Message<uint64_t, double>(2, 3), "i2");
-
-  REQUIRE(emitted.find("diff")->second.at(0).value == -1);
-
-  emitted = diff.receive(Message<uint64_t, double>(4, 4), "i2");
-
-  REQUIRE(emitted.find("diff")->second.at(0).value == 0);
-
-  emitted = diff.receive(Message<uint64_t, double>(5, 5), "i1");
-
-  REQUIRE(emitted.empty());
+  SECTION("emits difference") {
+    map<string, vector<Message<uint64_t, double>>> emitted;
+    for (int i = 1; i <= 50; i++) {
+      emitted = diff.receive(Message<uint64_t, double>(i, i));
+      if (i >= 2) {
+        REQUIRE(emitted.find("diff")->second.at(0).value == -1);
+        REQUIRE(emitted.find("diff")->second.at(0).time == i);
+      }
+    }
+  }
 }

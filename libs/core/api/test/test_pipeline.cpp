@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <fstream>
+#include <iostream>
 #include <nlohmann/json.hpp>
 
 #include "rtbot/FactoryOp.h"
@@ -68,5 +69,38 @@ TEST_CASE("read  pipeline test data basic data") {
         REQUIRE(output["out2"].size() == 0);
       }
     }
+  }
+}
+
+TEST_CASE("read  pipeline test join eager port") {
+  nlohmann::json json;
+  {
+    ifstream in("examples/data/ppg-test-3.json");
+    if (!in) throw runtime_error("file not found");
+    in >> json;
+  }
+
+  SECTION("using the pipeline") {
+    auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+
+    REQUIRE(pipe.all_op.find("join")->second->isEager("i1"));
+    REQUIRE(!pipe.all_op.find("join")->second->isEager("i2"));
+
+    // process the data
+    for (int i = 1; i < 100; i++) {
+      auto output = pipe.receiveDebug(Message<std::uint64_t, double>(i, i % 5));
+
+      if (i >= 2) {
+        REQUIRE(output["out1"].size() == 1);
+        REQUIRE(output["out1"].at(0).time == i - 1);
+        REQUIRE(output["out1"].at(0).value == 2 * ((i - 1) % 5));
+
+        REQUIRE(output["out2"].size() == 1);
+        REQUIRE(output["out2"].at(0).time == i - 1);
+        REQUIRE(output["out2"].at(0).value == 3 * ((i - 1) % 5));
+      }
+    }
+
+    cout << pipe.getProgram() << endl;
   }
 }

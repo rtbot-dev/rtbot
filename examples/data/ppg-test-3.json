@@ -1,0 +1,94 @@
+{
+    "title": "Join eager Input test",
+    "description": "This is a program test the join operator with an eager input",
+    "date": "now",
+    "version": "v1",
+    "author": "Eduardo",
+    "license": "MIT",
+    "entryNode": "ma1",
+    "optim": {
+        "algorithm": "Nelder-Mead"
+    },
+    "operators": [
+        {
+            "id": "in1",
+            "type": "Input"
+        },
+        {
+            "id": "id1",
+            "type": "Identity"
+        },
+        {
+            "id": "join",
+            "type": "Join",
+            "numPorts": 2,
+            "policies": {
+                "i1": {
+                    "eager": true
+                }
+            }
+        },
+        {
+            "id": "sc1",
+            "type": "Scale",
+            "f": 2
+        },
+        {
+            "id": "sc2",
+            "type": "Scale",
+            "f": 3
+        },
+        {
+            "id": "out1",
+            "type": "Output"
+        },
+        {
+            "id": "out2",
+            "type": "Output"
+        }
+    ],
+    "connections": [
+        {
+            "from": "in1",
+            "to": "id1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "id1",
+            "to": "join",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "id1",
+            "to": "join",
+            "fromPort": "o1",
+            "toPort": "i2"
+        },
+        {
+            "from": "join",
+            "to": "sc1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "join",
+            "to": "sc2",
+            "fromPort": "o2",
+            "toPort": "i1"
+        },
+        {
+            "from": "sc1",
+            "to": "out1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "sc2",
+            "to": "out2",
+            "fromPort": "o1",
+            "toPort": "i1"
+        }
+    ]
+}

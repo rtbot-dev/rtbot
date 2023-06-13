@@ -1,35 +1,32 @@
 #ifndef DIFFERENCE_H
 #define DIFFERENCE_H
 
-#include "rtbot/Join.h"
+#include "rtbot/Operator.h"
 
 namespace rtbot {
 
-/**
- * @brief The Difference class as example of application of Join
- */
 template <class T, class V>
-struct Difference : public Join<T, V> {
+struct Difference : public Operator<T, V> {
   Difference() = default;
-  Difference(string const &id_) {
-    this->id = id_;
-    this->addInput("i1");
-    this->addInput("i2");
+
+  Difference(string const &id) : Operator<T, V>(id) {
+    this->addInput("i1", Difference<T, V>::size);
     this->addOutput("o1");
   }
 
   string typeName() const override { return "Difference"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> m1 = this->getMessage("i2", 0);
-    Message<T, V> m0 = this->getMessage("i1", 0);
-    Message<T, V> out(m0.time, m0.value - m1.value);
-    map<string, std::vector<Message<T, V>>> toEmit;
-    vector<Message<T, V>> v;
-    v.push_back(out);
-    toEmit.emplace("o1", v);
-    return toEmit;
+    Message<T, V> m1 = this->getMessage(inputPort, 1);
+    Message<T, V> m0 = this->getMessage(inputPort, 0);
+    Message<T, V> out;
+    out.value = m0.value - m1.value;
+    out.time = m1.time;
+    return this->emit(out);
   }
+
+ private:
+  static const int size = 2;
 };
 
 }  // namespace rtbot

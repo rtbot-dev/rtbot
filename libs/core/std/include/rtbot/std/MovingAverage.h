@@ -11,8 +11,8 @@ template <class T, class V>
 struct MovingAverage : public Operator<T, V> {
   MovingAverage() = default;
 
-  MovingAverage(string const& id_, size_t n_) : Operator<T, V>(id_) {
-    this->addInput("i1", n_);
+  MovingAverage(string const& id, size_t n) : Operator<T, V>(id) {
+    this->addInput("i1", n);
     this->addOutput("o1");
   }
 

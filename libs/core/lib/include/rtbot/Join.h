@@ -1,9 +1,6 @@
 #ifndef JOIN_H
 #define JOIN_H
 
-#include <queue>
-#include <unordered_map>
-
 #include "Operator.h"
 
 namespace rtbot {
@@ -23,21 +20,26 @@ namespace rtbot {
  */
 template <class T, class V>
 class Join : public Operator<T, V> {
- private:
-  map<string, string> fromTo;
-
  public:
   Join() = default;
-  Join(string const &id_, size_t numPorts_) : Operator<T, V>(id_) {
-    if (numPorts_ < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
+  Join(string const &id) : Operator<T, V>(id) {}
+  Join(string const &id, size_t numPorts, map<string, typename Operator<T, V>::InputPolicy> policies = {})
+      : Operator<T, V>(id) {
+    if (numPorts < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
 
-    for (int i = 1; i <= numPorts_; i++) {
+    int eagerInputs = 0;
+    for (int i = 1; i <= numPorts; i++) {
       string inputPort = string("i") + to_string(i);
       string outputPort = string("o") + to_string(i);
-      this->addInput(inputPort);
+      if (policies.count(inputPort) > 0) {
+        if (policies.find(inputPort)->second.isEager()) eagerInputs++;
+        this->addInput(inputPort, 0, policies.find(inputPort)->second);
+      } else
+        this->addInput(inputPort, 0, {});
       this->addOutput(outputPort);
-      fromTo.emplace(inputPort, outputPort);
     }
+    if (eagerInputs == numPorts)
+      throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
   virtual ~Join() = default;
 
@@ -48,38 +50,50 @@ class Join : public Operator<T, V> {
       throw std::runtime_error(typeName() + " : inputPort have to be specified");
     }
 
-    if (this->inputs.count(inputPort) > 0)
+    if (this->inputs.count(inputPort) > 0) {
+      if (this->inputs.find(inputPort)->second.isEager() && !this->inputs.find(inputPort)->second.empty()) {
+        this->inputs.find(inputPort)->second.pop_front();
+      }
       this->inputs.find(inputPort)->second.push_back(msg);
-    else
+    } else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      if (it->first == inputPort) continue;
-      while (!it->second.empty() && it->second.front().time < msg.time) it->second.pop_front();
+      if (it->first == inputPort || it->second.isEager()) continue;
+      while (!it->second.empty() &&
+             (it->second.front().time < msg.time && !this->inputs.find(inputPort)->second.isEager()))
+        it->second.pop_front();
     }
 
     bool all_ready = true;
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-      if (it->second.empty() || it->second.front().time > msg.time) all_ready = false;
+      if (it->second.empty() || (it->second.front().time > msg.time && !it->second.isEager() &&
+                                 !this->inputs.find(inputPort)->second.isEager()))
+        all_ready = false;
     }
 
     if (all_ready) {
       auto toEmit = processData(inputPort);
       for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
-        this->inputs.find(it->first)->second.pop_front();
+        if (!it->second.isEager()) it->second.pop_front();
       }
       return this->emit(toEmit);
     }
     return {};
   }
 
+  /*
+    map<outputPort, vector<Message<T, V>>>
+  */
   virtual map<string, vector<Message<T, V>>> processData(string inputPort) {
     map<string, vector<Message<T, V>>> outputMsgs;
 
+    int i = 1;
     for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
       vector<Message<T, V>> v;
       v.push_back(this->inputs.find(it->first)->second.front());
-      outputMsgs.emplace(fromTo.find(it->first)->second, v);
+      outputMsgs.emplace(string("o") + to_string(i), v);
+      i++;
     }
 
     return outputMsgs;

@@ -14,12 +14,13 @@ struct HermiteResampler : public Operator<T, V> {
   static const size_t size = 4;
 
   T dt;
-
   T carryOver;
 
   HermiteResampler() = default;
 
-  HermiteResampler(string const& id_, T dt_) : Operator<T, V>(id_), dt(dt_), carryOver(0) {
+  HermiteResampler(string const& id, T dt) : Operator<T, V>(id) {
+    this->dt = dt;
+    this->carryOver = 0;
     this->addInput("i1", HermiteResampler::size);
     this->addOutput("o1");
   }

@@ -1,9 +1,6 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#include <cstdint>
-#include <vector>
-
 namespace rtbot {
 
 template <class T, class V>
@@ -12,7 +9,10 @@ struct Message {
   V value;
 
   Message() = default;
-  Message(T time_, V value_) : time(time_), value(value_) {}
+  Message(T time, V value) {
+    this->time = time;
+    this->value = value;
+  }
 };
 
 template <class T, class V>

@@ -12,7 +12,8 @@ struct FilterByValue : public Operator<T, V> {
   std::function<bool(V)> filter;
 
   FilterByValue() = default;
-  FilterByValue(string const& id_, std::function<bool(V)> filter_) : Operator<T, V>(id_), filter(filter_) {
+  FilterByValue(string const& id, std::function<bool(V)> filter) : Operator<T, V>(id) {
+    this->filter = filter;
     this->addInput("i1", 1);
     this->addOutput("o1");
   }

@@ -1,5 +1,4 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"

@@ -10,13 +10,13 @@ namespace rtbot {
 
 template <class T, class V>
 struct ARMA : public Composite<T, V> {
-  ARMA(string const& id_, vector<V> const& ar_, vector<V> const& ma_)
-      : Composite<T, V>(id_, {std::make_unique<MovingAverage<T, V>>(id_ + "_ma", ma_),
-                              std::make_unique<AutoRegressive<T, V>>(id_ + "_ar", ar_)}) {}
+  ARMA(string const& id, vector<V> const& ar, vector<V> const& ma)
+      : Composite<T, V>(id, {std::make_unique<MovingAverage<T, V>>(id + "_ma", ma),
+                             std::make_unique<AutoRegressive<T, V>>(id + "_ar", ar)}) {}
 
-  ARMA(string const& id_, vector<V> const& ar_, int n_ma)
-      : Composite<T, V>(id_, {std::make_unique<MovingAverage<T, V>>(id_ + "_ma", n_ma),
-                              std::make_unique<AutoRegressive<T, V>>(id_ + "_ar", ar_)}) {}
+  ARMA(string const& id, vector<V> const& ar, int n_ma)
+      : Composite<T, V>(id, {std::make_unique<MovingAverage<T, V>>(id + "_ma", n_ma),
+                             std::make_unique<AutoRegressive<T, V>>(id + "_ar", ar)}) {}
 };
 
 }  // namespace rtbot

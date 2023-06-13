@@ -1,5 +1,4 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/HermiteResampler.h"

@@ -10,8 +10,8 @@ namespace rtbot {
 struct OpConnection {
   string from;
   string to;
-  string toPort;
-  string fromPort;
+  string toPort = "";
+  string fromPort = "";
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OpConnection, from, to, toPort, fromPort);
@@ -38,6 +38,14 @@ Pipeline::Pipeline(const std::string& json_string) {
       throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + "from output port " + x.fromPort +
                                " to input port " + x.toPort);
   }
+}
+
+std::string Pipeline::getProgram() {
+  std::string out = "";
+  for (auto it = this->all_op.begin(); it != this->all_op.end(); ++it) {
+    out = out + (!out.empty() ? "," : "") + FactoryOp::writeOp(it->second);
+  }
+  return "[" + out + "]";
 }
 
 }  // namespace rtbot
