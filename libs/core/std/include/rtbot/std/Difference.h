@@ -1,8 +1,6 @@
 #ifndef DIFFERENCE_H
 #define DIFFERENCE_H
 
-#include <vector>
-
 #include "rtbot/Operator.h"
 
 namespace rtbot {
