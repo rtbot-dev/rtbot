@@ -16,7 +16,7 @@ struct Difference : public Operator<T, V> {
     this->addOutput("o1");
   }
 
-  string typeName() const override { return "Delta"; }
+  string typeName() const override { return "Difference"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> m1 = this->getMessage(inputPort, 1);
