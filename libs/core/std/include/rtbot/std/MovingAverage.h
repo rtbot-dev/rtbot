@@ -12,7 +12,7 @@ struct MovingAverage : public Operator<T, V> {
   MovingAverage() = default;
 
   MovingAverage(string const& id, size_t n) : Operator<T, V>(id) {
-    this->addInput("i1", n);
+    this->addDataInput("i1", n);
     this->addOutput("o1");
   }
 
@@ -22,8 +22,8 @@ struct MovingAverage : public Operator<T, V> {
     vector<Message<T, V>> toEmit;
     Message<T, V> out;
 
-    out.time = this->getLastMessage(inputPort).time;
-    out.value = this->getSum(inputPort) / this->getSize(inputPort);
+    out.time = this->getDataInputLastMessage(inputPort).time;
+    out.value = this->getDataInputSum(inputPort) / this->getDataInputSize(inputPort);
 
     toEmit.push_back(out);
     return this->emit(toEmit);

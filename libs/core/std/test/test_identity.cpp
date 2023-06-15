@@ -12,7 +12,7 @@ TEST_CASE("Identity") {
   SECTION("emits Identity no delay") {
     map<string, vector<Message<uint64_t, double>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = id.receive(Message<uint64_t, double>(i, i));
+      emitted = id.receiveData(Message<uint64_t, double>(i, i));
       REQUIRE(emitted.find("id")->second.at(0).value == i);
       REQUIRE(emitted.find("id")->second.at(0).time == i);
     }
@@ -21,7 +21,7 @@ TEST_CASE("Identity") {
   SECTION("emits Identity delayed 1") {
     map<string, vector<Message<uint64_t, double>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = idDelayed.receive(Message<uint64_t, double>(i, i));
+      emitted = idDelayed.receiveData(Message<uint64_t, double>(i, i));
       if (i == 1)
         REQUIRE(emitted.empty());
       else {

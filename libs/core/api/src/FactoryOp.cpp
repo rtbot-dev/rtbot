@@ -117,7 +117,7 @@ void from_json(const json& j, HermiteResampler<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const StandardDeviation<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -135,7 +135,7 @@ void from_json(const json& j, StandardDeviation<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const MovingAverage<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -158,7 +158,7 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumInputs()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
   addPoliciesToJson<T, V>(j, p.getPolicies());
 }
 
@@ -197,7 +197,7 @@ void from_json(const json& j, Output_opt<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const PeakDetector<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -504,7 +504,7 @@ void from_json(const json& j, Identity<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const RelativeStrengthIndex<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>

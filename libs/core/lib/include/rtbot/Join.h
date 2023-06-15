@@ -33,9 +33,9 @@ class Join : public Operator<T, V> {
       string outputPort = string("o") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, policies.find(inputPort)->second);
+        this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
       } else
-        this->addInput(inputPort, 0, {});
+        this->addDataInput(inputPort, 0, {});
       this->addOutput(outputPort);
     }
     if (eagerInputs == numPorts)
@@ -45,36 +45,36 @@ class Join : public Operator<T, V> {
 
   virtual string typeName() const override { return "Join"; }
 
-  map<string, std::vector<Message<T, V>>> receive(Message<T, V> const &msg, string inputPort = "") override {
+  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> const &msg, string inputPort = "") override {
     if (inputPort.empty()) {
       throw std::runtime_error(typeName() + " : inputPort have to be specified");
     }
 
-    if (this->inputs.count(inputPort) > 0) {
-      if (this->inputs.find(inputPort)->second.isEager() && !this->inputs.find(inputPort)->second.empty()) {
-        this->inputs.find(inputPort)->second.pop_front();
+    if (this->dataInputs.count(inputPort) > 0) {
+      if (this->dataInputs.find(inputPort)->second.isEager() && !this->dataInputs.find(inputPort)->second.empty()) {
+        this->dataInputs.find(inputPort)->second.pop_front();
       }
-      this->inputs.find(inputPort)->second.push_back(msg);
+      this->dataInputs.find(inputPort)->second.push_back(msg);
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->first == inputPort || it->second.isEager()) continue;
       while (!it->second.empty() &&
-             (it->second.front().time < msg.time && !this->inputs.find(inputPort)->second.isEager()))
+             (it->second.front().time < msg.time && !this->dataInputs.find(inputPort)->second.isEager()))
         it->second.pop_front();
     }
 
     bool all_ready = true;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->second.empty() || (it->second.front().time > msg.time && !it->second.isEager() &&
-                                 !this->inputs.find(inputPort)->second.isEager()))
+                                 !this->dataInputs.find(inputPort)->second.isEager()))
         all_ready = false;
     }
 
     if (all_ready) {
       auto toEmit = processData(inputPort);
-      for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+      for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
         if (!it->second.isEager()) it->second.pop_front();
       }
       return this->emit(toEmit);
@@ -89,9 +89,9 @@ class Join : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
 
     int i = 1;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       vector<Message<T, V>> v;
-      v.push_back(this->inputs.find(it->first)->second.front());
+      v.push_back(it->second.front());
       outputMsgs.emplace(string("o") + to_string(i), v);
       i++;
     }

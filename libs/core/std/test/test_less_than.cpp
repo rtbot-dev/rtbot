@@ -19,7 +19,7 @@ TEST_CASE("Less Than") {
       t++;
       v += sign * 0.1;
       if (t % 6 == 0) sign = -sign;
-      emitted = lt.receive(Message<uint64_t, double>(i, v));
+      emitted = lt.receiveData(Message<uint64_t, double>(i, v));
       if (i < 4 || i > 8) {
         REQUIRE(emitted.find("lt")->second.at(0).value == v);
         REQUIRE(emitted.find("lt")->second.at(0).time == i);

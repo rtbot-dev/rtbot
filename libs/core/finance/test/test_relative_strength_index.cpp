@@ -25,7 +25,7 @@ TEST_CASE("Relative Strength Index") {
   SECTION("emits right values") {
     for (int i = 0; i < values.size(); i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          rsi.receive(Message<std::uint64_t, double>(i + 1, values.at(i)));
+          rsi.receiveData(Message<std::uint64_t, double>(i + 1, values.at(i)));
       if (i < 14) {
         REQUIRE(emitted.empty());
       } else {

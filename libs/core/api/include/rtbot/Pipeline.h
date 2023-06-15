@@ -31,13 +31,13 @@ struct Pipeline {
 
   std::vector<std::optional<Message<std::uint64_t, double>>> receive(const Message<std::uint64_t, double>& msg) {
     out.reset();
-    input->receive(msg);
+    input->receiveData(msg);
     return {out};
   }
 
   /// return a list of the operator that emit: id, output message
   map<string, std::vector<Message<std::uint64_t, double>>> receiveDebug(const Message<std::uint64_t, double>& msg) {
-    return input->receive(msg);
+    return input->receiveData(msg);
   }
 
   std::string getProgram();

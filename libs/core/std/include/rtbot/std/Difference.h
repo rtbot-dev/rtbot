@@ -10,15 +10,15 @@ struct Difference : public Operator<T, V> {
   Difference() = default;
 
   Difference(string const &id) : Operator<T, V>(id) {
-    this->addInput("i1", Difference<T, V>::size);
+    this->addDataInput("i1", Difference<T, V>::size);
     this->addOutput("o1");
   }
 
   string typeName() const override { return "Difference"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> m1 = this->getMessage(inputPort, 1);
-    Message<T, V> m0 = this->getMessage(inputPort, 0);
+    Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
+    Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
     Message<T, V> out;
     out.value = m0.value - m1.value;
     out.time = m1.time;

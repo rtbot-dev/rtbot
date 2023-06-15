@@ -9,13 +9,13 @@ template <class T, class V>
 struct Constant : public Operator<T, V> {
   Constant() = default;
   Constant(string const &id, V constant) : Operator<T, V>(id) {
-    this->addInput("i1", Constant::size);
+    this->addDataInput("i1", Constant::size);
     this->addOutput("o1");
     this->constant = constant;
   }
   string typeName() const override { return "Constant"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> out = this->getLastMessage(inputPort);
+    Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = this->constant;
     return this->emit(out);
   }
