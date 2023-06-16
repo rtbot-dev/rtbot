@@ -184,20 +184,40 @@ where the emission order matches the vector components' order, being the last re
 correspondent with the last index.
 
 \subsection{Operators}
-The main concept in the RtBot architecture is that of an operator. An operator 
-it’s simply a computational unit that takes an input, transforms it and produces 
-an output. Operators take messages as inputs and produce other messages as 
-outputs. Remarkably, operators assume that they will receive messages with 
+The main concept in the RtBot architecture is that of an \textit{operator}. An operator 
+it’s simply a computational unit that takes a message as input, transforms it and produces 
+messages as output. Operators assume they will receive messages with 
 increasing timestamps, this is, ordered in time.
 
 
 Operators can be connected with other operators, in a directed way, such that one 
-operator can have children operators. If an operator has children then whenever it 
-produces an output it will be sent to its children which will consider those 
-messages as its own input, and so on. Operators may change the throughput of the 
+operator can have many children operators. Operator have \textit{ports} on it, which control
+the incoming and outgoing traffict from and to the operator. More specifically, operators
+are connected by creating a connection between some \textit{outbound} port on the parent
+operator and some \textit{inbound} port on the child operator. Data send to outbound ports will be then
+sent to all the child operators connected to that port, and it will be received in the inbound
+port specified by the connection.
+There may exist several connection between two operator, as long as
+the combination of outbound and inbound port is unique.
+
+Operators may change the throughput of the 
 stream they receive, producing any number of messages, or none, per each message 
 it receives. In this sense they are also flow controllers, deciding when and what 
 to forward to its children operators.
+
+
+\subsubsection{Connection types}
+There are two types of connections in RtBot: \textit{data lines} and \textit{control lines}. 
+Data lines are connections through which the incoming data or derived passes through. The messages
+passing through the data lines are usually a tuple of an integer, representing the time, and a float
+number, representing a value.
+
+On the other hand, control lines are used to control the data flow. They are used mainly to take
+decisions, like switching the flow from one data line to another, for instance.
+Through these lines we send messages as well, with the difference that these messages are usually a tuple
+of integers: one for the time and another integer which can be used in the decision taking process. This
+second integer can represent a given state in our program, or a boolean, for instance.
+
 
 
 \subsubsection{Input}
