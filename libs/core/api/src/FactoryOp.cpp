@@ -4,6 +4,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 
+#include "rtbot/Demultiplexer.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
@@ -478,6 +479,24 @@ void from_json(const json& j, Difference<T, V>& p) {
 
 /*
 {
+    "type": "Demultiplexer",
+    "id": "demult",
+    "numOutputPorts": 2
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Demultiplexer<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numOutputPorts", p.getNumOutputPorts()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Demultiplexer<T, V>& p) {
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j["numOutputPorts"].get<size_t>());
+}
+
+/*
+{
     "type": "Identity",
     "id": "id1",
     "d": 0
@@ -551,6 +570,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<Add<std::uint64_t, double>, json>();
   op_registry_add<Difference<std::uint64_t, double>, json>();
+  op_registry_add<Demultiplexer<std::uint64_t, double>, json>();
   op_registry_add<Power<std::uint64_t, double>, json>();
   op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();

@@ -363,6 +363,8 @@ class Operator {
 
   size_t getNumDataInputs() const { return this->dataInputs.size(); }
 
+  size_t getNumOutputPorts() const { return this->outputIds.size(); }
+
   size_t getNumControlInputs() const { return this->controlInputs.size(); }
 
   Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
