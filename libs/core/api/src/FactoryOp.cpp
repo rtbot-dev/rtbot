@@ -159,7 +159,7 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -220,7 +220,7 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Minus<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -245,7 +245,7 @@ void from_json(const json& j, Minus<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Divide<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -271,7 +271,7 @@ void from_json(const json& j, Divide<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>

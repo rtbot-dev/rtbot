@@ -52,17 +52,23 @@ class Join : public Operator<T, V> {
 
     if (this->dataInputs.count(inputPort) > 0) {
       if (this->dataInputs.find(inputPort)->second.isEager() && !this->dataInputs.find(inputPort)->second.empty()) {
+        this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() -
+                                                        this->dataInputs.find(inputPort)->second.front().value);
         this->dataInputs.find(inputPort)->second.pop_front();
       }
       this->dataInputs.find(inputPort)->second.push_back(msg);
+      this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
+                                                      this->dataInputs.find(inputPort)->second.back().value);
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->first == inputPort || it->second.isEager()) continue;
       while (!it->second.empty() &&
-             (it->second.front().time < msg.time && !this->dataInputs.find(inputPort)->second.isEager()))
+             (it->second.front().time < msg.time && !this->dataInputs.find(inputPort)->second.isEager())) {
+        it->second.setSum(it->second.getSum() - it->second.front().value);
         it->second.pop_front();
+      }
     }
 
     bool all_ready = true;
@@ -75,7 +81,10 @@ class Join : public Operator<T, V> {
     if (all_ready) {
       auto toEmit = processData(inputPort);
       for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-        if (!it->second.isEager()) it->second.pop_front();
+        if (!it->second.isEager()) {
+          it->second.setSum(it->second.getSum() - it->second.front().value);
+          it->second.pop_front();
+        }
       }
       return this->emit(toEmit);
     }
