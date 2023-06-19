@@ -18,7 +18,7 @@ TEST_CASE("Greater Than") {
       t++;
       v += sign * 0.1;
       if (t % 6 == 0) sign = -sign;
-      emitted = gt.receive(Message<uint64_t, double>(i, v));
+      emitted = gt.receiveData(Message<uint64_t, double>(i, v));
       if (i < 5) {
         REQUIRE(emitted.empty());
       } else if (i == 5 || i == 6 || i == 7) {

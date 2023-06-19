@@ -11,7 +11,7 @@ TEST_CASE("Count") {
   SECTION("emits count") {
     map<string, vector<Message<uint64_t, double>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = c.receive(Message<uint64_t, double>(i, i));
+      emitted = c.receiveData(Message<uint64_t, double>(i, i));
       REQUIRE(emitted.find("c")->second.at(0).value == i);
     }
   }

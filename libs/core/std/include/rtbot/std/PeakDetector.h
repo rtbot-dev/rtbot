@@ -10,18 +10,18 @@ struct PeakDetector : Operator<T, V> {
   PeakDetector() = default;
 
   PeakDetector(string const& id, size_t n) : Operator<T, V>(id) {
-    this->addInput("i1", n);
+    this->addDataInput("i1", n);
     this->addOutput("o1");
   }
 
   string typeName() const override { return "PeakDetector"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    size_t size = this->getSize(inputPort);
+    size_t size = this->getDataInputSize(inputPort);
     size_t pos = size / 2;  // expected position of the max
     for (auto i = 0u; i < size; i++)
-      if (this->getMessage(inputPort, pos).value < this->getMessage(inputPort, i).value) return {};
-    return this->emit(this->getMessage(inputPort, pos));
+      if (this->getDataInputMessage(inputPort, pos).value < this->getDataInputMessage(inputPort, i).value) return {};
+    return this->emit(this->getDataInputMessage(inputPort, pos));
   }
 };
 

@@ -18,9 +18,9 @@ struct Minus : public Join<T, V> {
       string inputPort = string("i") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, policies.find(inputPort)->second);
+        this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
       } else
-        this->addInput(inputPort, 0, {});
+        this->addDataInput(inputPort, 0, {});
     }
     this->addOutput("o1");
     if (eagerInputs == numPorts)
@@ -30,10 +30,10 @@ struct Minus : public Join<T, V> {
   string typeName() const override { return "Minus"; }
 
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> m1 = this->getMessage("i2", 0);
-    Message<T, V> m0 = this->getMessage("i1", 0);
+    Message<T, V> m1 = this->getDataInputMessage("i2", 0);
+    Message<T, V> m0 = this->getDataInputMessage("i1", 0);
     Message<T, V> out;
-    out.time = (this->isEager("i1")) ? m1.time : m0.time;
+    out.time = (this->isDataInputEager("i1")) ? m1.time : m0.time;
     out.value = m0.value - m1.value;
     map<string, vector<Message<T, V>>> toEmit;
     vector<Message<T, V>> v;

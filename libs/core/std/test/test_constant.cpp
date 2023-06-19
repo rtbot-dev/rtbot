@@ -11,7 +11,7 @@ TEST_CASE("Constant") {
   SECTION("emits constant 1/2 every time") {
     map<string, vector<Message<uint64_t, double>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = constant.receive(Message<uint64_t, double>(i, i));
+      emitted = constant.receiveData(Message<uint64_t, double>(i, i));
       REQUIRE(emitted.find("const")->second.at(0).value == 0.5);
     }
   }

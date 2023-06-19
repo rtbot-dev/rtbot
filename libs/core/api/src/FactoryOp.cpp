@@ -4,6 +4,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 
+#include "rtbot/Demultiplexer.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
@@ -117,7 +118,7 @@ void from_json(const json& j, HermiteResampler<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const StandardDeviation<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -135,7 +136,7 @@ void from_json(const json& j, StandardDeviation<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const MovingAverage<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -158,8 +159,8 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumInputs()}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -197,7 +198,7 @@ void from_json(const json& j, Output_opt<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const PeakDetector<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -220,7 +221,7 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Minus<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -245,7 +246,7 @@ void from_json(const json& j, Minus<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Divide<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -271,7 +272,7 @@ void from_json(const json& j, Divide<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
-  addPoliciesToJson<T, V>(j, p.getPolicies());
+  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
@@ -478,6 +479,24 @@ void from_json(const json& j, Difference<T, V>& p) {
 
 /*
 {
+    "type": "Demultiplexer",
+    "id": "demult",
+    "numOutputPorts": 2
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Demultiplexer<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numOutputPorts", p.getNumOutputPorts()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Demultiplexer<T, V>& p) {
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 2));
+}
+
+/*
+{
     "type": "Identity",
     "id": "id1",
     "d": 0
@@ -504,7 +523,7 @@ void from_json(const json& j, Identity<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const RelativeStrengthIndex<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getMaxSize()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
 }
 
 template <class T, class V>
@@ -551,6 +570,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Count<std::uint64_t, double>, json>();
   op_registry_add<Add<std::uint64_t, double>, json>();
   op_registry_add<Difference<std::uint64_t, double>, json>();
+  op_registry_add<Demultiplexer<std::uint64_t, double>, json>();
   op_registry_add<Power<std::uint64_t, double>, json>();
   op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();

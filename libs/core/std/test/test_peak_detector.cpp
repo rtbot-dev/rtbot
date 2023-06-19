@@ -23,16 +23,16 @@ TEST_CASE("simple peak detector") {
   REQUIRE(op.connect(o1) != nullptr);
 
   SECTION("one peak") {
-    for (int i = 0; i < 10; i++) op.receive(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
-    REQUIRE(o1.getSize("i1") == 1);
-    REQUIRE(o1.getMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
+    for (int i = 0; i < 10; i++) op.receiveData(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
+    REQUIRE(o1.getDataInputSize("i1") == 1);
+    REQUIRE(o1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
   }
 
   SECTION("two peaks") {
-    for (int i = 0; i < 14; i++) op.receive(Message<uint64_t, double>(i, i % 5));
-    REQUIRE(o1.getSize("i1") == 2);
-    REQUIRE(o1.getMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
-    REQUIRE(o1.getMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
+    for (int i = 0; i < 14; i++) op.receiveData(Message<uint64_t, double>(i, i % 5));
+    REQUIRE(o1.getDataInputSize("i1") == 2);
+    REQUIRE(o1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
+    REQUIRE(o1.getDataInputMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
   }
 
   SECTION("only one peak") {
@@ -45,7 +45,7 @@ TEST_CASE("simple peak detector") {
       t++;
       v += sign * 0.1;
       if (t % 5 == 0) sign = -sign;
-      emitted = pd.receive(Message<uint64_t, double>(i, v));
+      emitted = pd.receiveData(Message<uint64_t, double>(i, v));
       if (i < 6) {
         REQUIRE(emitted.empty());
       } else if (i == 6) {
@@ -66,7 +66,7 @@ TEST_CASE("ppg peak detector") {
   auto ma1 = MovingAverage<uint64_t, double>("ma1", round(50 / s.dt()));
   auto ma2 = MovingAverage<uint64_t, double>("ma2", round(2000 / s.dt()));
   auto diff = Minus<uint64_t, double>("diff");
-  auto peak = PeakDetector<uint64_t, double>("b1", 2 * ma1.getMaxSize() + 1);
+  auto peak = PeakDetector<uint64_t, double>("b1", 2 * ma1.getDataInputMaxSize() + 1);
   auto join = Join<uint64_t, double>("j1", 2);
   ofstream out("peak.txt");
   auto o1 = Output_os<uint64_t, double>("o1", out);
@@ -82,5 +82,5 @@ TEST_CASE("ppg peak detector") {
   i1.connect(join, "o1", "i2");
 
   // process the data
-  for (auto i = 0u; i < s.ti.size(); i++) i1.receive(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
+  for (auto i = 0u; i < s.ti.size(); i++) i1.receiveData(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
 }

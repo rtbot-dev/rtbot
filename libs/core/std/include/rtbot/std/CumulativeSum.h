@@ -12,12 +12,12 @@ struct CumulativeSum : public Operator<T, V> {
   CumulativeSum() = default;
   CumulativeSum(string const &id) : Operator<T, V>(id) {
     this->accumulated = 0;
-    this->addInput("i1", CumulativeSum::size);
+    this->addDataInput("i1", CumulativeSum::size);
     this->addOutput("o1");
   }
   string typeName() const override { return "CumulativeSum"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> out = this->getLastMessage(inputPort);
+    Message<T, V> out = this->getDataInputLastMessage(inputPort);
     this->accumulated = this->accumulated + out.value;
     out.value = this->accumulated;
     return this->emit(out);

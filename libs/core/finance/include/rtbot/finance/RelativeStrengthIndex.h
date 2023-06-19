@@ -13,8 +13,8 @@ template <class T, class V>
 struct RelativeStrengthIndex : public Operator<T, V> {
   RelativeStrengthIndex() = default;
 
-  RelativeStrengthIndex(string const& id_, size_t n_) : Operator<T, V>(id_), initialized(false) {
-    this->addInput("i1", n_ + 1);
+  RelativeStrengthIndex(string const& id, size_t n) : Operator<T, V>(id), initialized(false) {
+    this->addDataInput("i1", n + 1);
     this->addOutput("o1");
   }
 
@@ -22,14 +22,14 @@ struct RelativeStrengthIndex : public Operator<T, V> {
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> out;
-    size_t n = this->getSize(inputPort);
+    size_t n = this->getDataInputSize(inputPort);
     V diff, rs, rsi, gain, loss;
 
     if (!initialized) {
       averageGain = 0;
       averageLoss = 0;
       for (size_t i = 1; i < n; i++) {
-        diff = this->getMessage(inputPort, i).value - this->getMessage(inputPort, i - 1).value;
+        diff = this->getDataInputMessage(inputPort, i).value - this->getDataInputMessage(inputPort, i - 1).value;
         if (diff > 0)
           averageGain = averageGain + diff;
         else if (diff < 0)
@@ -40,7 +40,7 @@ struct RelativeStrengthIndex : public Operator<T, V> {
 
       initialized = true;
     } else {
-      diff = this->getMessage(inputPort, n - 1).value - this->getMessage(inputPort, n - 2).value;
+      diff = this->getDataInputMessage(inputPort, n - 1).value - this->getDataInputMessage(inputPort, n - 2).value;
       if (diff > 0) {
         gain = diff;
         loss = 0;
@@ -62,7 +62,7 @@ struct RelativeStrengthIndex : public Operator<T, V> {
     rsi = 100.0 - (100.0 / (1 + rs));
 
     out.value = rsi;
-    out.time = this->getLastMessage(inputPort).time;
+    out.time = this->getDataInputLastMessage(inputPort).time;
 
     return this->emit(out);
   }

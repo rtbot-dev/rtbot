@@ -1,7 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <fstream>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 #include "rtbot/FactoryOp.h"
@@ -83,8 +82,8 @@ TEST_CASE("read  pipeline test join eager port") {
   SECTION("using the pipeline") {
     auto pipe = FactoryOp::createPipeline(json.dump().c_str());
 
-    REQUIRE(pipe.all_op.find("join")->second->isEager("i1"));
-    REQUIRE(!pipe.all_op.find("join")->second->isEager("i2"));
+    REQUIRE(pipe.all_op.find("join")->second->isDataInputEager("i1"));
+    REQUIRE(!pipe.all_op.find("join")->second->isDataInputEager("i2"));
 
     // process the data
     for (int i = 1; i < 100; i++) {

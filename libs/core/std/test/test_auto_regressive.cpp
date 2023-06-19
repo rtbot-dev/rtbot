@@ -13,7 +13,7 @@ TEST_CASE("Auto Regressive") {
   SECTION("emits powers of 2") {
     for (int i = 1; i <= 6; i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          i1.receive(Message<std::uint64_t, double>(i, 1));
+          i1.receiveData(Message<std::uint64_t, double>(i, 1));
       REQUIRE(emitted.find("i1")->second.at(0).value == pow(2, i - 1));
     }
   }

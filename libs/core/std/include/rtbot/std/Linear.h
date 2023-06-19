@@ -20,9 +20,9 @@ struct Linear : public Join<T, V> {
       string inputPort = string("i") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager()) eagerInputs++;
-        this->addInput(inputPort, 0, policies.find(inputPort)->second);
+        this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
       } else
-        this->addInput(inputPort, 0, {});
+        this->addDataInput(inputPort, 0, {});
     }
     this->addOutput("o1");
     if (eagerInputs == this->coeff.size())
@@ -39,7 +39,7 @@ struct Linear : public Join<T, V> {
     int i = 0;
     Message<T, V> out;
     out.value = 0;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       out.value = out.value + it->second.front().value * this->coeff.at(i);
       if (!it->second.isEager()) out.time = it->second.front().time;
       i++;

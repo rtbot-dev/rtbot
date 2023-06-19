@@ -1,0 +1,111 @@
+{
+    "title": "Join eager Input test",
+    "description": "This program is for testing the demultiplexer opperator",
+    "date": "now",
+    "version": "v1",
+    "author": "Eduardo",
+    "license": "MIT",
+    "entryNode": "in",
+    "optim": {
+        "algorithm": "Nelder-Mead"
+    },
+    "operators": [
+        {
+            "id": "in",
+            "type": "Input"
+        },
+        {
+            "id": "count",
+            "type": "Count"
+        },
+        {
+            "id": "dm",
+            "type": "Demultiplexer"
+        },
+        {
+            "id": "lt",
+            "type": "LessThan",
+            "x": 20
+        },
+        {
+            "id": "gt",
+            "type": "GreaterThan",
+            "x": 20
+        },
+        {
+            "id": "et",
+            "type": "EqualTo",
+            "x": 20
+        },
+        {
+            "id": "out1",
+            "type": "Output"
+        },
+        {
+            "id": "out2",
+            "type": "Output"
+        }
+    ],
+    "connections": [
+        {
+            "from": "in",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "dm",
+            "to": "out1",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "dm",
+            "to": "out2",
+            "fromPort": "o2",
+            "toPort": "i1"
+        },
+        {
+            "from": "in",
+            "to": "count",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "count",
+            "to": "lt",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "count",
+            "to": "gt",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "count",
+            "to": "et",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "lt",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c1"
+        },
+        {
+            "from": "gt",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c2"
+        },
+        {
+            "from": "et",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c2"
+        }
+    ]
+}

@@ -12,15 +12,15 @@ struct Input : public Operator<T, V> {
   Input() = default;
 
   Input(string const &id) : Operator<T, V>(id) {
-    this->addInput("i1", Input<T, V>::size);
+    this->addDataInput("i1", Input<T, V>::size);
     this->addOutput("o1");
   }
 
   string typeName() const override { return "Input"; }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> m1 = this->getMessage(inputPort, 1);
-    Message<T, V> m0 = this->getMessage(inputPort, 0);
+    Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
+    Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
     if (m1.time <= m0.time) return {};
     return this->emit(m0);
   }

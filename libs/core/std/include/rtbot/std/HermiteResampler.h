@@ -21,7 +21,7 @@ struct HermiteResampler : public Operator<T, V> {
   HermiteResampler(string const& id, T dt) : Operator<T, V>(id) {
     this->dt = dt;
     this->carryOver = 0;
-    this->addInput("i1", HermiteResampler::size);
+    this->addDataInput("i1", HermiteResampler::size);
     this->addOutput("o1");
   }
 
@@ -87,22 +87,23 @@ struct HermiteResampler : public Operator<T, V> {
   */
   Message<T, V> get(int index, string inputPort) {
     if (index >= 0)
-      return this->getMessage(inputPort, index);
+      return this->getDataInputMessage(inputPort, index);
     else if (before.get() == nullptr) {
       std::vector<T> x;
       std::vector<V> y;
       V average = 0;
-      size_t n = this->getSize(inputPort);
+      size_t n = this->getDataInputSize(inputPort);
       for (int i = 0; i < n; i++) {
-        x.push_back(this->getMessage(inputPort, i).time);
-        y.push_back(this->getMessage(inputPort, i).value);
+        x.push_back(this->getDataInputMessage(inputPort, i).time);
+        y.push_back(this->getDataInputMessage(inputPort, i).value);
       }
       for (size_t i = 1; i < n; i++) {
-        average = average + (this->getMessage(inputPort, i).time - this->getMessage(inputPort, i - 1).time);
+        average =
+            average + (this->getDataInputMessage(inputPort, i).time - this->getDataInputMessage(inputPort, i - 1).time);
       }
       average = average / (n - 1);
       std::pair<V, V> pair = this->getLineLeastSquares(x, y);
-      T time = this->getMessage(inputPort, 0).time + (index * ((T)average));
+      T time = this->getDataInputMessage(inputPort, 0).time + (index * ((T)average));
       V value = pair.second * time + pair.first;
       before = std::make_unique<Message<T, V>>(Message<T, V>(time, value));
     }

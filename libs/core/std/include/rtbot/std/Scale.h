@@ -9,13 +9,13 @@ template <class T, class V>
 struct Scale : public Operator<T, V> {
   Scale() = default;
   Scale(string const &id, V factor) : Operator<T, V>(id) {
-    this->addInput("i1", Scale::size);
+    this->addDataInput("i1", Scale::size);
     this->addOutput("o1");
     this->factor = factor;
   }
   string typeName() const override { return "Scale"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> out = this->getLastMessage(inputPort);
+    Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = out.value * this->factor;
     return this->emit(out);
   }

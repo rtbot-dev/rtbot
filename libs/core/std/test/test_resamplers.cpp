@@ -13,7 +13,7 @@ TEST_CASE("Cosine Resampler test emit at right frequencies") {
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          i1.receive(Message<std::uint64_t, double>(i * 100, i * i));
+          i1.receiveData(Message<std::uint64_t, double>(i * 100, i * i));
       if (i == 0)
         REQUIRE(emitted.empty());
       else {
@@ -25,7 +25,7 @@ TEST_CASE("Cosine Resampler test emit at right frequencies") {
   SECTION("emits twice") {
     for (int i = 0; i < 20; i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          i2.receive(Message<std::uint64_t, double>(i * 200, i * i));
+          i2.receiveData(Message<std::uint64_t, double>(i * 200, i * i));
       if (i == 0)
         REQUIRE(emitted.empty());
       else {
@@ -44,7 +44,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          i1.receive(Message<std::uint64_t, double>(i * 100, i * i));
+          i1.receiveData(Message<std::uint64_t, double>(i * 100, i * i));
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
       else if (i == 3) {
@@ -59,7 +59,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits twice") {
     for (int i = 0; i < 20; i++) {
       map<string, std::vector<Message<std::uint64_t, double>>> emitted =
-          i2.receive(Message<std::uint64_t, double>(i * 200, i * i));
+          i2.receiveData(Message<std::uint64_t, double>(i * 200, i * i));
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
       else if (i == 3) {
@@ -77,7 +77,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits right values") {
     for (int i = 0; i < 20; i++) {
       map<string, std::vector<Message<std::int64_t, double>>> emitted =
-          i3.receive(Message<std::int64_t, double>(i * 100, i * i));
+          i3.receiveData(Message<std::int64_t, double>(i * 100, i * i));
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
       else if (i == 3) {

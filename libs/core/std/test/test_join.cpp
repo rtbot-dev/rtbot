@@ -21,7 +21,7 @@ TEST_CASE("Join peak and value") {
   // process the data
   SECTION("Join output size should be 2") {
     for (int i = 0; i < 100; i++) {
-      auto output = in1.receive(Message<uint64_t, double>(i, i % 5));
+      auto output = in1.receiveData(Message<uint64_t, double>(i, i % 5));
 
       if (i > 5 && i % 5 == 1) {
         REQUIRE(output["out1"].size() == 1);

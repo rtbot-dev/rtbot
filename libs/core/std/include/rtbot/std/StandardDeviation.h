@@ -14,7 +14,7 @@ struct StandardDeviation : public Operator<T, V> {
   StandardDeviation() = default;
 
   StandardDeviation(string const &id, size_t n) : Operator<T, V>(id) {
-    this->addInput("i1", n);
+    this->addDataInput("i1", n);
     this->addOutput("o1");
   }
 
@@ -23,18 +23,18 @@ struct StandardDeviation : public Operator<T, V> {
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     std::vector<Message<T, V>> toEmit;
     Message<T, V> out;
-    size_t size = this->getSize(inputPort);
+    size_t size = this->getDataInputSize(inputPort);
 
-    V average = this->getSum(inputPort) / size;
+    V average = this->getDataInputSum(inputPort) / size;
     V std = 0;
 
     for (size_t j = 0; j < size; j++) {
-      std = std + pow(this->getMessage(inputPort, j).value - average, 2);
+      std = std + pow(this->getDataInputMessage(inputPort, j).value - average, 2);
     }
 
     std = sqrt(std / (size - 1));
 
-    out.time = this->getLastMessage(inputPort).time;
+    out.time = this->getDataInputLastMessage(inputPort).time;
     out.value = std;
     toEmit.push_back(out);
 

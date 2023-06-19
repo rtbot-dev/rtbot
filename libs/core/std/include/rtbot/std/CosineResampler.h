@@ -20,7 +20,7 @@ struct CosineResampler : public Operator<T, V> {
   CosineResampler(string const &id, T dt) : Operator<T, V>(id) {
     this->dt = dt;
     this->carryOver = 0;
-    this->addInput("i1", CosineResampler::size);
+    this->addDataInput("i1", CosineResampler::size);
     this->addOutput("o1");
   }
 
@@ -31,18 +31,20 @@ struct CosineResampler : public Operator<T, V> {
 
     int j = 1;
 
-    while (this->getMessage(inputPort, 1).time - this->getMessage(inputPort, 0).time >= (j * dt) - carryOver) {
+    while (this->getDataInputMessage(inputPort, 1).time - this->getDataInputMessage(inputPort, 0).time >=
+           (j * dt) - carryOver) {
       Message<T, V> out;
-      V mu = (V)((j * dt) - carryOver) / (V)(this->getMessage(inputPort, 1).time - this->getMessage(inputPort, 0).time);
-      out.value = CosineResampler<T, V>::cosineInterpolate(this->getMessage(inputPort, 0).value,
-                                                           this->getMessage(inputPort, 1).value, mu);
-      out.time = this->getMessage(inputPort, 0).time + ((j * dt) - carryOver);
+      V mu = (V)((j * dt) - carryOver) /
+             (V)(this->getDataInputMessage(inputPort, 1).time - this->getDataInputMessage(inputPort, 0).time);
+      out.value = CosineResampler<T, V>::cosineInterpolate(this->getDataInputMessage(inputPort, 0).value,
+                                                           this->getDataInputMessage(inputPort, 1).value, mu);
+      out.time = this->getDataInputMessage(inputPort, 0).time + ((j * dt) - carryOver);
       toEmit.push_back(out);
       j++;
     }
 
-    carryOver =
-        this->getMessage(inputPort, 1).time - (this->getMessage(inputPort, 0).time + (((j - 1) * dt) - carryOver));
+    carryOver = this->getDataInputMessage(inputPort, 1).time -
+                (this->getDataInputMessage(inputPort, 0).time + (((j - 1) * dt) - carryOver));
 
     if (toEmit.size() > 0)
       return this->emit(toEmit);

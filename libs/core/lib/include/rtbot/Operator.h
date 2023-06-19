@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <deque>
-#include <functional>
 #include <limits>
 #include <map>
 #include <memory>
@@ -80,7 +79,8 @@ class Operator {
   };
 
   string id;
-  map<string, Input> inputs;
+  map<string, Input> dataInputs;
+  map<string, Input> controlInputs;
   set<string> outputIds;
   map<string, vector<Connection>> outputs;
 
@@ -92,57 +92,75 @@ class Operator {
 
   virtual map<string, vector<Message<T, V>>> processData(string inputPort) = 0;
 
-  map<string, typename Operator<T, V>::InputPolicy> getPolicies() const {
+  virtual map<string, vector<Message<T, V>>> processControl(string inputPort) {
+    // TODO: implement reset here
+    return {};
+  }
+
+  map<string, typename Operator<T, V>::InputPolicy> getDataPolicies() const {
     map<string, InputPolicy> out;
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       out.emplace(it->first, it->second.getPolicy());
     }
     return out;
   }
 
-  V getSum(string inputPort) {
-    if (inputs.count(inputPort) > 0)
-      return inputs.find(inputPort)->second.getSum();
+  map<string, typename Operator<T, V>::InputPolicy> getControlPolicies() const {
+    map<string, InputPolicy> out;
+    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
+      out.emplace(it->first, it->second.getPolicy());
+    }
+    return out;
+  }
+
+  V getDataInputSum(string inputPort) {
+    if (dataInputs.count(inputPort) > 0)
+      return dataInputs.find(inputPort)->second.getSum();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
-  bool isEager(string inputPort = "") {
+  bool isDataInputEager(string inputPort = "") {
     if (inputPort.empty()) {
-      auto in = this->getInputs();
+      auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
     }
-    if (inputs.count(inputPort) > 0)
-      return inputs.find(inputPort)->second.isEager();
+    if (dataInputs.count(inputPort) > 0)
+      return dataInputs.find(inputPort)->second.isEager();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
-  size_t getMaxSize(string inputPort = "") const {
+  size_t getDataInputMaxSize(string inputPort = "") const {
     if (inputPort.empty()) {
-      auto in = this->getInputs();
+      auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
     }
 
-    if (inputs.count(inputPort) > 0)
-      return inputs.find(inputPort)->second.getMaxSize();
+    if (dataInputs.count(inputPort) > 0)
+      return dataInputs.find(inputPort)->second.getMaxSize();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
-  size_t getSize(string inputPort) {
-    if (inputs.count(inputPort) > 0)
-      return inputs.find(inputPort)->second.size();
+  size_t getDataInputSize(string inputPort = "") {
+    if (inputPort.empty()) {
+      auto in = this->getDataInputs();
+      if (in.size() == 1) inputPort = in.at(0);
+    }
+
+    if (dataInputs.count(inputPort) > 0)
+      return dataInputs.find(inputPort)->second.size();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
-  Message<T, V> getMessage(string inputPort, size_t index) {
-    if (inputs.count(inputPort) > 0)
-      if (!inputs.find(inputPort)->second.empty())
-        return inputs.find(inputPort)->second.at(index);
+  Message<T, V> getDataInputMessage(string inputPort, size_t index) {
+    if (dataInputs.count(inputPort) > 0)
+      if (!dataInputs.find(inputPort)->second.empty())
+        return dataInputs.find(inputPort)->second.at(index);
       else
         return {};
     else
@@ -150,10 +168,10 @@ class Operator {
     return {};
   }
 
-  Message<T, V> getLastMessage(string inputPort) {
-    if (inputs.count(inputPort) > 0)
-      if (!inputs.find(inputPort)->second.empty())
-        return inputs.find(inputPort)->second.back();
+  Message<T, V> getDataInputLastMessage(string inputPort) {
+    if (dataInputs.count(inputPort) > 0)
+      if (!dataInputs.find(inputPort)->second.empty())
+        return dataInputs.find(inputPort)->second.back();
       else
         return {};
     else
@@ -161,10 +179,10 @@ class Operator {
     return {};
   }
 
-  Message<T, V> getFirstMessage(string inputPort) {
-    if (inputs.count(inputPort) > 0)
-      if (!inputs.find(inputPort)->second.empty())
-        return inputs.find(inputPort)->second.front();
+  Message<T, V> getDataInputFirstMessage(string inputPort) {
+    if (dataInputs.count(inputPort) > 0)
+      if (!dataInputs.find(inputPort)->second.empty())
+        return dataInputs.find(inputPort)->second.front();
       else
         return {};
     else
@@ -172,34 +190,67 @@ class Operator {
     return {};
   }
 
-  bool allInputPortsFull() const {
-    for (auto it = this->inputs.begin(); it != this->inputs.end(); ++it) {
+  bool allDataInputPortsFull() const {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->second.getMaxSize() > it->second.size()) return false;
     }
     return true;
   }
 
-  virtual map<string, vector<Message<T, V>>> receive(Message<T, V> const& msg, string inputPort = "") {
+  bool allControlInputPortsFull() const {
+    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
+      if (it->second.getMaxSize() > it->second.size()) return false;
+    }
+    return true;
+  }
+
+  virtual map<string, vector<Message<T, V>>> receiveData(Message<T, V> const& msg, string inputPort = "") {
     if (inputPort.empty()) {
-      auto in = this->getInputs();
+      auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
     }
 
-    if (inputs.count(inputPort) > 0) {
-      if (allInputPortsFull()) {
-        inputs.find(inputPort)->second.setSum(inputs.find(inputPort)->second.getSum() -
-                                              inputs.find(inputPort)->second.front().value);
-        inputs.find(inputPort)->second.pop_front();
-      }
+    if (this->dataInputs.count(inputPort) > 0) {
+      if (this->dataInputs.find(inputPort)->second.getMaxSize() == this->dataInputs.find(inputPort)->second.size()) {
+        this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() -
+                                                        this->dataInputs.find(inputPort)->second.front().value);
+        this->dataInputs.find(inputPort)->second.pop_front();
+      } else if (this->dataInputs.find(inputPort)->second.getMaxSize() <
+                 this->dataInputs.find(inputPort)->second.size())
+        throw std::runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
 
-      inputs.find(inputPort)->second.push_back(msg);
-      inputs.find(inputPort)->second.setSum(inputs.find(inputPort)->second.getSum() +
-                                            inputs.find(inputPort)->second.back().value);
+      this->dataInputs.find(inputPort)->second.push_back(msg);
+      this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
+                                                      this->dataInputs.find(inputPort)->second.back().value);
 
-      if (allInputPortsFull()) {
+      if (allDataInputPortsFull()) {
         return this->processData(inputPort);
       }
       return {};
+    } else
+      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+    return {};
+  }
+
+  virtual map<string, vector<Message<T, V>>> receiveControl(Message<T, V> const& msg, string inputPort) {
+    if (this->controlInputs.count(inputPort) > 0) {
+      if (this->controlInputs.find(inputPort)->second.getMaxSize() ==
+          this->controlInputs.find(inputPort)->second.size()) {
+        this->controlInputs.find(inputPort)->second.setSum(this->controlInputs.find(inputPort)->second.getSum() -
+                                                           this->controlInputs.find(inputPort)->second.front().value);
+        this->controlInputs.find(inputPort)->second.pop_front();
+      } else if (this->controlInputs.find(inputPort)->second.getMaxSize() <
+                 this->controlInputs.find(inputPort)->second.size())
+        throw std::runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
+
+      this->controlInputs.find(inputPort)->second.push_back(msg);
+      this->controlInputs.find(inputPort)->second.setSum(this->controlInputs.find(inputPort)->second.getSum() +
+                                                         this->controlInputs.find(inputPort)->second.back().value);
+
+      auto toEmit = this->processControl(inputPort);
+
+      return toEmit;
+
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
     return {};
@@ -211,7 +262,11 @@ class Operator {
     for (auto outputPort : outputPorts) {
       if (outputs.count(outputPort) > 0) {
         for (auto connection : outputs.find(outputPort)->second) {
-          mergeOutput(out, connection.fOperator->receive(msg, connection.inputPort));
+          if (connection.fOperator->isDataInput(connection.inputPort))
+            mergeOutput(out, connection.fOperator->receiveData(msg, connection.inputPort));
+          else if (connection.fOperator->isControlInput(connection.inputPort)) {
+            mergeOutput(out, connection.fOperator->receiveControl(msg, connection.inputPort));
+          }
         }
       }
     }
@@ -235,14 +290,47 @@ class Operator {
     return out;
   }
 
-  Operator<T, V>* addInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
-    inputs.emplace(inputId, Input(inputId, max, policy));
-    return this;
+  Operator<T, V>* addDataInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
+    if (inputId.empty()) {
+      throw std::runtime_error(typeName() + " : input port have to be specified");
+    }
+    if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
+      dataInputs.emplace(inputId, Input(inputId, max, policy));
+      return this;
+    } else
+      throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
   }
 
-  vector<string> getInputs() const {
+  Operator<T, V>* addControlInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
+    if (inputId.empty()) {
+      throw std::runtime_error(typeName() + " : control port have to be specified");
+    }
+    if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
+      controlInputs.emplace(inputId, Input(inputId, max, policy));
+      return this;
+    } else
+      throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
+  }
+
+  vector<string> getDataInputs() const {
     vector<string> keys;
-    for (auto it = inputs.begin(); it != inputs.end(); ++it) {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
+      keys.push_back(it->first);
+    }
+    return keys;
+  }
+
+  vector<string> getControlInputs() const {
+    vector<string> keys;
+    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
+      keys.push_back(it->first);
+    }
+    return keys;
+  }
+
+  vector<string> getAllInputs() const {
+    vector<string> keys = this->getDataInputs();
+    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
       keys.push_back(it->first);
     }
     return keys;
@@ -259,7 +347,25 @@ class Operator {
     return vOutputs;
   }
 
-  size_t getNumInputs() const { return this->inputs.size(); }
+  bool isDataInput(string inputPort) const {
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
+      if (it->first == inputPort) return true;
+    }
+    return false;
+  }
+
+  bool isControlInput(string inputPort) const {
+    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
+      if (it->first == inputPort) return true;
+    }
+    return false;
+  }
+
+  size_t getNumDataInputs() const { return this->dataInputs.size(); }
+
+  size_t getNumOutputPorts() const { return this->outputIds.size(); }
+
+  size_t getNumControlInputs() const { return this->controlInputs.size(); }
 
   Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
     return connect(&child, outputPort, inputPort);
@@ -267,14 +373,20 @@ class Operator {
 
   Operator<T, V>* connect(Operator<T, V>* child, string outputPort = "", string inputPort = "") {
     vector<string> out = this->getOutputs();
-    vector<string> in = child->getInputs();
+    vector<string> in = child->getAllInputs();
 
     if (outputPort.empty()) {
+      // auto assign if there is just one output
       if (out.size() == 1) outputPort = out.at(0);
     }
+
     if (inputPort.empty()) {
-      if (in.size() == 1) inputPort = in.at(0);
+      // auto assign if there is just one input and is a data input
+      if (in.size() == 1 && child->isDataInput(in.at(0))) inputPort = in.at(0);
     }
+
+    if (inputPort.empty()) throw std::runtime_error(child->typeName() + ": input port found empty");
+    if (outputPort.empty()) throw std::runtime_error(typeName() + ": output port found empty");
 
     if (find(out.begin(), out.end(), outputPort) != out.end() && find(in.begin(), in.end(), inputPort) != in.end()) {
       Connection c;

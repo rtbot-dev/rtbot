@@ -14,12 +14,12 @@ struct FilterByValue : public Operator<T, V> {
   FilterByValue() = default;
   FilterByValue(string const& id, std::function<bool(V)> filter) : Operator<T, V>(id) {
     this->filter = filter;
-    this->addInput("i1", 1);
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
   }
 
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> out = this->getLastMessage(inputPort);
+    Message<T, V> out = this->getDataInputLastMessage(inputPort);
     if (filter(out.value)) return this->emit(out);
     return {};
   }
