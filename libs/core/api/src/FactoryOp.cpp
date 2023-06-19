@@ -492,7 +492,7 @@ void to_json(json& j, const Demultiplexer<T, V>& p) {
 
 template <class T, class V>
 void from_json(const json& j, Demultiplexer<T, V>& p) {
-  p = Demultiplexer<T, V>(j["id"].get<string>(), j["numOutputPorts"].get<size_t>());
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 2));
 }
 
 /*

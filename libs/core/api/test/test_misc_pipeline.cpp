@@ -1,7 +1,6 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <fstream>
-#include <iostream>
 #include <nlohmann/json.hpp>
 
 #include "rtbot/FactoryOp.h"
