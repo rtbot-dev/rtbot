@@ -13,8 +13,8 @@ template <class T, class V>
 struct RelativeStrengthIndex : public Operator<T, V> {
   RelativeStrengthIndex() = default;
 
-  RelativeStrengthIndex(string const& id_, size_t n_) : Operator<T, V>(id_), initialized(false) {
-    this->addDataInput("i1", n_ + 1);
+  RelativeStrengthIndex(string const& id, size_t n) : Operator<T, V>(id), initialized(false) {
+    this->addDataInput("i1", n + 1);
     this->addOutput("o1");
   }
 
