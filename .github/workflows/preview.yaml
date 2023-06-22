@@ -11,9 +11,9 @@ env:
   NODE_OPTIONS: "--max_old_space_size=16384"
 
 jobs:
-  setup:
+  tests:
     if: github.event.pull_request.draft == false
-    name: Setup
+    name: Test core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
