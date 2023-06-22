@@ -32,13 +32,13 @@ jobs:
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Test lib
         run: |
-          bazelisk test //libs/core/lib/test:test
+          bazelisk test //libs/core/lib/test
       - name: Test std
         run: |
-          bazelisk test //libs/core/std/test:test
+          bazelisk test //libs/core/std/test
       - name: Test api
         run: |
-          bazelisk test //libs/core/std/api:test
+          bazelisk test //libs/core/api/test
       - name: Test finance
         run: |
-          bazelisk test //libs/core/std/finance:test  
+          bazelisk test //libs/core/finance/test
