@@ -37,3 +37,4 @@ apps/studio/.firebase
 cmake-build-debug
 .clwb
 **/*/target/
+/venv/
