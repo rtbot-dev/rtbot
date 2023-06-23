@@ -1,0 +1,61 @@
+# Cut a release whenever a new tag is pushed to the repo.
+# You should use an annotated tag, like `git tag -a v1.2.3`
+# and put the release notes into the commit message for the tag.
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 8
+          run_install: |
+            - args: [--no-frozen-lockfile]
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          cache: pnpm
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Test lib
+        run: |
+          bazelisk test //libs/core/lib/test
+      - name: Test std
+        run: |
+          bazelisk test //libs/core/std/test
+      - name: Test api
+        run: |
+          bazelisk test //libs/core/api/test
+      - name: Test finance
+        run: |
+          bazelisk test //libs/core/finance/test
+
+  publish:
+    needs: tests
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Prepare release
+        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # Use GH feature to populate the changelog automatically
+          generate_release_notes: true
+          body_path: release_notes.txt
+          files: rtbot-*.tar.gz
+          fail_on_unmatched_files: true
