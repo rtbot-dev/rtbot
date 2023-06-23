@@ -29,6 +29,13 @@ jobs:
         with:
           node-version: 16.x
           cache: pnpm
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Test lib
         run: |
