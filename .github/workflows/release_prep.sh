@@ -13,7 +13,7 @@ SHA=$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')
 
 cat << EOF
 
-## Using WORKSPACE
+## Bazel setup
 
 Paste this snippet into your \`WORKSPACE\` file:
 
