@@ -1,0 +1,38 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
+
+copy_file(
+    name = "wasm",
+    src = "//libs/core/api:rtbot-wasm/bindings-cpp-wasm.wasm",
+    out = "bindings-cpp-wasm.wasm",
+)
+
+_DEPS = [
+    "//:node_modules/@rtbot/wasm"
+]
+
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.bazel.json",
+)
+
+ts_project(
+    name = "ts",
+    srcs = glob(["src/**/*.ts"]),
+    composite = True,
+    declaration = True,
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = ["ts"],
+    tsconfig = ":tsconfig",
+    deps = _DEPS,
+)
+
+npm_package(
+    name = "js",
+    srcs = [":ts", ":wasm"],
+    data = _DEPS,
+    package = "@rtbot/api",
+)
+

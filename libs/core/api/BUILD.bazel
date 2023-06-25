@@ -55,12 +55,41 @@ genrule(
     """,
 )
 
+genrule(
+    name = "declarations",
+    outs = ["index.d.ts"],
+    cmd = """
+    echo "export interface RtBotEmbindModule {" >> $@
+    echo "  createPipeline(pipelineId: string, programStr: string): string;" >> $@
+    echo "  deletePipeline(pipelineId: string): string;" >> $@
+    echo "  receiveMessageInPipelineDebug(pipelineId: string, time: number, value: number): string;" >> $@
+    echo "}" >> $@
+    echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
+    echo "export default factory;" >> $@
+    """,
+)
+
+genrule(
+    name = "package_json",
+    outs = ["package.json"],
+    cmd = """
+            echo "{
+    \\"name\\": \\"@rtbot/wasm\\",
+    \\"version\\": \\"0.1.0\\",
+    \\"main\\": \\"index.js\\",
+    \\"typings\\": \\"index.d.ts\\"
+}" > $@
+    """,
+)
+
 # npm package for wasm code
 npm_package(
     name = "js",
     srcs = [
         ":index",
+        ":declarations",
         ":rtbot-wasm",
+        ":package_json"
     ],
-    package = "@rtbot/core",
+    package = "@rtbot/wasm",
 )

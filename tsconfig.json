@@ -5,9 +5,10 @@
     "module": "commonjs",
     "declaration": true,
     "baseUrl": ".",
+    "rootDir": ".",
     "paths": {
-      "*": ["dist/bin/node_modules/*"],
-      "@rtbot/*": ["dist/bin/node_modules/@rtbot/*"]
+      "@rtbot/*": ["./dist/bin/node_modules/@rtbot/*"]
     }
-  }
+  },
+  "include": ["node_modules/**/*"]
 }
