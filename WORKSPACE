@@ -49,13 +49,6 @@ swc_register_toolchains(
     swc_version = LATEST_SWC_VERSION,
 )
 
-load("//:tools/prisma/prisma.bzl", "prisma_generate")
-
-prisma_generate(
-    name = "postgres-client",
-    schema = "//:libs/postgres/prisma/schema.prisma",
-)
-
 load("@emsdk//:deps.bzl", emsdk_deps = "deps")
 
 emsdk_deps()
