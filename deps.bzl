@@ -8,13 +8,6 @@ def deps():
     )
 
     http_archive(
-        name = "aspect_bazel_lib",
-        sha256 = "558d70e36425c317c70b19fb0f68241a3747bcf46561b5ffc19bed17527adbb3",
-        strip_prefix = "bazel-lib-1.20.0",
-        url = "https://github.com/aspect-build/bazel-lib/archive/refs/tags/v1.20.0.tar.gz",
-    )
-
-    http_archive(
         name = "yaml-cpp",
         build_file = "@rtbot//libs/external:yaml-cpp.BUILD",
         sha256 = "4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5",
@@ -68,30 +61,37 @@ def deps():
 
     http_archive(
         name = "aspect_rules_js",
-        sha256 = "c4a5766a45dff25b2eb1789d7a2decfda81b281fc88350d24687620c37fefb25",
-        strip_prefix = "rules_js-1.14.0",
-        url = "https://github.com/aspect-build/rules_js/archive/refs/tags/v1.14.0.tar.gz",
+        sha256 = "2a88d837f8fb7bfe46b1d9f413df9a777ec2973e1f812929b597c1971a3a1da5",
+        strip_prefix = "rules_js-1.28.0",
+        url = "https://github.com/aspect-build/rules_js/releases/download/v1.28.0/rules_js-v1.28.0.tar.gz",
+    )
+
+    http_archive(
+        name = "aspect_rules_js",
+        sha256 = "0b69e0967f8eb61de60801d6c8654843076bf7ef7512894a692a47f86e84a5c2",
+        strip_prefix = "rules_js-1.27.1",
+        url = "https://github.com/aspect-build/rules_js/releases/download/v1.27.1/rules_js-v1.27.1.tar.gz",
     )
 
     http_archive(
         name = "aspect_rules_ts",
-        sha256 = "e81f37c4fe014fc83229e619360d51bfd6cb8ac405a7e8018b4a362efa79d000",
-        strip_prefix = "rules_ts-1.0.4",
-        url = "https://github.com/aspect-build/rules_ts/archive/refs/tags/v1.0.4.tar.gz",
+        sha256 = "40ab6d3d9cc3259da54fe2f162588aba92244af0f151fbc905dcc8e7b8744296",
+        strip_prefix = "rules_ts-1.4.2",
+        url = "https://github.com/aspect-build/rules_ts/releases/download/v1.4.2/rules_ts-v1.4.2.tar.gz",
     )
 
     http_archive(
         name = "aspect_rules_jest",
-        sha256 = "b5bf5f740da458fc3199264be6ef7acb74ddbdc30b4a7f75503e5e164e6c1781",
-        strip_prefix = "rules_jest-0.14.0",
-        url = "https://github.com/aspect-build/rules_jest/archive/refs/tags/v0.14.0.tar.gz",
+        sha256 = "175f92448bd11b398ee94c6bb09cabf76df75a77d21c9555723798c58a2e73c8",
+        strip_prefix = "rules_jest-0.19.2",
+        url = "https://github.com/aspect-build/rules_jest/releases/download/v0.19.2/rules_jest-v0.19.2.tar.gz",
     )
 
     http_archive(
         name = "aspect_rules_swc",
-        sha256 = "71bff4030067e3898a98a60918745a168b166256393d1ea566f72b118460d4ef",
-        strip_prefix = "rules_swc-0.21.0",
-        url = "https://github.com/aspect-build/rules_swc/archive/refs/tags/v0.21.0.tar.gz",
+        sha256 = "84567d61fca690884c08adc44c9f72d0cc4b65dd6d705baf3e447a4d0a020856",
+        strip_prefix = "rules_swc-1.0.0-rc2",
+        url = "https://github.com/aspect-build/rules_swc/releases/download/v1.0.0-rc2/rules_swc-v1.0.0-rc2.tar.gz",
     )
 
     http_archive(
