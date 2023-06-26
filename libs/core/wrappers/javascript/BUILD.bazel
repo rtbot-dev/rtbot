@@ -1,6 +1,9 @@
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
+load("@aspect_rules_jest//jest:defs.bzl", "jest_test")
+
+package(default_visibility = ["//visibility:public"])
 
 copy_file(
     name = "wasm",
@@ -19,7 +22,7 @@ ts_config(
 
 ts_project(
     name = "ts",
-    srcs = glob(["src/**/*.ts"]),
+    srcs = glob(["src/**/*.ts"], exclude = ["**/*.spec.ts"]),
     composite = True,
     declaration = True,
     resolve_json_module = True,
@@ -29,10 +32,39 @@ ts_project(
     deps = _DEPS,
 )
 
+
+ts_project(
+    name = "ts_test",
+    srcs = glob(["src/**/*.spec.ts"]),
+    composite = True,
+    declaration = True,
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = ["ts", "test"],
+    out_dir = "test",
+    tsconfig = ":tsconfig",
+    deps = _DEPS + [
+        "//:node_modules/@types/jest",
+        "//:node_modules/@rtbot/api"
+    ],
+)
+
+jest_test(
+    name = "test",
+    # config = "//:jest_config",
+    data = [
+        ":ts_test",
+        "//:node_modules/@types/jest",
+        "//:node_modules/@rtbot/api"
+    ],
+    node_modules = "//:node_modules",
+)
+
 npm_package(
     name = "js",
     srcs = [":ts", ":wasm"],
     data = _DEPS,
     package = "@rtbot/api",
 )
+
 

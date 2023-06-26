@@ -48,14 +48,6 @@ wasm_cc_binary(
 )
 
 genrule(
-    name = "index",
-    outs = ["index.js"],
-    cmd = """
-    echo "export * from './rtbot-wasm/bindings-cpp-wasm';" > $@
-    """,
-)
-
-genrule(
     name = "declarations",
     outs = ["index.d.ts"],
     cmd = """
@@ -76,7 +68,7 @@ genrule(
             echo "{
     \\"name\\": \\"@rtbot/wasm\\",
     \\"version\\": \\"0.1.0\\",
-    \\"main\\": \\"index.js\\",
+    \\"main\\": \\"./rtbot-wasm/bindings-cpp-wasm\\",
     \\"typings\\": \\"index.d.ts\\"
 }" > $@
     """,
@@ -86,7 +78,6 @@ genrule(
 npm_package(
     name = "js",
     srcs = [
-        ":index",
         ":declarations",
         ":rtbot-wasm",
         ":package_json"
