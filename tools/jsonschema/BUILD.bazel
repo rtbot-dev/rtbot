@@ -1,0 +1,62 @@
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+
+package(default_visibility = ["//visibility:public"])
+
+_DEPS = [
+    "//:node_modules/@base2/pretty-print-object",
+    "//:node_modules/@bazel/runfiles",
+    "//:node_modules/@types/node",
+    "//:node_modules/commander",
+    "//:node_modules/handlebars",
+    "//:node_modules/chalk",
+    "//:node_modules/to-json-schema",
+]
+
+filegroup(
+    name = "hbs",
+    srcs = glob(["**/*.hbs"]),
+    visibility = ["//visibility:public"],
+)
+
+ts_project(
+    name = "ts",
+    srcs = glob(
+        ["src/**/*.ts"],
+        exclude = [
+            "**/*.spec.ts",
+            "**/*.test.ts",
+        ],
+    ),
+    data = [":hbs"],
+    declaration = True,
+    out_dir = "dist",
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = [
+        "tool",
+        "ts",
+    ],
+    tsconfig = "tsconfig.json",
+    validate = True,
+    deps = _DEPS,
+)
+
+copy_to_directory(
+    name = "templates",
+    srcs = [":hbs"],
+    replace_prefixes = {
+        "templates": ".",
+    },
+)
+
+js_binary(
+    name = "generate",
+    copy_data_to_bin = True,
+    data = [
+        ":hbs",
+        ":ts",
+    ],
+    entry_point = "dist/index.js",
+)
