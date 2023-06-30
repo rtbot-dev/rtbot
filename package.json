@@ -12,12 +12,15 @@
   ],
   "dependencies": {
     "@bazel/ibazel": "^0.16.2",
-    "@typescript-eslint/eslint-plugin": "^5.48.1",
-    "@typescript-eslint/parser": "^5.48.1",
-    "eslint": "^8.31.0",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
+    "class-transformer": "^0.5.1",
+    "eslint": "^8.43.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "prettier": "^2.8.2",
-    "tsembind": "^1.1.0"
+    "json-schema-to-zod": "^0.6.3",
+    "prettier": "^2.8.8",
+    "tsembind": "^1.1.0",
+    "zod": "^3.21.4"
   },
   "devDependencies": {
     "@base2/pretty-print-object": "^1.0.2",
@@ -32,6 +35,7 @@
     "handlebars": "^4.7.7",
     "jest-cli": "^29.5.0",
     "jest-junit": "^16.0.0",
+    "json-schema-to-typescript": "^11.0.0",
     "to-json-schema": "^0.2.5",
     "typescript": "4.9.3"
   }

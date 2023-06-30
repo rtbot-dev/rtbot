@@ -14,9 +14,8 @@
     "date": {
       "type": "date"
     },
-    "version": {
-      "type": "string",
-      "examples": ["v1"]
+    "apiVersion": {
+      "enum": ["v1"]
     },
     "author": {
       "type": "string",
@@ -25,20 +24,6 @@
     "license": {
       "type": "string",
       "examples": ["MIT", "private"]
-    },
-    "entryNode": {
-      "type": "string",
-      "examples": ["ma1"]
-    },
-    "optim": {
-      "type": "object",
-      "properties": {
-        "algorithm": {
-          "type": "string",
-          "default": "Nelder-Mead",
-          "examples": ["Nelder-Mead"]
-        }
-      }
     },
     "operators": {
       "type": "array",
@@ -62,6 +47,14 @@
           "to": {
             "type": "string",
             "examples": ["std"]
+          },
+          "fromPort": {
+            "type": "string",
+            "examples": ["o1"]
+          },
+          "toPort": {
+            "type": "string",
+            "examples": ["i1"]
           }
         },
         "required": ["from", "to"],
@@ -69,6 +62,6 @@
       }
     }
   },
-  "required": ["title", "entryNode", "operators", "connections"],
+  "required": ["apiVersion", "operators", "connections"],
   "additionalProperties": false
 }

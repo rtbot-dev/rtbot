@@ -6,6 +6,7 @@
     "allowJs": false,
     "skipLibCheck": true,
     "esModuleInterop": true,
+    "experimentalDecorators": true,
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "forceConsistentCasingInFileNames": true,
@@ -15,8 +16,9 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "rootDir": "src",
-    "composite": true,
-    "declaration": true
+    "outDir": "dist2",
+    "declaration": true,
+    "composite": true
   },
-  "include": ["src"]
+  "include": ["src/**/*"]
 }

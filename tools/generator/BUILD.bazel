@@ -8,10 +8,13 @@ _DEPS = [
     "//:node_modules/@base2/pretty-print-object",
     "//:node_modules/@bazel/runfiles",
     "//:node_modules/@types/node",
+    "//:node_modules/chalk",
     "//:node_modules/commander",
     "//:node_modules/handlebars",
-    "//:node_modules/chalk",
+    "//:node_modules/prettier",
     "//:node_modules/to-json-schema",
+    "//:node_modules/json-schema-to-typescript",
+    "//:node_modules/json-schema-to-zod",
 ]
 
 filegroup(

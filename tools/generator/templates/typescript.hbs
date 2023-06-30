@@ -1,0 +1,26 @@
+import { z } from "zod"
+import { Operator } from "./program"
+
+export const programSchema = {{{ programSchema }}}
+
+{{#each operators}}
+{{#each extraTypes}}
+
+export type {{ name }} = {
+{{#each entries}}
+  {{ name }}: {{ type }},
+{{/each}}
+}
+{{/each}}
+
+export class {{ opType }} extends Operator {
+  readonly opType = "{{ opType}}";
+  constructor(
+{{ parametersBlock }}
+  ) {
+    super(id);
+    const schema = {{{ schema }}}
+    schema.parse(JSON.parse(JSON.stringify(this)));
+  }
+}
+{{/each}}

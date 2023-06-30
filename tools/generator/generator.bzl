@@ -1,3 +1,5 @@
+load("@aspect_rules_js//js:providers.bzl", "JsInfo")
+
 def _rtbot_jsonschema_impl(ctx):
     """
     The "implementation function" for our rule.
@@ -6,12 +8,20 @@ def _rtbot_jsonschema_impl(ctx):
     Args:
         ctx: Bazel's starlark execution context
     """
-    output_dir = ctx.actions.declare_directory("jsonschema")
-    genfile = ctx.actions.declare_file("jsonschema/jsonschema.json")
+    target = ctx.attr.target
+
+    if target == "jsonschema":
+      genfile = ctx.actions.declare_file("%s/jsonschema.json" % ctx.label.name)
+
+    if target == "typescript":
+      genfile = ctx.actions.declare_file("%s/index.ts" % ctx.label.name)
+
+    output_dir = ctx.actions.declare_directory(ctx.label.name)
 
     args = ctx.actions.args()
     args.add("--output", output_dir.path)
-    args.add_joined("--files", ctx.files.srcs, join_with = " ")
+    args.add("--target", target)
+    args.add_joined("--sources", ctx.files.srcs, join_with = " ")
 
     ctx.actions.run(
         arguments = [args],
@@ -22,12 +32,12 @@ def _rtbot_jsonschema_impl(ctx):
             "BAZEL_BINDIR": ".",
         },
         executable = ctx.executable.generate,
-        progress_message = "[rtbot-jsonschema] generate, args %s" % (args),
+        progress_message = "[rtbot-generate] generating %s, target %s" % (ctx.label.name, ctx.attr.target),
     )
 
-    return DefaultInfo(files = depset([output_dir] + [genfile]))
+    return DefaultInfo(files = depset([genfile]))
 
-_rtbot_jsonschema = rule(
+_rtbot_generate = rule(
     implementation = _rtbot_jsonschema_impl,
     attrs = {
         "srcs": attr.label_list(
@@ -38,11 +48,13 @@ _rtbot_jsonschema = rule(
             executable = True,
             cfg = "exec",
             allow_files = True,
-            default = "//tools/jsonschema:generate",
+            default = "//tools/generator:generate",
         ),
+        "target": attr.string(
+            default = "jsonschema"
+        )
     },
 )
 
-def rtbot_jsonschema(
-        **kwargs):
-    _rtbot_jsonschema(**kwargs)
+def rtbot_generate(**kwargs):
+    _rtbot_generate(**kwargs)

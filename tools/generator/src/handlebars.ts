@@ -6,12 +6,12 @@ const runfiles = new Runfiles(process.env);
 
 export const compileTemplate = (template: string, options?: CompileOptions) =>
   Handlebars.compile(
-    fs.readFileSync(runfiles.resolveWorkspaceRelative(`tools/jsonschema/templates/${template}.hbs`)).toString(),
+    fs.readFileSync(runfiles.resolveWorkspaceRelative(`tools/generator/templates/${template}.hbs`)).toString(),
     options
   );
 
 export const registerPartial = (template: string) =>
   Handlebars.registerPartial(
     template,
-    fs.readFileSync(runfiles.resolveWorkspaceRelative(`tools/jsonschema/templates/${template}.hbs`)).toString()
+    fs.readFileSync(runfiles.resolveWorkspaceRelative(`tools/generator/templates/${template}.hbs`)).toString()
   );
