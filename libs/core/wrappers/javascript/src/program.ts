@@ -1,6 +1,6 @@
 import { Exclude, instanceToPlain, plainToInstance } from "class-transformer";
-import { ZodSchema } from "zod";
-import { programSchema } from "./generated"
+import { programSchema } from "./generated";
+import { nanoid } from "nanoid";
 
 export type OperatorId = string;
 export type PortId = string;
@@ -8,7 +8,7 @@ export type PortId = string;
 export class Program {
   operators: Operator[] = [];
   connections: Connection[] = [];
-  entryNode?: string;
+  programId: string;
 
   constructor(
     readonly title?: string,
@@ -16,21 +16,27 @@ export class Program {
     readonly date?: string,
     readonly author?: string,
     readonly license?: string,
-    readonly apiVersion: string = "v1",
-  ) {}
+    readonly apiVersion: string = "v1"
+  ) {
+    this.programId = nanoid(10);
+  }
 
   static checkValid(programJson: string) {
     const plain: Record<keyof any, unknown> = JSON.parse(programJson);
-    const program: Program = plainToInstance(Program, plain)
-    program.validate()
+    const program: Program = plainToInstance(Program, plain);
+    program.validate();
+  }
+
+  static toInstance(obj: Record<keyof any, unknown>): Program {
+    return plainToInstance(Program, obj);
+  }
+
+  toPlain(): Record<keyof any, unknown> {
+    return instanceToPlain(this);
   }
 
   validate() {
-    programSchema.parse(JSON.parse(JSON.stringify(this)))
-  }
-
-  setEntryNode(entryNode: string) {
-    this.entryNode = entryNode;
+    programSchema.parse(JSON.parse(JSON.stringify(this)));
   }
 
   addOperator(op: Operator) {
@@ -77,6 +83,7 @@ export class Connection {
 }
 
 export abstract class Operator {
+  abstract opType: string;
   @Exclude()
   private program?: Program;
 

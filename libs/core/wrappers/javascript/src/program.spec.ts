@@ -1,4 +1,13 @@
-import { Program, MovingAverage, PeakDetector, Connection } from "@rtbot/api";
+import { Program, MovingAverage, Input, Output, RtBotRun } from "@rtbot/api";
+
+const data = [
+  [1, 10.0],
+  [2, 20.0],
+  [3, 30.0],
+  [4, 25.0],
+  [5, 20.0],
+  [6, 15.0],
+];
 
 describe("Program", () => {
   let program: Program;
@@ -7,11 +16,14 @@ describe("Program", () => {
 
   beforeEach(() => {
     program = new Program(title, description);
+    const input = new Input("input1");
     const op1 = new MovingAverage("ma1", 2);
-    const op2 = new MovingAverage("ma2", 20);
+    const output = new Output("out1");
+    program.addOperator(input);
     program.addOperator(op1);
-    program.addOperator(op2);
-    program.addConnection(op1, op2);
+    program.addOperator(output);
+    program.addConnection(input, op1);
+    program.addConnection(op1, output);
   });
 
   it("can create a new instance", () => {
@@ -37,5 +49,19 @@ describe("Program", () => {
       program.validate();
     };
     expect(wrap).not.toThrow();
+  });
+
+  it("can process data", async () => {
+    const rtbotRun = new RtBotRun(program, data);
+    const result = await rtbotRun.run();
+    console.log("result", result);
+  });
+
+  it("there has to be at least one Input operator in a program to be valid", () => {
+    expect(1).toBe(2);
+  });
+
+  it("you cannot add a connection between unexisting operators", () => {
+    expect(1).toBe(2);
   });
 });

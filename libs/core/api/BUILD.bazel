@@ -32,6 +32,7 @@ cc_library(
 BASE_LINKOPTS = [
     "--bind",  # Enable embind
     "-s MODULARIZE",
+    "-s NO_DISABLE_EXCEPTION_CATCHING",
     #"-s EXPORT_ES6=1",
 ]
 
@@ -79,8 +80,8 @@ npm_package(
     name = "js",
     srcs = [
         ":declarations",
+        ":package_json",
         ":rtbot-wasm",
-        ":package_json"
     ],
     package = "@rtbot/wasm",
 )

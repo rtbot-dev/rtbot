@@ -9,7 +9,7 @@ package(default_visibility = ["//visibility:public"])
 
 rtbot_generate(
     name = "generated",
-    target = "typescript"
+    target = "typescript",
 )
 
 copy_file(
@@ -20,7 +20,7 @@ copy_file(
 
 rtbot_generate(
     name = "jsonschema",
-    target = "jsonschema"
+    target = "jsonschema",
 )
 
 copy_file(
@@ -28,7 +28,6 @@ copy_file(
     src = ":jsonschema",
     out = "src/jsonschema.json",
 )
-
 
 copy_file(
     name = "wasm",
@@ -38,7 +37,9 @@ copy_file(
 
 _DEPS = [
     "//:node_modules/@rtbot/wasm",
+    "//:node_modules/@types/node",
     "//:node_modules/class-transformer",
+    "//:node_modules/nanoid",
     "//:node_modules/zod",
 ]
 
@@ -47,31 +48,35 @@ ts_config(
     src = "tsconfig.bazel.json",
 )
 
-
 ts_project(
     name = "ts",
-    srcs = glob(["src/**/*.ts"], exclude = ["**/*.spec.ts"]) + [":generated_to_src"],
+    srcs = glob(
+        ["src/**/*.ts"],
+        exclude = ["**/*.spec.ts"],
+    ) + [":generated_to_src"],
     composite = True,
+    data = [":jsonschema_to_src"],
     declaration = True,
+    out_dir = ".",
     resolve_json_module = True,
     root_dir = "src",
-    out_dir = ".",
     tags = ["ts"],
     tsconfig = ":tsconfig",
     deps = _DEPS,
-    data = [":jsonschema_to_src"]
 )
-
 
 ts_project(
     name = "ts_test",
     srcs = glob(["src/**/*.spec.ts"]),
     composite = True,
     declaration = True,
+    out_dir = "test",
     resolve_json_module = True,
     root_dir = "src",
-    tags = ["ts", "test"],
-    out_dir = "test",
+    tags = [
+        "test",
+        "ts",
+    ],
     tsconfig = ":tsconfig",
     deps = _DEPS + [
         "//:node_modules/@types/jest",
@@ -92,23 +97,24 @@ genrule(
     """,
 )
 
-
 jest_test(
     name = "test",
     # config = "//:jest_config",
     data = [
         ":ts_test",
+        "//:node_modules/@rtbot/api",
         "//:node_modules/@types/jest",
-        "//:node_modules/@rtbot/api"
     ],
     node_modules = "//:node_modules",
 )
 
 npm_package(
     name = "js",
-    srcs = [":ts", ":wasm", ":package_json"],
+    srcs = [
+        ":package_json",
+        ":ts",
+        ":wasm",
+    ],
     data = _DEPS,
     package = "@rtbot/api",
 )
-
-
