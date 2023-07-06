@@ -58,18 +58,19 @@ void addPoliciesToJson(json& j, map<string, typename Operator<T, V>::InputPolicy
 /*
 {
     "type": "Input",
-    "id": "in"
+    "id": "in",
+    "numPorts": 1
 }
 */
 
 template <class T, class V>
 void to_json(json& j, const Input<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Input<T, V>& p) {
-  p = Input<T, V>(j["id"].get<string>());
+  p = Input<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
 /*
@@ -174,18 +175,19 @@ void from_json(const json& j, Join<T, V>& p) {
 /*
 {
     "type": "Output",
-    "id": "opt"
+    "id": "out",
+    "numPorts": 1
 }
 */
 
 template <class T, class V>
 void to_json(json& j, const Output_opt<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Output_opt<T, V>& p) {
-  p = Output_opt<T, V>(j["id"].get<string>());
+  p = Output_opt<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
 /*
@@ -463,18 +465,19 @@ void from_json(const json& j, Power<T, V>& p) {
 /*
 {
     "type": "Difference",
-    "id": "diff"
+    "id": "diff",
+    "useOldestTime": true
 }
 */
 
 template <class T, class V>
 void to_json(json& j, const Difference<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"useOldestTime", p.getUseOldestTime()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Difference<T, V>& p) {
-  p = Difference<T, V>(j["id"].get<string>());
+  p = Difference<T, V>(j["id"].get<string>(), j.value("useOldestTime", true));
 }
 
 /*

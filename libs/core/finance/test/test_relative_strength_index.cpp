@@ -2,7 +2,6 @@
 #include <math.h>
 
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/finance/RelativeStrengthIndex.h"
 

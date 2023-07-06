@@ -9,7 +9,7 @@ template <class T, class V>
 struct LessThan : public FilterByValue<T, V> {
   LessThan() = default;
   V x;
-  LessThan(string const &id, V x0) : x(x0), FilterByValue<T, V>(id, [=](V x) { return x < x0; }) {}
+  LessThan(string const &id, V value) : x(value), FilterByValue<T, V>(id, [=](V number) { return number < value; }) {}
   string typeName() const override { return "LessThan"; }
 };
 

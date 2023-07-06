@@ -7,14 +7,19 @@ namespace rtbot {
 
 template <class T, class V>
 struct Input : public Operator<T, V> {
-  static const int size = 2;
-
   Input() = default;
 
-  Input(string const &id) : Operator<T, V>(id) {
-    this->addDataInput("i1", Input<T, V>::size);
-    this->addOutput("o1");
+  Input(string const &id, size_t numPorts = 1) : Operator<T, V>(id) {
+    for (int i = 1; i <= numPorts; i++) {
+      string inputPort = "i" + to_string(i);
+      string outputPort = "o" + to_string(i);
+      portsMap.emplace(inputPort, outputPort);
+      this->addDataInput(inputPort, Input<T, V>::size);
+      this->addOutput(outputPort);
+    }
   }
+
+  size_t getNumPorts() const { return this->dataInputs.size(); }
 
   string typeName() const override { return "Input"; }
 
@@ -22,8 +27,12 @@ struct Input : public Operator<T, V> {
     Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
     Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
     if (m1.time <= m0.time) return {};
-    return this->emit(m0);
+    return this->emit(m0, {portsMap.find(inputPort)->second});
   }
+
+ private:
+  map<string, string> portsMap;
+  static const int size = 2;
 };
 
 }  // namespace rtbot

@@ -9,7 +9,8 @@ template <class T, class V>
 struct Difference : public Operator<T, V> {
   Difference() = default;
 
-  Difference(string const &id) : Operator<T, V>(id) {
+  Difference(string const &id, bool useOldestTime = true) : Operator<T, V>(id) {
+    this->useOldestTime = useOldestTime;
     this->addDataInput("i1", Difference<T, V>::size);
     this->addOutput("o1");
   }
@@ -20,13 +21,16 @@ struct Difference : public Operator<T, V> {
     Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
     Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
     Message<T, V> out;
-    out.value = m0.value - m1.value;
-    out.time = m1.time;
+    out.value = m1.value - m0.value;
+    out.time = (this->useOldestTime) ? m1.time : m0.value;
     return this->emit(out);
   }
 
+  bool getUseOldestTime() const { return this->useOldestTime; }
+
  private:
   static const int size = 2;
+  bool useOldestTime;
 };
 
 }  // namespace rtbot

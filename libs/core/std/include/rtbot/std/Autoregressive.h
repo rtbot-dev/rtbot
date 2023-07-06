@@ -19,7 +19,7 @@ struct AutoRegressive : public Operator<T, V> {
 
   string typeName() const override { return "AutoRegressive"; }
 
-  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> const& msg, string inputPort = "") override {
+  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
