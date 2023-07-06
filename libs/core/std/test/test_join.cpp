@@ -12,8 +12,8 @@ TEST_CASE("Join peak and value") {
   auto in1 = Input<uint64_t, double>("in1");
   auto peak = PeakDetector<uint64_t, double>("b1", 3);
   auto join = Join<uint64_t, double>("j1", 2);
-  auto out1 = Output_vec<uint64_t, double>("out1", 1);
-  auto out2 = Output_vec<uint64_t, double>("out2", 1);
+  auto out1 = Output_vec<uint64_t, double>("out1");
+  auto out2 = Output_vec<uint64_t, double>("out2");
 
   in1.connect(peak)->connect(join, "o1", "i1")->connect(out1, "o1", "i1");
   in1.connect(join, "o1", "i2")->connect(out2, "o2", "i1");

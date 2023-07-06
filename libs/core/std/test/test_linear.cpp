@@ -41,19 +41,17 @@ TEST_CASE("Linear joint i2 eager") {
 
   emitted = linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
 
+  REQUIRE(emitted.find("linear")->second.size() == 4);
   REQUIRE(emitted.find("linear")->second.at(0).value == -1);
-  /* get the time of the non eager port*/
   REQUIRE(emitted.find("linear")->second.at(0).time == 1);
+  REQUIRE(emitted.find("linear")->second.at(1).value == 1);
+  REQUIRE(emitted.find("linear")->second.at(1).time == 2);
+  REQUIRE(emitted.find("linear")->second.at(2).value == 3);
+  REQUIRE(emitted.find("linear")->second.at(2).time == 3);
+  REQUIRE(emitted.find("linear")->second.at(3).value == 5);
+  REQUIRE(emitted.find("linear")->second.at(3).time == 4);
 
-  emitted = linear.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  emitted = linear.receiveData(Message<uint64_t, double>(2, 2), "i2");
 
-  REQUIRE(emitted.find("linear")->second.at(0).value == 0);
-  /* get the time of the non eager port*/
-  REQUIRE(emitted.find("linear")->second.at(0).time == 2);
-
-  emitted = linear.receiveData(Message<uint64_t, double>(5, 5), "i1");
-
-  REQUIRE(emitted.find("linear")->second.at(0).value == 2);
-  /* get the time of the non eager port*/
-  REQUIRE(emitted.find("linear")->second.at(0).time == 3);
+  REQUIRE(emitted.empty());
 }

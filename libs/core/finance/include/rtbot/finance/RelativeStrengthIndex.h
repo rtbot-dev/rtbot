@@ -58,10 +58,14 @@ struct RelativeStrengthIndex : public Operator<T, V> {
     prevAverageGain = averageGain;
     prevAverageLoss = averageLoss;
 
-    rs = averageGain / averageLoss;
-    rsi = 100.0 - (100.0 / (1 + rs));
+    if (averageLoss > 0) {
+      rs = averageGain / averageLoss;
 
+      rsi = 100.0 - (100.0 / (1 + rs));
+    } else
+      rsi = 100.0;
     out.value = rsi;
+
     out.time = this->getDataInputLastMessage(inputPort).time;
 
     return this->emit(out);

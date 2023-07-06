@@ -15,17 +15,23 @@ struct Linear : public Join<T, V> {
       : Join<T, V>(id) {
     if (coeff.size() < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->coeff = coeff;
-    int eagerInputs = 0;
+    this->notEagerPort = "";
+    this->eagerPort = "";
     for (size_t i = 1; i <= this->coeff.size(); i++) {
       string inputPort = string("i") + to_string(i);
       if (policies.count(inputPort) > 0) {
-        if (policies.find(inputPort)->second.isEager()) eagerInputs++;
+        if (policies.find(inputPort)->second.isEager())
+          this->eagerPort = inputPort;
+        else
+          this->notEagerPort = inputPort;
         this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
-      } else
+      } else {
         this->addDataInput(inputPort, 0, {});
+        this->notEagerPort = inputPort;
+      }
     }
     this->addOutput("o1");
-    if (eagerInputs == this->coeff.size())
+    if (this->notEagerPort.empty())
       throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
@@ -35,19 +41,24 @@ struct Linear : public Join<T, V> {
     map<outputPort, vector<Message<T, V>>>
   */
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
-    map<string, vector<Message<T, V>>> toEmit;
     int i = 0;
     Message<T, V> out;
     out.value = 0;
+    out.time = 0;
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       out.value = out.value + it->second.front().value * this->coeff.at(i);
-      if (!it->second.isEager()) out.time = it->second.front().time;
       i++;
     }
-    vector<Message<T, V>> v;
-    v.push_back(out);
-    toEmit.emplace("o1", v);
-    return toEmit;
+    out.time = this->dataInputs.find(this->notEagerPort)->second.front().time;
+
+    if (this->outputMsgs.count("o1") == 0) {
+      vector<Message<T, V>> v;
+      v.push_back(out);
+      this->outputMsgs.emplace("o1", v);
+    } else
+      this->outputMsgs["o1"].push_back(out);
+
+    return this->outputMsgs;
   }
 
   vector<V> getCoefficients() const { return this->coeff; }

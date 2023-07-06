@@ -40,25 +40,17 @@ TEST_CASE("Divide joint i2 eager") {
 
   emitted = divide.receiveData(Message<uint64_t, double>(2, 2), "i2");
 
+  REQUIRE(emitted.find("divide")->second.size() == 4);
   REQUIRE(emitted.find("divide")->second.at(0).value == 0.5);
   REQUIRE(emitted.find("divide")->second.at(0).time == 1);
+  REQUIRE(emitted.find("divide")->second.at(1).value == 3);
+  REQUIRE(emitted.find("divide")->second.at(1).time == 2);
+  REQUIRE(emitted.find("divide")->second.at(2).value == 1.5);
+  REQUIRE(emitted.find("divide")->second.at(2).time == 3);
+  REQUIRE(emitted.find("divide")->second.at(3).value == 2);
+  REQUIRE(emitted.find("divide")->second.at(3).time == 4);
 
-  emitted = divide.receiveData(Message<uint64_t, double>(3, 4), "i2");
-
-  REQUIRE(emitted.find("divide")->second.at(0).value == 1.5);
-  REQUIRE(emitted.find("divide")->second.at(0).time == 2);
-
-  emitted = divide.receiveData(Message<uint64_t, double>(4, 5), "i2");
-
-  REQUIRE(emitted.find("divide")->second.at(0).value == 0.6);
-  REQUIRE(emitted.find("divide")->second.at(0).time == 3);
-
-  emitted = divide.receiveData(Message<uint64_t, double>(5, 8), "i2");
-
-  REQUIRE(emitted.find("divide")->second.at(0).value == 0.5);
-  REQUIRE(emitted.find("divide")->second.at(0).time == 4);
-
-  emitted = divide.receiveData(Message<uint64_t, double>(6, 2), "i2");
+  emitted = divide.receiveData(Message<uint64_t, double>(2, 2), "i2");
 
   REQUIRE(emitted.empty());
 }

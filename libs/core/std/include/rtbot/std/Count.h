@@ -9,15 +9,16 @@ template <class T, class V>
 struct Count : public Operator<T, V> {
   size_t count;
   Count() = default;
-  Count(string const &id_) : Operator<T, V>(id_), count(0) {
+  Count(string const &id) : Operator<T, V>(id) {
+    this->count = 0;
     this->addDataInput("i1", 1);
     this->addOutput("o1");
   }
   string typeName() const override { return "Count"; }
   map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    count = count + 1;
-    out.value = count;
+    this->count = this->count + 1;
+    out.value = this->count;
     return this->emit(out);
   }
 };

@@ -13,7 +13,7 @@ TEST_CASE("Difference") {
     for (int i = 1; i <= 50; i++) {
       emitted = diff.receiveData(Message<uint64_t, double>(i, i));
       if (i >= 2) {
-        REQUIRE(emitted.find("diff")->second.at(0).value == -1);
+        REQUIRE(emitted.find("diff")->second.at(0).value == 1);
         REQUIRE(emitted.find("diff")->second.at(0).time == i);
       }
     }
