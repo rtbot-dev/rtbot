@@ -28,6 +28,12 @@ export class Program {
   }
 
   static toInstance(obj: Record<keyof any, unknown>): Program {
+    // recall that internally we use `opType` instead of `type`
+    obj.operators = (obj.operators as any[]).reduce((acc, op) => {
+      op.opType = op.type;
+      delete op.type;
+      return [...acc, op];
+    }, []);
     return plainToInstance(Program, obj);
   }
 
@@ -57,24 +63,19 @@ export class Program {
   }
 
   addConnection(opFrom: Operator, opTo: Operator, opFromPort: PortId = "o1", opToPort: PortId = "i1") {
+    if (!this.operators.find((op) => op.id === opFrom.id))
+      throw new Error(`From operator ${opFrom.id} hasn't been added to the program`);
+    if (!this.operators.find((op) => op.id === opTo.id))
+      throw new Error(`To operator ${opTo.id} hasn't been added to the program`);
+
     if (
-      !this.connections.find(
+      this.connections.find(
         ({ from, to, fromPort, toPort }) =>
           from === opFrom.id && to === opTo.id && fromPort === opFromPort && toPort === opToPort
       )
     )
-      this.connections.push(new Connection(opFrom.id, opTo.id, opFromPort, opToPort));
-    else
-      console.warn(
-        "There is already a connection from",
-        opFrom,
-        "to",
-        opTo,
-        " from port",
-        opFromPort,
-        "to port",
-        opToPort
-      );
+      throw new Error(`There is already a connection from ${opFrom.id}:${opFromPort} to ${opTo.id}:${opToPort}`);
+    this.connections.push(new Connection(opFrom.id, opTo.id, opFromPort, opToPort));
   }
 }
 
