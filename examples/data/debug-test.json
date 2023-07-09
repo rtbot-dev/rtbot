@@ -1,0 +1,94 @@
+{
+  "title": "Peak detector",
+  "description": "This is a program to detect peaks in PPG...",
+  "date": "now",
+  "apiVersion": "v1",
+  "author": "Someone <someone@gmail.com>",
+  "license": "MIT",
+  "operators": [
+    {
+      "id": "in1",
+      "type": "Input"
+    },
+    {
+      "id": "ma1",
+      "type": "MovingAverage",
+      "n": 6
+    },
+    {
+      "id": "ma2",
+      "type": "MovingAverage",
+      "n": 250
+    },
+    {
+      "id": "minus",
+      "type": "Minus",
+      "policies": { "i1": { "eager": false } }
+    },
+    {
+      "id": "peak",
+      "type": "PeakDetector",
+      "n": 13
+    },
+    {
+      "id": "join",
+      "type": "Join",
+      "policies": { "i1": { "eager": false } },
+      "numPorts": 2
+    },
+    {
+      "id": "out1",
+      "type": "Output"
+    }
+  ],
+  "connections": [
+    {
+      "from": "in1",
+      "to": "ma1",
+      "fromPort": "o1",
+      "toPort": "i1"
+    },
+    {
+      "from": "ma1",
+      "to": "minus",
+      "fromPort": "o1",
+      "toPort": "i1"
+    },
+    {
+      "from": "minus",
+      "to": "peak",
+      "fromPort": "o1",
+      "toPort": "i1"
+    },
+    {
+      "from": "peak",
+      "to": "join",
+      "fromPort": "o1",
+      "toPort": "i1"
+    },
+    {
+      "from": "join",
+      "to": "out1",
+      "fromPort": "o2",
+      "toPort": "i1"
+    },
+    {
+      "from": "in1",
+      "to": "ma2",
+      "fromPort": "o1",
+      "toPort": "i1"
+    },
+    {
+      "from": "ma2",
+      "to": "minus",
+      "fromPort": "o1",
+      "toPort": "i2"
+    },
+    {
+      "from": "in1",
+      "to": "join",
+      "fromPort": "o1",
+      "toPort": "i2"
+    }
+  ]
+}
