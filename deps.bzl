@@ -89,9 +89,16 @@ def deps():
 
     http_archive(
         name = "aspect_rules_swc",
-        sha256 = "84567d61fca690884c08adc44c9f72d0cc4b65dd6d705baf3e447a4d0a020856",
-        strip_prefix = "rules_swc-1.0.0-rc2",
-        url = "https://github.com/aspect-build/rules_swc/releases/download/v1.0.0-rc2/rules_swc-v1.0.0-rc2.tar.gz",
+        sha256 = "17187c15710ac133a656c35c2f768f3cfa925888d26ed93a9fe9fde69a860aab",
+        strip_prefix = "rules_swc-1.0.2",
+        url = "https://github.com/aspect-build/rules_swc/releases/download/v1.0.2/rules_swc-v1.0.2.tar.gz",
+    )
+
+    http_archive(
+        name = "aspect_rules_esbuild",
+        sha256 = "098e38e5ee868c14a6484ba263b79e57d48afacfc361ba30137c757a9c4716d6",
+        strip_prefix = "rules_esbuild-0.15.0",
+        url = "https://github.com/aspect-build/rules_esbuild/releases/download/v0.15.0/rules_esbuild-v0.15.0.tar.gz",
     )
 
     http_archive(

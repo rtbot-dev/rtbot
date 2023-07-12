@@ -12,21 +12,24 @@
   ],
   "dependencies": {
     "@bazel/ibazel": "^0.16.2",
+    "@types/blessed": "^0.1.22",
     "@types/papaparse": "^5.3.7",
     "@types/react": "^18.2.14",
     "@typescript-eslint/eslint-plugin": "^5.60.1",
     "@typescript-eslint/parser": "^5.60.1",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0",
     "class-transformer": "^0.5.1",
     "eslint": "^8.43.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "ink": "^3.2.0",
+    "immer": "^10.0.2",
     "json-schema-to-zod": "^0.6.3",
     "nanoid": "3.3.5",
     "papaparse": "^5.4.1",
     "prettier": "^2.8.8",
-    "react": "^17.0.2",
     "tsembind": "^1.1.0",
-    "zod": "^3.21.4"
+    "zod": "^3.21.4",
+    "zustand": "^4.3.9"
   },
   "devDependencies": {
     "@base2/pretty-print-object": "^1.0.2",

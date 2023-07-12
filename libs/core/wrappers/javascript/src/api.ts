@@ -44,8 +44,8 @@ export enum RtBotRunOutputFormat {
   EXTENDED,
 }
 
-type CollapsedFormat = { [operatorId: string]: number[][] };
-type ExtendedFormat = { in: RtBotMessage; out: { [operatorId: string]: RtBotMessage[] } }[];
+export type CollapsedFormat = { [operatorId: string]: number[][] };
+export type ExtendedFormat = { in: RtBotMessage; out: { [operatorId: string]: RtBotMessage[] } }[];
 
 export class RtBotRun {
   // this variable will hold the outputs from different

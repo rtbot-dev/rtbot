@@ -1,7 +1,8 @@
 import { Command } from "commander";
 import { readFileSync, writeFileSync } from "fs";
 import Papa, { ParseResult } from "papaparse";
-import { Program, RtBotRun, RtBotRunOutputFormat } from "@rtbot/api";
+import { Program, RtBotRun, RtBotRunOutputFormat, ExtendedFormat } from "@rtbot/api";
+import { tui } from "../tui";
 
 export const registerDebug = (program: Command) => {
   program
@@ -17,19 +18,22 @@ export const registerDebug = (program: Command) => {
       "programFile",
       "A path to a file where the RtBot program is. It is assumed by default that it is in json format."
     )
-    .option(
-      "-i, --input <string>",
-      "A file with the input data that will be passed to the program. Expects csv format."
-    )
+    .argument("inputData", "A file with the input data that will be passed to the program. Expects csv format.")
     .option(
       "-st, --scale-time-factor <number>",
       "A number that specifies the scale factor for time. Useful to change time units",
       "1"
     )
+    .option(
+      "-sv, --scale-value-factor <number>",
+      "A number that specifies the scale factor for the values. Useful to change value units",
+      "1"
+    )
+    .option("-i, --interactive", "If set, shows an interactive screen useful for debugging programs.")
     .option("-o, --output <string>", "If provided, indicates to which file the program debug output should be written.")
     .option("-v, --verbose", "Show extra information while running the program", false)
-    .action(async (programFile, { output, verbose, input, scaleTimeFactor }) => {
-      if (!input) {
+    .action(async (programFile, inputData, { output, verbose, interactive, scaleTimeFactor }) => {
+      if (!inputData) {
         console.error("Please provide an input file in csv format.");
         process.exit(1);
       }
@@ -51,7 +55,7 @@ export const registerDebug = (program: Command) => {
 
       try {
         data = await new Promise((resolve, reject) => {
-          Papa.parse(readFileSync(input, { encoding: "utf8" }), {
+          Papa.parse(readFileSync(inputData, { encoding: "utf8" }), {
             worker: true,
             complete(result) {
               resolve(result);
@@ -62,7 +66,7 @@ export const registerDebug = (program: Command) => {
           });
         });
       } catch (e: any) {
-        console.log("Unable to read data from", input, ", reason:", e.message);
+        console.log("Unable to read data from", inputData, ", reason:", e.message);
       }
 
       if (verbose) console.log("Data loaded, number of rows:", data!.data.length);
@@ -94,10 +98,15 @@ export const registerDebug = (program: Command) => {
       await rtbotRun.run();
       const result = rtbotRun.getOutputs();
       // finally dump the result
-      const resultContent = JSON.stringify(result, null, 2);
-      if (output) {
-        writeFileSync(output, resultContent, { encoding: "utf8" });
-        console.log(`Done. Program output written to ${output}.`);
-      } else console.log(resultContent);
+      if (interactive) {
+        // show the interactive screen
+        tui(rtBotProgram, result as ExtendedFormat);
+      } else {
+        const resultContent = JSON.stringify(result, null, 2);
+        if (output) {
+          writeFileSync(output, resultContent, { encoding: "utf8" });
+          console.log(`Done. Program output written to ${output}.`);
+        } else console.log(resultContent);
+      }
     });
 };
