@@ -68,7 +68,11 @@ struct RelativeStrengthIndex : public Operator<T, V> {
 
     out.time = this->getDataInputLastMessage(inputPort).time;
 
-    return this->emit(out);
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    outputMsgs.emplace("o1", v);
+    return outputMsgs;
   }
 
  private:

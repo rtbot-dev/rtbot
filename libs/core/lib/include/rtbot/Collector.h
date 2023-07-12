@@ -12,7 +12,7 @@ struct Collector : public Operator<T, V> {
 
   string typeName() const override { return "Collector"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override { return {}; }
+  map<string, vector<Message<T, V>>> processData(string inputPort) override { return {}; }
 };
 
 }  // end namespace rtbot

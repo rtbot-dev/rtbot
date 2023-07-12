@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Identity : public Operator<T, V> {
   Identity() = default;
@@ -17,9 +19,13 @@ struct Identity : public Operator<T, V> {
 
   string typeName() const override { return "Identity"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> m = this->getDataInputFirstMessage(inputPort);
-    return this->emit(m);
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    Message<T, V> out = this->getDataInputFirstMessage(inputPort);
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    outputMsgs.emplace("o1", v);
+    return outputMsgs;
   }
 
   size_t getDelay() const { return this->delay; }

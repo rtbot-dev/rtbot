@@ -19,6 +19,7 @@ struct MovingAverage : public Operator<T, V> {
   string typeName() const override { return "MovingAverage"; }
 
   map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
     vector<Message<T, V>> toEmit;
     Message<T, V> out;
 
@@ -26,7 +27,8 @@ struct MovingAverage : public Operator<T, V> {
     out.value = this->getDataInputSum(inputPort) / this->getDataInputSize(inputPort);
 
     toEmit.push_back(out);
-    return this->emit(toEmit);
+    outputMsgs.emplace("o1", toEmit);
+    return outputMsgs;
   }
 };
 

@@ -2,6 +2,7 @@
 #ifndef ARMA_H
 #define ARMA_H
 
+/*
 #include "rtbot/std/AutoRegressive.h"
 #include "rtbot/std/Composite.h"
 #include "rtbot/std/MovingAverage.h"
@@ -20,5 +21,6 @@ struct ARMA : public Composite<T, V> {
 };
 
 }  // namespace rtbot
+*/
 
 #endif  // ARMA_H

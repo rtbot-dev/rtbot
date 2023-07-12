@@ -25,17 +25,17 @@ TEST_CASE("read  pipeline test demultiplexer") {
       auto output = pipe.receiveDebug(Message<std::uint64_t, double>(i, (i < 20) ? 1 : 2));
 
       if (i < 21 && i > 1) {
-        REQUIRE(output["out1"].size() == 1);
-        REQUIRE(output["out1"].at(0).value == 1);
-        REQUIRE(output["out1"].at(0).time == (i - 1));
+        REQUIRE(output.find("dm")->second.find("o1")->second.size() == 1);
+        REQUIRE(output.find("dm")->second.find("o1")->second.at(0).value == 1);
+        REQUIRE(output.find("dm")->second.find("o1")->second.at(0).time == (i - 1));
 
-        REQUIRE(output["out2"].size() == 0);
+        REQUIRE(output.find("dm")->second.count("o2") == 0);
       } else if (i >= 21) {
-        REQUIRE(output["out2"].size() == 1);
-        REQUIRE(output["out2"].at(0).value == 2);
-        REQUIRE(output["out2"].at(0).time == (i - 1));
+        REQUIRE(output.find("dm")->second.find("o2")->second.size() == 1);
+        REQUIRE(output.find("dm")->second.find("o2")->second.at(0).value == 2);
+        REQUIRE(output.find("dm")->second.find("o2")->second.at(0).time == (i - 1));
 
-        REQUIRE(output["out1"].size() == 0);
+        REQUIRE(output.find("dm")->second.count("o1") == 0);
       }
     }
   }

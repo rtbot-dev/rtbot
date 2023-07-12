@@ -13,7 +13,7 @@ TEST_CASE("Greater Than") {
     int sign = 1;
     double v = 0.0;
 
-    map<string, vector<Message<uint64_t, double>>> emitted;
+    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
     for (int i = 1; i <= 11; i++) {
       t++;
       v += sign * 0.1;
@@ -22,8 +22,8 @@ TEST_CASE("Greater Than") {
       if (i < 5) {
         REQUIRE(emitted.empty());
       } else if (i == 5 || i == 6 || i == 7) {
-        REQUIRE(emitted.find("gt")->second.at(0).value == v);
-        REQUIRE(emitted.find("gt")->second.at(0).time == i);
+        REQUIRE(emitted.find("gt")->second.find("o1")->second.at(0).value == v);
+        REQUIRE(emitted.find("gt")->second.find("o1")->second.at(0).time == i);
         REQUIRE(emitted.find("gt")->second.size() == 1);
       } else if (i > 7) {
         REQUIRE(emitted.empty());

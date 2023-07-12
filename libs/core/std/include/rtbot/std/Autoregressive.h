@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct AutoRegressive : public Operator<T, V> {
   vector<V> coeff;
@@ -19,7 +21,7 @@ struct AutoRegressive : public Operator<T, V> {
 
   string typeName() const override { return "AutoRegressive"; }
 
-  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -37,7 +39,7 @@ struct AutoRegressive : public Operator<T, V> {
       this->dataInputs.find(inputPort)->second.push_back(toEmit.find("o1")->second.at(0));
       return this->emit(toEmit);
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 

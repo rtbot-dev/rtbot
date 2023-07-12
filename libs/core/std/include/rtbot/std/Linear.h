@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 /**
  * @brief The Linear class as example of application of Join
  */
@@ -13,7 +15,7 @@ struct Linear : public Join<T, V> {
   Linear() = default;
   Linear(string const& id, vector<V> const& coeff, map<string, typename Operator<T, V>::InputPolicy> policies = {})
       : Join<T, V>(id) {
-    if (coeff.size() < 2) throw std::runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
+    if (coeff.size() < 2) throw runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->coeff = coeff;
     this->notEagerPort = "";
     this->eagerPort = "";
@@ -31,8 +33,7 @@ struct Linear : public Join<T, V> {
       }
     }
     this->addOutput("o1");
-    if (this->notEagerPort.empty())
-      throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
+    if (this->notEagerPort.empty()) throw runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
   string typeName() const override { return "Linear"; }

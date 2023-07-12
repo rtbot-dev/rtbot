@@ -9,6 +9,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct HermiteResampler : public Operator<T, V> {
   static const size_t size = 4;
@@ -27,8 +29,9 @@ struct HermiteResampler : public Operator<T, V> {
 
   string typeName() const override { return "HermiteResampler"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    std::vector<Message<T, V>> toEmit;
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
 
     if (before.get() == nullptr) {
       toEmit = this->lookAt(0, 1, inputPort);
@@ -39,10 +42,11 @@ struct HermiteResampler : public Operator<T, V> {
       toEmit = this->lookAt(1, 2, inputPort);
     }
 
-    if (toEmit.size() > 0)
-      return this->emit(toEmit);
-    else
-      return {};
+    if (toEmit.size() > 0) {
+      outputMsgs.emplace("o1", toEmit);
+      return outputMsgs;
+    }
+    return {};
   }
 
  private:
@@ -53,8 +57,8 @@ struct HermiteResampler : public Operator<T, V> {
     the four points required for the Hermite Interpolation execution.
   */
 
-  std::vector<Message<T, V>> lookAt(int from, int to, string inputPort) {
-    std::vector<Message<T, V>> toEmit;
+  vector<Message<T, V>> lookAt(int from, int to, string inputPort) {
+    vector<Message<T, V>> toEmit;
     int j = 1;
 
     while (this->get(to, inputPort).time - this->get(from, inputPort).time >= (j * dt) - carryOver) {
@@ -78,7 +82,7 @@ struct HermiteResampler : public Operator<T, V> {
     This message(point) will be exclusively used for interpolating on the interval [0,1] using the first
     group of equidistant dts that fall into the interval [0,1].
   */
-  std::unique_ptr<Message<T, V>> before = nullptr;
+  unique_ptr<Message<T, V>> before = nullptr;
 
   /*
     This function decides whether data from the buffer should be used to suffice the request
@@ -89,8 +93,8 @@ struct HermiteResampler : public Operator<T, V> {
     if (index >= 0)
       return this->getDataInputMessage(inputPort, index);
     else if (before.get() == nullptr) {
-      std::vector<T> x;
-      std::vector<V> y;
+      vector<T> x;
+      vector<V> y;
       V average = 0;
       size_t n = this->getDataInputSize(inputPort);
       for (int i = 0; i < n; i++) {
@@ -102,10 +106,10 @@ struct HermiteResampler : public Operator<T, V> {
             average + (this->getDataInputMessage(inputPort, i).time - this->getDataInputMessage(inputPort, i - 1).time);
       }
       average = average / (n - 1);
-      std::pair<V, V> pair = this->getLineLeastSquares(x, y);
+      pair<V, V> pair = this->getLineLeastSquares(x, y);
       T time = this->getDataInputMessage(inputPort, 0).time + (index * ((T)average));
       V value = pair.second * time + pair.first;
-      before = std::make_unique<Message<T, V>>(Message<T, V>(time, value));
+      before = make_unique<Message<T, V>>(Message<T, V>(time, value));
     }
     return *(before.get());
   }
@@ -118,7 +122,7 @@ struct HermiteResampler : public Operator<T, V> {
       y is the vector of the y-axis
       the coordinates of a point are (x_i;y_i)
   */
-  std::pair<V, V> getLineLeastSquares(std::vector<T> x, std::vector<V> y) {
+  pair<V, V> getLineLeastSquares(vector<T> x, vector<V> y) {
     V sumY = 0, sumXY = 0, n, m;
     T sumX = 0, sumX2 = 0;
     for (size_t i = 0; i < x.size(); i++) {
@@ -138,7 +142,7 @@ struct HermiteResampler : public Operator<T, V> {
       m = (V)(x.size() * sumXY - sumX * sumY) / denominator;
     }
 
-    return std::pair<V, V>(n, m);
+    return pair<V, V>(n, m);
   }
 
   /*

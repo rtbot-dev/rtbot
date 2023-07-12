@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Input : public Operator<T, V> {
   Input() = default;
@@ -23,11 +25,15 @@ struct Input : public Operator<T, V> {
 
   string typeName() const override { return "Input"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
     Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
     if (m1.time <= m0.time) return {};
-    return this->emit(m0, {portsMap.find(inputPort)->second});
+    vector<Message<T, V>> v;
+    v.push_back(m0);
+    outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+    return outputMsgs;
   }
 
  private:
