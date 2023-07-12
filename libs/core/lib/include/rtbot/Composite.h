@@ -294,14 +294,16 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": connection was not successful");
   }
 
-  virtual map<string, vector<Message<T, V>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  virtual map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg,
+                                                                      string inputPort = "") override {
     if (this->input != nullptr)
       return this->input.get()->receiveData(msg, inputPort);
     else
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual map<string, vector<Message<T, V>>> receiveControl(Message<T, V> msg, string inputPort = "") override {
+  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg,
+                                                                         string inputPort = "") override {
     if (this->input != nullptr)
       return this->input.get()->receiveControl(msg, inputPort);
     else

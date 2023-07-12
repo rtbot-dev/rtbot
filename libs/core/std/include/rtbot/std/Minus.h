@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 /**
  * @brief The Minus class as example of application of Join
  */
@@ -29,8 +31,7 @@ struct Minus : public Join<T, V> {
       }
     }
     this->addOutput("o1");
-    if (this->notEagerPort.empty())
-      throw std::runtime_error(typeName() + ": at least one input port should be not eager.");
+    if (this->notEagerPort.empty()) throw runtime_error(typeName() + ": at least one input port should be not eager.");
   }
 
   string typeName() const override { return "Minus"; }

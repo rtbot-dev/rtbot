@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Add : public Operator<T, V> {
   Add() = default;
@@ -14,10 +16,14 @@ struct Add : public Operator<T, V> {
     this->addend = addend;
   }
   string typeName() const override { return "Add"; }
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = out.value + this->addend;
-    return this->emit(out);
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    outputMsgs.emplace("o1", v);
+    return outputMsgs;
   }
 
   V getAddend() const { return this->addend; }

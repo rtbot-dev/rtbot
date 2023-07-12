@@ -71,7 +71,7 @@ class Variable : public Operator<T, V> {
       this->controlInputs.find(controlPort)->second.pop_front();
     }
 
-    if (outputMsgs.size() > 0) return this->emit(outputMsgs);
+    if (outputMsgs.size() > 0) return outputMsgs;
 
     return {};
   }

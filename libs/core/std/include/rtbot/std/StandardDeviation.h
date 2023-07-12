@@ -9,6 +9,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct StandardDeviation : public Operator<T, V> {
   StandardDeviation() = default;
@@ -20,8 +22,9 @@ struct StandardDeviation : public Operator<T, V> {
 
   string typeName() const override { return "StandardDeviation"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    std::vector<Message<T, V>> toEmit;
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
     Message<T, V> out;
     size_t size = this->getDataInputSize(inputPort);
 
@@ -37,8 +40,8 @@ struct StandardDeviation : public Operator<T, V> {
     out.time = this->getDataInputLastMessage(inputPort).time;
     out.value = std;
     toEmit.push_back(out);
-
-    return this->emit(toEmit);
+    outputMsgs.emplace("o1", toEmit);
+    return outputMsgs;
   }
 };
 

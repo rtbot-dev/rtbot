@@ -37,14 +37,6 @@
             "id": "sc2",
             "type": "Scale",
             "f": 3
-        },
-        {
-            "id": "out1",
-            "type": "Output"
-        },
-        {
-            "id": "out2",
-            "type": "Output"
         }
     ],
     "connections": [
@@ -76,18 +68,6 @@
             "from": "join",
             "to": "sc2",
             "fromPort": "o2",
-            "toPort": "i1"
-        },
-        {
-            "from": "sc1",
-            "to": "out1",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "sc2",
-            "to": "out2",
-            "fromPort": "o1",
             "toPort": "i1"
         }
     ]

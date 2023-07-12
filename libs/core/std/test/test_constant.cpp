@@ -9,10 +9,10 @@ TEST_CASE("Constant") {
   auto constant = Constant<uint64_t, double>("const", 0.5);
 
   SECTION("emits constant 1/2 every time") {
-    map<string, vector<Message<uint64_t, double>>> emitted;
+    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
     for (int i = 1; i <= 50; i++) {
       emitted = constant.receiveData(Message<uint64_t, double>(i, i));
-      REQUIRE(emitted.find("const")->second.at(0).value == 0.5);
+      REQUIRE(emitted.find("const")->second.find("o1")->second.at(0).value == 0.5);
     }
   }
 }

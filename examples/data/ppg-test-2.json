@@ -1,6 +1,6 @@
 {
     "title": "Peak detector",
-    "description": "This is a program to detect peaks in PPG...",
+    "description": "This is a program to detect peaks",
     "date": "now",
     "version": "v1",
     "author": "Eduardo",
@@ -23,14 +23,6 @@
             "id": "join",
             "type": "Join",
             "numPorts": 2
-        },
-        {
-            "id": "out1",
-            "type": "Output"
-        },
-        {
-            "id": "out2",
-            "type": "Output"
         }
     ],
     "connections": [
@@ -47,22 +39,10 @@
             "toPort": "i1"
         },
         {
-            "from": "join",
-            "to": "out1",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
             "from": "in1",
             "to": "join",
             "fromPort": "o1",
             "toPort": "i2"
-        },
-        {
-            "from": "join",
-            "to": "out2",
-            "fromPort": "o2",
-            "toPort": "i1"
         }
     ]
 }

@@ -24,7 +24,7 @@ class TimeSort : public Operator<T, V> {
 
   virtual string typeName() const override { return "TimeSort"; }
 
-  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -35,7 +35,7 @@ class TimeSort : public Operator<T, V> {
       this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
                                                       this->dataInputs.find(inputPort)->second.back().value);
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
 
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->second.empty()) return {};

@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct PeakDetector : Operator<T, V> {
   PeakDetector() = default;
@@ -16,12 +18,17 @@ struct PeakDetector : Operator<T, V> {
 
   string typeName() const override { return "PeakDetector"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
     size_t size = this->getDataInputSize(inputPort);
     size_t pos = size / 2;  // expected position of the max
     for (auto i = 0u; i < size; i++)
       if (this->getDataInputMessage(inputPort, pos).value < this->getDataInputMessage(inputPort, i).value) return {};
-    return this->emit(this->getDataInputMessage(inputPort, pos));
+
+    toEmit.push_back(this->getDataInputMessage(inputPort, pos));
+    outputMsgs.emplace("o1", toEmit);
+    return outputMsgs;
   }
 };
 

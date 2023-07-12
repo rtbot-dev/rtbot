@@ -26,7 +26,7 @@ class Demultiplexer : public Operator<T, V> {
 
   virtual string typeName() const override { return "Demultiplexer"; }
 
-  map<string, std::vector<Message<T, V>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -44,7 +44,7 @@ class Demultiplexer : public Operator<T, V> {
     return this->emit(toEmit);
   }
 
-  virtual map<string, vector<Message<T, V>>> receiveControl(Message<T, V> msg, string inputPort) {
+  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg, string inputPort) {
     if (inputPort.empty()) {
       auto in = this->getControlInputs();
       if (in.size() == 1) inputPort = in.at(0);

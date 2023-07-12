@@ -10,37 +10,39 @@
 
 namespace rtbot {
 
-struct Pipeline {
-  std::map<std::string, Op_ptr<std::uint64_t, double>> all_op;  // from id to operator
-  Operator<std::uint64_t, double>* input;
-  Output_opt<std::uint64_t, double>* output;
-  std::optional<Message<std::uint64_t, double>> out;
+using namespace std;
 
-  explicit Pipeline(std::string const& json_string);
+struct Pipeline {
+  map<string, Op_ptr<uint64_t, double>> all_op;  // from id to operator
+  Operator<uint64_t, double>* input;
+  Output_opt<uint64_t, double>* output;
+  optional<Message<uint64_t, double>> out;
+
+  explicit Pipeline(string const& json_string);
 
   Pipeline(Pipeline const&) = delete;
   void operator=(Pipeline const&) = delete;
 
   Pipeline(Pipeline&& other) {
-    all_op = std::move(other.all_op);
-    input = std::move(other.input);
-    output = std::move(other.output);
-    out = std::move(other.out);
+    all_op = move(other.all_op);
+    input = move(other.input);
+    output = move(other.output);
+    out = move(other.out);
     output->out = &out;
   }
 
-  std::vector<std::optional<Message<std::uint64_t, double>>> receive(const Message<std::uint64_t, double>& msg) {
+  vector<optional<Message<uint64_t, double>>> receive(const Message<uint64_t, double>& msg) {
     out.reset();
     input->receiveData(msg);
     return {out};
   }
 
   /// return a list of the operator that emit: id, output message
-  map<string, std::vector<Message<std::uint64_t, double>>> receiveDebug(const Message<std::uint64_t, double>& msg) {
+  map<string, map<string, vector<Message<uint64_t, double>>>> receiveDebug(const Message<uint64_t, double>& msg) {
     return input->receiveData(msg);
   }
 
-  std::string getProgram();
+  string getProgram();
 };
 
 }  // namespace rtbot

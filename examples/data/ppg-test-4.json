@@ -66,14 +66,6 @@
             "id": "cgt20o",
             "type": "Constant",
             "c": 1
-        },
-        {
-            "id": "out1",
-            "type": "Output"
-        },
-        {
-            "id": "out2",
-            "type": "Output"
         }
     ],
     "connections": [
@@ -81,18 +73,6 @@
             "from": "in",
             "to": "dm",
             "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "dm",
-            "to": "out1",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "dm",
-            "to": "out2",
-            "fromPort": "o2",
             "toPort": "i1"
         },
         {
