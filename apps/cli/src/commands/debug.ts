@@ -32,7 +32,7 @@ export const registerDebug = (program: Command) => {
     .option("-i, --interactive", "If set, shows an interactive screen useful for debugging programs.")
     .option("-o, --output <string>", "If provided, indicates to which file the program debug output should be written.")
     .option("-v, --verbose", "Show extra information while running the program", false)
-    .action(async (programFile, inputData, { output, verbose, interactive, scaleTimeFactor }) => {
+    .action(async (programFile, inputData, { output, verbose, interactive, scaleTimeFactor, scaleValueFactor }) => {
       if (!inputData) {
         console.error("Please provide an input file in csv format.");
         process.exit(1);
@@ -86,7 +86,7 @@ export const registerDebug = (program: Command) => {
             // by now we just consider the first column as time and the second
             // one as the only value we want to send
             const time = Math.round(scaleTimeFactor * parseFloat(t));
-            const value = parseFloat(v);
+            const value = scaleValueFactor * parseFloat(v);
             if (isNaN(time) || isNaN(value)) return [];
             return [time, value];
           } catch (e: any) {

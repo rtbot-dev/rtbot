@@ -22,7 +22,6 @@ export const tui = (program: Program, result: ExtendedFormat) => {
     debuggerStore.getState().forward();
   });
   screen.key(["left"], function (_ch: string, _key: string) {
-    console.log(_ch, _key);
     debuggerStore.getState().backward();
   });
   // Quit on Escape, q, or Control-C.
