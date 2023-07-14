@@ -38,12 +38,34 @@
             "x": 20
         },
         {
-            "id": "out1",
-            "type": "Output"
+            "id": "clt20z",
+            "type": "Constant",
+            "c": 0
         },
         {
-            "id": "out2",
-            "type": "Output"
+            "id": "clt20o",
+            "type": "Constant",
+            "c": 1
+        },
+        {
+            "id": "cet20z",
+            "type": "Constant",
+            "c": 0
+        },
+        {
+            "id": "cet20o",
+            "type": "Constant",
+            "c": 1
+        },
+        {
+            "id": "cgt20z",
+            "type": "Constant",
+            "c": 0
+        },
+        {
+            "id": "cgt20o",
+            "type": "Constant",
+            "c": 1
         }
     ],
     "connections": [
@@ -51,18 +73,6 @@
             "from": "in",
             "to": "dm",
             "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "dm",
-            "to": "out1",
-            "fromPort": "o1",
-            "toPort": "i1"
-        },
-        {
-            "from": "dm",
-            "to": "out2",
-            "fromPort": "o2",
             "toPort": "i1"
         },
         {
@@ -91,18 +101,72 @@
         },
         {
             "from": "lt",
+            "to": "clt20o",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "lt",
+            "to": "clt20z",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "clt20o",
             "to": "dm",
             "fromPort": "o1",
             "toPort": "c1"
         },
         {
-            "from": "gt",
+            "from": "clt20z",
             "to": "dm",
             "fromPort": "o1",
             "toPort": "c2"
         },
         {
+            "from": "gt",
+            "to": "cgt20o",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "gt",
+            "to": "cgt20z",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "cgt20o",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c2"
+        },
+        {
+            "from": "cgt20z",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c1"
+        },
+        {
             "from": "et",
+            "to": "cet20z",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "et",
+            "to": "cet20o",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "cet20z",
+            "to": "dm",
+            "fromPort": "o1",
+            "toPort": "c1"
+        },
+        {
+            "from": "cet20o",
             "to": "dm",
             "fromPort": "o1",
             "toPort": "c2"

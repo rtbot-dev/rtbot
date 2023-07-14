@@ -7,6 +7,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Power : public Operator<T, V> {
   Power() = default;
@@ -16,10 +18,14 @@ struct Power : public Operator<T, V> {
     this->power = power;
   }
   string typeName() const override { return "Power"; }
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = pow(out.value, this->power);
-    return this->emit(out);
+    toEmit.push_back(out);
+    outputMsgs.emplace("o1", toEmit);
+    return outputMsgs;
   }
 
   V getPower() const { return this->power; }

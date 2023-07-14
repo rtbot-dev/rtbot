@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Minus joint") {
-  map<string, vector<Message<uint64_t, double>>> emitted;
+  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
   auto minus = Minus<uint64_t, double>("minus");
 
   minus.receiveData(Message<uint64_t, double>(1, 1), "i1");
@@ -16,11 +16,11 @@ TEST_CASE("Minus joint") {
 
   emitted = minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
 
-  REQUIRE(emitted.find("minus")->second.at(0).value == -1);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == -1);
 
   emitted = minus.receiveData(Message<uint64_t, double>(4, 4), "i2");
 
-  REQUIRE(emitted.find("minus")->second.at(0).value == 0);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 0);
 
   emitted = minus.receiveData(Message<uint64_t, double>(3, 5), "i2");
 
@@ -28,7 +28,7 @@ TEST_CASE("Minus joint") {
 }
 
 TEST_CASE("Minus joint i1 eager") {
-  map<string, vector<Message<uint64_t, double>>> emitted;
+  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
   auto minus = Minus<uint64_t, double>("minus", {{"i1", Operator<uint64_t, double>::InputPolicy(true)}});
 
   minus.receiveData(Message<uint64_t, double>(1, 1), "i1");
@@ -38,16 +38,16 @@ TEST_CASE("Minus joint i1 eager") {
 
   emitted = minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
 
-  REQUIRE(emitted.find("minus")->second.at(0).value == 1);
-  REQUIRE(emitted.find("minus")->second.at(0).time == 2);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 1);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 2);
 
   emitted = minus.receiveData(Message<uint64_t, double>(3, 4), "i2");
 
-  REQUIRE(emitted.find("minus")->second.at(0).value == 0);
-  REQUIRE(emitted.find("minus")->second.at(0).time == 3);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 0);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 3);
 
   emitted = minus.receiveData(Message<uint64_t, double>(5, 5), "i2");
 
-  REQUIRE(emitted.find("minus")->second.at(0).value == -1);
-  REQUIRE(emitted.find("minus")->second.at(0).time == 5);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == -1);
+  REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 5);
 }

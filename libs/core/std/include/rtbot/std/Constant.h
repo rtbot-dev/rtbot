@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Constant : public Operator<T, V> {
   Constant() = default;
@@ -14,10 +16,14 @@ struct Constant : public Operator<T, V> {
     this->constant = constant;
   }
   string typeName() const override { return "Constant"; }
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = this->constant;
-    return this->emit(out);
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    outputMsgs.emplace("o1", v);
+    return outputMsgs;
   }
 
   V getConstant() const { return this->constant; }

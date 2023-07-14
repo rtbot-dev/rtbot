@@ -7,20 +7,29 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct FilterByValue : public Operator<T, V> {
-  std::function<bool(V)> filter;
+  function<bool(V)> filter;
 
   FilterByValue() = default;
-  FilterByValue(string const& id, std::function<bool(V)> filter) : Operator<T, V>(id) {
+  FilterByValue(string const& id, function<bool(V)> filter) : Operator<T, V>(id) {
     this->filter = filter;
     this->addDataInput("i1", 1);
     this->addOutput("o1");
   }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    if (filter(out.value)) return this->emit(out);
+
+    if (filter(out.value)) {
+      vector<Message<T, V>> v;
+      v.push_back(out);
+      outputMsgs.emplace("o1", v);
+      return outputMsgs;
+    }
     return {};
   }
 };

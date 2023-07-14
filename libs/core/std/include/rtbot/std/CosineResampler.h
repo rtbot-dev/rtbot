@@ -9,6 +9,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct CosineResampler : public Operator<T, V> {
   static const size_t size = 2;
@@ -26,8 +28,9 @@ struct CosineResampler : public Operator<T, V> {
 
   string typeName() const override { return "CosineResampler"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    std::vector<Message<T, V>> toEmit;
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
 
     int j = 1;
 
@@ -46,10 +49,11 @@ struct CosineResampler : public Operator<T, V> {
     carryOver = this->getDataInputMessage(inputPort, 1).time -
                 (this->getDataInputMessage(inputPort, 0).time + (((j - 1) * dt) - carryOver));
 
-    if (toEmit.size() > 0)
-      return this->emit(toEmit);
-    else
-      return {};
+    if (toEmit.size() > 0) {
+      outputMsgs.emplace("o1", toEmit);
+      return outputMsgs;
+    }
+    return {};
   }
 
  private:
@@ -58,7 +62,7 @@ struct CosineResampler : public Operator<T, V> {
    */
   static V cosineInterpolate(V y1, V y2, V mu) {
     V mu2;
-    mu2 = (1 - std::cos(mu * 3.141592653589)) / 2;
+    mu2 = (1 - cos(mu * 3.141592653589)) / 2;
     return (y1 * (1 - mu2) + y2 * mu2);
   }
 };

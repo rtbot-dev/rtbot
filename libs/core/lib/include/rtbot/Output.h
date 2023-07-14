@@ -12,10 +12,10 @@
 
 namespace rtbot {
 
-using std::function;
+using namespace std;
 
 template <class T, class V>
-std::ostream& operator<<(std::ostream& out, Message<T, V> const& msg) {
+ostream& operator<<(ostream& out, Message<T, V> const& msg) {
   out << msg.time << " " << msg.value;
   return out;
 }
@@ -23,56 +23,98 @@ std::ostream& operator<<(std::ostream& out, Message<T, V> const& msg) {
 template <class T, class V>
 struct Output_vec : public Operator<T, V> {
   Output_vec() = default;
-  Output_vec(string const& id, size_t n) : Operator<T, V>(id) {
-    this->addDataInput("i1", n);
-    this->addOutput("o1");
+  Output_vec(string const& id, size_t numPorts = 1) : Operator<T, V>(id) {
+    for (int i = 1; i <= numPorts; i++) {
+      string inputPort = "i" + to_string(i);
+      string outputPort = "o" + to_string(i);
+      portsMap.emplace(inputPort, outputPort);
+      this->addDataInput(inputPort, 1);
+      this->addOutput(outputPort);
+    }
   }
+
+  size_t getNumPorts() const { return this->dataInputs.size(); }
 
   string typeName() const override { return "Output"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> toEmit = this->getDataInputLastMessage(inputPort);
-    return this->emit(toEmit);
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    Message<T, V> out = this->getDataInputLastMessage(inputPort);
+    vector<Message<T, V>> v;
+    v.push_back(out);
+    outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+    return outputMsgs;
   }
+
+ private:
+  map<string, string> portsMap;
 };
 
 template <class T, class V>
 struct Output_opt : public Operator<T, V> {
-  std::optional<Message<T, V>>* out = nullptr;
+  optional<Message<T, V>>* out = nullptr;
 
   Output_opt() = default;
-  Output_opt(string const& id) : Operator<T, V>(id) {
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+  Output_opt(string const& id, size_t numPorts = 1) : Operator<T, V>(id) {
+    for (int i = 1; i <= numPorts; i++) {
+      string inputPort = "i" + to_string(i);
+      string outputPort = "o" + to_string(i);
+      portsMap.emplace(inputPort, outputPort);
+      this->addDataInput(inputPort, 1);
+      this->addOutput(outputPort);
+    }
   }
+
+  size_t getNumPorts() const { return this->dataInputs.size(); }
 
   string typeName() const override { return "Output"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> toEmit = this->getDataInputLastMessage(inputPort);
-    *out = toEmit;
-    return this->emit(toEmit);
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    Message<T, V> msg = this->getDataInputLastMessage(inputPort);
+    *out = msg;
+    vector<Message<T, V>> v;
+    v.push_back(msg);
+    outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+    return outputMsgs;
   }
+
+ private:
+  map<string, string> portsMap;
 };
 
 template <class T, class V>
 struct Output_os : public Operator<T, V> {
-  std::ostream* out = nullptr;
+  ostream* out = nullptr;
 
   Output_os() = default;
-  Output_os(string const& id, std::ostream& out) : Operator<T, V>(id) {
+  Output_os(string const& id, ostream& out, size_t numPorts = 1) : Operator<T, V>(id) {
     this->out = &out;
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+    for (int i = 1; i <= numPorts; i++) {
+      string inputPort = "i" + to_string(i);
+      string outputPort = "o" + to_string(i);
+      portsMap.emplace(inputPort, outputPort);
+      this->addDataInput(inputPort, 1);
+      this->addOutput(outputPort);
+    }
   }
+
+  size_t getNumPorts() const { return this->dataInputs.size(); }
 
   string typeName() const override { return "Output"; }
 
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
-    Message<T, V> toEmit = this->getDataInputLastMessage(inputPort);
-    (*out) << this->id << " " << toEmit << "\n";
-    return this->emit(toEmit);
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    Message<T, V> msg = this->getDataInputLastMessage(inputPort);
+    (*out) << this->id << " " << msg << "\n";
+    vector<Message<T, V>> v;
+    v.push_back(msg);
+    outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+    return outputMsgs;
   }
+
+ private:
+  map<string, string> portsMap;
 };
 
 }  // end namespace rtbot

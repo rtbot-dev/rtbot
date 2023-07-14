@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Linear joint no eager") {
-  map<string, vector<Message<uint64_t, double>>> emitted;
+  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
   auto linear = Linear<uint64_t, double>("linear", {2, -1});
 
   linear.receiveData(Message<uint64_t, double>(1, 1), "i1");
@@ -16,11 +16,11 @@ TEST_CASE("Linear joint no eager") {
 
   emitted = linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
 
-  REQUIRE(emitted.find("linear")->second.at(0).value == 1);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == 1);
 
   emitted = linear.receiveData(Message<uint64_t, double>(4, 4), "i2");
 
-  REQUIRE(emitted.find("linear")->second.at(0).value == 4);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == 4);
 
   emitted = linear.receiveData(Message<uint64_t, double>(5, 5), "i1");
 
@@ -28,7 +28,7 @@ TEST_CASE("Linear joint no eager") {
 }
 
 TEST_CASE("Linear joint i2 eager") {
-  map<string, vector<Message<uint64_t, double>>> emitted;
+  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
   auto linear = Linear<uint64_t, double>("linear", {2, -1}, {{"i2", Operator<uint64_t, double>::InputPolicy(true)}});
 
   linear.receiveData(Message<uint64_t, double>(1, 1), "i1");
@@ -41,19 +41,17 @@ TEST_CASE("Linear joint i2 eager") {
 
   emitted = linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
 
-  REQUIRE(emitted.find("linear")->second.at(0).value == -1);
-  /* get the time of the non eager port*/
-  REQUIRE(emitted.find("linear")->second.at(0).time == 1);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.size() == 4);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == -1);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).time == 1);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(1).value == 1);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(1).time == 2);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(2).value == 3);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(2).time == 3);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).value == 5);
+  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).time == 4);
 
-  emitted = linear.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  emitted = linear.receiveData(Message<uint64_t, double>(2, 2), "i2");
 
-  REQUIRE(emitted.find("linear")->second.at(0).value == 0);
-  /* get the time of the non eager port*/
-  REQUIRE(emitted.find("linear")->second.at(0).time == 2);
-
-  emitted = linear.receiveData(Message<uint64_t, double>(5, 5), "i1");
-
-  REQUIRE(emitted.find("linear")->second.at(0).value == 2);
-  /* get the time of the non eager port*/
-  REQUIRE(emitted.find("linear")->second.at(0).time == 3);
+  REQUIRE(emitted.empty());
 }

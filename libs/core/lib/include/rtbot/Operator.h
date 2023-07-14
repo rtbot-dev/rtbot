@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <iostream>
 #include <limits>
 #include <map>
 #include <memory>
@@ -169,9 +170,9 @@ class Operator {
   }
 
   Message<T, V> getDataInputLastMessage(string inputPort) {
-    if (dataInputs.count(inputPort) > 0)
-      if (!dataInputs.find(inputPort)->second.empty())
-        return dataInputs.find(inputPort)->second.back();
+    if (this->dataInputs.count(inputPort) > 0)
+      if (!this->dataInputs.find(inputPort)->second.empty())
+        return this->dataInputs.find(inputPort)->second.back();
       else
         return {};
     else
@@ -180,9 +181,9 @@ class Operator {
   }
 
   Message<T, V> getDataInputFirstMessage(string inputPort) {
-    if (dataInputs.count(inputPort) > 0)
-      if (!dataInputs.find(inputPort)->second.empty())
-        return dataInputs.find(inputPort)->second.front();
+    if (this->dataInputs.count(inputPort) > 0)
+      if (!this->dataInputs.find(inputPort)->second.empty())
+        return this->dataInputs.find(inputPort)->second.front();
       else
         return {};
     else
@@ -204,7 +205,7 @@ class Operator {
     return true;
   }
 
-  virtual map<string, vector<Message<T, V>>> receiveData(Message<T, V> const& msg, string inputPort = "") {
+  virtual map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -224,7 +225,8 @@ class Operator {
                                                       this->dataInputs.find(inputPort)->second.back().value);
 
       if (allDataInputPortsFull()) {
-        return this->processData(inputPort);
+        auto toEmit = this->processData(inputPort);
+        if (!toEmit.empty()) return this->emit(toEmit);
       }
       return {};
     } else
@@ -232,7 +234,12 @@ class Operator {
     return {};
   }
 
-  virtual map<string, vector<Message<T, V>>> receiveControl(Message<T, V> const& msg, string inputPort) {
+  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg, string inputPort) {
+    if (inputPort.empty()) {
+      auto in = this->getControlInputs();
+      if (in.size() == 1) inputPort = in.at(0);
+    }
+
     if (this->controlInputs.count(inputPort) > 0) {
       if (this->controlInputs.find(inputPort)->second.getMaxSize() ==
           this->controlInputs.find(inputPort)->second.size()) {
@@ -249,18 +256,27 @@ class Operator {
 
       auto toEmit = this->processControl(inputPort);
 
-      return toEmit;
+      if (!toEmit.empty()) return this->emit(toEmit);
 
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
     return {};
   }
 
-  map<string, vector<Message<T, V>>> emit(Message<T, V> const& msg, vector<string> outputPorts = {}) const {
-    map<string, vector<Message<T, V>>> out = {{id, {msg}}};
+  map<string, map<string, vector<Message<T, V>>>> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
+    map<string, map<string, vector<Message<T, V>>>> out;
+
     if (outputPorts.empty()) outputPorts = this->getOutputs();
     for (auto outputPort : outputPorts) {
-      if (outputs.count(outputPort) > 0) {
+      vector<Message<T, V>> v;
+      v.push_back(msg);
+      if (out.count(this->id) == 0) {
+        map<string, vector<Message<T, V>>> msgs;
+        msgs.emplace(outputPort, v);
+        out.emplace(this->id, msgs);
+      } else
+        out.find(this->id)->second.emplace(outputPort, v);
+      if (this->outputs.count(outputPort) > 0) {
         for (auto connection : outputs.find(outputPort)->second) {
           if (connection.fOperator->isDataInput(connection.inputPort))
             mergeOutput(out, connection.fOperator->receiveData(msg, connection.inputPort));
@@ -273,14 +289,17 @@ class Operator {
     return out;
   }
 
-  map<string, vector<Message<T, V>>> emit(vector<Message<T, V>> const& msgs, vector<string> outputPorts = {}) const {
-    map<string, vector<Message<T, V>>> out;
-    for (const auto& msg : msgs) mergeOutput(out, emit(msg, outputPorts));
+  map<string, map<string, vector<Message<T, V>>>> emit(vector<Message<T, V>> msgs,
+                                                       vector<string> outputPorts = {}) const {
+    map<string, map<string, vector<Message<T, V>>>> out;
+    for (auto msg : msgs) {
+      mergeOutput(out, emit(msg, outputPorts));
+    }
     return out;
   }
 
-  map<string, vector<Message<T, V>>> emit(map<string, vector<Message<T, V>>> const& outputMsgs) const {
-    map<string, vector<Message<T, V>>> out;
+  map<string, map<string, vector<Message<T, V>>>> emit(map<string, vector<Message<T, V>>> outputMsgs) const {
+    map<string, map<string, vector<Message<T, V>>>> out;
     for (auto it = outputMsgs.begin(); it != outputMsgs.end(); ++it) {
       if (this->outputIds.count(it->first) > 0) {
         mergeOutput(out, emit(it->second, {it->first}));
@@ -367,11 +386,11 @@ class Operator {
 
   size_t getNumControlInputs() const { return this->controlInputs.size(); }
 
-  Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
+  virtual Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
     return connect(&child, outputPort, inputPort);
   }
 
-  Operator<T, V>* connect(Operator<T, V>* child, string outputPort = "", string inputPort = "") {
+  virtual Operator<T, V>* connect(Operator<T, V>* child, string outputPort = "", string inputPort = "") {
     vector<string> out = this->getOutputs();
     vector<string> in = child->getAllInputs();
 
@@ -385,8 +404,10 @@ class Operator {
       if (in.size() == 1 && child->isDataInput(in.at(0))) inputPort = in.at(0);
     }
 
-    if (inputPort.empty()) throw std::runtime_error(child->typeName() + ": input port found empty");
-    if (outputPort.empty()) throw std::runtime_error(typeName() + ": output port found empty");
+    if (inputPort.empty())
+      throw std::runtime_error(child->typeName() + ": input port found empty and could not be deducted");
+    if (outputPort.empty())
+      throw std::runtime_error(typeName() + ": output port found empty and could not be deducted");
 
     if (find(out.begin(), out.end(), outputPort) != out.end() && find(in.begin(), in.end(), inputPort) != in.end()) {
       Connection c;
@@ -405,6 +426,14 @@ class Operator {
   }
 
  private:
+  static void mergeOutput(map<string, map<string, vector<Message<T, V>>>>& out,
+                          map<string, map<string, vector<Message<T, V>>>> const& x) {
+    for (const auto& [id, map] : x) {
+      auto& mapOut = out[id];
+      mergeOutput(mapOut, map);
+    }
+  }
+
   static void mergeOutput(map<string, vector<Message<T, V>>>& out, map<string, vector<Message<T, V>>> const& x) {
     for (const auto& [id, msgs] : x) {
       auto& vec = out[id];

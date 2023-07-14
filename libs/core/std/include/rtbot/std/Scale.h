@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+using namespace std;
+
 template <class T, class V>
 struct Scale : public Operator<T, V> {
   Scale() = default;
@@ -14,10 +16,14 @@ struct Scale : public Operator<T, V> {
     this->factor = factor;
   }
   string typeName() const override { return "Scale"; }
-  map<string, std::vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+    map<string, vector<Message<T, V>>> outputMsgs;
+    vector<Message<T, V>> toEmit;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = out.value * this->factor;
-    return this->emit(out);
+    toEmit.push_back(out);
+    outputMsgs.emplace("o1", toEmit);
+    return outputMsgs;
   }
 
   V getFactor() const { return this->factor; }

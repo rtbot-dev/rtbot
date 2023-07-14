@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <catch2/catch.hpp>
-#include <iostream>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
@@ -15,24 +15,24 @@ using namespace std;
 
 TEST_CASE("simple peak detector") {
   int nlag = 3;
-  auto op = PeakDetector<uint64_t, double>("b1", nlag);
-  auto pd = PeakDetector<uint64_t, double>("b2", nlag);
-
-  auto o1 = Output_vec<uint64_t, double>("o1", 2);
-
-  REQUIRE(op.connect(o1) != nullptr);
 
   SECTION("one peak") {
+    auto op = PeakDetector<uint64_t, double>("b1", nlag);
+    auto c1 = Collector<uint64_t, double>("c1", 2);
+    REQUIRE(op.connect(c1) != nullptr);
     for (int i = 0; i < 10; i++) op.receiveData(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
-    REQUIRE(o1.getDataInputSize("i1") == 1);
-    REQUIRE(o1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
+    REQUIRE(c1.getDataInputSize("i1") == 1);
+    REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
   }
 
   SECTION("two peaks") {
+    auto op = PeakDetector<uint64_t, double>("b1", nlag);
+    auto c1 = Collector<uint64_t, double>("c1", 2);
+    REQUIRE(op.connect(c1) != nullptr);
     for (int i = 0; i < 14; i++) op.receiveData(Message<uint64_t, double>(i, i % 5));
-    REQUIRE(o1.getDataInputSize("i1") == 2);
-    REQUIRE(o1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
-    REQUIRE(o1.getDataInputMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
+    REQUIRE(c1.getDataInputSize("i1") == 2);
+    REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
+    REQUIRE(c1.getDataInputMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
   }
 
   SECTION("only one peak") {
@@ -40,7 +40,8 @@ TEST_CASE("simple peak detector") {
     int sign = 1;
     double v = 0.0;
 
-    map<string, vector<Message<uint64_t, double>>> emitted;
+    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    auto pd = PeakDetector<uint64_t, double>("b2", nlag);
     for (int i = 1; i <= 10; i++) {
       t++;
       v += sign * 0.1;
@@ -49,8 +50,8 @@ TEST_CASE("simple peak detector") {
       if (i < 6) {
         REQUIRE(emitted.empty());
       } else if (i == 6) {
-        REQUIRE(emitted.find("b2")->second.at(0).value == 0.5);
-        REQUIRE(emitted.find("b2")->second.at(0).time == 5);
+        REQUIRE(emitted.find("b2")->second.find("o1")->second.at(0).value == 0.5);
+        REQUIRE(emitted.find("b2")->second.find("o1")->second.at(0).time == 5);
         REQUIRE(emitted.find("b2")->second.size() == 1);
       } else if (i > 6) {
         REQUIRE(emitted.empty());
