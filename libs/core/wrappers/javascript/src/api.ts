@@ -2,7 +2,7 @@ import bindings, { RtBotEmbindModule } from "@rtbot/wasm";
 import { Operator, Program } from "./program";
 
 export interface RtBotIterationOutput {
-  [operatorId: string]: RtBotMessage[];
+  [operatorId: string]: { [port: string]: RtBotMessage[] };
 }
 
 export interface RtBotMessage {
@@ -45,7 +45,7 @@ export enum RtBotRunOutputFormat {
 }
 
 export type CollapsedFormat = { [operatorId: string]: number[][] };
-export type ExtendedFormat = { in: RtBotMessage; out: { [operatorId: string]: RtBotMessage[] } }[];
+export type ExtendedFormat = { in: RtBotMessage; out: RtBotIterationOutput }[];
 
 export class RtBotRun {
   // this variable will hold the outputs from different
@@ -89,14 +89,17 @@ export class RtBotRun {
         if (this.verbose) console.log("iteration ", time, value, "=>", iterationOutput);
         // record the outputs
         if (this.format === RtBotRunOutputFormat.COLLAPSED) {
-          Object.entries(iterationOutput as RtBotIterationOutput).forEach(([k, msgs]) => {
-            msgs.forEach(({ time, value }) => {
-              if (!(this.outputs as CollapsedFormat)[k]) (this.outputs as CollapsedFormat)[k] = [[], []];
+          Object.entries(iterationOutput as RtBotIterationOutput).forEach(([opId, opOut]) => {
+            Object.entries(opOut).forEach(([port, msgs]) => {
+              const k = `${opId}:${port}`;
+              msgs.forEach(({ time, value }) => {
+                if (!(this.outputs as CollapsedFormat)[k]) (this.outputs as CollapsedFormat)[k] = [[], []];
 
-              // add the time to the first list in the output
-              (this.outputs as CollapsedFormat)[k][0].push(time);
-              // add the values to the correspondent lists in the output
-              (this.outputs as CollapsedFormat)[k][1].push(value);
+                // add the time to the first list in the output
+                (this.outputs as CollapsedFormat)[k][0].push(time);
+                // add the values to the correspondent lists in the output
+                (this.outputs as CollapsedFormat)[k][1].push(value);
+              });
             });
           });
         } else {
