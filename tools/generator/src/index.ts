@@ -86,7 +86,7 @@ program
 
     if (target === "typescript") {
       const typescriptContent = typescriptTemplate({
-        programSchema: parseSchema(programJsonschema),
+        schemas: parseSchema({ type: "array", items: programJsonschema.properties.operators.items.oneOf }).replace("z.tuple(", "").slice(0, -1),
         operators: await Promise.all(
           schemas.map(async (schema) => {
             const opType = schema.properties.opType.enum[0];

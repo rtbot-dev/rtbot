@@ -1,8 +1,25 @@
 import { z } from "zod"
 import { Operator } from "./program"
 
-export const programSchema = {{{ programSchema }}}
-
+export const programSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  date: z.any().optional(),
+  apiVersion: z.enum(["v1"]),
+  author: z.string().optional(),
+  license: z.string().optional(),
+  operators: z.discriminatedUnion("opType", {{{ schemas }}}).array(),
+  connections: z.array(
+    z
+      .object({
+        from: z.string(),
+        to: z.string(),
+        fromPort: z.string().optional(),
+        toPort: z.string().optional(),
+      })
+      .strict()
+  ),
+});
 {{#each operators}}
 {{#each extraTypes}}
 
