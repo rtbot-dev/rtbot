@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
-import { Program, ExtendedFormat } from "@rtbot/api";
+import { Program, ExtendedFormat, RtBotMessage } from "@rtbot/api";
 
 export type DebuggerStateActions = {
   forward: () => void;
@@ -14,7 +14,7 @@ export type DebuggerStateActions = {
   computeColumns: () => void;
   computeOperators: () => void;
 };
-export type DebuggerOperatorDef = { id: string; opType: string; selected: boolean };
+export type DebuggerOperatorDef = { id: string; opType: string; selected: boolean; ports: string[] };
 
 export type DebuggerState = {
   iteration: number;
@@ -45,10 +45,15 @@ export const debuggerStore = createStore<DebuggerState & DebuggerStateActions>((
   updateProgram: (program: Program) => set((_) => ({ program })),
   computeOperators: () =>
     set((state) => ({
-      operators: state.program!.operators.map((op: any, i: number) => ({
+      operators: state.program!.operators.map((op: any) => ({
         id: op.id,
         opType: op.opType,
         selected: true,
+        ports: op.numPorts
+          ? Array(op.numPorts)
+              .fill(1)
+              .map((_, i) => `o${i + 1}`)
+          : ["o1"],
       })),
     })),
   updateOperator: (id: string, selected: boolean) =>
@@ -60,11 +65,16 @@ export const debuggerStore = createStore<DebuggerState & DebuggerStateActions>((
     })),
   computeColumns: () =>
     set((state) => {
-      const operators = state.operators.filter((op) => op.selected).map((op) => op.id);
+      const operators = state.operators.filter((op) => op.selected);
       const rows = [];
       const { iteration, maxIteration } = state;
 
-      const headers = ["iter", ...operators];
+      const opHeaders = operators.reduce(
+        (acc: string[], op: DebuggerOperatorDef) =>
+          op.ports.length > 1 ? [...acc, ...op.ports.map((p) => `${op.id}:${p}`)] : [...acc, op.id],
+        []
+      );
+      const headers = ["iter", ...opHeaders];
 
       if (iteration === 0)
         return {
@@ -73,9 +83,13 @@ export const debuggerStore = createStore<DebuggerState & DebuggerStateActions>((
 
       for (let i = iteration - 1; i < Math.min(iteration, maxIteration) + 10; i++) {
         const r = state.result![i]!;
-        const row = operators.map((h) => {
-          if (r.out[h]) {
-            return r.out[h]!.map(({ time, value }: any) => `(${time}, ${Math.round(value * 100) / 100})`).join(", ");
+        const row = opHeaders.map((h) => {
+          const [opId, port] = h.split(":");
+          if (opId && r.out[opId]) {
+            const opOutput = r.out[opId]!;
+            return opOutput[port ?? "o1"]!.map(
+              ({ time, value }: any) => `(${time}, ${Math.round(value * 100) / 100})`
+            ).join(", ");
           }
           return "-";
         });

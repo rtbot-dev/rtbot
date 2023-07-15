@@ -38,7 +38,8 @@
     },
     {
       "id": "out1",
-      "type": "Output"
+      "type": "Output",
+      "numPorts": 1
     }
   ],
   "connections": [
