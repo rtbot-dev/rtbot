@@ -17,6 +17,8 @@ export const tui = (program: Program, result: ExtendedFormat) => {
 
   debuggerStore.getState().init(program, result);
 
+  let playTimer: NodeJS.Timeout | undefined;
+
   // move in time
   screen.key(["right"], function (_ch: string, _key: string) {
     debuggerStore.getState().forward();
@@ -24,6 +26,22 @@ export const tui = (program: Program, result: ExtendedFormat) => {
   screen.key(["left"], function (_ch: string, _key: string) {
     debuggerStore.getState().backward();
   });
+  screen.key(["p"], function (_ch: string, _key: string) {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = setInterval(() => {
+      debuggerStore.getState().forward();
+    }, 200);
+  });
+  screen.key(["b"], function (_ch: string, _key: string) {
+    if (playTimer) clearInterval(playTimer);
+    playTimer = setInterval(() => {
+      debuggerStore.getState().backward();
+    }, 200);
+  });
+  screen.key(["s"], function (_ch: string, _key: string) {
+    clearInterval(playTimer);
+  });
+
   // Quit on Escape, q, or Control-C.
   screen.key(["escape", "q", "C-c"], function (_ch: string, _key: string) {
     return process.exit(0);
