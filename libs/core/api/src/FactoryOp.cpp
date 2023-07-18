@@ -63,6 +63,12 @@ void addPoliciesToJson(json& j, map<string, typename Operator<T, V>::InputPolicy
 }
 */
 
+/*
+{
+    "type": "Input",
+    "id": "in"
+}
+*/
 template <class T, class V>
 void to_json(json& j, const Input<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};

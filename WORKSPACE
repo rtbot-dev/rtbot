@@ -19,6 +19,10 @@ load("@aspect_rules_ts//ts:repositories.bzl", "rules_ts_dependencies")
 
 rules_ts_dependencies(ts_version_from = "//:package.json")
 
+load("@aspect_rules_jest//jest:dependencies.bzl", "rules_jest_dependencies")
+
+rules_jest_dependencies()
+
 load("@rules_nodejs//nodejs:repositories.bzl", "DEFAULT_NODE_VERSION", "nodejs_register_toolchains")
 
 nodejs_register_toolchains(
@@ -49,11 +53,16 @@ swc_register_toolchains(
     swc_version = LATEST_SWC_VERSION,
 )
 
-load("//:tools/prisma/prisma.bzl", "prisma_generate")
+load("@aspect_rules_esbuild//esbuild:dependencies.bzl", "rules_esbuild_dependencies")
 
-prisma_generate(
-    name = "postgres-client",
-    schema = "//:libs/postgres/prisma/schema.prisma",
+rules_esbuild_dependencies()
+
+# Register a toolchain containing esbuild npm package and native bindings
+load("@aspect_rules_esbuild//esbuild:repositories.bzl", "LATEST_ESBUILD_VERSION", "esbuild_register_toolchains")
+
+esbuild_register_toolchains(
+    name = "esbuild",
+    esbuild_version = LATEST_ESBUILD_VERSION,
 )
 
 load("@emsdk//:deps.bzl", emsdk_deps = "deps")

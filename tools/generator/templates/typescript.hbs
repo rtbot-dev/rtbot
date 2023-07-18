@@ -1,0 +1,43 @@
+import { z } from "zod"
+import { Operator } from "./program"
+
+export const programSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  date: z.any().optional(),
+  apiVersion: z.enum(["v1"]),
+  author: z.string().optional(),
+  license: z.string().optional(),
+  operators: z.discriminatedUnion("opType", {{{ schemas }}}).array(),
+  connections: z.array(
+    z
+      .object({
+        from: z.string(),
+        to: z.string(),
+        fromPort: z.string().optional(),
+        toPort: z.string().optional(),
+      })
+      .strict()
+  ),
+});
+{{#each operators}}
+{{#each extraTypes}}
+
+export type {{ name }} = {
+{{#each entries}}
+  {{ name }}: {{ type }},
+{{/each}}
+}
+{{/each}}
+
+export class {{ opType }} extends Operator {
+  readonly opType = "{{ opType}}";
+  constructor(
+{{ parametersBlock }}
+  ) {
+    super(id);
+    const schema = {{{ schema }}}
+    schema.parse(JSON.parse(JSON.stringify(this)));
+  }
+}
+{{/each}}

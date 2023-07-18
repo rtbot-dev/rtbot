@@ -1,0 +1,120 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
+load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
+load("@aspect_rules_jest//jest:defs.bzl", "jest_test")
+load("//tools/generator:generator.bzl", "rtbot_generate")
+
+package(default_visibility = ["//visibility:public"])
+
+rtbot_generate(
+    name = "generated",
+    target = "typescript",
+)
+
+copy_file(
+    name = "generated_to_src",
+    src = ":generated",
+    out = "src/generated.ts",
+)
+
+rtbot_generate(
+    name = "jsonschema",
+    target = "jsonschema",
+)
+
+copy_file(
+    name = "jsonschema_to_src",
+    src = ":jsonschema",
+    out = "src/jsonschema.json",
+)
+
+copy_file(
+    name = "wasm",
+    src = "//libs/core/api:rtbot-wasm/bindings-cpp-wasm.wasm",
+    out = "bindings-cpp-wasm.wasm",
+)
+
+_DEPS = [
+    "//:node_modules/@rtbot/wasm",
+    "//:node_modules/@types/node",
+    "//:node_modules/class-transformer",
+    "//:node_modules/nanoid",
+    "//:node_modules/zod",
+]
+
+ts_config(
+    name = "tsconfig",
+    src = "tsconfig.bazel.json",
+)
+
+ts_project(
+    name = "ts",
+    srcs = glob(
+        ["src/**/*.ts"],
+        exclude = ["**/*.spec.ts"],
+    ) + [":generated_to_src"],
+    composite = True,
+    data = [":jsonschema_to_src"],
+    declaration = True,
+    out_dir = ".",
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = ["ts"],
+    tsconfig = ":tsconfig",
+    deps = _DEPS,
+)
+
+ts_project(
+    name = "ts_test",
+    srcs = glob(["src/**/*.spec.ts"]),
+    composite = True,
+    declaration = True,
+    out_dir = "test",
+    resolve_json_module = True,
+    root_dir = "src",
+    tags = [
+        "test",
+        "ts",
+    ],
+    tsconfig = ":tsconfig",
+    deps = _DEPS + [
+        "//:node_modules/@types/jest",
+        "//:node_modules/@rtbot/api",
+    ],
+)
+
+genrule(
+    name = "package_json",
+    outs = ["package.json"],
+    cmd = """
+            echo "{
+    \\"name\\": \\"@rtbot/api\\",
+    \\"version\\": \\"0.1.0\\",
+    \\"main\\": \\"index.js\\",
+    \\"typings\\": \\"index.d.ts\\"
+}" > $@
+    """,
+)
+
+jest_test(
+    name = "test",
+    # config = "//:jest_config",
+    data = [
+        ":ts_test",
+        "//:node_modules/@rtbot/api",
+        "//:node_modules/@types/jest",
+    ],
+    node_modules = "//:node_modules",
+)
+
+npm_package(
+    name = "js",
+    srcs = [
+        ":package_json",
+        ":ts",
+        ":wasm",
+    ],
+    data = _DEPS,
+    package = "@rtbot/api",
+)

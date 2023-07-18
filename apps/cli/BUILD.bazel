@@ -1,0 +1,76 @@
+load("@aspect_rules_ts//ts:defs.bzl", "ts_project")
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@aspect_rules_esbuild//esbuild:defs.bzl", "esbuild")
+
+package(default_visibility = ["//visibility:public"])
+
+# deprecated
+cc_binary(
+    name = "debugger",
+    srcs = glob(["src/**/*.cpp"]),
+    deps = ["@ftxui//:lib"],
+)
+
+_DEPS = [
+    "//:node_modules/@base2/pretty-print-object",
+    "//:node_modules/@rtbot/api",
+    "//:node_modules/@types/node",
+    "//:node_modules/@types/papaparse",
+    "//:node_modules/@types/react",
+    "//:node_modules/chalk",
+    "//:node_modules/commander",
+    "//:node_modules/immer",
+    "//:node_modules/blessed",
+    "//:node_modules/blessed-contrib",
+    "//:node_modules/papaparse",
+    "//:node_modules/zustand",
+]
+
+filegroup(
+    name = "hbs",
+    srcs = glob(["**/*.hbs"]),
+    visibility = ["//visibility:public"],
+)
+
+ts_project(
+    name = "ts",
+    srcs = glob(
+        [
+            "src/**/*.ts",
+            "src/**/*.tsx",
+        ],
+        exclude = [
+            "**/*.spec.ts",
+            "**/*.test.ts",
+        ],
+    ),
+    declaration = True,
+    # resolve_json_module = True,
+    root_dir = "src",
+    tags = [
+        "cli",
+        "ts",
+    ],
+    tsconfig = "tsconfig.bazel.json",
+    validate = True,
+    deps = _DEPS,
+)
+
+esbuild(
+    # The name used for this rule and output files
+    name = "bundle",
+    srcs = [":ts"],
+    entry_point = "index.js",
+    platform = "node",
+    format = "cjs",
+    external = ["react-devtools-core"],
+    target = "ESNext",
+    deps = _DEPS
+)
+
+js_binary(
+    name = "bin",
+    entry_point = "index.js",
+    data = [":ts"]
+)

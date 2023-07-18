@@ -32,6 +32,7 @@ cc_library(
 BASE_LINKOPTS = [
     "--bind",  # Enable embind
     "-s MODULARIZE",
+    "-s NO_DISABLE_EXCEPTION_CATCHING",
     #"-s EXPORT_ES6=1",
 ]
 
@@ -48,10 +49,29 @@ wasm_cc_binary(
 )
 
 genrule(
-    name = "index",
-    outs = ["index.js"],
+    name = "declarations",
+    outs = ["index.d.ts"],
     cmd = """
-    echo "export * from './rtbot-wasm/bindings-cpp-wasm';" > $@
+    echo "export interface RtBotEmbindModule {" >> $@
+    echo "  createPipeline(pipelineId: string, programStr: string): string;" >> $@
+    echo "  deletePipeline(pipelineId: string): string;" >> $@
+    echo "  receiveMessageInPipelineDebug(pipelineId: string, time: number, value: number): string;" >> $@
+    echo "}" >> $@
+    echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
+    echo "export default factory;" >> $@
+    """,
+)
+
+genrule(
+    name = "package_json",
+    outs = ["package.json"],
+    cmd = """
+            echo "{
+    \\"name\\": \\"@rtbot/wasm\\",
+    \\"version\\": \\"0.1.0\\",
+    \\"main\\": \\"./rtbot-wasm/bindings-cpp-wasm\\",
+    \\"typings\\": \\"index.d.ts\\"
+}" > $@
     """,
 )
 
@@ -59,8 +79,9 @@ genrule(
 npm_package(
     name = "js",
     srcs = [
-        ":index",
+        ":declarations",
+        ":package_json",
         ":rtbot-wasm",
     ],
-    package = "@rtbot/core",
+    package = "@rtbot/wasm",
 )

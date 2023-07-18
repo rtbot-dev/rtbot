@@ -1,6 +1,6 @@
 {
   "name": "rtbot",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,22 +12,40 @@
   ],
   "dependencies": {
     "@bazel/ibazel": "^0.16.2",
-    "@nestjs/common": "9.2.0",
-    "@nestjs/core": "9.2.0",
-    "@nestjs/platform-express": "9.2.0",
-    "@prisma/engines": "^4.8.1",
-    "@typescript-eslint/eslint-plugin": "^5.48.1",
-    "@typescript-eslint/parser": "^5.48.1",
-    "eslint": "^8.31.0",
+    "@types/blessed": "^0.1.22",
+    "@types/papaparse": "^5.3.7",
+    "@types/react": "^18.2.14",
+    "@typescript-eslint/eslint-plugin": "^5.60.1",
+    "@typescript-eslint/parser": "^5.60.1",
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.11.0",
+    "class-transformer": "^0.5.1",
+    "eslint": "^8.43.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "prettier": "^2.8.2",
-    "prisma": "^4.8.1",
-    "reflect-metadata": "0.1.13",
-    "regenerator-runtime": "0.13.11",
-    "rxjs": "7.5.7"
+    "immer": "^10.0.2",
+    "json-schema-to-zod": "^0.6.3",
+    "nanoid": "3.3.5",
+    "papaparse": "^5.4.1",
+    "prettier": "^2.8.8",
+    "tsembind": "^1.1.0",
+    "zod": "^3.21.4",
+    "zustand": "^4.3.9"
   },
   "devDependencies": {
+    "@base2/pretty-print-object": "^1.0.2",
+    "@bazel/runfiles": "^5.8.1",
+    "@types/jest": "^29.5.2",
+    "@types/mocha": "^10.0.1",
     "@types/node": "18.11.9",
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "eslint-import-resolver-typescript": "^3.5.5",
+    "eslint-plugin-import": "^2.27.5",
+    "handlebars": "^4.7.7",
+    "jest-cli": "^29.5.0",
+    "jest-junit": "^16.0.0",
+    "json-schema-to-typescript": "^11.0.0",
+    "to-json-schema": "^0.2.5",
     "typescript": "4.9.3"
   }
 }

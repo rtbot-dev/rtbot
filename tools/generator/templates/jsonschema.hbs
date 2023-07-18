@@ -1,0 +1,66 @@
+{
+  "$id": "root",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "examples": ["Peak detector"]
+    },
+    "description": {
+      "type": "string",
+      "examples": ["This is a program to detect peaks in ECG..."]
+    },
+    "date": {
+      "type": "date"
+    },
+    "apiVersion": {
+      "enum": ["v1"]
+    },
+    "author": {
+      "type": "string",
+      "examples": ["Someone <someone@gmail.com>"]
+    },
+    "license": {
+      "type": "string",
+      "examples": ["MIT", "private"]
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {{#each schemas}}
+            {{{ this }}}{{#unless @last}},{{/unless}}
+          {{/each}}
+        ]
+      }
+    },
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "examples": ["ma1"]
+          },
+          "to": {
+            "type": "string",
+            "examples": ["std"]
+          },
+          "fromPort": {
+            "type": "string",
+            "examples": ["o1"]
+          },
+          "toPort": {
+            "type": "string",
+            "examples": ["i1"]
+          }
+        },
+        "required": ["from", "to"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["apiVersion", "operators", "connections"]
+}
