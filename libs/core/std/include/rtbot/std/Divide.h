@@ -21,7 +21,10 @@ struct Divide : public Join<T, V> {
       string inputPort = string("i") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager())
-          this->eagerPort = inputPort;
+          if (this->eagerPort.empty())
+            this->eagerPort = inputPort;
+          else
+            throw runtime_error(typeName() + ": 2 or more eager ports are not allowed");
         else
           this->notEagerPort = inputPort;
         this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
@@ -36,7 +39,7 @@ struct Divide : public Join<T, V> {
 
   string typeName() const override { return "Divide"; }
 
-  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData() override {
     Message<T, V> m1 = this->getDataInputFirstMessage("i2");
     Message<T, V> m0 = this->getDataInputFirstMessage("i1");
     Message<T, V> out;

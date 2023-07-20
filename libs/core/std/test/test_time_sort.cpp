@@ -15,7 +15,8 @@ TEST_CASE("TimeSort test increasing") {
   ts.connect(out2, "o2", "i1");
 
   ts.receiveData(Message<uint64_t, double>(2, 2), "i1");
-  emitted = ts.receiveData(Message<uint64_t, double>(1, 1), "i2");
+  ts.receiveData(Message<uint64_t, double>(1, 1), "i2");
+  emitted = ts.executeData();
 
   REQUIRE(emitted.find("out1")->second.find("o1")->second.at(0).value == 1);
   REQUIRE(emitted.find("out1")->second.find("o1")->second.at(0).time == 1);
@@ -33,7 +34,8 @@ TEST_CASE("TimeSort test decreasing") {
   ts.connect(out2, "o2", "i1");
 
   ts.receiveData(Message<uint64_t, double>(2, 2), "i1");
-  emitted = ts.receiveData(Message<uint64_t, double>(1, 1), "i2");
+  ts.receiveData(Message<uint64_t, double>(1, 1), "i2");
+  emitted = ts.executeData();
 
   REQUIRE(emitted.find("out1")->second.find("o1")->second.at(0).value == 2);
   REQUIRE(emitted.find("out1")->second.find("o1")->second.at(0).time == 2);

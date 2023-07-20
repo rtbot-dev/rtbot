@@ -14,15 +14,18 @@ TEST_CASE("Linear joint no eager") {
   linear.receiveData(Message<uint64_t, double>(3, 3), "i1");
   linear.receiveData(Message<uint64_t, double>(4, 4), "i1");
 
-  emitted = linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  emitted = linear.executeData();
 
   REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == 1);
 
-  emitted = linear.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  linear.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  emitted = linear.executeData();
 
   REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == 4);
 
-  emitted = linear.receiveData(Message<uint64_t, double>(5, 5), "i1");
+  linear.receiveData(Message<uint64_t, double>(5, 5), "i1");
+  emitted = linear.executeData();
 
   REQUIRE(emitted.empty());
 }
@@ -39,7 +42,8 @@ TEST_CASE("Linear joint i2 eager") {
   REQUIRE(!linear.isDataInputEager("i1"));
   REQUIRE(linear.isDataInputEager("i2"));
 
-  emitted = linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  emitted = linear.executeData();
 
   REQUIRE(emitted.find("linear")->second.find("o1")->second.size() == 4);
   REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == -1);
@@ -51,7 +55,8 @@ TEST_CASE("Linear joint i2 eager") {
   REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).value == 5);
   REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).time == 4);
 
-  emitted = linear.receiveData(Message<uint64_t, double>(2, 2), "i2");
+  linear.receiveData(Message<uint64_t, double>(2, 2), "i2");
+  emitted = linear.executeData();
 
   REQUIRE(emitted.empty());
 }

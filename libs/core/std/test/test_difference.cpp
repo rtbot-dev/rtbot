@@ -11,7 +11,8 @@ TEST_CASE("Difference") {
   SECTION("emits difference") {
     map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = diff.receiveData(Message<uint64_t, double>(i, i));
+      diff.receiveData(Message<uint64_t, double>(i, i));
+      emitted = diff.executeData();
       if (i >= 2) {
         REQUIRE(emitted.find("diff")->second.find("o1")->second.at(0).value == 1);
         REQUIRE(emitted.find("diff")->second.find("o1")->second.at(0).time == i);

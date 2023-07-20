@@ -294,25 +294,37 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": connection was not successful");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg,
-                                                                      string inputPort = "") override {
+  virtual void receiveData(Message<T, V> msg, string inputPort = "") override {
     if (this->input != nullptr)
-      return this->input.get()->receiveData(msg, inputPort);
+      this->input.get()->receiveData(msg, inputPort);
     else
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg,
-                                                                         string inputPort = "") override {
+  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
     if (this->input != nullptr)
-      return this->input.get()->receiveControl(msg, inputPort);
+      return this->input.get()->executeData();
     else
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual map<string, vector<Message<T, V>>> processData(string inputPort) override { return {}; }
+  virtual void receiveControl(Message<T, V> msg, string inputPort = "") override {
+    if (this->input != nullptr)
+      this->input.get()->receiveControl(msg, inputPort);
+    else
+      throw std::runtime_error(typeName() + ": the input operator have not been found");
+  }
 
-  virtual map<string, vector<Message<T, V>>> processControl(string inputPort) override { return {}; }
+  virtual map<string, map<string, vector<Message<T, V>>>> executeControl() override {
+    if (this->input != nullptr)
+      return this->input.get()->executeControl();
+    else
+      throw std::runtime_error(typeName() + ": the input operator have not been found");
+  }
+
+  virtual map<string, vector<Message<T, V>>> processData() override { return {}; }
+
+  virtual map<string, vector<Message<T, V>>> processControl() override { return {}; }
 
   virtual Operator<T, V> *connect(Operator<T, V> &child, string outputPort = "", string inputPort = "") override {
     if (this->output != nullptr)

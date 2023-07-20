@@ -11,7 +11,8 @@ TEST_CASE("CumulativeSum test") {
   SECTION("emits  sum") {
     map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = cs.receiveData(Message<uint64_t, double>(i, i));
+      cs.receiveData(Message<uint64_t, double>(i, i));
+      emitted = cs.executeData();
       REQUIRE(emitted.find("cs")->second.find("o1")->second.at(0).value == i * (i + 1) / 2);
     }
   }

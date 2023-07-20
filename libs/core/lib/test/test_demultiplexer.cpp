@@ -38,7 +38,8 @@ TEST_CASE("Demultiplexer") {
   // process the data
   SECTION("Emit for the right port") {
     for (int i = 1; i <= 100; i++) {
-      auto output = in1.receiveData(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
+      in1.receiveData(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
+      auto output = in1.executeData();
 
       if (i < 21 && i > 1) {
         REQUIRE(output.find("demult")->second.find("o1")->second.size() == 1);

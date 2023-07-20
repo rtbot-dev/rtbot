@@ -12,8 +12,9 @@ TEST_CASE("Input test emit at right frequencies") {
 
   SECTION("emits every other time") {
     for (int i = 1; i < 20; i++) {
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted =
-          i1.receiveData(Message<uint64_t, double>((1 - (i % 2)) * i * 10, i * i));
+      i1.receiveData(Message<uint64_t, double>((1 - (i % 2)) * i * 10, i * i));
+      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i1.executeData();
+
       if (i % 2 == 1)
         REQUIRE(emitted.empty());
       else {
@@ -24,8 +25,9 @@ TEST_CASE("Input test emit at right frequencies") {
 
   SECTION("emits every time") {
     for (int i = 0; i < 20; i++) {
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted =
-          i2.receiveData(Message<uint64_t, double>(i * 200, i * i));
+      i2.receiveData(Message<uint64_t, double>(i * 200, i * i));
+      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i2.executeData();
+
       if (i == 0)
         REQUIRE(emitted.empty());
       else {
@@ -36,8 +38,9 @@ TEST_CASE("Input test emit at right frequencies") {
 
   SECTION("never emits") {
     for (int i = 0; i < 20; i++) {
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted =
-          i2.receiveData(Message<uint64_t, double>(200, i * i));
+      i2.receiveData(Message<uint64_t, double>(200, i * i));
+      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i2.executeData();
+
       REQUIRE(emitted.empty());
     }
   }

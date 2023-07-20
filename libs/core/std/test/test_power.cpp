@@ -11,7 +11,8 @@ TEST_CASE("Power") {
   SECTION("emits Power -1") {
     map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
     for (int i = 1; i <= 50; i++) {
-      emitted = pow.receiveData(Message<uint64_t, double>(i, i * 2));
+      pow.receiveData(Message<uint64_t, double>(i, i * 2));
+      emitted = pow.executeData();
       REQUIRE(emitted.find("pow")->second.find("o1")->second.at(0).value == 1 / ((double)(i * 2)));
       REQUIRE(emitted.find("pow")->second.find("o1")->second.at(0).time == i);
     }

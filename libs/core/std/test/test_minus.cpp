@@ -14,15 +14,18 @@ TEST_CASE("Minus joint") {
   minus.receiveData(Message<uint64_t, double>(3, 3), "i1");
   minus.receiveData(Message<uint64_t, double>(4, 4), "i1");
 
-  emitted = minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == -1);
 
-  emitted = minus.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  minus.receiveData(Message<uint64_t, double>(4, 4), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 0);
 
-  emitted = minus.receiveData(Message<uint64_t, double>(3, 5), "i2");
+  minus.receiveData(Message<uint64_t, double>(3, 5), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.empty());
 }
@@ -36,17 +39,20 @@ TEST_CASE("Minus joint i1 eager") {
   minus.receiveData(Message<uint64_t, double>(3, 3), "i1");
   minus.receiveData(Message<uint64_t, double>(4, 4), "i1");
 
-  emitted = minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  minus.receiveData(Message<uint64_t, double>(2, 3), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 1);
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 2);
 
-  emitted = minus.receiveData(Message<uint64_t, double>(3, 4), "i2");
+  minus.receiveData(Message<uint64_t, double>(3, 4), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == 0);
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 3);
 
-  emitted = minus.receiveData(Message<uint64_t, double>(5, 5), "i2");
+  minus.receiveData(Message<uint64_t, double>(5, 5), "i2");
+  emitted = minus.executeData();
 
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).value == -1);
   REQUIRE(emitted.find("minus")->second.find("o1")->second.at(0).time == 5);

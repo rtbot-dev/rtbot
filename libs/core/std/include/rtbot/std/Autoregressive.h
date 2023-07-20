@@ -21,7 +21,7 @@ struct AutoRegressive : public Operator<T, V> {
 
   string typeName() const override { return "AutoRegressive"; }
 
-  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  virtual void receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -33,17 +33,31 @@ struct AutoRegressive : public Operator<T, V> {
         this->dataInputs.find(inputPort)->second.push_back(Message<T, V>(0, 0));  // boundary conditions=0
       // n + 1 added, so that processData can get the last one as a recipient
       this->dataInputs.find(inputPort)->second.push_back(msg);
-      auto toEmit = processData(inputPort);
-      this->dataInputs.find(inputPort)->second.pop_front();
-      this->dataInputs.find(inputPort)->second.pop_back();
-      this->dataInputs.find(inputPort)->second.push_back(toEmit.find("o1")->second.at(0));
-      return this->emit(toEmit);
     } else
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
-    return {};
   }
 
-  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
+    string inputPort;
+    auto in = this->getDataInputs();
+    if (in.size() == 1)
+      inputPort = in.at(0);
+    else
+      throw runtime_error(typeName() + " : more than 1 input port found");
+    auto toEmit = processData();
+    this->dataInputs.find(inputPort)->second.pop_front();
+    this->dataInputs.find(inputPort)->second.pop_back();
+    this->dataInputs.find(inputPort)->second.push_back(toEmit.find("o1")->second.at(0));
+    return this->emit(toEmit);
+  }
+
+  virtual map<string, vector<Message<T, V>>> processData() override {
+    string inputPort;
+    auto in = this->getDataInputs();
+    if (in.size() == 1)
+      inputPort = in.at(0);
+    else
+      throw runtime_error(typeName() + " : more than 1 input port found");
     size_t n = this->getDataInputMaxSize(inputPort);
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     for (auto i = 0; i < n; i++) out.value += this->coeff[i] * this->getDataInputMessage(inputPort, i).value;

@@ -12,8 +12,9 @@ TEST_CASE("Moving  average") {
 
   SECTION("emits same") {
     for (int i = 0; i < 20; i++) {
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted =
-          i1.receiveData(Message<uint64_t, double>(i * 100, 10));
+      i1.receiveData(Message<uint64_t, double>(i * 100, 10));
+      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i1.executeData();
+
       if (i <= 3) {
         REQUIRE(emitted.empty());
       } else
@@ -23,8 +24,9 @@ TEST_CASE("Moving  average") {
 
   SECTION("emits correct average") {
     for (int i = 1; i < 20; i++) {
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted =
-          i2.receiveData(Message<uint64_t, double>(i * 100, i));
+      i2.receiveData(Message<uint64_t, double>(i * 100, i));
+      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i2.executeData();
+
       if (i <= 10) {
         REQUIRE(emitted.empty());
       } else {

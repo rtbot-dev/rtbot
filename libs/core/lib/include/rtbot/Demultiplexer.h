@@ -26,7 +26,7 @@ class Demultiplexer : public Operator<T, V> {
 
   virtual string typeName() const override { return "Demultiplexer"; }
 
-  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  void receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -37,14 +37,16 @@ class Demultiplexer : public Operator<T, V> {
       this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
                                                       this->dataInputs.find(inputPort)->second.back().value);
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
-
-    auto toEmit = processData(inputPort);
-
-    return this->emit(toEmit);
+      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input data port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg, string inputPort) {
+  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
+    auto toEmit = processData();
+    if (!toEmit.empty()) return this->emit(toEmit);
+    return {};
+  }
+
+  virtual void receiveControl(Message<T, V> msg, string inputPort) {
     if (inputPort.empty()) {
       auto in = this->getControlInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -56,22 +58,24 @@ class Demultiplexer : public Operator<T, V> {
                                                          this->controlInputs.find(inputPort)->second.back().value);
 
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input control port");
+  }
 
-    auto toEmit = this->processControl(inputPort);
-
-    return this->emit(toEmit);
+  virtual map<string, map<string, vector<Message<T, V>>>> executeControl() override {
+    auto toEmit = processControl();
+    if (!toEmit.empty()) return this->emit(toEmit);
+    return {};
   }
 
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processData(string inputPort) { return join(); }
+  virtual map<string, vector<Message<T, V>>> processData() { return join(); }
 
   /*
       map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processControl(string inputPort) { return join(); }
+  virtual map<string, vector<Message<T, V>>> processControl() { return join(); }
 
  private:
   map<string, string> controlMap;

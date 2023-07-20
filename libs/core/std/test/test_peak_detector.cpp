@@ -20,7 +20,10 @@ TEST_CASE("simple peak detector") {
     auto op = PeakDetector<uint64_t, double>("b1", nlag);
     auto c1 = Collector<uint64_t, double>("c1", 2);
     REQUIRE(op.connect(c1) != nullptr);
-    for (int i = 0; i < 10; i++) op.receiveData(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
+    for (int i = 0; i < 10; i++) {
+      op.receiveData(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
+      op.executeData();
+    }
     REQUIRE(c1.getDataInputSize("i1") == 1);
     REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
   }
@@ -29,7 +32,10 @@ TEST_CASE("simple peak detector") {
     auto op = PeakDetector<uint64_t, double>("b1", nlag);
     auto c1 = Collector<uint64_t, double>("c1", 2);
     REQUIRE(op.connect(c1) != nullptr);
-    for (int i = 0; i < 14; i++) op.receiveData(Message<uint64_t, double>(i, i % 5));
+    for (int i = 0; i < 14; i++) {
+      op.receiveData(Message<uint64_t, double>(i, i % 5));
+      op.executeData();
+    }
     REQUIRE(c1.getDataInputSize("i1") == 2);
     REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
     REQUIRE(c1.getDataInputMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
@@ -46,7 +52,8 @@ TEST_CASE("simple peak detector") {
       t++;
       v += sign * 0.1;
       if (t % 5 == 0) sign = -sign;
-      emitted = pd.receiveData(Message<uint64_t, double>(i, v));
+      pd.receiveData(Message<uint64_t, double>(i, v));
+      emitted = pd.executeData();
       if (i < 6) {
         REQUIRE(emitted.empty());
       } else if (i == 6) {
@@ -83,5 +90,8 @@ TEST_CASE("ppg peak detector") {
   i1.connect(join, "o1", "i2");
 
   // process the data
-  for (auto i = 0u; i < s.ti.size(); i++) i1.receiveData(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
+  for (auto i = 0u; i < s.ti.size(); i++) {
+    i1.receiveData(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
+    i1.executeData();
+  }
 }

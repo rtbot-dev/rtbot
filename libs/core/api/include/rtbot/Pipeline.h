@@ -39,7 +39,8 @@ struct Pipeline {
 
   /// return a list of the operator that emit: id, output message
   map<string, map<string, vector<Message<uint64_t, double>>>> receiveDebug(const Message<uint64_t, double>& msg) {
-    return input->receiveData(msg);
+    input->receiveData(msg);
+    return input->executeData();
   }
 
   string getProgram();

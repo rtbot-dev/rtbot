@@ -13,8 +13,10 @@ TEST_CASE("Equal To") {
     map<string, map<string, vector<Message<uint64_t, double>>>> emitted0;
     map<string, map<string, vector<Message<uint64_t, double>>>> emitted1;
     for (int i = 1; i <= 20; i++) {
-      emitted0 = et0.receiveData(Message<uint64_t, double>(i, i % 2));
-      emitted1 = et1.receiveData(Message<uint64_t, double>(i, i % 2));
+      et0.receiveData(Message<uint64_t, double>(i, i % 2));
+      et1.receiveData(Message<uint64_t, double>(i, i % 2));
+      emitted0 = et0.executeData();
+      emitted1 = et1.executeData();
       if (i % 2 == 0) {
         REQUIRE(emitted0.find("et0")->second.find("o1")->second.at(0).value == 0);
         REQUIRE(emitted0.find("et0")->second.find("o1")->second.at(0).time == i);

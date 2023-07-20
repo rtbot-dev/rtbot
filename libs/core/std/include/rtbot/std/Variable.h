@@ -23,12 +23,12 @@ class Variable : public Operator<T, V> {
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processData(string inputPort) { return join(); }
+  virtual map<string, vector<Message<T, V>>> processData() { return join(); }
 
   /*
       map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processControl(string inputPort) { return join(); }
+  virtual map<string, vector<Message<T, V>>> processControl() { return join(); }
 
  private:
   map<string, string> controlMap;
@@ -57,7 +57,7 @@ class Variable : public Operator<T, V> {
     if (this->dataInputs.find(inputPort)->second.empty()) return {};
     if (this->controlInputs.find(controlPort)->second.empty()) return {};
 
-    if (this->controlInputs.find(controlPort)->second.front().time <=
+    if (this->controlInputs.find(controlPort)->second.front().time ==
         this->dataInputs.find(inputPort)->second.front().time) {
       vector<Message<T, V>> v;
       v.push_back(this->dataInputs.find(inputPort)->second.front());

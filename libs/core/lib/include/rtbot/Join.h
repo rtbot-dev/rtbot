@@ -36,7 +36,10 @@ class Join : public Operator<T, V> {
       string outputPort = string("o") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager())
-          this->eagerPort = inputPort;
+          if (this->eagerPort.empty())
+            this->eagerPort = inputPort;
+          else
+            throw runtime_error(typeName() + ": 2 or more eager ports are not allowed");
         else
           this->notEagerPort = inputPort;
         this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
@@ -47,13 +50,13 @@ class Join : public Operator<T, V> {
       this->addOutput(outputPort);
       this->controlMap.emplace(inputPort, outputPort);
     }
-    if (this->notEagerPort.empty()) throw runtime_error(typeName() + ": at least one input port should be not eager.");
+    if (this->notEagerPort.empty()) throw runtime_error(typeName() + ": at least one input port should be not eager");
   }
   virtual ~Join() = default;
 
   virtual string typeName() const override { return "Join"; }
 
-  map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") override {
+  void receiveData(Message<T, V> msg, string inputPort = "") override {
     if (inputPort.empty()) {
       throw runtime_error(typeName() + " : inputPort have to be specified");
     }
@@ -69,10 +72,12 @@ class Join : public Operator<T, V> {
                                                       this->dataInputs.find(inputPort)->second.back().value);
     } else
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+  }
 
+  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
     this->outputMsgs.clear();
 
-    checkReady(inputPort);
+    checkReady();
 
     if (!this->outputMsgs.empty()) {
       return this->emit(this->outputMsgs);
@@ -83,12 +88,23 @@ class Join : public Operator<T, V> {
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  map<string, vector<Message<T, V>>> checkReady(string inputPort) {
+  map<string, vector<Message<T, V>>> checkReady() {
+    string inputPort = this->notEagerPort;
     if (this->dataInputs.find(inputPort)->second.empty()) return {};
+    T latest = this->dataInputs.find(inputPort)->second.front().time;
+
+    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
+      if (it->second.empty())
+        return {};
+      else if (it->second.front().time > latest && !it->second.isEager()) {
+        inputPort = it->first;
+        latest = it->second.front().time;
+      }
+    }
+
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       if (it->first == inputPort || it->second.isEager()) continue;
-      while (!it->second.empty() && (it->second.front().time < this->dataInputs.find(inputPort)->second.front().time &&
-                                     !this->dataInputs.find(inputPort)->second.isEager())) {
+      while (!it->second.empty() && (it->second.front().time < this->dataInputs.find(inputPort)->second.front().time)) {
         it->second.setSum(it->second.getSum() - it->second.front().value);
         it->second.pop_front();
       }
@@ -96,15 +112,15 @@ class Join : public Operator<T, V> {
 
     bool all_ready = true;
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-      if (it->second.empty() || (it->second.front().time > this->dataInputs.find(inputPort)->second.front().time &&
-                                 !it->second.isEager() && !this->dataInputs.find(inputPort)->second.isEager())) {
+      if (it->second.empty() ||
+          (it->second.front().time > this->dataInputs.find(inputPort)->second.front().time && !it->second.isEager())) {
         all_ready = false;
         break;
       }
     }
 
     if (all_ready) {
-      processData(inputPort);
+      processData();
       for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
         if (!it->second.isEager()) {
           it->second.setSum(it->second.getSum() - it->second.front().value);
@@ -112,7 +128,7 @@ class Join : public Operator<T, V> {
         }
       }
       if (!this->eagerPort.empty()) {
-        checkReady(this->eagerPort);
+        checkReady();
       }
     }
     return {};
@@ -121,7 +137,7 @@ class Join : public Operator<T, V> {
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processData(string inputPort) {
+  virtual map<string, vector<Message<T, V>>> processData() {
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       Message<T, V> out = it->second.front();
       out.time = this->dataInputs.find(this->notEagerPort)->second.front().time;
