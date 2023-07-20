@@ -23,7 +23,10 @@ struct Linear : public Join<T, V> {
       string inputPort = string("i") + to_string(i);
       if (policies.count(inputPort) > 0) {
         if (policies.find(inputPort)->second.isEager())
-          this->eagerPort = inputPort;
+          if (this->eagerPort.empty())
+            this->eagerPort = inputPort;
+          else
+            throw runtime_error(typeName() + ": 2 or more eager ports are not allowed");
         else
           this->notEagerPort = inputPort;
         this->addDataInput(inputPort, 0, policies.find(inputPort)->second);
@@ -41,7 +44,7 @@ struct Linear : public Join<T, V> {
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  map<string, vector<Message<T, V>>> processData(string inputPort) override {
+  map<string, vector<Message<T, V>>> processData() override {
     int i = 0;
     Message<T, V> out;
     out.value = 0;

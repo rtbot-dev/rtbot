@@ -91,9 +91,9 @@ class Operator {
 
   virtual string typeName() const = 0;
 
-  virtual map<string, vector<Message<T, V>>> processData(string inputPort) = 0;
+  virtual map<string, vector<Message<T, V>>> processData() = 0;
 
-  virtual map<string, vector<Message<T, V>>> processControl(string inputPort) {
+  virtual map<string, vector<Message<T, V>>> processControl() {
     // TODO: implement reset here
     return {};
   }
@@ -205,7 +205,7 @@ class Operator {
     return true;
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> receiveData(Message<T, V> msg, string inputPort = "") {
+  virtual void receiveData(Message<T, V> msg, string inputPort = "") {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -223,18 +223,19 @@ class Operator {
       this->dataInputs.find(inputPort)->second.push_back(msg);
       this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
                                                       this->dataInputs.find(inputPort)->second.back().value);
-
-      if (allDataInputPortsFull()) {
-        auto toEmit = this->processData(inputPort);
-        if (!toEmit.empty()) return this->emit(toEmit);
-      }
-      return {};
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+  }
+
+  virtual map<string, map<string, vector<Message<T, V>>>> executeData() {
+    if (allDataInputPortsFull()) {
+      auto toEmit = this->processData();
+      if (!toEmit.empty()) return this->emit(toEmit);
+    }
     return {};
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> receiveControl(Message<T, V> msg, string inputPort) {
+  virtual void receiveControl(Message<T, V> msg, string inputPort) {
     if (inputPort.empty()) {
       auto in = this->getControlInputs();
       if (in.size() == 1) inputPort = in.at(0);
@@ -254,13 +255,16 @@ class Operator {
       this->controlInputs.find(inputPort)->second.setSum(this->controlInputs.find(inputPort)->second.getSum() +
                                                          this->controlInputs.find(inputPort)->second.back().value);
 
-      auto toEmit = this->processControl(inputPort);
-
-      if (!toEmit.empty()) return this->emit(toEmit);
-
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
-    return {};
+  }
+
+  virtual map<string, map<string, vector<Message<T, V>>>> executeControl() {
+    auto toEmit = this->processControl();
+    if (!toEmit.empty())
+      return this->emit(toEmit);
+    else
+      return {};
   }
 
   map<string, map<string, vector<Message<T, V>>>> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
@@ -279,9 +283,16 @@ class Operator {
       if (this->outputs.count(outputPort) > 0) {
         for (auto connection : outputs.find(outputPort)->second) {
           if (connection.fOperator->isDataInput(connection.inputPort))
-            mergeOutput(out, connection.fOperator->receiveData(msg, connection.inputPort));
+            connection.fOperator->receiveData(msg, connection.inputPort);
           else if (connection.fOperator->isControlInput(connection.inputPort)) {
-            mergeOutput(out, connection.fOperator->receiveControl(msg, connection.inputPort));
+            connection.fOperator->receiveControl(msg, connection.inputPort);
+          }
+        }
+        for (auto connection : outputs.find(outputPort)->second) {
+          if (connection.fOperator->isDataInput(connection.inputPort))
+            mergeOutput(out, connection.fOperator->executeData());
+          else if (connection.fOperator->isControlInput(connection.inputPort)) {
+            mergeOutput(out, connection.fOperator->executeControl());
           }
         }
       }
