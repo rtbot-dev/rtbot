@@ -15,6 +15,7 @@ _DEPS = [
     "//:node_modules/to-json-schema",
     "//:node_modules/json-schema-to-typescript",
     "//:node_modules/json-schema-to-zod",
+    "//:node_modules/yaml",
 ]
 
 filegroup(

@@ -7,6 +7,19 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Computes the difference between the values of two consecutive messages. Emits in
+ *   the last one time.
+ *   $$y(t_n)=x(t_n) - x(t_{n-1})$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ * required: ["id"]
+ */
 template <class T, class V>
 struct Difference : public Operator<T, V> {
   Difference() = default;

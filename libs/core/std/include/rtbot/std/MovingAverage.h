@@ -7,6 +7,21 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Computes the moving average.
+ *   $$y(t_n)= \frac{1}{N}(x(t_n) + x(t_{n-1}) + ... + x(t_{n-N-1}))$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   n:
+ *     type: integer
+ *     description: The window size, in grid steps, to be used in the computation.
+ * required: ["id", "n"]
+ */
 template <class T, class V>
 struct MovingAverage : public Operator<T, V> {
   MovingAverage() = default;

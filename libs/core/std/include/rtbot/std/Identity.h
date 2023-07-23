@@ -7,6 +7,17 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   This operator forwards all the messages it receives without modifying them.
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ * required: ["id"]
+ */
 template <class T, class V>
 struct Identity : public Operator<T, V> {
   Identity() = default;

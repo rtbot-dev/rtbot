@@ -5,6 +5,21 @@
 
 namespace rtbot {
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Emits only the messages received with value equal to the number set. Messages that do not
+ *   comply with the condition are ignored.
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   value:
+ *     type: integer
+ *     description: The reference value
+ * required: ["id", "value"]
+ */
 template <class T, class V>
 struct EqualTo : public FilterByValue<T, V> {
   EqualTo() = default;

@@ -8,7 +8,27 @@ namespace rtbot {
 using namespace std;
 
 /**
- * @brief The Divide class as example of application of Join
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Synchronizes two streams and computes its division. Synchronization mechanism inherited from `Join`.
+ *   $$y(t_n)=x_1(t_n) / x_2(t_n)$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   policies:
+ *     type: object
+ *     patternProperties:
+ *       # any valid operator id
+ *       "^[a-zA-Z0-9]+$":
+ *          type: object
+ *          additionalProperties: false
+ *          properties:
+ *            eager:
+ *              type: boolean
+ *              default: false
+ * required: ["id"]
  */
 template <class T, class V>
 struct Divide : public Join<T, V> {

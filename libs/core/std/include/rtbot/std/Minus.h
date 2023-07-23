@@ -8,7 +8,28 @@ namespace rtbot {
 using namespace std;
 
 /**
- * @brief The Minus class as example of application of Join
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Synchronizes two streams and emits the difference between the values for a given $t$.
+ *   Synchronization mechanism inherited from `Join`.
+ *   $$y(t_n)=x_1(t_n) - x_2(t_n)$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   policies:
+ *     type: object
+ *     patternProperties:
+ *       # any valid operator id
+ *       "^[a-zA-Z0-9]+$":
+ *          type: object
+ *          additionalProperties: false
+ *          properties:
+ *            eager:
+ *              type: boolean
+ *              default: false
+ * required: ["id"]
  */
 template <class T, class V>
 struct Minus : public Join<T, V> {

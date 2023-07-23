@@ -7,6 +7,7 @@ namespace rtbot {
 
 using namespace std;
 
+// TODO: is this used?
 template <class T, class V>
 struct Add : public Operator<T, V> {
   Add() = default;

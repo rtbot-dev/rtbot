@@ -28,6 +28,7 @@
     "papaparse": "^5.4.1",
     "prettier": "^2.8.8",
     "tsembind": "^1.1.0",
+    "yaml": "^2.3.1",
     "zod": "^3.21.4",
     "zustand": "^4.3.9"
   },
@@ -44,6 +45,7 @@
     "handlebars": "^4.7.7",
     "jest-cli": "^29.5.0",
     "jest-junit": "^16.0.0",
+    "jsdoc-to-json-schema": "^0.1.9",
     "json-schema-to-typescript": "^11.0.0",
     "to-json-schema": "^0.2.5",
     "typescript": "4.9.3"

@@ -9,6 +9,21 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Emits messages with values equal to the power specified:
+ *   $$y(t_n)=x(t_n)^{power}$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   power:
+ *     type: number
+ *     description: The exponent.
+ * required: ["id", "power"]
+ */
 template <class T, class V>
 struct Power : public Operator<T, V> {
   Power() = default;

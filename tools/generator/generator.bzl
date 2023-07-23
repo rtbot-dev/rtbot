@@ -11,10 +11,10 @@ def _rtbot_jsonschema_impl(ctx):
     target = ctx.attr.target
 
     if target == "jsonschema":
-      genfile = ctx.actions.declare_file("%s/jsonschema.json" % ctx.label.name)
+        genfile = ctx.actions.declare_file("%s/jsonschema.json" % ctx.label.name)
 
     if target == "typescript":
-      genfile = ctx.actions.declare_file("%s/index.ts" % ctx.label.name)
+        genfile = ctx.actions.declare_file("%s/index.ts" % ctx.label.name)
 
     output_dir = ctx.actions.declare_directory(ctx.label.name)
 
@@ -42,7 +42,12 @@ _rtbot_generate = rule(
     attrs = {
         "srcs": attr.label_list(
             allow_files = [".cpp", ".h"],
-            default = ["//libs/core/api:src/FactoryOp.cpp"]
+            default = ["//libs/core/std:srcs"] + [
+              "//libs/core/lib:include/rtbot/Input.h",
+              "//libs/core/lib:include/rtbot/Demultiplexer.h",
+              "//libs/core/lib:include/rtbot/Join.h",
+              "//libs/core/lib:include/rtbot/Output.h",
+            ],
         ),
         "generate": attr.label(
             executable = True,
@@ -51,8 +56,8 @@ _rtbot_generate = rule(
             default = "//tools/generator:generate",
         ),
         "target": attr.string(
-            default = "jsonschema"
-        )
+            default = "jsonschema",
+        ),
     },
 )
 
