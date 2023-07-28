@@ -2,6 +2,14 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob([
+        "include/**/*.h",
+        "src/**/*.cpp",
+    ]),
+)
+
 cc_library(
     name = "rtbot",
     srcs = glob([

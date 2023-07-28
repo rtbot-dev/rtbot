@@ -6,7 +6,20 @@
 namespace rtbot {
 
 using namespace std;
-
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Finds a local extreme within the time window specified.
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   n:
+ *     type: integer
+ *     description: The window size, in grid steps, to be used in the computation.
+ * required: ["id", "n"]
+ */
 template <class T, class V>
 struct PeakDetector : Operator<T, V> {
   PeakDetector() = default;

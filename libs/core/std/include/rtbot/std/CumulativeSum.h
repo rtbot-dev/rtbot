@@ -9,6 +9,17 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Outputs the cumulative sum of the message's values that pass through it.
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ * required: ["id"]
+ */
 template <class T, class V>
 struct CumulativeSum : public Operator<T, V> {
   CumulativeSum() = default;

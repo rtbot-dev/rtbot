@@ -9,7 +9,6 @@ package(default_visibility = ["//visibility:public"])
 cc_binary(
     name = "debugger",
     srcs = glob(["src/**/*.cpp"]),
-    deps = ["@ftxui//:lib"],
 )
 
 _DEPS = [
@@ -62,15 +61,15 @@ esbuild(
     name = "bundle",
     srcs = [":ts"],
     entry_point = "index.js",
-    platform = "node",
-    format = "cjs",
     external = ["react-devtools-core"],
+    format = "cjs",
+    platform = "node",
     target = "ESNext",
-    deps = _DEPS
+    deps = _DEPS,
 )
 
 js_binary(
     name = "bin",
+    data = [":ts"],
     entry_point = "index.js",
-    data = [":ts"]
 )

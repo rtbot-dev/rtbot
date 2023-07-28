@@ -7,6 +7,21 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Emits messages with values multiplied by the number specified:
+ *   $$y(t_n)=factor x(t_n)$$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   factor:
+ *     type: number
+ *     description: The factor to use to scale the messages.
+ * required: ["id", "factor"]
+ */
 template <class T, class V>
 struct Scale : public Operator<T, V> {
   Scale() = default;

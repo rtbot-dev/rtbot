@@ -7,6 +7,17 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   Counts how many messages have passthrough it.
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ * required: ["id"]
+ */
 template <class T, class V>
 struct Count : public Operator<T, V> {
   size_t count;

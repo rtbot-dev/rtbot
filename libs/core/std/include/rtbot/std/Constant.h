@@ -7,6 +7,20 @@ namespace rtbot {
 
 using namespace std;
 
+/**
+ * @jsonschema
+ * type: object
+ * description: |
+ *   A constant operator. Always emits the same value: $y(t_n)=C$
+ * properties:
+ *   id:
+ *     type: string
+ *     description: The id of the operator
+ *   constant:
+ *     type: number
+ *     description: The constant to emit when required.
+ * required: ["id", "constant"]
+ */
 template <class T, class V>
 struct Constant : public Operator<T, V> {
   Constant() = default;
