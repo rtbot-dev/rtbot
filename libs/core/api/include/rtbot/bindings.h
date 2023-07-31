@@ -1,6 +1,7 @@
 #ifndef BINDINGS_H
 #define BINDINGS_H
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
