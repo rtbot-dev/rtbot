@@ -47,7 +47,6 @@
     "jest-junit": "^16.0.0",
     "jsdoc-to-json-schema": "^0.1.9",
     "json-schema-to-typescript": "^11.0.0",
-    "to-json-schema": "^0.2.5",
     "typescript": "4.9.3"
   }
 }

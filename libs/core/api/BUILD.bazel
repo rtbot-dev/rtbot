@@ -1,16 +1,31 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
 load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("//tools/generator:generator.bzl", "rtbot_generate")
 
 package(default_visibility = ["//visibility:public"])
+
+rtbot_generate(
+    name = "jsonschema",
+    target = "cpp",
+)
+
+copy_file(
+    name = "jsonschema_to_src",
+    src = ":jsonschema",
+    out = "include/rtbot/jsonschema.hpp",
+)
 
 cc_library(
     name = "rtbot-api",
     srcs = glob([
         "src/**/*.cpp",
+        "src/**/*.hpp",
     ]),
-    hdrs = glob(["include/**/*.h"]),
+    hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
     copts = [
+        "-Iexternal/json-schema-validator/src",
         "-Ilibs/core/lib/include/rtbot",
         # this is needed when building from another workspace
         "-Iexternal/rtbot/libs/core/lib/include/rtbot",
@@ -25,6 +40,7 @@ cc_library(
         "//libs/core/lib:rtbot",
         "//libs/core/std:rtbot-std",
         "@json-cpp//:lib",
+        "@json-schema-validator//:lib",
         "@yaml-cpp//:lib",
     ],
 )
