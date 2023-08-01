@@ -1,6 +1,7 @@
 #include <emscripten/bind.h>
-#include "rtbot/bindings.h"
+
 #include "rtbot/Message.h"
+#include "rtbot/bindings.h"
 
 using namespace emscripten;
 
@@ -12,9 +13,7 @@ struct BindingType<std::vector<T, Allocator>> {
   using ValBinding = BindingType<val>;
   using WireType = ValBinding::WireType;
 
-  static WireType toWireType(const std::vector<T, Allocator> &vec) {
-    return ValBinding::toWireType(val::array(vec));
-  }
+  static WireType toWireType(const std::vector<T, Allocator> &vec) { return ValBinding::toWireType(val::array(vec)); }
 
   static std::vector<T, Allocator> fromWireType(WireType value) {
     return vecFromJSArray<T>(ValBinding::fromWireType(value));
@@ -22,11 +21,10 @@ struct BindingType<std::vector<T, Allocator>> {
 };
 
 template <typename T>
-struct TypeID<T,
-              typename std::enable_if_t<std::is_same<
-                  typename Canonicalized<T>::type,
-                  std::vector<typename Canonicalized<T>::type::value_type,
-                              typename Canonicalized<T>::type::allocator_type>>::value>> {
+struct TypeID<
+    T, typename std::enable_if_t<std::is_same<typename Canonicalized<T>::type,
+                                              std::vector<typename Canonicalized<T>::type::value_type,
+                                                          typename Canonicalized<T>::type::allocator_type>>::value>> {
   static constexpr TYPEID get() { return TypeID<val>::get(); }
 };
 
@@ -34,12 +32,12 @@ struct TypeID<T,
 }  // namespace emscripten
 
 EMSCRIPTEN_BINDINGS(RtBot) {
-  value_object<rtbot::Message<std::uint64_t,double>>("Message")
-      .field("time", &rtbot::Message<std::uint64_t,double>::time)
-      .field("value", &rtbot::Message<std::uint64_t,double>::value);
+  value_object<rtbot::Message<std::uint64_t, double>>("Message")
+      .field("time", &rtbot::Message<std::uint64_t, double>::time)
+      .field("value", &rtbot::Message<std::uint64_t, double>::value);
 
-    function("createPipeline", &createPipeline);
-    function("deletePipeline", &deletePipeline);
-    function("receiveMessageInPipelineDebug", &receiveMessageInPipelineDebug);
-    function("receiveMessageInPipeline", &receiveMessageInPipeline);
+  function("createProgram", &createProgram);
+  function("deleteProgram", &deleteProgram);
+  function("processMessageDebug", &processMessageDebug);
+  function("processMessage", &processMessage);
 }

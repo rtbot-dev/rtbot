@@ -21,7 +21,7 @@ TEST_CASE("read ppg pipeline") {
   auto s = SamplePPG("examples/data/ppg.csv");
 
   SECTION("using the pipeline") {
-    auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+    auto pipe = FactoryOp::createProgram(json.dump().c_str());
 
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
@@ -31,10 +31,10 @@ TEST_CASE("read ppg pipeline") {
   }
 
   SECTION("using the bindings") {
-    createPipeline("pipe1", json.dump());
+    createProgram("pipe1", json.dump());
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
-      auto y = receiveMessageInPipeline("pipe1", Message<uint64_t, double>(s.ti[i], s.ppg[i]))[0];
+      auto y = processMessage("pipe1", Message<uint64_t, double>(s.ti[i], s.ppg[i]))[0];
       if (y) cout << y.value() << endl;
     }
   }
@@ -49,7 +49,7 @@ TEST_CASE("read  pipeline test data basic data") {
   }
 
   SECTION("using the pipeline") {
-    auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+    auto pipe = FactoryOp::createProgram(json.dump().c_str());
 
     // process the data
     for (int i = 0; i < 100; i++) {
@@ -79,7 +79,7 @@ TEST_CASE("read  pipeline test join eager port") {
   }
 
   SECTION("using the pipeline") {
-    auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+    auto pipe = FactoryOp::createProgram(json.dump().c_str());
 
     REQUIRE(pipe.all_op.find("join")->second->isDataInputEager("i1"));
     REQUIRE(!pipe.all_op.find("join")->second->isDataInputEager("i2"));
