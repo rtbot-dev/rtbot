@@ -95,7 +95,13 @@ export const registerDebug = (program: Command) => {
         })
         .filter((r) => r.length === 2);
       const rtbotRun = new RtBotRun(rtBotProgram, preparedData, RtBotRunOutputFormat.EXTENDED, verbose);
-      await rtbotRun.run();
+      try {
+        await rtbotRun.run();
+      } catch (e: any) {
+        console.log("An error happened while attempting to run the program", programFile, ":");
+        console.log(" ", e);
+        process.exit(1);
+      }
       const result = rtbotRun.getOutputs();
       // finally dump the result
       if (interactive) {

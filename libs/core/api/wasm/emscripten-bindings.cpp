@@ -36,6 +36,8 @@ EMSCRIPTEN_BINDINGS(RtBot) {
       .field("time", &rtbot::Message<std::uint64_t, double>::time)
       .field("value", &rtbot::Message<std::uint64_t, double>::value);
 
+  function("validateOperator", &validateOperator);
+  function("validate", &validate);
   function("createProgram", &createProgram);
   function("deleteProgram", &deleteProgram);
   function("processMessageDebug", &processMessageDebug);

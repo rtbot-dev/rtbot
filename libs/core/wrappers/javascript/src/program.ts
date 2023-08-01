@@ -28,12 +28,6 @@ export class Program {
   }
 
   static toInstance(obj: Record<keyof any, unknown>): Program {
-    // recall that internally we use `opType` instead of `type`
-    obj.operators = (obj.operators as any[]).reduce((acc, op) => {
-      op.opType = op.type;
-      delete op.type;
-      return [...acc, op];
-    }, []);
     return plainToInstance(Program, obj);
   }
 
@@ -84,7 +78,7 @@ export class Connection {
 }
 
 export abstract class Operator {
-  abstract opType: string;
+  abstract type: string;
   @Exclude()
   private program?: Program;
 

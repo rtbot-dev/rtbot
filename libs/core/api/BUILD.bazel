@@ -69,9 +69,12 @@ genrule(
     outs = ["index.d.ts"],
     cmd = """
     echo "export interface RtBotEmbindModule {" >> $@
-    echo "  createPipeline(pipelineId: string, programStr: string): string;" >> $@
-    echo "  deletePipeline(pipelineId: string): string;" >> $@
-    echo "  receiveMessageInPipelineDebug(pipelineId: string, time: number, value: number): string;" >> $@
+    echo "  validate(programStr: string): string;" >> $@
+    echo "  validateOperator(type: string, operatorStr: string): string;" >> $@
+    echo "  createProgram(programId: string, programStr: string): string;" >> $@
+    echo "  deleteProgram(programId: string): string;" >> $@
+    echo "  processMessage(programId: string, time: number, value: number): string;" >> $@
+    echo "  processMessageDebug(programId: string, time: number, value: number): string;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
     echo "export default factory;" >> $@

@@ -14,7 +14,7 @@ export type DebuggerStateActions = {
   computeColumns: () => void;
   computeOperators: () => void;
 };
-export type DebuggerOperatorDef = { id: string; opType: string; selected: boolean; ports: string[] };
+export type DebuggerOperatorDef = { id: string; type: string; selected: boolean; ports: string[] };
 
 export type DebuggerState = {
   iteration: number;
@@ -47,7 +47,7 @@ export const debuggerStore = createStore<DebuggerState & DebuggerStateActions>((
     set((state) => ({
       operators: state.program!.operators.map((op: any) => ({
         id: op.id,
-        opType: op.opType,
+        type: op.type,
         selected: true,
         ports: op.numPorts
           ? Array(op.numPorts)

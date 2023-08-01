@@ -1,7 +1,7 @@
 {
   "title": "Peak detector",
   "description": "This is a program to detect peaks in PPG...",
-  "date": "now",
+  "date": "2002-02-02",
   "apiVersion": "v1",
   "author": "Someone <someone@gmail.com>",
   "license": "MIT",

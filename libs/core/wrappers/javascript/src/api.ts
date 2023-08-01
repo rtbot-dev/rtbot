@@ -26,16 +26,16 @@ export class RtBot {
     this.rtbot = bindings();
   }
 
-  async createPipeline(pipelineId: string, programStr: string): Promise<string> {
-    return (await this.rtbot).createPipeline(pipelineId, programStr);
+  async createProgram(programId: string, programStr: string): Promise<string> {
+    return (await this.rtbot).createProgram(programId, programStr);
   }
 
-  async deletePipeline(pipelineId: string): Promise<string> {
-    return (await this.rtbot).deletePipeline(pipelineId);
+  async deleteProgram(programId: string): Promise<string> {
+    return (await this.rtbot).deleteProgram(programId);
   }
 
-  async sendMessage(pipelineId: string, time: number, value: number): Promise<RtBotIterationOutput> {
-    return JSON.parse((await this.rtbot).receiveMessageInPipelineDebug(pipelineId, time, value));
+  async sendMessage(programId: string, time: number, value: number): Promise<RtBotIterationOutput> {
+    return JSON.parse((await this.rtbot).processMessageDebug(programId, time, value));
   }
 }
 
@@ -68,17 +68,15 @@ export class RtBotRun {
   async run() {
     this.program.validate();
     const program = this.program.toPlain();
-    // wasm code expects "type" instead of "opType" field used here
-    program.operators = (program.operators as Operator[]).map((op) =>
-      Object.keys(op as any).reduce(
-        // @ts-ignore
-        (acc, k) => (k === "opType" ? { ...acc, type: op.opType } : { ...acc, [`${k}`]: op[k] }),
-        {}
-      )
-    );
     const programStr = JSON.stringify(program, null, 2);
     if (this.verbose) console.log("Sending", programStr);
-    await RtBot.getInstance().createPipeline(this.program.programId, programStr);
+    const createProgramResponseStr = await RtBot.getInstance().createProgram(this.program.programId, programStr);
+
+    if (createProgramResponseStr) {
+      const createProgramResponse = JSON.parse(createProgramResponseStr);
+      // if program fails validation, throw an error
+      if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+    }
 
     if (this.verbose) console.log("Sending data...");
     // iterate over the data passed and send it to the rtbot program
@@ -108,7 +106,7 @@ export class RtBotRun {
       })
     );
 
-    await RtBot.getInstance().deletePipeline(this.program.programId);
+    await RtBot.getInstance().deleteProgram(this.program.programId);
     if (this.verbose) console.log("Done!", this.outputs);
   }
 

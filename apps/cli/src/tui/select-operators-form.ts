@@ -21,7 +21,7 @@ export const selectOperatorsForm = () => {
     state.operators.forEach((opDef, i: number) => {
       const checkbox = blessed.checkbox({
         parent: selectOperatorsForm,
-        text: `${opDef.id} [${opDef.opType}]`,
+        text: `${opDef.id} [${opDef.type}]`,
         top: i,
         mouse: true,
         keys: true,
