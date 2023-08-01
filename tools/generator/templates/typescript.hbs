@@ -8,7 +8,7 @@ export const programSchema = z.object({
   apiVersion: z.enum(["v1"]),
   author: z.string().optional(),
   license: z.string().optional(),
-  operators: z.discriminatedUnion("opType", {{{ schemas }}}).array(),
+  operators: z.discriminatedUnion("type", {{{ schemas }}}).array(),
   connections: z.array(
     z
       .object({
@@ -30,8 +30,8 @@ export type {{ name }} = {
 }
 {{/each}}
 
-export class {{ opType }} extends Operator {
-  readonly opType = "{{ opType}}";
+export class {{ type }} extends Operator {
+  readonly type = "{{ type}}";
   constructor(
 {{ parametersBlock }}
   ) {
