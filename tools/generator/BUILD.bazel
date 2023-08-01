@@ -12,7 +12,6 @@ _DEPS = [
     "//:node_modules/commander",
     "//:node_modules/handlebars",
     "//:node_modules/prettier",
-    "//:node_modules/to-json-schema",
     "//:node_modules/json-schema-to-typescript",
     "//:node_modules/json-schema-to-zod",
     "//:node_modules/yaml",

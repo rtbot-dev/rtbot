@@ -1,10 +1,26 @@
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 
+package(default_visibility = ["//visibility:public"])
+
 pybind_extension(
-    name = "rtbot",
+    # recall that this doesn't collide with the py_library name
+    # and in fact it has to be the same name!
+    name = "rtbotapi", 
+    #includes = ["//libs/core/lib:hdrs"],
     srcs = ["rtbot.cpp"],
     visibility = ["//visibility:public"],
+    deps = ["//libs/core/api:rtbot-api"],
+)
+
+py_library(
+    name = "rtbotapi",
+    data = [":rtbotapi.so", "rtbot.py"],
+)
+
+py_test(
+    name = "rtbot_test",
+    srcs = ["rtbot_test.py"],
     deps = [
-        "//libs/core/lib:rtbot",
+        ":rtbotapi"
     ],
 )

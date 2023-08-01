@@ -12,10 +12,12 @@
       "examples": ["This is a program to detect peaks in ECG..."]
     },
     "date": {
-      "type": "date"
+      "type": "string",
+      "format": "date"
     },
     "apiVersion": {
-      "enum": ["v1"]
+      "enum": ["v1"],
+      "default": "v1"
     },
     "author": {
       "type": "string",
@@ -62,5 +64,5 @@
       }
     }
   },
-  "required": ["apiVersion", "operators", "connections"]
+  "required": ["operators", "connections"]
 }
