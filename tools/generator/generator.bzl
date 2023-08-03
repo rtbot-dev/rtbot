@@ -16,6 +16,9 @@ def _rtbot_jsonschema_impl(ctx):
     if target == "cpp":
         genfile = ctx.actions.declare_file("%s/jsonschema.hpp" % ctx.label.name)
 
+    if target == "python":
+        genfile = ctx.actions.declare_file("%s/jsonschema.py" % ctx.label.name)
+
     if target == "typescript":
         genfile = ctx.actions.declare_file("%s/index.ts" % ctx.label.name)
 

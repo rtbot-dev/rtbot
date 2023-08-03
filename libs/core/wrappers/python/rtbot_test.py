@@ -1,16 +1,24 @@
-import rtbot.libs.core.wrappers.python.rtbotapi as api
-import rtbot.libs.core.wrappers.python.rtbot as rtbot
+import sys
+import os
+
+sys.path.append(os.getcwd() + "/libs/core/wrappers/python")
+
+import rtbot
+from rtbot import rtbotapi as api
+from rtbot import operators as op
 import json
+
+import unittest
 
 programId = "1234"
 program = """
 {
   "title": "Peak detector",
   "description": "This is a program to detect peaks in PPG...",
-  "date": "now",
   "apiVersion": "v1",
-  "author": "Someone <someone@gmail.com>",
+  "date": "2000-01-01",
   "license": "MIT",
+  "author": "Someone <someone@gmail.com>",
   "operators": [
     {
       "id": "in1",
@@ -20,32 +28,6 @@ program = """
       "id": "ma1",
       "type": "MovingAverage",
       "n": 6
-    },
-    {
-      "id": "ma2",
-      "type": "MovingAverage",
-      "n": 250
-    },
-    {
-      "id": "minus",
-      "type": "Minus",
-      "policies": { "i1": { "eager": false } }
-    },
-    {
-      "id": "peak",
-      "type": "PeakDetector",
-      "n": 13
-    },
-    {
-      "id": "join",
-      "type": "Join",
-      "policies": { "i1": { "eager": false } },
-      "numPorts": 2
-    },
-    {
-      "id": "out1",
-      "type": "Output",
-      "numPorts": 1
     }
   ],
   "connections": [
@@ -54,49 +36,7 @@ program = """
       "to": "ma1",
       "fromPort": "o1",
       "toPort": "i1"
-    },
-    {
-      "from": "ma1",
-      "to": "minus",
-      "fromPort": "o1",
-      "toPort": "i1"
-    },
-    {
-      "from": "minus",
-      "to": "peak",
-      "fromPort": "o1",
-      "toPort": "i1"
-    },
-    {
-      "from": "peak",
-      "to": "join",
-      "fromPort": "o1",
-      "toPort": "i1"
-    },
-    {
-      "from": "join",
-      "to": "out1",
-      "fromPort": "o2",
-      "toPort": "i1"
-    },
-    {
-      "from": "in1",
-      "to": "ma2",
-      "fromPort": "o1",
-      "toPort": "i1"
-    },
-    {
-      "from": "ma2",
-      "to": "minus",
-      "fromPort": "o1",
-      "toPort": "i2"
-    },
-    {
-      "from": "in1",
-      "to": "join",
-      "fromPort": "o1",
-      "toPort": "i2"
-    }
+    } 
   ]
 }
 """
@@ -116,18 +56,90 @@ data = [
     [62,27.826735187894098]
 ]
 
-program1 = rtbot.Program("test")
-con1 = rtbot.Connection("m1", "m2", "o1", "i1")
+# print(f"{json.dumps(program1, cls = rtbot.ProgramEncoder)}")
+# print(f"{json.dumps(con1, cls = rtbot.ConnectionEncoder)}")
 
-print(f"{json.dumps(program1, cls = rtbot.ProgramEncoder)}")
-print(f"{json.dumps(con1, cls = rtbot.ConnectionEncoder)}")
+class RtBotTest(unittest.TestCase):
+    """RtBot api test"""
 
-print(f"Registering program id {programId}")
-api.registerProgram(programId, program)
+    def test_create_valid_program(self):
+        """Valid json program can be created"""
+        result = api.createProgram(programId, program)
+        self.assertEqual(result, "")
 
-for row in data:
-    response = api.sendMessage(programId, row[0], row[1])
-    print(f"received {response}")
+    def test_create_invalid_program(self):
+        """Invalid json program cannot be created"""
+        result = json.loads(api.createProgram(programId, """{}"""))
+        self.assertIsNotNone(result["error"])
 
-print(f"Deleting program id {programId}")
-api.deleteProgram(programId)
+    def test_delete_valid_program(self):
+        """Program created can be deleted"""
+        api.createProgram(programId, program)
+        result = api.deleteProgram(programId)
+        self.assertEqual(result, "")
+
+    def test_validate_valid_program(self):
+        """Valid json program is validated correctly"""
+        result = json.loads(api.validate(program))
+        self.assertTrue(result["valid"])
+
+    def test_invalidate_valid_program(self):
+        """Invalid json program is validated correctly"""
+        result = json.loads(api.validate("""{}"""))
+        self.assertFalse(result["valid"])
+        self.assertIsNotNone(result["error"])
+
+    def test_send_message_to_program(self):
+        """Messages can be sent to program"""
+        api.createProgram(programId, program)
+        response = ""
+        for row in data:
+            response = api.sendMessage(programId, row[0], row[1])
+        api.deleteProgram(programId)
+        self.assertIsNotNone(json.loads(response)["in1"])
+
+    def test_create_program_class(self):
+        """Program can be created through the helper class"""
+        program1 = rtbot.Program(title = "test")
+
+    def test_able_to_add_good_connection(self):
+        """Able to add a connection if operators referred have been added already to the program"""
+        program1 = rtbot.Program(title = "test", operators = [], connections = [])
+        ma1 = op.MovingAverage("ma1", 2)
+        ma2 = op.MovingAverage("ma2", 2)
+        program1.addOperator(ma1)
+        program1.addOperator(ma2)
+        program1.addConnection("ma1", "ma2", "o1", "i1")
+
+    def test_unable_to_add_bad_connection(self):
+        """Unable to add a connection if operators referred haven't been added yet to the program"""
+        program1 = rtbot.Program(title = "test", operators = [], connections = [])
+        self.assertRaises(Exception, lambda: program1.addConnection("ma1", "ma2", "o1", "i1"))
+
+    def test_unable_to_add_same_operator_twice(self):
+        """Unable to add a connection if operators referred haven't been added yet to the program"""
+        program1 = rtbot.Program(title = "test", operators = [], connections = [])
+        ma1 = op.MovingAverage("ma1", 2)
+        program1.addOperator(ma1)
+        self.assertRaises(Exception, lambda: program1.addOperator(ma1))
+
+    def test_load_ill_defined_json_program_fails(self):
+        """Load ill defined json program fails"""
+        self.assertRaises(Exception, lambda: rtbot.parse("""{ "operators": [] }"""))
+
+    def test_load_well_defined_json_program_succeed(self):
+        """Load well defined json program succeeds"""
+        # it should not throw
+        program1 = rtbot.parse(program)
+
+    def test_run_well_defined_json_program_works(self):
+        """Run well defined json program works"""
+        program1 = rtbot.parse(program)
+        result = rtbot.Run(program1, data).exec()
+        self.assertTrue("in1:o1" in result)
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+

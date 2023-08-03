@@ -1,6 +1,15 @@
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+load("@rules_python//python:packaging.bzl", "py_package", "py_wheel")
+load("//tools/generator:generator.bzl", "rtbot_generate")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+
 
 package(default_visibility = ["//visibility:public"])
+
+rtbot_generate(
+    name = "generated",
+    target = "python",
+)
 
 pybind_extension(
     # recall that this doesn't collide with the py_library name
@@ -17,10 +26,43 @@ py_library(
     data = [":rtbotapi.so", "rtbot.py"],
 )
 
+py_package(
+    name = "rtbot",
+    deps = [":rtbotapi", ":generated"],
+)
+
+copy_to_directory(
+    name = "copy",
+    srcs = [":rtbot", ":generated"],
+    replace_prefixes = {
+        "generated/jsonschema.py": "operators.py",
+        "rtbot.py": "__init__.py"
+    },
+    out = "rtbot"
+)
+
+# Package just a specific py_libraries, without their dependencies
+py_wheel(
+    name = "rtbot_wheel",
+    distribution = "rtbot",
+    python_tag = "py3",
+    version = "0.1.0",
+    strip_path_prefixes = [
+        "libs/core/wrappers/python",
+    ],
+    platform = select({
+        "@platforms//os:windows": "win_amd64",
+        # TODO: add mac arm
+        "@platforms//os:macos": "macosx_10_7_x86_64",
+        "@platforms//os:linux": "manylinux2014_x86_64",
+    }),
+    deps = [":copy"]
+)
+
 py_test(
     name = "rtbot_test",
     srcs = ["rtbot_test.py"],
-    deps = [
-        ":rtbotapi"
+    data = [
+        ":copy"
     ],
 )

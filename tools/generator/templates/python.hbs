@@ -1,0 +1,31 @@
+from rtbot import rtbotapi as api
+import json
+
+# this file is generated
+
+class Operator(dict):
+    def __init__(self, *args, **kwargs):
+        type = args[1]
+        dict.__init__(self, type = type, **kwargs)
+        validation = self.validate()
+        if not validation["valid"]:
+          raise Exception(validation["error"])
+
+    def validate(self):
+        return json.loads(api.validateOperator(self["type"], json.dumps(self)))
+
+{{#each operators}}
+
+class {{ type }}(Operator):
+    def __init__(self,
+                {{#each parameters }}
+                {{{ this.name }}}{{{this.init}}},
+                {{/each}}
+                ):
+        super({{ type }}, self).__init__(self, 
+            "{{ type }}",
+            {{#each parameters }}
+            {{{this.name}}} = {{{this.name}}},
+            {{/each}}
+        )
+{{/each}}
