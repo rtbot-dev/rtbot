@@ -12,11 +12,17 @@ class Run(object):
         self.data = data
 
     def exec(self):
-        api.createProgram(self.program.id, self.program.toJson())
+        result = api.createProgram(self.program.id, self.program.toJson())
+
+        if result != "":
+            raise Exception(json.loads(result)["error"])
+
         result = {}
 
         for row in self.data:
+            # print(f"Sending {row[0]}, {row[1]}")
             response = json.loads(api.sendMessage(self.program.id, row[0], row[1]))
+            # print(f"response {response}")
             for opId, op in response.items():
                 for portId, msgs in op.items():
                     key = f"{opId}:{portId}"
@@ -96,7 +102,7 @@ class Program:
         self.operators.append(op)
         return self
 
-    def addConnection(self, fromOp: str, toOp: str, fromPort: str, toPort: str):
+    def addConnection(self, fromOp: str, toOp: str, fromPort: str = "o1", toPort: str = "i1"):
         # check if operators have been added already, raise an exception otherwise
         ids = list(map(lambda op: op["id"], self.operators))
         if fromOp not in ids:
@@ -110,7 +116,7 @@ class Program:
 class Connection(dict):
     def __init__(self, fromOp: str, toOp: str, fromPort: str, toPort: str):
         dict.__init__(self)
-        self["from"] = fromOp,
-        self["to"] = toOp,
-        self["fromPort"] = fromPort,
+        self["from"] = fromOp
+        self["to"] = toOp
+        self["fromPort"] = fromPort
         self["toPort"] = toPort
