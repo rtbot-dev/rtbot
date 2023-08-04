@@ -12,8 +12,8 @@ class Run(object):
         self.data = data
 
     def exec(self):
-        api.createProgram(self.program.id, json.dumps(self.program, cls = ProgramEncoder))
-        result = dict()
+        api.createProgram(self.program.id, self.program.toJson())
+        result = {}
 
         for row in self.data:
             response = json.loads(api.sendMessage(self.program.id, row[0], row[1]))
@@ -35,14 +35,15 @@ def parse(payload):
 
     validation = program.validate()
     if not validation["valid"]:
+        print(program.toJson())
         raise Exception(validation["error"])
 
     return program
 
-class Program(object):
-    def __init__(self, 
-                 operators = [],
-                 connections = [],
+class Program:
+    def __init__(self,
+                 operators = None,
+                 connections = None,
                  title: Optional[str] = None,
                  description: Optional[str] = None,
                  apiVersion: Optional[str] = "v1",
@@ -50,34 +51,53 @@ class Program(object):
                  author: Optional[str] = None,
                  license: Optional[str] = None,
                  ):
-        # print(f"Ininitializing program with operators {operators}")
+        # print(f"Ininitializing program with operators {operators}, connections {connections}")
         self.title = title
         self.description = description
         self.apiVersion = apiVersion
         self.date = date
         self.author = author
         self.license = license
-        self.operators = operators
-        self.connections = connections
+        self.operators = operators if operators is not None else []
+        self.connections = connections if connections is not None else []
         self.id = f'{random.randrange(16**4):04x}'
 
+    def toJson(self):
+        obj = { "apiVersion": self.apiVersion, "operators": self.operators, "connections": self.connections }
+        if self.title:
+            obj["title"] = self.title
+
+        if self.author:
+            obj["author"] = self.author
+
+        if self.description:
+            obj["description"] = self.description
+
+        if self.license:
+            obj["license"] = self.license
+
+        if self.date:
+            obj["date"] = self.date
+
+        return json.dumps(obj)
+
     def validate(self):
-        return json.loads(api.validate(json.dumps(self, cls = ProgramEncoder)))
+        return json.loads(api.validate(self.toJson()))
 
     def addOperator(self, op):
         ids = list(map(lambda op: op["id"], self.operators))
         validation = op.validate()
         if not validation["valid"]:
-          raise Exception(validation["error"])
+            raise Exception(validation["error"])
 
         if op["id"] in ids:
-          raise Exception(f"Operator with same id {op['id']}, already added to program (maybe you are adding it twice?)")
+            raise Exception(f"Operator with same id {op['id']}, already added to program (maybe you are adding it twice?)")
 
         self.operators.append(op)
+        return self
 
     def addConnection(self, fromOp: str, toOp: str, fromPort: str, toPort: str):
         # check if operators have been added already, raise an exception otherwise
-        # print(f"operators {self.operators}")
         ids = list(map(lambda op: op["id"], self.operators))
         if fromOp not in ids:
             raise Exception(f"Operator {fromOp} hasn't been added to the program")
@@ -85,19 +105,12 @@ class Program(object):
             raise Exception(f"Operator {toOp} hasn't been added to the program")
 
         self.connections.append(Connection(fromOp, toOp, fromPort, toPort))
+        return self
 
-
-class ProgramEncoder(JSONEncoder):
-    def default(self, o):
-        return o.__dict__
-
-class Connection(object):
+class Connection(dict):
     def __init__(self, fromOp: str, toOp: str, fromPort: str, toPort: str):
-        self.fromOp = fromOp
-        self.toOp = toOp
-        self.fromPort = fromPort
-        self.toPort = toPort
-
-class ConnectionEncoder(JSONEncoder):
-    def default(self, o):
-        return { "from": o.fromOp, "to": o.toOp, "fromPort": o.fromPort, "toPort": o.toPort }
+        dict.__init__(self)
+        self["from"] = fromOp,
+        self["to"] = toOp,
+        self["fromPort"] = fromPort,
+        self["toPort"] = toPort

@@ -56,9 +56,6 @@ data = [
     [62,27.826735187894098]
 ]
 
-# print(f"{json.dumps(program1, cls = rtbot.ProgramEncoder)}")
-# print(f"{json.dumps(con1, cls = rtbot.ConnectionEncoder)}")
-
 class RtBotTest(unittest.TestCase):
     """RtBot api test"""
 
@@ -104,7 +101,7 @@ class RtBotTest(unittest.TestCase):
 
     def test_able_to_add_good_connection(self):
         """Able to add a connection if operators referred have been added already to the program"""
-        program1 = rtbot.Program(title = "test", operators = [], connections = [])
+        program1 = rtbot.Program(title = "test")
         ma1 = op.MovingAverage("ma1", 2)
         ma2 = op.MovingAverage("ma2", 2)
         program1.addOperator(ma1)
@@ -113,19 +110,20 @@ class RtBotTest(unittest.TestCase):
 
     def test_unable_to_add_bad_connection(self):
         """Unable to add a connection if operators referred haven't been added yet to the program"""
-        program1 = rtbot.Program(title = "test", operators = [], connections = [])
-        self.assertRaises(Exception, lambda: program1.addConnection("ma1", "ma2", "o1", "i1"))
+        program1 = rtbot.Program(title = "test")
+        self.assertRaises(Exception, lambda: program1.addConnection("ma11", "ma12", "o1", "i1"))
 
     def test_unable_to_add_same_operator_twice(self):
         """Unable to add a connection if operators referred haven't been added yet to the program"""
-        program1 = rtbot.Program(title = "test", operators = [], connections = [])
+        program1 = rtbot.Program(title = "test")
         ma1 = op.MovingAverage("ma1", 2)
         program1.addOperator(ma1)
         self.assertRaises(Exception, lambda: program1.addOperator(ma1))
 
-    def test_load_ill_defined_json_program_fails(self):
-        """Load ill defined json program fails"""
-        self.assertRaises(Exception, lambda: rtbot.parse("""{ "operators": [] }"""))
+    def test_load_ill_defined_json_program(self):
+        """Load ill defined json program it's safely parsed"""
+        # it should not throw
+        program1 = rtbot.parse("""{ "operators": [] }""")
 
     def test_load_well_defined_json_program_succeed(self):
         """Load well defined json program succeeds"""
