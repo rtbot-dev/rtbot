@@ -30,6 +30,7 @@
 #include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
+#include "rtbot/std/TimeShift.h"
 #include "rtbot/std/TimeSort.h"
 #include "rtbot/std/Variable.h"
 
@@ -200,9 +201,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createVariable(string id) {
+  string createVariable(string id, V defaultValue = 0) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Variable<T, V>>(id));
+      this->ops.emplace(id, make_shared<Variable<T, V>>(id, defaultValue));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -265,6 +266,14 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
   string createTimeSort(string id, size_t numPorts, bool increasing = true) {
     if (this->ops.count(id) == 0) {
       this->ops.emplace(id, make_shared<TimeSort<T, V>>(id, numPorts, increasing));
+      return id;
+    } else
+      throw std::runtime_error(typeName() + ": unique id is required");
+  }
+
+  string createTimeShift(string id, T dt = 1, int times = 1) {
+    if (this->ops.count(id) == 0) {
+      this->ops.emplace(id, make_shared<TimeShift<T, V>>(id, dt, times));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");

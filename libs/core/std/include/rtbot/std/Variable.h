@@ -23,14 +23,20 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
+ *   defaultValue:
+ *     type: number
+ *     description: The default value of the variable
+ *     default: 0
  * required: ["id"]
  */
 template <class T, class V>
 class Variable : public Operator<T, V> {
  public:
   Variable() = default;
-  Variable(string const &id) : Operator<T, V>(id) {
-    this->addDataInput("i1", 1);
+  Variable(string const &id, V defaultValue = 0) : Operator<T, V>(id) {
+    this->defaultValue = defaultValue;
+    this->initialized = false;
+    this->addDataInput("i1");
     this->addControlInput("c1", 1);
     this->addOutput("o1");
   }
@@ -38,23 +44,31 @@ class Variable : public Operator<T, V> {
 
   virtual string typeName() const override { return "Variable"; }
 
+  V getDefaultValue() const { return this->defaultValue; }
+
+  map<string, map<string, vector<Message<T, V>>>> executeData() override {
+    auto toEmit = this->processData();
+    if (!toEmit.empty()) return this->emit(toEmit);
+    return {};
+  }
+
   /*
     map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processData() { return join(); }
+  virtual map<string, vector<Message<T, V>>> processData() { return query(); }
 
   /*
       map<outputPort, vector<Message<T, V>>>
   */
-  virtual map<string, vector<Message<T, V>>> processControl() { return join(); }
+  virtual map<string, vector<Message<T, V>>> processControl() { return query(); }
 
  private:
-  map<string, string> controlMap;
-
+  V defaultValue;
+  bool initialized;
   /*
       map<outputPort, vector<Message<T, V>>>
   */
-  map<string, vector<Message<T, V>>> join() {
+  map<string, vector<Message<T, V>>> query() {
     map<string, vector<Message<T, V>>> outputMsgs;
 
     vector<string> in = this->getDataInputs();
@@ -75,21 +89,57 @@ class Variable : public Operator<T, V> {
     if (this->dataInputs.find(inputPort)->second.empty()) return {};
     if (this->controlInputs.find(controlPort)->second.empty()) return {};
 
-    if (this->controlInputs.find(controlPort)->second.front().time ==
-        this->dataInputs.find(inputPort)->second.front().time) {
-      vector<Message<T, V>> v;
-      v.push_back(this->dataInputs.find(inputPort)->second.front());
-      outputMsgs.emplace("o1", v);
-      this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() -
-                                                      this->dataInputs.find(inputPort)->second.front().value);
-      this->dataInputs.find(inputPort)->second.pop_front();
-      this->controlInputs.find(controlPort)
-          ->second.setSum(this->controlInputs.find(controlPort)->second.getSum() -
-                          this->controlInputs.find(controlPort)->second.front().value);
-      this->controlInputs.find(controlPort)->second.pop_front();
-    }
+    T queryTime = this->getControlInputMessage(controlPort, 0).time;
 
-    if (outputMsgs.size() > 0) return outputMsgs;
+    if (queryTime < this->getDataInputMessage(inputPort, 0).time && !this->initialized) {
+      Message<T, V> out;
+      out.time = queryTime;
+      out.value = this->defaultValue;
+      vector<Message<T, V>> v;
+      v.push_back(out);
+      outputMsgs.emplace("o1", v);
+      this->controlInputs.find(controlPort)->second.pop_front();
+      return outputMsgs;
+    } else if (queryTime >= this->getDataInputMessage(inputPort, 0).time) {
+      initialized = true;
+      if (queryTime == this->getDataInputMessage(inputPort, 0).time) {
+        Message<T, V> out;
+        out.time = queryTime;
+        out.value = this->getDataInputMessage(inputPort, 0).value;
+        vector<Message<T, V>> v;
+        v.push_back(out);
+        outputMsgs.emplace("o1", v);
+        this->controlInputs.find(controlPort)->second.pop_front();
+        return outputMsgs;
+      }
+      size_t index = 0;
+      while (index < this->dataInputs.find(inputPort)->second.size() - 1) {
+        if (queryTime > this->getDataInputMessage(inputPort, index).time &&
+            queryTime < this->getDataInputMessage(inputPort, index + 1).time) {
+          Message<T, V> out;
+          out.time = queryTime;
+          out.value = this->getDataInputMessage(inputPort, index).value;
+          vector<Message<T, V>> v;
+          v.push_back(out);
+          outputMsgs.emplace("o1", v);
+          this->controlInputs.find(controlPort)->second.pop_front();
+          return outputMsgs;
+        } else if (queryTime == this->getDataInputMessage(inputPort, index + 1).time) {
+          Message<T, V> out;
+          out.time = queryTime;
+          out.value = this->getDataInputMessage(inputPort, index + 1).value;
+          vector<Message<T, V>> v;
+          v.push_back(out);
+          outputMsgs.emplace("o1", v);
+          this->controlInputs.find(controlPort)->second.pop_front();
+          this->dataInputs.find(inputPort)->second.pop_front();
+          return outputMsgs;
+        } else {
+          this->dataInputs.find(inputPort)->second.pop_front();
+        }
+      }
+    } else if (queryTime < this->getDataInputMessage(inputPort, 0).time && this->initialized)
+      throw std::runtime_error(typeName() + ": " + "Messages out of order detected");
 
     return {};
   }

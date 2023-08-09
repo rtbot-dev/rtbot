@@ -30,6 +30,8 @@
 #include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
+#include "rtbot/std/TimeShift.h"
+#include "rtbot/std/Variable.h"
 
 using json = nlohmann::json;
 
@@ -400,6 +402,43 @@ void from_json(const json& j, EqualTo<T, V>& p) {
 
 /*
 {
+    "type": "Variable",
+    "id": "var",
+    "default": 0.5
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Variable<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"default", p.getDefaultValue()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Variable<T, V>& p) {
+  p = Variable<T, V>(j["id"].get<string>(), j.value("default", 0));
+}
+
+/*
+{
+    "type": "TimeShift",
+    "id": "ts",
+    "dt": 1,
+    "times": 1
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const TimeShift<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.getDT()}, {"times", p.getTimes()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, TimeShift<T, V>& p) {
+  p = TimeShift<T, V>(j["id"].get<string>(), j.value("dt", 1), j.value("times", 1));
+}
+
+/*
+{
     "type": "CumulativeSum",
     "id": "cu"
 }
@@ -501,7 +540,7 @@ void to_json(json& j, const Demultiplexer<T, V>& p) {
 
 template <class T, class V>
 void from_json(const json& j, Demultiplexer<T, V>& p) {
-  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 2));
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 1));
 }
 
 /*
@@ -583,6 +622,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<Power<std::uint64_t, double>, json>();
   op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
+  op_registry_add<Variable<std::uint64_t, double>, json>();
+  op_registry_add<TimeShift<std::uint64_t, double>, json>();
 
   json j;
   for (auto const& it : op_registry()) {

@@ -13,7 +13,7 @@ using namespace std;
 TEST_CASE("read ppg pipeline") {
   nlohmann::json json;
   {
-    ifstream in("examples/data/ppg-test-1.json");
+    ifstream in("examples/data/program-test-1.json");
     if (!in) throw runtime_error("file not found");
     in >> json;
   }
@@ -43,7 +43,7 @@ TEST_CASE("read ppg pipeline") {
 TEST_CASE("read  pipeline test data basic data") {
   nlohmann::json json;
   {
-    ifstream in("examples/data/ppg-test-2.json");
+    ifstream in("examples/data/program-test-2.json");
     if (!in) throw runtime_error("file not found");
     in >> json;
   }
@@ -73,7 +73,7 @@ TEST_CASE("read  pipeline test data basic data") {
 TEST_CASE("read  pipeline test join eager port") {
   nlohmann::json json;
   {
-    ifstream in("examples/data/ppg-test-3.json");
+    ifstream in("examples/data/program-test-3.json");
     if (!in) throw runtime_error("file not found");
     in >> json;
   }

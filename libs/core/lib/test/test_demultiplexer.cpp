@@ -16,7 +16,7 @@ using namespace std;
 TEST_CASE("Demultiplexer") {
   auto in1 = Input<uint64_t, double>("in1");
   auto count = Count<uint64_t, double>("count");
-  auto demult = Demultiplexer<uint64_t, double>("demult");
+  auto demult = Demultiplexer<uint64_t, double>("demult", 2);
   auto less = LessThan<uint64_t, double>("less", 20);
   auto greater = GreaterThan<uint64_t, double>("greater", 20);
   auto equal = EqualTo<uint64_t, double>("equal", 20);

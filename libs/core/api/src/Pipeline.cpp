@@ -35,7 +35,7 @@ Pipeline::Pipeline(const std::string& json_string) {
   // connections
   for (const OpConnection x : json.at("connections")) {
     if (all_op.at(x.from)->connect(all_op.at(x.to).get(), x.fromPort, x.toPort) == nullptr)
-      throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + "from output port " + x.fromPort +
+      throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + " from output port " + x.fromPort +
                                " to input port " + x.toPort);
   }
 }

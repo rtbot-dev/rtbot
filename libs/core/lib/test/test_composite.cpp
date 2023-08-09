@@ -13,11 +13,12 @@ TEST_CASE("Composite") {
   auto c1 = Collector<uint64_t, double>("c1", 50);
   auto c2 = Collector<uint64_t, double>("c2", 50);
   composite.createInput("in");
-  composite.createDemultiplexer("dm");
+  composite.createDemultiplexer("dm", 2);
   composite.createCount("count");
   composite.createLessThan("lt", n + 1.0);
   composite.createEqualTo("et", n + 1.0);
   composite.createGreaterThan("gt", n + 1.0);
+  composite.createEqualTo("etn2", n + 2.0);
 
   composite.createConstant("cgtz", 0);
   composite.createConstant("cgto", 1);
@@ -33,11 +34,11 @@ TEST_CASE("Composite") {
   composite.createGreaterThan("gt0", 0.0);
   composite.createCumulativeSum("sum0");
   composite.createScale("sc0", 1.0 / n);
-  composite.createLinear("l1", {1.0 * (n - 1) / n, 1.0 / n}, {{"i1", Operator<uint64_t, double>::InputPolicy(true)}});
+  composite.createLinear("l1", {1.0 * (n - 1) / n, 1.0 / n});
   composite.createScale("neg0", -1.0);
   composite.createCumulativeSum("sum1");
   composite.createScale("sc1", 1.0 / n);
-  composite.createLinear("l2", {1.0 * (n - 1) / n, 1.0 / n}, {{"i1", Operator<uint64_t, double>::InputPolicy(true)}});
+  composite.createLinear("l2", {1.0 * (n - 1) / n, 1.0 / n});
 
   composite.createLessThan("lt1", 0);
   composite.createEqualTo("et1", 0);
@@ -46,12 +47,11 @@ TEST_CASE("Composite") {
   composite.createConstant("const0", 0);
   composite.createScale("neg1", -1.0);
   composite.createConstant("const1", 0);
+
   composite.createVariable("varg");
   composite.createVariable("varl");
-  composite.createCount("countgl");
-  composite.createEqualTo("etgl", n);
-  composite.createJoin("joing", 2, {{"i2", Operator<uint64_t, double>::InputPolicy(true)}});
-  composite.createJoin("joinl", 2, {{"i2", Operator<uint64_t, double>::InputPolicy(true)}});
+  composite.createTimeShift("ts1");
+  composite.createTimeShift("ts2");
 
   composite.createDivide("divide");
   composite.createAdd("add1", 1.0);
@@ -66,6 +66,7 @@ TEST_CASE("Composite") {
   composite.createInternalConnection("count", "lt", "o1", "i1");
   composite.createInternalConnection("count", "gt", "o1", "i1");
   composite.createInternalConnection("count", "et", "o1", "i1");
+  composite.createInternalConnection("count", "etn2", "o1", "i1");
 
   composite.createInternalConnection("lt", "clto", "o1", "i1");
   composite.createInternalConnection("clto", "dm", "o1", "c1");
@@ -90,8 +91,10 @@ TEST_CASE("Composite") {
   composite.createInternalConnection("diff1", "gt0", "o1", "i1");
   composite.createInternalConnection("gt0", "sum0", "o1", "i1");
   composite.createInternalConnection("sum0", "sc0", "o1", "i1");
-  composite.createInternalConnection("sc0", "l1", "o1", "i1");
-  composite.createInternalConnection("l1", "l1", "o1", "i1");
+  composite.createInternalConnection("sc0", "varg", "o1", "i1");
+  composite.createInternalConnection("varg", "ts1", "o1", "i1");
+  composite.createInternalConnection("ts1", "l1", "o1", "i1");
+  composite.createInternalConnection("l1", "ts1", "o1", "i1");
   /*** first route ***/
 
   /*** second route ***/
@@ -105,8 +108,10 @@ TEST_CASE("Composite") {
   composite.createInternalConnection("lt0", "neg0", "o1", "i1");
   composite.createInternalConnection("neg0", "sum1", "o1", "i1");
   composite.createInternalConnection("sum1", "sc1", "o1", "i1");
-  composite.createInternalConnection("sc1", "l2", "o1", "i1");
-  composite.createInternalConnection("l2", "l2", "o1", "i1");
+  composite.createInternalConnection("sc1", "varl", "o1", "i1");
+  composite.createInternalConnection("varl", "ts2", "o1", "i1");
+  composite.createInternalConnection("ts2", "l2", "o1", "i1");
+  composite.createInternalConnection("l2", "ts2", "o1", "i1");
   /*** third route ***/
 
   /*** first, second and third route ****/
@@ -135,17 +140,12 @@ TEST_CASE("Composite") {
   /*** third route ***/
 
   /*** first solution flow ***/
-  composite.createInternalConnection("in", "joing", "o1", "i1");
-  composite.createInternalConnection("in", "joinl", "o1", "i1");
-  composite.createInternalConnection("sc0", "countgl", "o1", "i1");
-  composite.createInternalConnection("sc0", "joing", "o1", "i2");
-  composite.createInternalConnection("sc1", "countgl", "o1", "i1");
-  composite.createInternalConnection("sc1", "joinl", "o1", "i2");
-  composite.createInternalConnection("countgl", "etgl", "o1", "i1");
-  composite.createInternalConnection("etgl", "varg", "o1", "c1");
-  composite.createInternalConnection("etgl", "varl", "o1", "c1");
-  composite.createInternalConnection("joing", "varg", "o2", "i1");
-  composite.createInternalConnection("joinl", "varl", "o2", "i1");
+
+  composite.createInternalConnection("etn2", "varg", "o1", "i1");
+  composite.createInternalConnection("et", "varg", "o1", "c1");
+  composite.createInternalConnection("etn2", "varl", "o1", "i1");
+  composite.createInternalConnection("et", "varl", "o1", "c1");
+
   composite.createInternalConnection("varg", "divide", "o1", "i1");
   composite.createInternalConnection("varl", "divide", "o1", "i2");
   /*** first solution flow ***/
@@ -173,8 +173,8 @@ TEST_CASE("Composite") {
                               72.23644, 67.86486, 60.99822, 55.79821, 57.15964, 49.81579, 48.63810, 52.76154,
                               50.40119, 43.95111, 45.57992, 42.54534, 44.09946, 44.52472, 7.71906};
 
-  REQUIRE(composite.getOperator("l1")->isDataInputEager("i1"));
-  REQUIRE(composite.getOperator("l2")->isDataInputEager("i1"));
+  REQUIRE(!composite.getOperator("l1")->isDataInputEager("i1"));
+  REQUIRE(!composite.getOperator("l2")->isDataInputEager("i1"));
   REQUIRE(!composite.getOperator("divide")->isDataInputEager("i1"));
   REQUIRE(!composite.getOperator("divide")->isDataInputEager("i2"));
 

@@ -26,7 +26,7 @@ template <class T, class V>
 struct Scale : public Operator<T, V> {
   Scale() = default;
   Scale(string const &id, V factor) : Operator<T, V>(id) {
-    this->addDataInput("i1", Scale::size);
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
     this->factor = factor;
   }
@@ -50,7 +50,6 @@ struct Scale : public Operator<T, V> {
   V getFactor() const { return this->factor; }
 
  private:
-  static const size_t size = 1;
   V factor;
 };
 
