@@ -20,7 +20,8 @@
         },
         {
             "id": "dm",
-            "type": "Demultiplexer"
+            "type": "Demultiplexer",
+            "numOutputPorts": 2
         },
         {
             "id": "lt",

@@ -12,7 +12,7 @@ using namespace std;
 TEST_CASE("read  pipeline test demultiplexer") {
   nlohmann::json json;
   {
-    ifstream in("examples/data/ppg-test-4.json");
+    ifstream in("examples/data/program-test-4.json");
     if (!in) throw runtime_error("file not found");
     in >> json;
   }

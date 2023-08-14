@@ -17,17 +17,17 @@ namespace rtbot {
  *     type: string
  *   numOutputPorts:
  *     type: integer
- *     default: 2
- *     minimum: 2
+ *     default: 1
+ *     minimum: 1
  * required: ["id"]
  */
 template <class T, class V>
 class Demultiplexer : public Operator<T, V> {
  public:
   Demultiplexer() = default;
-  Demultiplexer(string const &id, size_t numOutputPorts = 2) : Operator<T, V>(id) {
-    if (numOutputPorts < 2)
-      throw std::runtime_error(typeName() + ": number of output ports have to be greater than or equal 2");
+  Demultiplexer(string const &id, size_t numOutputPorts = 1) : Operator<T, V>(id) {
+    if (numOutputPorts < 1)
+      throw std::runtime_error(typeName() + ": number of output ports have to be greater than or equal 1");
 
     for (int i = 1; i <= numOutputPorts; i++) {
       string controlPort = string("c") + to_string(i);

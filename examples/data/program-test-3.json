@@ -1,6 +1,6 @@
 {
-    "title": "Join eager Input test",
-    "description": "This is a program test the join operator with an eager input",
+    "title": "Join Operator Test",
+    "description": "This is a program to test the join operator",
     "date": "now",
     "version": "v1",
     "author": "Eduardo",
@@ -21,12 +21,7 @@
         {
             "id": "join",
             "type": "Join",
-            "numPorts": 2,
-            "policies": {
-                "i1": {
-                    "eager": true
-                }
-            }
+            "numPorts": 2
         },
         {
             "id": "sc1",

@@ -30,6 +30,8 @@
 #include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
+#include "rtbot/std/TimeShift.h"
+#include "rtbot/std/Variable.h"
 
 using json = nlohmann::json;
 
@@ -37,24 +39,20 @@ namespace rtbot {
 
 /* Operators serialization - deserialization - begin */
 
-template <class T, class V>
-void updateInputPolicyMap(const json j, map<string, typename Operator<T, V>::InputPolicy>& policies) {
-  if (j.find("policies") != j.end()) {
-    for (auto it = j.at("policies").begin(); it != j.at("policies").end(); ++it) {
-      string port = it.key();
-      bool eager = (*it).value("eager", false);
-      policies.emplace(port, typename Operator<T, V>::InputPolicy(eager));
-    }
-  }
+/*
+{
+    "type": "Input",
+    "id": "in",
+    "numPorts": 1
 }
+*/
 
-template <class T, class V>
-void addPoliciesToJson(json& j, map<string, typename Operator<T, V>::InputPolicy> policies) {
-  for (auto it = policies.begin(); it != policies.end(); ++it) {
-    j["policies"][it->first] = json{{"eager", it->second.isEager()}};
-  }
+/*
+{
+    "type": "Input",
+    "id": "in"
 }
-
+*/
 template <class T, class V>
 void to_json(json& j, const Input<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};
@@ -108,15 +106,11 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Join<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-
-  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>(), policies);
+  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
 }
 
 template <class T, class V>
@@ -142,40 +136,31 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Minus<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Minus<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Minus<T, V>(j["id"].get<string>(), policies);
+  p = Minus<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Divide<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Divide<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Divide<T, V>(j["id"].get<string>(), policies);
+  p = Divide<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Linear<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>(), policies);
+  p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
 }
 
 template <class T, class V>
@@ -238,6 +223,50 @@ void from_json(const json& j, EqualTo<T, V>& p) {
   p = EqualTo<T, V>(j["id"].get<string>(), j["x"].get<V>());
 }
 
+/*
+{
+    "type": "Variable",
+    "id": "var",
+    "default": 0.5
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const Variable<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"default", p.getDefaultValue()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Variable<T, V>& p) {
+  p = Variable<T, V>(j["id"].get<string>(), j.value("default", 0));
+}
+
+/*
+{
+    "type": "TimeShift",
+    "id": "ts",
+    "dt": 1,
+    "times": 1
+}
+*/
+
+template <class T, class V>
+void to_json(json& j, const TimeShift<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.getDT()}, {"times", p.getTimes()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, TimeShift<T, V>& p) {
+  p = TimeShift<T, V>(j["id"].get<string>(), j.value("dt", 1), j.value("times", 1));
+}
+
+/*
+{
+    "type": "CumulativeSum",
+    "id": "cu"
+}
+*/
+
 template <class T, class V>
 void to_json(json& j, const CumulativeSum<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
@@ -295,7 +324,7 @@ void to_json(json& j, const Demultiplexer<T, V>& p) {
 
 template <class T, class V>
 void from_json(const json& j, Demultiplexer<T, V>& p) {
-  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 2));
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 1));
 }
 
 template <class T, class V>
@@ -361,6 +390,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<Power<std::uint64_t, double>, json>();
   op_registry_add<Identity<std::uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
+  op_registry_add<Variable<std::uint64_t, double>, json>();
+  op_registry_add<TimeShift<std::uint64_t, double>, json>();
 
   json j;
   for (auto const& it : op_registry()) {
