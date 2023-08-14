@@ -29,34 +29,3 @@ TEST_CASE("Linear joint no eager") {
 
   REQUIRE(emitted.empty());
 }
-
-TEST_CASE("Linear joint i2 eager") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
-  auto linear = Linear<uint64_t, double>("linear", {2, -1}, {{"i2", Operator<uint64_t, double>::InputPolicy(true)}});
-
-  linear.receiveData(Message<uint64_t, double>(1, 1), "i1");
-  linear.receiveData(Message<uint64_t, double>(2, 2), "i1");
-  linear.receiveData(Message<uint64_t, double>(3, 3), "i1");
-  linear.receiveData(Message<uint64_t, double>(4, 4), "i1");
-
-  REQUIRE(!linear.isDataInputEager("i1"));
-  REQUIRE(linear.isDataInputEager("i2"));
-
-  linear.receiveData(Message<uint64_t, double>(2, 3), "i2");
-  emitted = linear.executeData();
-
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.size() == 4);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).value == -1);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(0).time == 1);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(1).value == 1);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(1).time == 2);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(2).value == 3);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(2).time == 3);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).value == 5);
-  REQUIRE(emitted.find("linear")->second.find("o1")->second.at(3).time == 4);
-
-  linear.receiveData(Message<uint64_t, double>(2, 2), "i2");
-  emitted = linear.executeData();
-
-  REQUIRE(emitted.empty());
-}

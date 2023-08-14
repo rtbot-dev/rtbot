@@ -173,11 +173,6 @@ TEST_CASE("Composite") {
                               72.23644, 67.86486, 60.99822, 55.79821, 57.15964, 49.81579, 48.63810, 52.76154,
                               50.40119, 43.95111, 45.57992, 42.54534, 44.09946, 44.52472, 7.71906};
 
-  REQUIRE(!composite.getOperator("l1")->isDataInputEager("i1"));
-  REQUIRE(!composite.getOperator("l2")->isDataInputEager("i1"));
-  REQUIRE(!composite.getOperator("divide")->isDataInputEager("i1"));
-  REQUIRE(!composite.getOperator("divide")->isDataInputEager("i2"));
-
   auto rsi = RelativeStrengthIndex<std::uint64_t, double>("rsi", 14);
 
   rsi.connect(c2);

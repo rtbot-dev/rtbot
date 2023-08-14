@@ -39,24 +39,6 @@ namespace rtbot {
 
 /* Operators serialization - deserialization - begin */
 
-template <class T, class V>
-void updateInputPolicyMap(const json j, map<string, typename Operator<T, V>::InputPolicy>& policies) {
-  if (j.find("policies") != j.end()) {
-    for (auto it = j.at("policies").begin(); it != j.at("policies").end(); ++it) {
-      string port = it.key();
-      bool eager = (*it).value("eager", false);
-      policies.emplace(port, typename Operator<T, V>::InputPolicy(eager));
-    }
-  }
-}
-
-template <class T, class V>
-void addPoliciesToJson(json& j, map<string, typename Operator<T, V>::InputPolicy> policies) {
-  for (auto it = policies.begin(); it != policies.end(); ++it) {
-    j["policies"][it->first] = json{{"eager", it->second.isEager()}};
-  }
-}
-
 /*
 {
     "type": "Input",
@@ -169,15 +151,11 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Join<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-
-  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>(), policies);
+  p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
 }
 
 /*
@@ -231,14 +209,11 @@ void from_json(const json& j, PeakDetector<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Minus<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Minus<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Minus<T, V>(j["id"].get<string>(), policies);
+  p = Minus<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -256,14 +231,11 @@ void from_json(const json& j, Minus<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Divide<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Divide<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Divide<T, V>(j["id"].get<string>(), policies);
+  p = Divide<T, V>(j["id"].get<string>());
 }
 
 /*
@@ -282,14 +254,11 @@ void from_json(const json& j, Divide<T, V>& p) {
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
-  addPoliciesToJson<T, V>(j, p.getDataPolicies());
 }
 
 template <class T, class V>
 void from_json(const json& j, Linear<T, V>& p) {
-  map<string, typename Operator<T, V>::InputPolicy> policies;
-  updateInputPolicyMap<T, V>(j, policies);
-  p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>(), policies);
+  p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
 }
 
 /*

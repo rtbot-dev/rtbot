@@ -120,34 +120,33 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createJoin(string id, size_t numPorts, map<string, typename Operator<T, V>::InputPolicy> policies = {}) {
+  string createJoin(string id, size_t numPorts) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Join<T, V>>(id, numPorts, policies));
+      this->ops.emplace(id, make_shared<Join<T, V>>(id, numPorts));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createDivide(string id, map<string, typename Operator<T, V>::InputPolicy> policies = {}) {
+  string createDivide(string id) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Divide<T, V>>(id, policies));
+      this->ops.emplace(id, make_shared<Divide<T, V>>(id));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createMinus(string id, map<string, typename Operator<T, V>::InputPolicy> policies = {}) {
+  string createMinus(string id) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Minus<T, V>>(id, policies));
+      this->ops.emplace(id, make_shared<Minus<T, V>>(id));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createLinear(string id, vector<V> const &coeff,
-                      map<string, typename Operator<T, V>::InputPolicy> policies = {}) {
+  string createLinear(string id, vector<V> const &coeff) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Linear<T, V>>(id, coeff, policies));
+      this->ops.emplace(id, make_shared<Linear<T, V>>(id, coeff));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");

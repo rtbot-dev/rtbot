@@ -81,9 +81,6 @@ TEST_CASE("read  pipeline test join eager port") {
   SECTION("using the pipeline") {
     auto pipe = FactoryOp::createPipeline(json.dump().c_str());
 
-    REQUIRE(pipe.all_op.find("join")->second->isDataInputEager("i1"));
-    REQUIRE(!pipe.all_op.find("join")->second->isDataInputEager("i2"));
-
     // process the data
     for (int i = 1; i < 100; i++) {
       auto output = pipe.receiveDebug(Message<uint64_t, double>(i, i % 5));

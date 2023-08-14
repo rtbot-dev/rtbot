@@ -126,23 +126,13 @@ class Operator {
   };
   /********************************/
  public:
-  struct InputPolicy {
-   private:
-    bool eager;
-
-   public:
-    InputPolicy(bool eager = false) { this->eager = eager; }
-    bool isEager() const { return this->eager; }
-  };
-
   struct Input {
-    Input(string id, size_t max = 0, InputPolicy policy = {}) {
+    Input(string id, size_t max = 0) {
       this->id = id;
       this->max = (max <= 0) ? numeric_limits<size_t>::max() : max;
-      this->policy = policy;
       this->sum = 0;
     }
-    bool isEager() const { return policy.isEager(); }
+
     Message<T, V> front() { return data.front(); }
     Message<T, V> back() { return data.back(); }
     Message<T, V> at(size_t index) { return data.at(index); }
@@ -154,13 +144,11 @@ class Operator {
     V getSum() { return sum; }
     void setSum(V value) { sum = value; }
     size_t getMaxSize() const { return max; }
-    InputPolicy getPolicy() const { return policy; }
 
    private:
     string id;
     deque<Message<T, V>> data;
     size_t max;
-    InputPolicy policy;
     V sum;
   };
 
@@ -183,39 +171,12 @@ class Operator {
     return {};
   }
 
-  map<string, typename Operator<T, V>::InputPolicy> getDataPolicies() const {
-    map<string, InputPolicy> out;
-    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-      out.emplace(it->first, it->second.getPolicy());
-    }
-    return out;
-  }
-
-  map<string, typename Operator<T, V>::InputPolicy> getControlPolicies() const {
-    map<string, InputPolicy> out;
-    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
-      out.emplace(it->first, it->second.getPolicy());
-    }
-    return out;
-  }
-
   V getDataInputSum(string inputPort) {
     if (dataInputs.count(inputPort) > 0)
       return dataInputs.find(inputPort)->second.getSum();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
-  }
-
-  bool isDataInputEager(string inputPort = "") {
-    if (inputPort.empty()) {
-      auto in = this->getDataInputs();
-      if (in.size() == 1) inputPort = in.at(0);
-    }
-    if (dataInputs.count(inputPort) > 0)
-      return dataInputs.find(inputPort)->second.isEager();
-    else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
   size_t getDataInputMaxSize(string inputPort = "") const {
@@ -427,23 +388,23 @@ class Operator {
     return out;
   }
 
-  Operator<T, V>* addDataInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
+  Operator<T, V>* addDataInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
       throw std::runtime_error(typeName() + " : input port have to be specified");
     }
     if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
-      dataInputs.emplace(inputId, Input(inputId, max, policy));
+      dataInputs.emplace(inputId, Input(inputId, max));
       return this;
     } else
       throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
   }
 
-  Operator<T, V>* addControlInput(string inputId, size_t max = 0, InputPolicy policy = {}) {
+  Operator<T, V>* addControlInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
       throw std::runtime_error(typeName() + " : control port have to be specified");
     }
     if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
-      controlInputs.emplace(inputId, Input(inputId, max, policy));
+      controlInputs.emplace(inputId, Input(inputId, max));
       return this;
     } else
       throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
