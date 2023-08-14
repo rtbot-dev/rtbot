@@ -16,7 +16,7 @@ TEST_CASE("jsonschema validation") {
   SECTION("validates a valid program") {
     nlohmann::json program;
     {
-      ifstream in("examples/data/ppg-test-1.json");
+      ifstream in("examples/data/program-test-1.json");
       if (!in) throw runtime_error("file not found");
       in >> program;
     }

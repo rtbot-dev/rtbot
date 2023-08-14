@@ -22,7 +22,7 @@ using namespace std;
  *   dt:
  *     type: integer
  *     default: 1
- *     minimum: : 1
+ *     minimum: 1
  *     description: The constant that defines the time grid.
  *   times:
  *     type: integer
