@@ -113,6 +113,15 @@ class Program:
         self.connections.append(Connection(fromOp, toOp, fromPort, toPort))
         return self
 
+    def toMermaidJs(self):
+        content = "flowchart LR;"
+        for con in self.connections:
+            fromType = next((x for x in self.operators if x["id"] == con["from"]), None)["type"]
+            toType = next((x for x in self.operators if x["id"]== con["to"]), None)["type"]
+            content += f'{con["from"]}({fromType}) --> |{con["fromPort"]}:{con["toPort"]}| {con["to"]}({toType});\n'
+
+        return content
+
 class Connection(dict):
     def __init__(self, fromOp: str, toOp: str, fromPort: str, toPort: str):
         dict.__init__(self)
