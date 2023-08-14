@@ -1,4 +1,4 @@
-#include "rtbot/Pipeline.h"
+#include "rtbot/Program.h"
 
 #include <nlohmann/json.hpp>
 
@@ -16,7 +16,7 @@ struct OpConnection {
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(OpConnection, from, to, toPort, fromPort);
 
-Pipeline::Pipeline(const std::string& json_string) {
+Program::Program(const std::string& json_string) {
   auto json = nlohmann::json::parse(json_string);
 
   for (const nlohmann::json& x : json.at("operators")) {
@@ -40,7 +40,7 @@ Pipeline::Pipeline(const std::string& json_string) {
   }
 }
 
-std::string Pipeline::getProgram() {
+std::string Program::getProgram() {
   std::string out = "";
   for (auto it = this->all_op.begin(); it != this->all_op.end(); ++it) {
     out = out + (!out.empty() ? "," : "") + FactoryOp::writeOp(it->second);

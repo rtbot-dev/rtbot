@@ -24,6 +24,14 @@ def deps():
     )
 
     http_archive(
+        name = "json-schema-validator",
+        build_file = "@rtbot//libs/external:json-schema-validator.BUILD",
+        sha256 = "d6dd8415b88c70faac6e2a2f1c61cb65de839b332e4ec91a317de384c0edc01e",
+        strip_prefix = "json-schema-validator-2.2.0",
+        url = "https://github.com/pboettch/json-schema-validator/archive/refs/tags/2.2.0.zip",
+    )
+
+    http_archive(
         name = "fast_double_parser",
         build_file = "@rtbot//libs/external:fast_double_parser.BUILD",
         sha256 = "fc408309a03dc1606620c8be358e98c652479766afd50e5cdb22032a3f09b5d8",

@@ -12,18 +12,18 @@ namespace rtbot {
 
 using namespace std;
 
-struct Pipeline {
+struct Program {
   map<string, Op_ptr<uint64_t, double>> all_op;  // from id to operator
   Operator<uint64_t, double>* input;
   Output_opt<uint64_t, double>* output;
   optional<Message<uint64_t, double>> out;
 
-  explicit Pipeline(string const& json_string);
+  explicit Program(string const& json_string);
 
-  Pipeline(Pipeline const&) = delete;
-  void operator=(Pipeline const&) = delete;
+  Program(Program const&) = delete;
+  void operator=(Program const&) = delete;
 
-  Pipeline(Pipeline&& other) {
+  Program(Program&& other) {
     all_op = move(other.all_op);
     input = move(other.input);
     output = move(other.output);

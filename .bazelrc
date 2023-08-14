@@ -4,5 +4,11 @@ build --symlink_prefix=dist/
 
 build --action_env=BAZEL_CXXOPTS="-std=c++17"
 
+# in general we don't want to pass  -Wno-c++11-narrowing argument
+# but currently it's required in order to make the cpp 
+# jsonschema validation library to compile
+# the issue appears while including the formatter and specifically
+# for the stmp format validation, which we don't use
+build --action_env=EMCC_CFLAGS="-fexceptions  -Wno-c++11-narrowing -Wno-unused-const-variable"
+
 build:wasm --incompatible_enable_cc_toolchain_resolution
-build:wasm --action_env=EMCC_CFLAGS="-fexceptions"

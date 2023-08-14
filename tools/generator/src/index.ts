@@ -6,7 +6,6 @@ import { parseSchema } from "json-schema-to-zod";
 import { parse } from "yaml";
 
 const fs = require("fs");
-const toJsonSchema = require("to-json-schema");
 const prettier = require("prettier");
 
 const program = new Command();
@@ -19,7 +18,7 @@ program
   .description("RtBot code generator")
   .option("-s, --sources [sources...]", "A list of files of RtBot core c++")
   .option("-o, --output <string>", "Output directory")
-  .addOption(new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript"]))
+  .addOption(new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript", "cpp"]))
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
     console.log(
@@ -36,9 +35,9 @@ program
               .replaceAll(" * ", "")
               .replaceAll(" *\n", "\n");
             const schema = parse(schemaStr);
-            const opType = fileContent.split("string typeName()")[1].split('return "')[1].split('"')[0];
-            schema.properties.opType = { enum: [opType] };
-            schema.required = ["opType", ...schema.required];
+            const type = fileContent.split("string typeName()")[1].split('return "')[1].split('"')[0];
+            schema.properties.type = { enum: [type] };
+            schema.required = ["type", ...schema.required];
             return schema;
           }
         } catch (e) {
@@ -53,6 +52,19 @@ program
 
     fs.writeFileSync(`${output}/jsonschema.json`, jsonschemaContent);
 
+    if (target === "cpp") {
+      fs.writeFileSync(
+        `${output}/jsonschema.hpp`,
+        `#include <nlohmann/json.hpp>
+
+        using nlohmann::json;
+
+        static json rtbot_schema = R"(
+          ${jsonschemaContent}
+        )"_json;`
+      );
+    }
+
     if (target === "typescript") {
       const typescriptContent = typescriptTemplate({
         schemas: parseSchema({ type: "array", items: programJsonschema.properties.operators.items.oneOf })
@@ -61,12 +73,12 @@ program
         operators: await Promise.all(
           schemas.map(async (schema) => {
             const properties = Object.keys(schema.properties);
-            const opType = schema.properties.opType.enum[0];
-            const ts = await compile(schema, opType);
+            const type = schema.properties.type.enum[0];
+            const ts = await compile(schema, type);
             let parametersBlock = ts
               .split("export interface")[1]
               .split("\n")
-              .filter((l) => l.indexOf("opType") === -1 && l.indexOf("unknown") === -1)
+              .filter((l) => l.indexOf("type") === -1 && l.indexOf("unknown") === -1)
               .slice(1)
               .slice(0, -2)
               .map((l) => l.replace(";", ","))
@@ -80,7 +92,7 @@ program
             const zodSchema = parseSchema(schema);
 
             return {
-              opType,
+              type,
               parametersBlock,
               schema: zodSchema,
             };

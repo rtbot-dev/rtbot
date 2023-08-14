@@ -18,7 +18,7 @@ TEST_CASE("read  pipeline test demultiplexer") {
   }
 
   SECTION("using the pipeline") {
-    auto pipe = FactoryOp::createPipeline(json.dump().c_str());
+    auto pipe = FactoryOp::createProgram(json.dump().c_str());
 
     // process the data
     for (int i = 1; i <= 100; i++) {

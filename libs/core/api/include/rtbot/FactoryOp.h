@@ -8,14 +8,14 @@
 #include <string>
 #include <vector>
 
-#include "Pipeline.h"
+#include "Program.h"
 
 namespace rtbot {
 
 using namespace std;
 
 class FactoryOp {
-  map<string, Pipeline> pipelines;
+  map<string, Program> programs;
 
  public:
   FactoryOp();
@@ -53,26 +53,25 @@ class FactoryOp {
 
   static Op_ptr<uint64_t, double> readOp(string const& json_string);
   static string writeOp(Op_ptr<uint64_t, double> const& op);
-  static Pipeline createPipeline(string const& json_string) { return Pipeline(json_string); }
+  static Program createProgram(string const& json_string) { return Program(json_string); }
 
-  string createPipeline(string const& id, string const& json_program);
+  string createProgram(string const& id, string const& json_program);
 
-  string deletePipeline(string const& id) {
-    pipelines.erase(id);
+  string deleteProgram(string const& id) {
+    programs.erase(id);
     return "";
   }
 
-  vector<optional<Message<uint64_t, double>>> receiveMessageInPipeline(string const& id,
-                                                                       Message<uint64_t, double> const& msg) {
-    auto it = pipelines.find(id);
-    if (it == pipelines.end()) return {};
+  vector<optional<Message<uint64_t, double>>> processMessage(string const& id, Message<uint64_t, double> const& msg) {
+    auto it = programs.find(id);
+    if (it == programs.end()) return {};
     return it->second.receive(msg);
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> receiveMessageInPipelineDebug(
+  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageDebug(
       string const& id, Message<uint64_t, double> const& msg) {
-    auto it = pipelines.find(id);
-    if (it == pipelines.end()) return {};
+    auto it = programs.find(id);
+    if (it == programs.end()) return {};
     return it->second.receiveDebug(msg);
   }
 };

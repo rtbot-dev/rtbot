@@ -154,7 +154,7 @@ describe("Program", () => {
   });
 
   it("there has to be at least one Input operator in a program to be valid", () => {
-    const input = program.operators.find((op) => op.opType === "Input");
+    const input = program.operators.find((op) => op.type === "Input");
     expect(input).toBeDefined();
   });
 

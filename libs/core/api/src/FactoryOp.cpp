@@ -63,14 +63,6 @@ void from_json(const json& j, Input<T, V>& p) {
   p = Input<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
-/*
-{
-    "type": "CosineResampler",
-    "id": "cr",
-    "dt": 100
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const CosineResampler<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"dt", p.dt}};
@@ -80,14 +72,6 @@ template <class T, class V>
 void from_json(const json& j, CosineResampler<T, V>& p) {
   p = CosineResampler<T, V>(j["id"].get<string>(), j["dt"].get<T>());
 }
-
-/*
-{
-    "type": "HermiteResampler",
-    "id": "hr",
-    "dt": 100
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const HermiteResampler<T, V>& p) {
@@ -99,14 +83,6 @@ void from_json(const json& j, HermiteResampler<T, V>& p) {
   p = HermiteResampler<T, V>(j["id"].get<string>(), j["dt"].get<T>());
 }
 
-/*
-{
-    "type": "StandardDeviation",
-    "id": "sd",
-    "n": 5
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const StandardDeviation<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
@@ -116,14 +92,6 @@ template <class T, class V>
 void from_json(const json& j, StandardDeviation<T, V>& p) {
   p = StandardDeviation<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
-
-/*
-{
-    "type": "MovingAverage",
-    "id": "ma",
-    "n": 5
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const MovingAverage<T, V>& p) {
@@ -135,19 +103,6 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
   p = MovingAverage<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
 
-/*
-{
-    "type": "Join",
-    "id": "j1",
-    "numPorts": 2,
-    "policies": {
-      "i1": {
-        "eager": true
-      }
-    }
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
@@ -157,14 +112,6 @@ template <class T, class V>
 void from_json(const json& j, Join<T, V>& p) {
   p = Join<T, V>(j["id"].get<string>(), j["numPorts"].get<size_t>());
 }
-
-/*
-{
-    "type": "Output",
-    "id": "out",
-    "numPorts": 1
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Output_opt<T, V>& p) {
@@ -176,14 +123,6 @@ void from_json(const json& j, Output_opt<T, V>& p) {
   p = Output_opt<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
-/*
-{
-    "type": "PeakDetector",
-    "id": "pd",
-    "n": 5
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const PeakDetector<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"n", p.getDataInputMaxSize()}};
@@ -193,18 +132,6 @@ template <class T, class V>
 void from_json(const json& j, PeakDetector<T, V>& p) {
   p = PeakDetector<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
-
-/*
-{
-    "type": "Minus",
-    "id": "m1",
-    "policies": {
-      "i1": {
-        "eager": true
-      }
-    }
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Minus<T, V>& p) {
@@ -216,18 +143,6 @@ void from_json(const json& j, Minus<T, V>& p) {
   p = Minus<T, V>(j["id"].get<string>());
 }
 
-/*
-{
-    "type": "Divide",
-    "id": "d1",
-    "policies": {
-      "i1": {
-        "eager": true
-      }
-    }
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Divide<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
@@ -237,19 +152,6 @@ template <class T, class V>
 void from_json(const json& j, Divide<T, V>& p) {
   p = Divide<T, V>(j["id"].get<string>());
 }
-
-/*
-{
-    "type": "Linear",
-    "id": "l1",
-    "coeff": [1,2,3,4],
-    "policies": {
-      "i1": {
-        "eager": true
-      }
-    }
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Linear<T, V>& p) {
@@ -261,14 +163,6 @@ void from_json(const json& j, Linear<T, V>& p) {
   p = Linear<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
 }
 
-/*
-{
-    "type": "AutoRegressive",
-    "id": "ar",
-    "coeff": [1,2,3,4]
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const AutoRegressive<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.coeff}};
@@ -278,14 +172,6 @@ template <class T, class V>
 void from_json(const json& j, AutoRegressive<T, V>& p) {
   p = AutoRegressive<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
 }
-
-/*
-{
-    "type": "GreaterThan",
-    "id": "gt",
-    "x": 0.5
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const GreaterThan<T, V>& p) {
@@ -297,14 +183,6 @@ void from_json(const json& j, GreaterThan<T, V>& p) {
   p = GreaterThan<T, V>(j["id"].get<string>(), j["x"].get<V>());
 }
 
-/*
-{
-    "type": "Constant",
-    "id": "const",
-    "c": 0.5
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Constant<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"c", p.getConstant()}};
@@ -314,14 +192,6 @@ template <class T, class V>
 void from_json(const json& j, Constant<T, V>& p) {
   p = Constant<T, V>(j["id"].get<string>(), j["c"].get<V>());
 }
-
-/*
-{
-    "type": "Add",
-    "id": "add",
-    "a": 2
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Add<T, V>& p) {
@@ -333,14 +203,6 @@ void from_json(const json& j, Add<T, V>& p) {
   p = Add<T, V>(j["id"].get<string>(), j["a"].get<V>());
 }
 
-/*
-{
-    "type": "LessThan",
-    "id": "lt",
-    "x": 0.5
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const LessThan<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
@@ -350,14 +212,6 @@ template <class T, class V>
 void from_json(const json& j, LessThan<T, V>& p) {
   p = LessThan<T, V>(j["id"].get<string>(), j["x"].get<V>());
 }
-
-/*
-{
-    "type": "EqualTo",
-    "id": "et",
-    "x": 0.5
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const EqualTo<T, V>& p) {
@@ -423,13 +277,6 @@ void from_json(const json& j, CumulativeSum<T, V>& p) {
   p = CumulativeSum<T, V>(j["id"].get<string>());
 }
 
-/*
-{
-    "type": "Count",
-    "id": "cn"
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Count<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
@@ -439,14 +286,6 @@ template <class T, class V>
 void from_json(const json& j, Count<T, V>& p) {
   p = Count<T, V>(j["id"].get<string>());
 }
-
-/*
-{
-    "type": "Scale",
-    "id": "sc",
-    "f": 0.5
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Scale<T, V>& p) {
@@ -458,14 +297,6 @@ void from_json(const json& j, Scale<T, V>& p) {
   p = Scale<T, V>(j["id"].get<string>(), j["f"].get<V>());
 }
 
-/*
-{
-    "type": "Power",
-    "id": "p",
-    "p": 2
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Power<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"p", p.getPower()}};
@@ -475,14 +306,6 @@ template <class T, class V>
 void from_json(const json& j, Power<T, V>& p) {
   p = Power<T, V>(j["id"].get<string>(), j["p"].get<V>());
 }
-
-/*
-{
-    "type": "Difference",
-    "id": "diff",
-    "useOldestTime": true
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Difference<T, V>& p) {
@@ -494,14 +317,6 @@ void from_json(const json& j, Difference<T, V>& p) {
   p = Difference<T, V>(j["id"].get<string>(), j.value("useOldestTime", true));
 }
 
-/*
-{
-    "type": "Demultiplexer",
-    "id": "demult",
-    "numOutputPorts": 2
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Demultiplexer<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numOutputPorts", p.getNumOutputPorts()}};
@@ -512,14 +327,6 @@ void from_json(const json& j, Demultiplexer<T, V>& p) {
   p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 1));
 }
 
-/*
-{
-    "type": "Identity",
-    "id": "id1",
-    "d": 0
-}
-*/
-
 template <class T, class V>
 void to_json(json& j, const Identity<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"d", p.getDelay()}};
@@ -529,14 +336,6 @@ template <class T, class V>
 void from_json(const json& j, Identity<T, V>& p) {
   p = Identity<T, V>(j["id"].get<string>(), j.value("d", 0));
 }
-
-/*
-{
-    "type": "RelativeStrengthIndex",
-    "id": "rsi"
-    "n": 200
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const RelativeStrengthIndex<T, V>& p) {
@@ -550,9 +349,9 @@ void from_json(const json& j, RelativeStrengthIndex<T, V>& p) {
 
 /* Operators serialization - deserialization - end */
 
-std::string FactoryOp::createPipeline(std::string const& id, std::string const& json_program) {
+std::string FactoryOp::createProgram(std::string const& id, std::string const& json_program) {
   try {
-    pipelines.emplace(id, createPipeline(json_program));
+    programs.emplace(id, createProgram(json_program));
     return "";
   } catch (const json::parse_error& e) {
     // output exception information

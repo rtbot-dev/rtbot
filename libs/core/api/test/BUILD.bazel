@@ -4,6 +4,7 @@ cc_test(
     name = "test",
     srcs = glob([
         "**/*.cpp",
+        "**/*.hpp",
         "**/*.h",
     ]),
     data = glob([
@@ -21,4 +22,5 @@ cc_test(
         "//libs/core/api:rtbot-api",
         "@catch2",
     ],
+    copts = ["-Iexternal/json-schema-validator/src", "-fpermissive"]
 )

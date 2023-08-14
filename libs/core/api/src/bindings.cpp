@@ -1,12 +1,24 @@
 #include "rtbot/bindings.h"
 
+#include <stdio.h>
+
+#include <algorithm>
+#include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <ostream>
 
 #include "rtbot/FactoryOp.h"
+
+// notice that this file is generated
+// and bazel will guarantee it will be there
+// at build time
+#include "rtbot/jsonschema.hpp"
 
 rtbot::FactoryOp factory;
 
 using json = nlohmann::json;
+using nlohmann::json_schema::json_validator;
 
 namespace rtbot {
 
@@ -23,20 +35,78 @@ void from_json(const json& j, Message<T, V>& p) {
 
 }  // namespace rtbot
 
-std::string createPipeline(std::string const& id, std::string const& json_program) {
-  return factory.createPipeline(id, json_program);
+std::string validateOperator(std::string const& type, std::string const& json_op) {
+  json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
+
+  try {
+    // look for the schema for the give operator type
+    std::optional<nlohmann::json> schema = std::nullopt;
+    for (auto it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
+      if (type.compare(it["properties"]["type"]["enum"][0]) == 0) {
+        schema = std::optional{it};
+      }
+    }
+
+    if (schema)
+      validator.set_root_schema(schema.value());
+    else
+      return nlohmann::json({{"valid", false}, {"error", "Unknown operator type: " + type}}).dump();
+
+  } catch (const std::exception& e) {
+    std::cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
+    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  try {
+    validator.validate(
+        nlohmann::json::parse(json_op));  // validate the document - uses the default throwing error-handler
+  } catch (const std::exception& e) {
+    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  return nlohmann::json({{"valid", true}}).dump();
 }
 
-std::string deletePipeline(std::string const& id) { return factory.deletePipeline(id); }
+std::string validate(std::string const& json_program) {
+  json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
 
-std::vector<std::optional<rtbot::Message<std::uint64_t, double>>> receiveMessageInPipeline(
+  try {
+    validator.set_root_schema(rtbot_schema);  // insert root-schema
+  } catch (const std::exception& e) {
+    std::cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
+    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  try {
+    validator.validate(
+        nlohmann::json::parse(json_program));  // validate the document - uses the default throwing error-handler
+  } catch (const std::exception& e) {
+    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  return nlohmann::json({{"valid", true}}).dump();
+}
+
+std::string createProgram(std::string const& id, std::string const& json_program) {
+  // first validate it
+  std::string validation = validate(json_program);
+
+  if (nlohmann::json::parse(validation)["valid"])
+    return factory.createProgram(id, json_program);
+  else
+    return validation;
+}
+
+std::string deleteProgram(std::string const& id) { return factory.deleteProgram(id); }
+
+std::vector<std::optional<rtbot::Message<std::uint64_t, double>>> processMessage(
     const std::string& id, rtbot::Message<std::uint64_t, double> const& msg) {
-  return factory.receiveMessageInPipeline(id, msg);
+  return factory.processMessage(id, msg);
 }
 
-std::string receiveMessageInPipelineDebug(std::string const& id, unsigned long time, double value) {
+std::string processMessageDebug(std::string const& id, unsigned long time, double value) {
   rtbot::Message msg = rtbot::Message<std::uint64_t, double>(time, value);
 
-  auto result = factory.receiveMessageInPipelineDebug(id, msg);
+  auto result = factory.processMessageDebug(id, msg);
   return nlohmann::json(result).dump();
 }
