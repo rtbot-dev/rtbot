@@ -116,9 +116,29 @@ class Program:
     def toMermaidJs(self):
         content = "flowchart LR;"
         for con in self.connections:
-            fromType = next((x for x in self.operators if x["id"] == con["from"]), None)["type"]
-            toType = next((x for x in self.operators if x["id"]== con["to"]), None)["type"]
-            content += f'{con["from"]}({fromType}) --> |{con["fromPort"]}:{con["toPort"]}| {con["to"]}({toType});\n'
+            fromOp = next((x for x in self.operators if x["id"] == con["from"]), None)
+            toOp = next((x for x in self.operators if x["id"]== con["to"]), None)
+            fromType = fromOp["type"]
+            toType = toOp["type"]
+            args = []
+            for k in fromOp.keys():
+                if k != "id" and k != "type":
+                    args.append(f"{fromOp[k]}")
+            if len(args) > 0:
+                fromOpArgs = f'({",".join(args)})'
+            else:
+                fromOpArgs = ""
+
+            args = []
+            for k in toOp.keys():
+                if k != "id" and k != "type":
+                    args.append(f"{toOp[k]}")
+            if len(args) > 0:
+                toOpArgs = f'({",".join(args)})'
+            else:
+                toOpArgs = ""
+
+            content += f'{con["from"]}("{fromType}{fromOpArgs}") --> |{con["fromPort"]}:{con["toPort"]}| {con["to"]}("{toType}{toOpArgs}");\n'
 
         return content
 
