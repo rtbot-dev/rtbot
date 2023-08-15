@@ -15,10 +15,10 @@ namespace rtbot {
  *   id:
  *     type: string
  *     description: The id of the operator
- *   value:
- *     type: integer
+ *   x:
+ *     type: number
  *     description: The reference value
- * required: ["id", "value"]
+ * required: ["id", "x"]
  */
 template <class T, class V>
 struct LessThan : public FilterByValue<T, V> {
