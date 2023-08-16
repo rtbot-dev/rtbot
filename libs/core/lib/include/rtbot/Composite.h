@@ -17,7 +17,7 @@
 #include "rtbot/std/Count.h"
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Difference.h"
-#include "rtbot/std/Divide.h"
+#include "rtbot/std/Division.h"
 #include "rtbot/std/EqualTo.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
@@ -31,7 +31,6 @@
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
-#include "rtbot/std/TimeSort.h"
 #include "rtbot/std/Variable.h"
 
 namespace rtbot {
@@ -64,9 +63,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
     return id;
   }
 
-  string createAdd(string id, V addend) {
+  string createAdd(string id, V value) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Add<T, V>>(id, addend));
+      this->ops.emplace(id, make_shared<Add<T, V>>(id, value));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -80,9 +79,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createConstant(string id, V constant) {
+  string createConstant(string id, V value) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Constant<T, V>>(id, constant));
+      this->ops.emplace(id, make_shared<Constant<T, V>>(id, value));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -128,9 +127,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createDivide(string id) {
+  string createDivision(string id) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Divide<T, V>>(id));
+      this->ops.emplace(id, make_shared<Division<T, V>>(id));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -184,9 +183,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createIdentity(string id, size_t delay = 0) {
+  string createIdentity(string id) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Identity<T, V>>(id, delay));
+      this->ops.emplace(id, make_shared<Identity<T, V>>(id));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -200,9 +199,9 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createVariable(string id, V defaultValue = 0) {
+  string createVariable(string id, V value = 0) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Variable<T, V>>(id, defaultValue));
+      this->ops.emplace(id, make_shared<Variable<T, V>>(id, value));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
@@ -246,25 +245,17 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createPower(string id, V power) {
+  string createPower(string id, V value) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Power<T, V>>(id, power));
+      this->ops.emplace(id, make_shared<Power<T, V>>(id, value));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
-  string createScale(string id, V factor) {
+  string createScale(string id, V value) {
     if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<Scale<T, V>>(id, factor));
-      return id;
-    } else
-      throw std::runtime_error(typeName() + ": unique id is required");
-  }
-
-  string createTimeSort(string id, size_t numPorts, bool increasing = true) {
-    if (this->ops.count(id) == 0) {
-      this->ops.emplace(id, make_shared<TimeSort<T, V>>(id, numPorts, increasing));
+      this->ops.emplace(id, make_shared<Scale<T, V>>(id, value));
       return id;
     } else
       throw std::runtime_error(typeName() + ": unique id is required");

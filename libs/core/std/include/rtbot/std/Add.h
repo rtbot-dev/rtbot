@@ -17,18 +17,18 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
- *   addend:
+ *   value:
  *     type: number
  *     description: The constant to add to the incoming messages.
- * required: ["id", "addend"]
+ * required: ["id", "value"]
  */
 template <class T, class V>
 struct Add : public Operator<T, V> {
   Add() = default;
-  Add(string const &id, V addend) : Operator<T, V>(id) {
-    this->addDataInput("i1", Add::size);
+  Add(string const &id, V value) : Operator<T, V>(id) {
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
-    this->addend = addend;
+    this->value = value;
   }
   string typeName() const override { return "Add"; }
   map<string, vector<Message<T, V>>> processData() override {
@@ -40,18 +40,17 @@ struct Add : public Operator<T, V> {
       throw runtime_error(typeName() + " : more than 1 input port found");
     map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    out.value = out.value + this->addend;
+    out.value = out.value + this->value;
     vector<Message<T, V>> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;
   }
 
-  V getAddend() const { return this->addend; }
+  V getValue() const { return this->value; }
 
  private:
-  static const size_t size = 1;
-  V addend;
+  V value;
 };
 
 }  // namespace rtbot

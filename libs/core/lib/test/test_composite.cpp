@@ -53,7 +53,7 @@ TEST_CASE("Composite") {
   composite.createTimeShift("ts1");
   composite.createTimeShift("ts2");
 
-  composite.createDivide("divide");
+  composite.createDivision("divide");
   composite.createAdd("add1", 1.0);
   composite.createPower("-power1", -1.0);
   composite.createScale("-scale100", -100.0);

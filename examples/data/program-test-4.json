@@ -26,47 +26,47 @@
         {
             "id": "lt",
             "type": "LessThan",
-            "x": 20
+            "value": 20
         },
         {
             "id": "gt",
             "type": "GreaterThan",
-            "x": 20
+            "value": 20
         },
         {
             "id": "et",
             "type": "EqualTo",
-            "x": 20
+            "value": 20
         },
         {
             "id": "clt20z",
             "type": "Constant",
-            "c": 0
+            "value": 0
         },
         {
             "id": "clt20o",
             "type": "Constant",
-            "c": 1
+            "value": 1
         },
         {
             "id": "cet20z",
             "type": "Constant",
-            "c": 0
+            "value": 0
         },
         {
             "id": "cet20o",
             "type": "Constant",
-            "c": 1
+            "value": 1
         },
         {
             "id": "cgt20z",
             "type": "Constant",
-            "c": 0
+            "value": 0
         },
         {
             "id": "cgt20o",
             "type": "Constant",
-            "c": 1
+            "value": 1
         }
     ],
     "connections": [

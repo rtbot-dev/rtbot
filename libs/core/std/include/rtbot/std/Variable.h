@@ -23,7 +23,7 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
- *   defaultValue:
+ *   value:
  *     type: number
  *     description: The default value of the variable
  *     default: 0
@@ -33,8 +33,8 @@ template <class T, class V>
 class Variable : public Operator<T, V> {
  public:
   Variable() = default;
-  Variable(string const &id, V defaultValue = 0) : Operator<T, V>(id) {
-    this->defaultValue = defaultValue;
+  Variable(string const &id, V value = 0) : Operator<T, V>(id) {
+    this->value = value;
     this->initialized = false;
     this->addDataInput("i1");
     this->addControlInput("c1", 1);
@@ -44,7 +44,7 @@ class Variable : public Operator<T, V> {
 
   virtual string typeName() const override { return "Variable"; }
 
-  V getDefaultValue() const { return this->defaultValue; }
+  V getValue() const { return this->value; }
 
   map<string, map<string, vector<Message<T, V>>>> executeData() override {
     auto toEmit = this->processData();
@@ -63,7 +63,7 @@ class Variable : public Operator<T, V> {
   virtual map<string, vector<Message<T, V>>> processControl() { return query(); }
 
  private:
-  V defaultValue;
+  V value;
   bool initialized;
   /*
       map<outputPort, vector<Message<T, V>>>
@@ -94,7 +94,7 @@ class Variable : public Operator<T, V> {
     if (queryTime < this->getDataInputMessage(inputPort, 0).time && !this->initialized) {
       Message<T, V> out;
       out.time = queryTime;
-      out.value = this->defaultValue;
+      out.value = this->value;
       vector<Message<T, V>> v;
       v.push_back(out);
       outputMsgs.emplace("o1", v);

@@ -22,9 +22,8 @@ template <class T, class V>
 struct Identity : public Operator<T, V> {
   Identity() = default;
 
-  Identity(string const &id, size_t delay = 0) : Operator<T, V>(id) {
-    this->delay = delay;
-    this->addDataInput("i1", this->delay + 1);
+  Identity(string const &id) : Operator<T, V>(id) {
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
   }
 
@@ -44,11 +43,6 @@ struct Identity : public Operator<T, V> {
     outputMsgs.emplace("o1", v);
     return outputMsgs;
   }
-
-  size_t getDelay() const { return this->delay; }
-
- private:
-  size_t delay;
 };
 
 }  // namespace rtbot
