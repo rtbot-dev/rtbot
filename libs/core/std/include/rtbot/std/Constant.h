@@ -16,18 +16,18 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
- *   constant:
+ *   value:
  *     type: number
  *     description: The constant to emit when required.
- * required: ["id", "constant"]
+ * required: ["id", "value"]
  */
 template <class T, class V>
 struct Constant : public Operator<T, V> {
   Constant() = default;
-  Constant(string const &id, V constant) : Operator<T, V>(id) {
-    this->addDataInput("i1", Constant::size);
+  Constant(string const &id, V value) : Operator<T, V>(id) {
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
-    this->constant = constant;
+    this->value = value;
   }
   string typeName() const override { return "Constant"; }
   map<string, vector<Message<T, V>>> processData() override {
@@ -39,18 +39,17 @@ struct Constant : public Operator<T, V> {
       throw runtime_error(typeName() + " : more than 1 input port found");
     map<string, vector<Message<T, V>>> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    out.value = this->constant;
+    out.value = this->value;
     vector<Message<T, V>> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;
   }
 
-  V getConstant() const { return this->constant; }
+  V getValue() const { return this->value; }
 
  private:
-  static const size_t size = 1;
-  V constant;
+  V value;
 };
 
 }  // namespace rtbot

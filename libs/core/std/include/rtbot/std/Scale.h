@@ -17,18 +17,18 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
- *   factor:
+ *   value:
  *     type: number
  *     description: The factor to use to scale the messages.
- * required: ["id", "factor"]
+ * required: ["id", "value"]
  */
 template <class T, class V>
 struct Scale : public Operator<T, V> {
   Scale() = default;
-  Scale(string const &id, V factor) : Operator<T, V>(id) {
+  Scale(string const &id, V value) : Operator<T, V>(id) {
     this->addDataInput("i1", 1);
     this->addOutput("o1");
-    this->factor = factor;
+    this->value = value;
   }
   string typeName() const override { return "Scale"; }
   map<string, vector<Message<T, V>>> processData() override {
@@ -41,16 +41,16 @@ struct Scale : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
     vector<Message<T, V>> toEmit;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    out.value = out.value * this->factor;
+    out.value = out.value * this->value;
     toEmit.push_back(out);
     outputMsgs.emplace("o1", toEmit);
     return outputMsgs;
   }
 
-  V getFactor() const { return this->factor; }
+  V getValue() const { return this->value; }
 
  private:
-  V factor;
+  V value;
 };
 
 }  // namespace rtbot

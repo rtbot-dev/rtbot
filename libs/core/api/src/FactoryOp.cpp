@@ -17,7 +17,7 @@
 #include "rtbot/std/Count.h"
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Difference.h"
-#include "rtbot/std/Divide.h"
+#include "rtbot/std/Division.h"
 #include "rtbot/std/EqualTo.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
@@ -26,7 +26,9 @@
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
+#include "rtbot/std/Multiplication.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/Plus.h"
 #include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
 #include "rtbot/std/StandardDeviation.h"
@@ -144,13 +146,33 @@ void from_json(const json& j, Minus<T, V>& p) {
 }
 
 template <class T, class V>
-void to_json(json& j, const Divide<T, V>& p) {
+void to_json(json& j, const Division<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Divide<T, V>& p) {
-  p = Divide<T, V>(j["id"].get<string>());
+void from_json(const json& j, Division<T, V>& p) {
+  p = Division<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const Multiplication<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Multiplication<T, V>& p) {
+  p = Multiplication<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const Plus<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Plus<T, V>& p) {
+  p = Plus<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -175,80 +197,63 @@ void from_json(const json& j, AutoRegressive<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const GreaterThan<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, GreaterThan<T, V>& p) {
-  p = GreaterThan<T, V>(j["id"].get<string>(), j["x"].get<V>());
+  p = GreaterThan<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Constant<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"c", p.getConstant()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Constant<T, V>& p) {
-  p = Constant<T, V>(j["id"].get<string>(), j["c"].get<V>());
+  p = Constant<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Add<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"a", p.getAddend()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Add<T, V>& p) {
-  p = Add<T, V>(j["id"].get<string>(), j["a"].get<V>());
+  p = Add<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
 void to_json(json& j, const LessThan<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, LessThan<T, V>& p) {
-  p = LessThan<T, V>(j["id"].get<string>(), j["x"].get<V>());
+  p = LessThan<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
 void to_json(json& j, const EqualTo<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"x", p.x}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, EqualTo<T, V>& p) {
-  p = EqualTo<T, V>(j["id"].get<string>(), j["x"].get<V>());
+  p = EqualTo<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
-
-/*
-{
-    "type": "Variable",
-    "id": "var",
-    "default": 0.5
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const Variable<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"default", p.getDefaultValue()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Variable<T, V>& p) {
-  p = Variable<T, V>(j["id"].get<string>(), j.value("default", 0));
+  p = Variable<T, V>(j["id"].get<string>(), j.value("value", 0));
 }
-
-/*
-{
-    "type": "TimeShift",
-    "id": "ts",
-    "dt": 1,
-    "times": 1
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const TimeShift<T, V>& p) {
@@ -259,13 +264,6 @@ template <class T, class V>
 void from_json(const json& j, TimeShift<T, V>& p) {
   p = TimeShift<T, V>(j["id"].get<string>(), j.value("dt", 1), j.value("times", 1));
 }
-
-/*
-{
-    "type": "CumulativeSum",
-    "id": "cu"
-}
-*/
 
 template <class T, class V>
 void to_json(json& j, const CumulativeSum<T, V>& p) {
@@ -289,22 +287,22 @@ void from_json(const json& j, Count<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Scale<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"f", p.getFactor()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Scale<T, V>& p) {
-  p = Scale<T, V>(j["id"].get<string>(), j["f"].get<V>());
+  p = Scale<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
 void to_json(json& j, const Power<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"p", p.getPower()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Power<T, V>& p) {
-  p = Power<T, V>(j["id"].get<string>(), j["p"].get<V>());
+  p = Power<T, V>(j["id"].get<string>(), j["value"].get<V>());
 }
 
 template <class T, class V>
@@ -329,12 +327,12 @@ void from_json(const json& j, Demultiplexer<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Identity<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"d", p.getDelay()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Identity<T, V>& p) {
-  p = Identity<T, V>(j["id"].get<string>(), j.value("d", 0));
+  p = Identity<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -373,7 +371,9 @@ FactoryOp::FactoryOp() {
   op_registry_add<PeakDetector<std::uint64_t, double>, json>();
   op_registry_add<Join<std::uint64_t, double>, json>();
   op_registry_add<Minus<std::uint64_t, double>, json>();
-  op_registry_add<Divide<std::uint64_t, double>, json>();
+  op_registry_add<Division<std::uint64_t, double>, json>();
+  op_registry_add<Multiplication<std::uint64_t, double>, json>();
+  op_registry_add<Plus<std::uint64_t, double>, json>();
   op_registry_add<Linear<std::uint64_t, double>, json>();
   op_registry_add<AutoRegressive<std::uint64_t, double>, json>();
   op_registry_add<Output_opt<std::uint64_t, double>, json>();

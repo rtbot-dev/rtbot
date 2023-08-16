@@ -5,7 +5,7 @@
 using namespace rtbot;
 using namespace std;
 
-TEST_CASE("Minus joint") {
+TEST_CASE("Minus join") {
   map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
   auto minus = Minus<uint64_t, double>("minus");
 

@@ -19,18 +19,18 @@ using namespace std;
  *   id:
  *     type: string
  *     description: The id of the operator
- *   power:
+ *   value:
  *     type: number
  *     description: The exponent.
- * required: ["id", "power"]
+ * required: ["id", "value"]
  */
 template <class T, class V>
 struct Power : public Operator<T, V> {
   Power() = default;
-  Power(string const &id, V power) : Operator<T, V>(id) {
-    this->addDataInput("i1", Power::size);
+  Power(string const &id, V value) : Operator<T, V>(id) {
+    this->addDataInput("i1", 1);
     this->addOutput("o1");
-    this->power = power;
+    this->value = value;
   }
   string typeName() const override { return "Power"; }
   map<string, vector<Message<T, V>>> processData() override {
@@ -43,17 +43,16 @@ struct Power : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
     vector<Message<T, V>> toEmit;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    out.value = pow(out.value, this->power);
+    out.value = pow(out.value, this->value);
     toEmit.push_back(out);
     outputMsgs.emplace("o1", toEmit);
     return outputMsgs;
   }
 
-  V getPower() const { return this->power; }
+  V getValue() const { return this->value; }
 
  private:
-  static const size_t size = 1;
-  V power;
+  V value;
 };
 
 }  // namespace rtbot
