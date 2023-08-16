@@ -121,9 +121,9 @@ class RtBotTest(unittest.TestCase):
         self.assertRaises(Exception, lambda: program1.addOperator(ma1))
 
     def test_load_ill_defined_json_program(self):
-        """Load ill defined json program it's safely parsed"""
-        # it should not throw
-        program1 = rtbot.parse("""{ "operators": [] }""")
+        """Load ill defined json program throws an error"""
+        # it should throw
+        self.assertRaises(Exception, lambda: rtbot.parse("""{ "bad": [] }"""))
 
     def test_load_well_defined_json_program_succeed(self):
         """Load well defined json program succeeds"""
