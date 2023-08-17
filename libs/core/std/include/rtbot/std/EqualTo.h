@@ -15,10 +15,10 @@ namespace rtbot {
  *   id:
  *     type: string
  *     description: The id of the operator
- *   x:
+ *   value:
  *     type: integer
  *     description: The reference value
- * required: ["id", "x"]
+ * required: ["id", "value"]
  */
 template <class T, class V>
 struct EqualTo : public FilterByValue<T, V> {
