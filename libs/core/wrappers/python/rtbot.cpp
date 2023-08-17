@@ -17,8 +17,9 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(rtbotapi, m) {
   m.doc() = "Python interface for rtbot";
 
-  m.def("registerProgram", &createPipeline, "Register an rtbot program in memory");
-  m.def("deleteProgram", &deletePipeline, "Deletes and frees the memory of a previsouly created rtbot program");
-  m.def("sendMessage", &receiveMessageInPipelineDebug,
-        "Sends a message to the specified program, previously registered");
+  m.def("validate", &validate, "Validates json representation of an rtbot program");
+  m.def("validateOperator", &validateOperator, "Validates a json representation of an rtbot operator");
+  m.def("createProgram", &createProgram, "Register an rtbot program in memory");
+  m.def("deleteProgram", &deleteProgram, "Deletes and frees the memory of a previsouly created rtbot program");
+  m.def("sendMessage", &processMessageDebug, "Sends a message to the specified program, previously registered");
 }

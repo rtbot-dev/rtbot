@@ -12,13 +12,16 @@ const program = new Command();
 
 const jsonschemaTemplate = compileTemplate("jsonschema");
 const typescriptTemplate = compileTemplate("typescript");
+const pythonTemplate = compileTemplate("python");
 const JSONSCHEMA_TAG = "@jsonschema";
 
 program
   .description("RtBot code generator")
   .option("-s, --sources [sources...]", "A list of files of RtBot core c++")
   .option("-o, --output <string>", "Output directory")
-  .addOption(new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript", "cpp"]))
+  .addOption(
+    new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript", "cpp", "python"])
+  )
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
     console.log(
@@ -63,6 +66,22 @@ program
           ${jsonschemaContent}
         )"_json;`
       );
+    }
+
+    if (target === "python") {
+      const opSchemas = programJsonschema.properties.operators.items.oneOf;
+      const pythonContent = pythonTemplate({
+        operators: opSchemas.map((s: any) => ({
+          type: s.properties.type.enum[0],
+          parameters: Object.keys(s.properties)
+            .filter((p) => p !== "type")
+            .map((k) => ({
+              name: k,
+              init: s.required.indexOf(k) > -1 ? "" : ` = ${s.properties[k].default ?? "None"}`,
+            })),
+        })),
+      });
+      fs.writeFileSync(`${output}/jsonschema.py`, pythonContent);
     }
 
     if (target === "typescript") {
