@@ -1,0 +1,41 @@
+load("@npm//:@docusaurus/core/package_json.bzl", docusaurus_bin = "bin")
+
+docusaurus_bin.docusaurus_binary(
+    name = "build",
+    # TODO: compute the output dir
+    args = ["build", "docs/site", "--out-dir /home/robert/Documents/rtbot-dev/rtbot/build"],
+    data = glob(
+        ["**/*"],
+        exclude = ["node_modules/**/*"],
+    ) + [
+        "//:package_json",
+        "//:node_modules/@docusaurus/core",
+        "//:node_modules/@docusaurus/preset-classic",
+        "//:node_modules/@mdx-js/react",
+        "//:node_modules/clsx",
+        "//:node_modules/prism-react-renderer",
+        "//:node_modules/react",
+        "//:node_modules/react-dom",
+    ],
+)
+
+docusaurus_bin.docusaurus_binary(
+    name = "start",
+    # TODO: compute the output dir
+    args = ["start", "docs/site"],
+    data = glob(
+        ["**/*"],
+        exclude = ["node_modules/**/*"],
+    ) + [
+        "//:package_json",
+        "//:node_modules/@docusaurus/core",
+        "//:node_modules/@docusaurus/preset-classic",
+        "//:node_modules/@mdx-js/react",
+        "//:node_modules/clsx",
+        "//:node_modules/prism-react-renderer",
+        "//:node_modules/react",
+        "//:node_modules/react-dom",
+    ],
+    tags = ["ibazel_notify_changes"],
+)
+
