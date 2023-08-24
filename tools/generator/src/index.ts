@@ -7,17 +7,20 @@ import { parse } from "yaml";
 
 const fs = require("fs");
 const prettier = require("prettier");
+const path = require("path");
 
 const program = new Command();
 
 const jsonschemaTemplate = compileTemplate("jsonschema");
 const typescriptTemplate = compileTemplate("typescript");
 const pythonTemplate = compileTemplate("python");
-const JSONSCHEMA_TAG = "@jsonschema";
 
 program
   .description("RtBot code generator")
-  .option("-s, --sources [sources...]", "A list of files of RtBot core c++")
+  .option(
+    "-s, --sources [sources...]",
+    "A list of markdown files where the documentation and schema of the operators are stored"
+  )
   .option("-o, --output <string>", "Output directory")
   .addOption(
     new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript", "cpp", "python"])
@@ -31,14 +34,10 @@ program
       sources.map(async (f: string) => {
         try {
           const fileContent = await fs.readFileSync(f).toString();
-          if (fileContent.indexOf(JSONSCHEMA_TAG) > -1) {
-            const schemaStr = fileContent
-              .split(JSONSCHEMA_TAG)[1]
-              .split("*/")[0]
-              .replaceAll(" * ", "")
-              .replaceAll(" *\n", "\n");
-            const schema = parse(schemaStr);
-            const type = fileContent.split("string typeName()")[1].split('return "')[1].split('"')[0];
+          if (fileContent.indexOf("---") > -1) {
+            const schemaStr = fileContent.split("---")[1];
+            const schema = parse(schemaStr).jsonschema;
+            const type = path.basename(f).replace(".md", "");
             schema.properties.type = { enum: [type] };
             schema.required = ["type", ...schema.required];
             return schema;

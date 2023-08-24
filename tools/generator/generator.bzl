@@ -47,12 +47,10 @@ _rtbot_generate = rule(
     implementation = _rtbot_jsonschema_impl,
     attrs = {
         "srcs": attr.label_list(
-            allow_files = [".cpp", ".h"],
-            default = ["//libs/core/std:srcs"] + [
-              "//libs/core/lib:include/rtbot/Input.h",
-              "//libs/core/lib:include/rtbot/Demultiplexer.h",
-              "//libs/core/lib:include/rtbot/Join.h",
-              "//libs/core/lib:include/rtbot/Output.h",
+            allow_files = [".md"],
+            default = [
+              "//libs/core/std:md",
+              "//libs/core/lib:md"
             ],
         ),
         "generate": attr.label(
