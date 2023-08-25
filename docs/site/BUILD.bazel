@@ -1,14 +1,36 @@
 load("@npm//:@docusaurus/core/package_json.bzl", docusaurus_bin = "bin")
 load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("//tools/generator:generator.bzl", "rtbot_generate")
+
+rtbot_generate(
+    name = "mdx-core",
+    target = "markdown",
+    srcs = ["//libs/core/lib:md"],
+)
+
+rtbot_generate(
+    name = "mdx-std",
+    target = "markdown",
+    srcs = ["//libs/core/std:md"],
+)
 
 copy_to_directory(
     # Name of the rule.
-    name = "md",
-    srcs = ["//libs/core/lib:md", "//libs/core/std:md"],
-    out = "docs/operators",
+    name = "mdx-core-copy",
+    srcs = [":mdx-core"],
+    out = "docs/operators/core",
     replace_prefixes = {
-      "libs/core/lib/include/rtbot": "core",
-      "libs/core/std/include/rtbot/std": "std",
+      "mdx-core": ".",
+    }
+)
+
+copy_to_directory(
+    # Name of the rule.
+    name = "mdx-std-copy",
+    srcs = [":mdx-std"],
+    out = "docs/operators/std",
+    replace_prefixes = {
+      "mdx-std": ".",
     }
 )
 
@@ -20,7 +42,7 @@ docusaurus_bin.docusaurus_binary(
         ["**/*"],
         exclude = ["node_modules/**/*"],
     ) + [
-        ":md",
+        ":mdx-core-copy",
         "//:package_json",
         "//:node_modules/@docusaurus/core",
         "//:node_modules/@docusaurus/preset-classic",
@@ -43,7 +65,8 @@ docusaurus_bin.docusaurus_binary(
         ["**/*"],
         exclude = ["node_modules/**/*"],
     ) + [
-        ":md",
+        ":mdx-core-copy",
+        ":mdx-std-copy",
         "//:package_json",
         "//:node_modules/@docusaurus/core",
         "//:node_modules/@docusaurus/preset-classic",
