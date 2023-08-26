@@ -12,10 +12,14 @@ jsonschema:
   properties:
     id:
       type: string
+      description: The id of the operator.
+      examples: ["demul1"]
     numOutputPorts:
       type: integer
+      description: The number of output ports through which data will be routed.
       default: 1
       minimum: 1
+      examples: [2]
   required: ["id"]
 ---
 

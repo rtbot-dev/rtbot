@@ -16,6 +16,7 @@ jsonschema:
     coeff:
       type: array
       description: The list of auto-regression coefficients.
+      examples: [[1, 2]]
       minItems: 1
       items:
         type: number
