@@ -95,7 +95,8 @@ jobs:
       - name: Compute wheel version
         id: version
         run: |
-          echo "version=${${{ github.ref_name }}:1}" >> $GITHUB_OUTPUT
+          GIT_TAG=${{ github.ref_name }}
+          echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
       - uses: actions/download-artifact@v3
         with:
           name: wheel-ubuntu-20.04
@@ -106,7 +107,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: macOS-11
-          path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_11_x86_64.whl
+          path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
       - name: Display structure of downloaded files
         run: ls -R
       - name: Prepare release
