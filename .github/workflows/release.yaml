@@ -2,7 +2,6 @@
 # You should use an annotated tag, like `git tag -a v1.2.3`
 # and put the release notes into the commit message for the tag.
 name: Release
-
 on:
   push:
     tags:
@@ -42,6 +41,12 @@ jobs:
       - name: Test finance
         run: |
           bazelisk test //libs/core/finance/test
+      - name: Test python
+        run: |
+          bazelisk test //libs/core/wrappers/python:rtbot_test
+      - name: Test javascript
+        run: |
+          bazelisk test //libs/core/wrappers/javascript:test 
 
   publish:
     needs: tests
