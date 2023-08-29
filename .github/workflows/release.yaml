@@ -92,15 +92,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Compute wheel version
+        id: version
+        run: |
+          echo "version=${${{ github.ref_name }}:1}" >> $GITHUB_OUTPUT
       - uses: actions/download-artifact@v3
         with:
           name: wheel-ubuntu-20.04
+          path: rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
       - uses: actions/download-artifact@v3
         with:
           name: windows-2019
       - uses: actions/download-artifact@v3
         with:
           name: macOS-11
+          path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_11_x86_64.whl
       - name: Display structure of downloaded files
         run: ls -R
       - name: Prepare release
