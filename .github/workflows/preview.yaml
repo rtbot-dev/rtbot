@@ -49,3 +49,9 @@ jobs:
       - name: Test finance
         run: |
           bazelisk test //libs/core/finance/test
+      - name: Test python
+        run: |
+          bazelisk test //libs/core/wrappers/python:rtbot_test 
+      - name: Test javascript
+        run: |
+          bazelisk test //libs/core/wrappers/javascript:test 
