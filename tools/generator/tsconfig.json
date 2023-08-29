@@ -3,6 +3,7 @@
     "esModuleInterop": true,
     "declaration": true,
     "inlineSourceMap": true,
+    "skipLibCheck": true,
     "module": "CommonJS",
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
