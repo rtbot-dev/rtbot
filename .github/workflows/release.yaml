@@ -101,9 +101,9 @@ jobs:
         with:
           name: wheel-ubuntu-20.04
           path: rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
-      - uses: actions/download-artifact@v3
-        with:
-          name: windows-2019
+#      - uses: actions/download-artifact@v3
+#        with:
+#          name: windows-2019
       - uses: actions/download-artifact@v3
         with:
           name: macOS-11
