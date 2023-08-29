@@ -49,14 +49,55 @@ jobs:
           bazelisk test //libs/core/wrappers/python:rtbot_test
       - name: Test javascript
         run: |
-          bazelisk test //libs/core/wrappers/javascript:test 
+          bazelisk test //libs/core/wrappers/javascript:test
+
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, windows-2019, macOS-11]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Build wheel
+        run: |
+          bazelisk build //libs/core/wrappers/python:rtbot_wheel
+          # dist/bin/libs/core/wrappers/python/rtbot-0.1.0-py3-none-manylinux2014_x86_64.whl
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel-${{ matrix.os }}
+          path: dist/bin/libs/core/wrappers/python/rtbot-*.whl
 
   publish:
-    needs: tests
+    needs:
+      - tests
+      - build_wheels
     name: Publish
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel-ubuntu-20.04
+      - uses: actions/download-artifact@v3
+        with:
+          name: windows-2019
+      - uses: actions/download-artifact@v3
+        with:
+          name: macOS-11
+      - name: Display structure of downloaded files
+        run: ls -R
       - name: Prepare release
         run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
       - name: Release
@@ -65,5 +106,7 @@ jobs:
           # Use GH feature to populate the changelog automatically
           generate_release_notes: true
           body_path: release_notes.txt
-          files: rtbot-*.tar.gz
+          files: |
+            rtbot-*.tar.gz
+            rtbot-*.whl
           fail_on_unmatched_files: true
