@@ -46,6 +46,7 @@ py_wheel(
     name = "rtbot_wheel",
     distribution = "rtbot",
     python_tag = "py3",
+    # this number is only for development
     version = "0.1.0",
     strip_path_prefixes = [
         "libs/core/wrappers/python",
