@@ -81,7 +81,7 @@ jobs:
           # dist/bin/libs/core/wrappers/python/rtbot-0.1.0-py3-none-manylinux2014_x86_64.whl
       - uses: actions/upload-artifact@v3
         with:
-          name: wheel-${{ matrix.os }}
+          name: wheel-${{ matrix.os }}.tar
           path: dist/bin/libs/core/wrappers/python/rtbot-*.whl
 
   publish:
@@ -99,14 +99,14 @@ jobs:
           echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
       - uses: actions/download-artifact@v3
         with:
-          name: wheel-ubuntu-20.04
+          name: wheel-ubuntu-20.04.tar
           path: rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
 #      - uses: actions/download-artifact@v3
 #        with:
 #          name: windows-2019
       - uses: actions/download-artifact@v3
         with:
-          name: macOS-11
+          name: wheel-macOS-11.tar
           path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
       - name: Display structure of downloaded files
         run: ls -R
