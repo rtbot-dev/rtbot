@@ -37,4 +37,6 @@ apps/studio/.firebase
 cmake-build-debug
 .clwb
 **/*/target/
-/venv/
+bazel-out/
+.cache
+settings.json

@@ -82,13 +82,6 @@ def deps():
     )
 
     http_archive(
-        name = "aspect_rules_js",
-        sha256 = "0b69e0967f8eb61de60801d6c8654843076bf7ef7512894a692a47f86e84a5c2",
-        strip_prefix = "rules_js-1.27.1",
-        url = "https://github.com/aspect-build/rules_js/releases/download/v1.27.1/rules_js-v1.27.1.tar.gz",
-    )
-
-    http_archive(
         name = "aspect_rules_ts",
         sha256 = "40ab6d3d9cc3259da54fe2f162588aba92244af0f151fbc905dcc8e7b8744296",
         strip_prefix = "rules_ts-1.4.2",
@@ -116,6 +109,13 @@ def deps():
         url = "https://github.com/aspect-build/rules_esbuild/releases/download/v0.15.0/rules_esbuild-v0.15.0.tar.gz",
     )
 
+    http_archive(
+        name = "aspect_bazel_lib",
+        sha256 = "44f4f6d1ea1fc5a79ed6ca83f875038fee0a0c47db4f9c9beed097e56f8fad03",
+        strip_prefix = "bazel-lib-1.34.0",
+        url = "https://github.com/aspect-build/bazel-lib/releases/download/v1.34.0/bazel-lib-v1.34.0.tar.gz",
+    )
+    
     http_archive(
         name = "emsdk",
         strip_prefix = "emsdk-3.1.34/bazel",

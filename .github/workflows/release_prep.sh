@@ -24,7 +24,7 @@ http_archive(
     name = "rtbot",
     sha256 = "${SHA}",
     strip_prefix = "${PREFIX}",
-    url = "https://github.com/rtbot/rtbot/releases/download/${TAG}/${ARCHIVE}",
+    url = "https://github.com/rtbot-dev/rtbot/releases/download/${TAG}/${ARCHIVE}",
 )
 
 load("@rtbot//:deps.bzl", "rtbot_deps" = "deps")
