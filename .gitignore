@@ -38,3 +38,5 @@ cmake-build-debug
 .clwb
 **/*/target/
 bazel-out/
+.cache
+settings.json
