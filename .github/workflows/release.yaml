@@ -114,10 +114,10 @@ jobs:
         run: |
           ls -l
           cd wheel-linux
-          rename 's/0.1.0/${{ github.ref_name }}/g' *
+          mv rtbot-0.1.0-py3-none-manylinux2014_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
           cd ..
           cd wheel-macos
-          rename 's/0.1.0/${{ github.ref_name }}/g' *
+          mv rtbot-0.1.0-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
 
       - name: Release
         uses: softprops/action-gh-release@v1
