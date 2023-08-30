@@ -113,6 +113,12 @@ jobs:
       - name: Show files to publish
         run: |
           ls -l
+          cd wheel-linux
+          rename 's/0.1.0/${{ github.ref_name }}/g' *
+          cd ..
+          cd wheel-macos
+          rename 's/0.1.0/${{ github.ref_name }}/g' *
+
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
