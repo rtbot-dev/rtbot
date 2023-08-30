@@ -69,7 +69,7 @@ jobs:
           key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
           restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
-      - name: Build wheel
+      - name: Build npm package
         run: |
           bazelisk build //libs/core/wrappers/javascript:js
       - uses: actions/upload-artifact@v3
@@ -151,7 +151,7 @@ jobs:
           mv rtbot-0.1.0-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
           cd ..
           cd npm
-          rm -rf src
+          rm -rf src tsconfig.bazel.json
           # patch package.json version
           jq '.version="${{ github.ref_name }}"' package.json > /tmp/package.json
           rm package.json
@@ -167,5 +167,5 @@ jobs:
             rtbot-*.tar.gz
             wheel-linux/*
             wheel-macos/*
-            npm/*.tar
+            npm/*
           fail_on_unmatched_files: true
