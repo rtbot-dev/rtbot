@@ -120,6 +120,5 @@ jobs:
           generate_release_notes: true
           body_path: release_notes.txt
           files: |
-            rtbot-*.tar.gz
-            rtbot-*.whl
+            rtbot-*
           fail_on_unmatched_files: true
