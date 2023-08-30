@@ -151,12 +151,13 @@ jobs:
           mv rtbot-0.1.0-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
           cd ..
           cd npm
+          # remove unneeded files
           rm -rf src tsconfig.bazel.json
-          # patch package.json version
-          jq '.version="${{ github.ref_name }}"' package.json > package.json
-          jq '.name="@rtbot-dev/rtbot"' package.json > package.json
+          # patch package.json version and name
+          tmp=$(mktemp)
+          jq '.version="${{ github.ref_name }}" | .name="@rtbot-dev/rtbot"' package.json > "$tmp" && mv "$tmp" package.json
           cd ..
-          tar -zcvf rtbot-npm.tar.gz npm
+          tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm
 
       - name: Release
         uses: softprops/action-gh-release@v1
