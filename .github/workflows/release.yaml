@@ -121,5 +121,6 @@ jobs:
           body_path: release_notes.txt
           files: |
             rtbot-*.tar.gz
-            rtbot/*
+            rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
+            rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
           fail_on_unmatched_files: true
