@@ -53,6 +53,7 @@ jobs:
 
   build_npm:
     name: Build npm package
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2.2.4
