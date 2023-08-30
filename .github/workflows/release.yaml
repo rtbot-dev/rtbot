@@ -108,8 +108,12 @@ jobs:
         with:
           name: wheel-macOS-11.tar
           path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
-      - name: Display structure of downloaded files
-        run: ls -R
+      - name: Untar downloaded files
+        run: |
+          ls -R
+          tar -xvf wheel-macOS-11.tar
+          tar -xvf wheel-ubuntu-20.04.tar
+          ls -R
       - name: Prepare release
         run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
       - name: Release
