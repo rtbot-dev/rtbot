@@ -92,6 +92,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Prepare release
+        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
       - name: Compute wheel version
         id: version
         run: |
@@ -110,9 +112,7 @@ jobs:
           path: rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
       - name: Show files to publish
         run: |
-          ls -l rtbot*
-      - name: Prepare release
-        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+          ls -l
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
@@ -120,5 +120,6 @@ jobs:
           generate_release_notes: true
           body_path: release_notes.txt
           files: |
-            rtbot-*
+            rtbot-*.tar.gz
+            rtbot/*
           fail_on_unmatched_files: true
