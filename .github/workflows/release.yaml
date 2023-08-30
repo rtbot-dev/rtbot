@@ -156,7 +156,7 @@ jobs:
           jq '.version="${{ github.ref_name }}"' package.json > package.json
           jq '.name="@rtbot-dev/rtbot"' package.json > package.json
           cd ..
-          tar -zcvf npm rtbot-npm.tar.gz
+          tar -zcvf rtbot-npm.tar.gz npm
 
       - name: Release
         uses: softprops/action-gh-release@v1
