@@ -153,9 +153,10 @@ jobs:
           cd npm
           rm -rf src tsconfig.bazel.json
           # patch package.json version
-          jq '.version="${{ github.ref_name }}"' package.json > /tmp/package.json
-          rm package.json
-          mv /tmp/package.json package.json
+          jq '.version="${{ github.ref_name }}"' package.json > package.json
+          jq '.name="@rtbot-dev/rtbot"' package.json > package.json
+          cd ..
+          tar -zcvf npm rtbot-npm.tar.gz
 
       - name: Release
         uses: softprops/action-gh-release@v1
@@ -164,8 +165,7 @@ jobs:
           generate_release_notes: true
           body_path: release_notes.txt
           files: |
-            rtbot-*.tar.gz
+            *.tar.gz
             wheel-linux/*
             wheel-macos/*
-            npm/*
           fail_on_unmatched_files: true
