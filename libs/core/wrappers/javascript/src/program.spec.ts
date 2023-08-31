@@ -1,4 +1,4 @@
-import { Program, MovingAverage, Input, Output, RtBotRun } from "@rtbot/api";
+import { Program, MovingAverage, Input, Output, RtBotRun } from "@rtbot-dev/rtbot";
 
 const data = [
   [1, 10.0],

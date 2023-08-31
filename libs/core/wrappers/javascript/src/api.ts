@@ -1,4 +1,4 @@
-import bindings, { RtBotEmbindModule } from "@rtbot/wasm";
+import bindings, { RtBotEmbindModule } from "@rtbot-dev/wasm";
 import { Operator, Program } from "./program";
 
 export interface RtBotIterationOutput {
