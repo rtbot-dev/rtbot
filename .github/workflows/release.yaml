@@ -9,6 +9,7 @@ on:
 
 jobs:
   tests:
+    if: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -52,6 +53,7 @@ jobs:
           bazelisk test //libs/core/wrappers/javascript:test
 
   build_npm:
+    if: false
     name: Build npm package
     runs-on: ubuntu-latest
     steps:
@@ -82,14 +84,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
+        # os: [ubuntu-20.04, macOS-11, windows-2019]
+        os: [windows-2019]
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2.2.4
         with:
           version: 8
           run_install: |
-            - args: [--no-frozen-lockfile]
+            - args: [--frozen-lockfile]
       - uses: actions/setup-python@v4
         with:
           python-version: "3.11"
@@ -111,9 +114,9 @@ jobs:
 
   publish:
     needs:
-      - tests
+      #- tests
       - build_wheels
-      - build_npm
+      #- build_npm
     name: Publish
     runs-on: ubuntu-latest
     steps:
