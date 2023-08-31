@@ -12,12 +12,12 @@ ts_config(
 )
 
 npm_link_package(
-    name = "node_modules/@rtbot/wasm",
+    name = "node_modules/@rtbot-dev/wasm",
     src = "//libs/core/api:js",
 )
 
 npm_link_package(
-    name = "node_modules/@rtbot/api",
+    name = "node_modules/@rtbot-dev/rtbot",
     src = "//libs/core/wrappers/javascript:js",
 )
 
