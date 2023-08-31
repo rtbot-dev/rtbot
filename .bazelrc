@@ -2,7 +2,14 @@ test --test_output=all
 
 build --symlink_prefix=dist/
 
-build --action_env=BAZEL_CXXOPTS="-std=c++17" --cxxopt='-std=c++17' --enable_runfiles
+build --workspace_status_command=tools/bazel_workspace_status.sh
+
+build --action_env=BAZEL_CXXOPTS="-std=c++17" --cxxopt='-std=c++17'
+
+# see https://bazel.build/configure/windows
+startup --windows_enable_symlinks
+build --enable_runfiles
+
 
 # in general we don't want to pass  -Wno-c++11-narrowing argument
 # but currently it's required in order to make the cpp 
