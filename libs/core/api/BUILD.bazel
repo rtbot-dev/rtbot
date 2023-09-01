@@ -96,4 +96,7 @@ npm_package(
         ":rtbot-wasm",
     ],
     package = "@rtbot-dev/wasm",
+    replace_prefixes = {
+      "rtbot-wasm": ""
+    }
 )
