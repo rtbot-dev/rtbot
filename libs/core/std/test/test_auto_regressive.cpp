@@ -2,7 +2,7 @@
 
 #include <catch2/catch.hpp>
 
-#include "rtbot/std/Autoregressive.h"
+#include "rtbot/std/AutoRegressive.h"
 
 using namespace rtbot;
 using namespace std;
