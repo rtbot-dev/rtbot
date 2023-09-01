@@ -14,22 +14,6 @@ namespace rtbot {
 
 using namespace std;
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   `Output` operators are used to pull data out of the program.
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   numPorts:
- *     type: integer
- *     description: The number of ports.
- *     default: 1
- *     minimum: 1
- * required: ["id"]
- */
 template <class T, class V>
 ostream& operator<<(ostream& out, Message<T, V> const& msg) {
   out << msg.time << " " << msg.value;

@@ -11,16 +11,21 @@ def _rtbot_jsonschema_impl(ctx):
     target = ctx.attr.target
 
     if target == "jsonschema":
-        genfile = ctx.actions.declare_file("%s/jsonschema.json" % ctx.label.name)
+        genfiles = [ctx.actions.declare_file("%s/jsonschema.json" % ctx.label.name)]
 
     if target == "cpp":
-        genfile = ctx.actions.declare_file("%s/jsonschema.hpp" % ctx.label.name)
+        genfiles = [ctx.actions.declare_file("%s/jsonschema.hpp" % ctx.label.name)]
 
     if target == "python":
-        genfile = ctx.actions.declare_file("%s/jsonschema.py" % ctx.label.name)
+        genfiles = [ctx.actions.declare_file("%s/jsonschema.py" % ctx.label.name)]
 
     if target == "typescript":
-        genfile = ctx.actions.declare_file("%s/index.ts" % ctx.label.name)
+        genfiles = [ctx.actions.declare_file("%s/index.ts" % ctx.label.name)]
+
+    if target == "markdown":
+        genfiles = []
+        for f in ctx.files.srcs:
+            genfiles.append(ctx.actions.declare_file("%s/%sx" % (ctx.label.name, f.basename)))
 
     output_dir = ctx.actions.declare_directory(ctx.label.name)
 
@@ -32,7 +37,7 @@ def _rtbot_jsonschema_impl(ctx):
     ctx.actions.run(
         arguments = [args],
         inputs = ctx.files.srcs,
-        outputs = [output_dir] + [genfile],
+        outputs = [output_dir] + genfiles,
         env = {
             # We are not using ctx.bin_dir.path, which may be recommended for other cases
             "BAZEL_BINDIR": ".",
@@ -41,18 +46,16 @@ def _rtbot_jsonschema_impl(ctx):
         progress_message = "[rtbot-generate] generating %s, target %s" % (ctx.label.name, ctx.attr.target),
     )
 
-    return DefaultInfo(files = depset([genfile]))
+    return DefaultInfo(files = depset(genfiles))
 
 _rtbot_generate = rule(
     implementation = _rtbot_jsonschema_impl,
     attrs = {
         "srcs": attr.label_list(
-            allow_files = [".cpp", ".h"],
-            default = ["//libs/core/std:srcs"] + [
-              "//libs/core/lib:include/rtbot/Input.h",
-              "//libs/core/lib:include/rtbot/Demultiplexer.h",
-              "//libs/core/lib:include/rtbot/Join.h",
-              "//libs/core/lib:include/rtbot/Output.h",
+            allow_files = [".md"],
+            default = [
+              "//libs/core/std:md",
+              "//libs/core/lib:md"
             ],
         ),
         "generate": attr.label(

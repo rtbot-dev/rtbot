@@ -5,22 +5,6 @@
 
 namespace rtbot {
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   A `Demultiplexer` is an operator that routes its incoming data through its
- *   possible output ports. The choice of the output port is controlled by the
- *   messages received through its control ports.
- * properties:
- *   id:
- *     type: string
- *   numOutputPorts:
- *     type: integer
- *     default: 1
- *     minimum: 1
- * required: ["id"]
- */
 template <class T, class V>
 class Demultiplexer : public Operator<T, V> {
  public:

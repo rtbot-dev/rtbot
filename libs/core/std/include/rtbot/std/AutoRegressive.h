@@ -7,24 +7,6 @@ namespace rtbot {
 
 using namespace std;
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   Implements classical auto-regressive output.
- *   $$y(t_n)=c_{1} y(t_{n-1}) + ... + c_N y(t_{t-N})$$
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   coeff:
- *     type: array
- *     description: The list of auto-regression coefficients.
- *     minItems: 1
- *     items:
- *       type: number
- * required: ["id", "coeff"]
- */
 template <class T, class V>
 struct AutoRegressive : public Operator<T, V> {
   vector<V> coeff;

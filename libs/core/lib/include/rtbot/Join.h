@@ -7,24 +7,6 @@ namespace rtbot {
 
 using namespace std;
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   `Join` operator is used to synchronize two or more incoming message streams into
- *   a single, consistent output.
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   numPorts:
- *     type: integer
- *     description: The number of input ports.
- *     default: 2
- *     minimum: 2
- *
- * required: ["id"]
- */
 template <class T, class V>
 class Join : public Operator<T, V> {
  public:

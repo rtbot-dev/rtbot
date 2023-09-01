@@ -1,3 +1,7 @@
+load("@aspect_rules_js//js:defs.bzl", "js_library")
+
+exports_files(["package.json"])
+
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@aspect_rules_js//npm:defs.bzl", "npm_link_package")
@@ -21,3 +25,7 @@ npm_link_package(
     src = "//libs/core/wrappers/javascript:js",
 )
 
+js_library(
+    name = "package_json",
+    srcs = ["package.json"],
+)

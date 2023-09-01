@@ -2,6 +2,15 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(glob(["include/**/*.md"]))
+
+filegroup(
+    name = "md",
+    srcs = glob([
+        "include/**/*.md",
+    ]),
+)
+
 filegroup(
     name = "srcs",
     srcs = glob([

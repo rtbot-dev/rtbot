@@ -7,21 +7,6 @@ namespace rtbot {
 
 using namespace std;
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   Adds a constant specified value to each input message.
- *   $$y(t_n)= x(t_n) + C$$
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   value:
- *     type: number
- *     description: The constant to add to the incoming messages.
- * required: ["id", "value"]
- */
 template <class T, class V>
 struct Add : public Operator<T, V> {
   Add() = default;

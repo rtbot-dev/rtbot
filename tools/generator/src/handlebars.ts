@@ -15,3 +15,7 @@ export const registerPartial = (template: string) =>
     template,
     fs.readFileSync(runfiles.resolveWorkspaceRelative(`tools/generator/templates/${template}.hbs`)).toString()
   );
+
+Handlebars.registerHelper("defined", function (s) {
+  return !!s;
+});
