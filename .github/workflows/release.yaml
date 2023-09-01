@@ -53,7 +53,6 @@ jobs:
           bazelisk test //libs/core/wrappers/javascript:test
 
   build_npm:
-    if: false
     name: Build npm package
     runs-on: ubuntu-latest
     steps:
