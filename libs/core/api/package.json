@@ -1,3 +1,4 @@
 {
-  "name": "@rtbot-dev/wasm"
+  "name": "@rtbot-dev/wasm",
+  "main": "./bindings-cpp-wasm.js"
 }
