@@ -11,7 +11,7 @@
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Add.h"
-#include "rtbot/std/Autoregressive.h"
+#include "rtbot/std/AutoRegressive.h"
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/CosineResampler.h"
 #include "rtbot/std/Count.h"
