@@ -11,6 +11,7 @@
     "bot"
   ],
   "dependencies": {
+    "@apidevtools/json-schema-ref-parser": "^10.1.0",
     "@bazel/ibazel": "^0.16.2",
     "@docusaurus/core": "2.4.1",
     "@docusaurus/preset-classic": "2.4.1",
@@ -30,6 +31,7 @@
     "hast-util-is-element": "1.1.0",
     "immer": "^10.0.2",
     "json-schema-to-zod": "^0.6.3",
+    "lodash": "^4.17.21",
     "nanoid": "3.3.5",
     "papaparse": "^5.4.1",
     "prettier": "^2.8.8",
@@ -49,6 +51,7 @@
     "@types/jest": "^29.5.2",
     "@types/mocha": "^10.0.1",
     "@types/node": "18.11.9",
+    "ansi-styles": "^4.1.0",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "eslint-import-resolver-typescript": "^3.5.5",
@@ -58,6 +61,7 @@
     "jest-junit": "^16.0.0",
     "jsdoc-to-json-schema": "^0.1.9",
     "json-schema-to-typescript": "^11.0.0",
+    "supports-color": "^7.1.0",
     "typescript": "4.9.3"
   }
 }
