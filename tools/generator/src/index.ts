@@ -123,9 +123,9 @@ program
 
         using nlohmann::json;
 
-        static json rtbot_schema = R"(
-          ${jsonschemaContent}
-        )"_json;`
+        static json rtbot_schema = ""
+          ${jsonschemaContent.split("\n").map(l => '"' + l.replaceAll('"', '\\"')  + '"').join('\n')}
+        ""_json;`
       );
     }
 
