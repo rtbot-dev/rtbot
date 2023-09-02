@@ -32,7 +32,7 @@ cc_library(
         "-Iexternal/rtbot/libs/core/lib/include/rtbot",
         # this is only needed for wasm compilation, we may want to create
         # a different rule later
-        "-fexceptions",
+        #"-fexceptions",
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
@@ -96,7 +96,4 @@ npm_package(
         ":rtbot-wasm",
     ],
     package = "@rtbot-dev/wasm",
-    replace_prefixes = {
-      "rtbot-wasm": ""
-    }
 )

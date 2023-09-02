@@ -4,8 +4,10 @@ build --symlink_prefix=dist/
 
 build --workspace_status_command=tools/bazel_workspace_status.sh
 
-build --action_env=BAZEL_CXXOPTS="-std=c++17" --cxxopt='-std=c++17'
+build --action_env=BAZEL_CXXOPTS="-std=c++17"
 
+# MSVC (windows)
+build --cxxopt='/std:c++17'
 # see https://bazel.build/configure/windows
 startup --windows_enable_symlinks
 build --enable_runfiles
@@ -18,4 +20,4 @@ build --enable_runfiles
 # for the stmp format validation, which we don't use
 build --action_env=EMCC_CFLAGS="-fexceptions  -Wno-c++11-narrowing -Wno-unused-const-variable"
 
-build:wasm --incompatible_enable_cc_toolchain_resolution
+build --incompatible_enable_cc_toolchain_resolution
