@@ -23,7 +23,7 @@ jobs:
           cache: pnpm
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: "3.11"
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
@@ -87,7 +87,8 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-2019]
-        #os: [windows-2019]
+        # TODO: add more python versions later, when we can afford the cost
+        #python: [3.11]
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2.2.4
@@ -97,7 +98,7 @@ jobs:
             - args: [--frozen-lockfile]
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.8"
+          python-version: 3.11 #${{ matrix.python }}
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
