@@ -6,20 +6,10 @@ import %workspace%/.aspect/bazelrc/correctness.bazelrc
 import %workspace%/.aspect/bazelrc/debug.bazelrc
 import %workspace%/.aspect/bazelrc/javascript.bazelrc
 import %workspace%/.aspect/bazelrc/performance.bazelrc
+
 test --test_output=all
 
 build --symlink_prefix=dist/
-
-build --workspace_status_command=tools/bazel_workspace_status.sh
-
-build --action_env=BAZEL_CXXOPTS="-std=c++17"
-
-# MSVC (windows)
-build --cxxopt='/std:c++17'
-# see https://bazel.build/configure/windows
-startup --windows_enable_symlinks
-build --enable_runfiles
-
 
 # in general we don't want to pass  -Wno-c++11-narrowing argument
 # but currently it's required in order to make the cpp 
@@ -27,5 +17,22 @@ build --enable_runfiles
 # the issue appears while including the formatter and specifically
 # for the stmp format validation, which we don't use
 build --action_env=EMCC_CFLAGS="-fexceptions  -Wno-c++11-narrowing -Wno-unused-const-variable"
-
 build --incompatible_enable_cc_toolchain_resolution
+
+
+# -- platform specific --
+# linux
+build:linux --workspace_status_command=tools/bazel_workspace_status.sh
+build:linux --action_env=BAZEL_CXXOPTS="-std=c++17"
+
+# macos
+build:macos --workspace_status_command=tools/bazel_workspace_status.sh
+build:macos --action_env=BAZEL_CXXOPTS="-std=c++17"
+
+# windows
+# MSVC
+build:windows --cxxopt='/std:c++17'
+# see https://bazel.build/configure/windows
+startup --windows_enable_symlinks
+
+
