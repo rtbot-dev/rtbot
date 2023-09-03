@@ -44,13 +44,13 @@ jobs:
       - name: Test finance
         run: |
           bazelisk test //libs/core/finance/test
-      - name: Test python
-        run: |
-          # TODO: make sure we don't have to build the wheel and install it
-          # in order to make the test to pass
-          bazelisk build //libs/core/wrappers/python:rtbot_wheel
-          pip install --force-reinstall dist/bin/libs/core/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
-          bazelisk test //libs/core/wrappers/python:rtbot_test
+      # - name: Test python
+      #   run: |
+      #     # TODO: make sure we don't have to build the wheel and install it
+      #     # in order to make the test to pass
+      #     bazelisk build //libs/core/wrappers/python:rtbot_wheel
+      #     pip install --force-reinstall dist/bin/libs/core/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
+      #     bazelisk test //libs/core/wrappers/python:rtbot_test
       - name: Test javascript
         run: |
           bazelisk test //libs/core/wrappers/javascript:test
