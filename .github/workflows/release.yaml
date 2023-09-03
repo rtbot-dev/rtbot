@@ -158,7 +158,6 @@ jobs:
           ls -l
           mv rtbot-_VERSION_-py3-none-win_amd64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-win_amd64.whl
           cd ..
-          zip npm package
           tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm
 
       - name: Release
