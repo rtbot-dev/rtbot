@@ -103,7 +103,7 @@ jobs:
         with:
           path: |
             "~/.cache/bazel"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          key: bazel-cache-${{ matrix.os }}
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Build wheel
         run: |
