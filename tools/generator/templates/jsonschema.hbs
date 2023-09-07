@@ -27,6 +27,23 @@
       "type": "string",
       "examples": ["MIT", "private"]
     },
+    "entryOperator": {
+      "type": "string",
+      "examples": ["in1", "join1"]
+    },
+    "output": {
+      "type": "object",
+      "patternProperties": {
+        "^[A-Z0-9a-t_-]+$": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "examples": ["o1","o2"]
+          }
+        }
+      },
+      "examples": ["join1","join2"]
+    },
     "operators": {
       "type": "array",
       "items": {
@@ -64,5 +81,6 @@
       }
     }
   },
-  "required": ["operators", "connections"]
+  "required": ["operators", "connections","entryOperator"],
+  "additionalProperties": false
 }

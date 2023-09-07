@@ -2,13 +2,10 @@
     "title": "Join eager Input test",
     "description": "This program is for testing the demultiplexer opperator",
     "date": "now",
-    "version": "v1",
+    "apiVersion": "v1",
     "author": "Eduardo",
     "license": "MIT",
-    "entryNode": "in",
-    "optim": {
-        "algorithm": "Nelder-Mead"
-    },
+    "entryOperator": "in",
     "operators": [
         {
             "id": "in",
@@ -67,6 +64,11 @@
             "id": "cgt20o",
             "type": "Constant",
             "value": 1
+        },
+        {
+            "id": "out",
+            "type": "Output",
+            "numPorts": 2
         }
     ],
     "connections": [

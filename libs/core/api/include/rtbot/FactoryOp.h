@@ -16,6 +16,7 @@ using namespace std;
 
 class FactoryOp {
   map<string, Program> programs;
+  map<string, map<string, vector<Message<uint64_t, double>>>> messageBuffer;
 
  public:
   FactoryOp();
@@ -33,7 +34,7 @@ class FactoryOp {
 
   template <class Op, class Format>
   static void op_registry_add() {
-    auto from_string = [](string const& prog) { return std::make_unique<Op>(Format::parse(prog)); };
+    auto from_string = [](string const& prog) { return make_unique<Op>(Format::parse(prog)); };
     auto to_string = [](Op_ptr<uint64_t, double> const& op) {
       string type = op->typeName();
       auto obj = Format(*dynamic_cast<Op*>(op.get()));
@@ -57,22 +58,67 @@ class FactoryOp {
 
   string createProgram(string const& id, string const& json_program);
 
-  string deleteProgram(string const& id) {
-    programs.erase(id);
-    return "";
+  bool deleteProgram(string const& id) { return (programs.erase(id) == 1) ? true : false; }
+
+  bool addToMessageBuffer(const string& apId, const string& portId, Message<uint64_t, double> msg) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    this->messageBuffer[apId][portId].push_back(msg);
+    return true;
   }
 
-  vector<optional<Message<uint64_t, double>>> processMessage(string const& id, Message<uint64_t, double> const& msg) {
-    auto it = programs.find(id);
-    if (it == programs.end()) return {};
-    return it->second.receive(msg);
+  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageBuffer(const string& apId) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    if (this->messageBuffer.count(apId) > 0) {
+      if (!this->messageBuffer.at(apId).empty()) {
+        auto result = processMessageMap(apId, this->messageBuffer.at(apId));
+        this->messageBuffer.at(apId).clear();
+        this->messageBuffer.erase(apId);
+        if (!result.empty()) return result;
+      }
+    }
+    return {};
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageDebug(
-      string const& id, Message<uint64_t, double> const& msg) {
-    auto it = programs.find(id);
+  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageBufferDebug(const string& apId) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    if (this->messageBuffer.count(apId) > 0) {
+      if (!this->messageBuffer.at(apId).empty()) {
+        auto result = processMessageMapDebug(apId, this->messageBuffer.at(apId));
+        this->messageBuffer.at(apId).clear();
+        this->messageBuffer.erase(apId);
+        if (!result.empty()) return result;
+      }
+    }
+    return {};
+  }
+
+  string getProgramEntryOperatorId(const string& apId) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    return this->programs.at(apId).getProgramEntryOperatorId();
+  }
+
+  vector<string> getProgramEntryPorts(const string& apId) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    return this->programs.at(apId).getProgramEntryPorts();
+  }
+
+  map<string, vector<string>> getProgramOutputFilter(const string& apId) {
+    if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
+    return this->programs.at(apId).getProgramOutputFilter();
+  }
+
+  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageMap(
+      string const& apId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+    auto it = programs.find(apId);
     if (it == programs.end()) return {};
-    return it->second.receiveDebug(msg);
+    return it->second.receive(messagesMap);
+  }
+
+  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageMapDebug(
+      string const& apId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+    auto it = programs.find(apId);
+    if (it == programs.end()) return {};
+    return it->second.receiveDebug(messagesMap);
   }
 };
 

@@ -2,20 +2,31 @@
 #define BINDINGS_H
 
 #include <cstdint>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "rtbot/Message.h"
 
-std::string validate(std::string const& json_program);
-std::string validateOperator(std::string const& type, std::string const& json_op);
+using namespace std;
+using namespace rtbot;
 
-std::string createProgram(std::string const& id, std::string const& json_program);
-std::string deleteProgram(std::string const& id);
-std::vector<std::optional<rtbot::Message<std::uint64_t, double>>> processMessage(
-    std::string const& id, rtbot::Message<std::uint64_t, double> const& msg);
+string validate(string const& json_program);
+string validateOperator(string const& type, string const& json_op);
 
-std::string processMessageDebug(std::string const& id, unsigned long time, double value);
+string createProgram(string const& id, string const& json_program);
+string deleteProgram(string const& id);
+
+string addToMessageBuffer(const string& apId, const string& portId, Message<uint64_t, double> msg);
+string processMessageBuffer(const string& apId);
+string processMessageBufferDebug(const string& apId);
+
+string getProgramEntryOperatorId(const string& apId);
+string getProgramEntryPorts(const string& apId);
+string getProgramOutputFilter(const string& apId);
+
+string processMessageMap(string const& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap);
+string processMessageMapDebug(string const& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap);
 
 #endif  // BINDINGS_H

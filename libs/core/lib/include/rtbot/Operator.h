@@ -33,91 +33,6 @@ template <class T, class V>
 using Op_ptr = unique_ptr<Operator<T, V>>;
 
 template <class T, class V>
-struct ExecutionTask {
- protected:
-  Operator<T, V>* toOp;
-  string toPort;
-
- public:
-  ExecutionTask(Operator<T, V>* toOp, string toPort) {
-    this->toOp = toOp;
-    this->toPort = toPort;
-  }
-  bool isControlInputTask() { return this->toOp->isControlInput(this->toPort); }
-  map<string, map<string, vector<Message<T, V>>>> Execute() {
-    if (this->toOp->isDataInput(this->toPort)) {
-      return this->toOp->executeData();
-    } else if (this->toOp->isControlInput(this->toPort)) {
-      return this->toOp->executeControl();
-    }
-  }
-};
-
-template <class T, class V>
-class ExecutionManager {
- public:
-  static ExecutionManager<T, V>& getInstance() {
-    static ExecutionManager<T, V> instance;
-    return instance;
-  }
-
-  void addExecutionTask(Operator<T, V>* toOp, string toPort) {
-    this->id++;
-    this->tasks.emplace(id, ExecutionTask<T, V>(toOp, toPort));
-  }
-
-  map<string, map<string, vector<Message<T, V>>>> Run() {
-    map<string, map<string, vector<Message<T, V>>>> out;
-    vector<size_t> rIds;
-
-    for (auto it = this->tasks.begin(); it != this->tasks.end(); ++it) {
-      rIds.push_back(it->first);
-    }
-
-    for (int i = 0; i < rIds.size(); i++) {
-      if (this->tasks.count(rIds.at(i)) > 0) {
-        ExecutionTask<T, V>& t = this->tasks.at(rIds.at(i));
-        if (!t.isControlInputTask()) {
-          this->tasks.erase(rIds.at(i));
-          Operator<T, V>::mergeOutput(out, t.Execute());
-        }
-      }
-    }
-
-    rIds.clear();
-
-    bool allControls = true;
-    for (auto it = this->tasks.begin(); it != this->tasks.end(); ++it) {
-      if (it->second.isControlInputTask()) {
-        rIds.push_back(it->first);
-      } else {
-        allControls = false;
-      }
-    }
-
-    if (allControls) {
-      for (int i = 0; i < rIds.size(); i++) {
-        if (this->tasks.count(rIds.at(i)) > 0) {
-          ExecutionTask<T, V>& t = this->tasks.at(rIds.at(i));
-          this->tasks.erase(rIds.at(i));
-          Operator<T, V>::mergeOutput(out, t.Execute());
-        }
-      }
-    }
-
-    return out;
-  }
-
-  ExecutionManager(ExecutionManager const&) = delete;
-  void operator=(ExecutionManager const&) = delete;
-
- private:
-  size_t id = 0;
-  map<size_t, ExecutionTask<T, V>> tasks;
-  ExecutionManager() {}
-};
-
-template <class T, class V>
 class Operator {
   /********************************/
   struct Connection {
@@ -157,6 +72,7 @@ class Operator {
   map<string, Input> controlInputs;
   set<string> outputIds;
   map<string, vector<Connection>> outputs;
+  set<string> toProcess;
 
   Operator() = default;
   explicit Operator(string const& id) { this->id = id; }
@@ -197,8 +113,8 @@ class Operator {
       if (in.size() == 1) inputPort = in.at(0);
     }
 
-    if (dataInputs.count(inputPort) > 0)
-      return dataInputs.find(inputPort)->second.size();
+    if (this->dataInputs.count(inputPort) > 0)
+      return this->dataInputs.find(inputPort)->second.size();
     else
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
@@ -259,20 +175,6 @@ class Operator {
     return {};
   }
 
-  bool allDataInputPortsFull() const {
-    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-      if (it->second.getMaxSize() > it->second.size()) return false;
-    }
-    return true;
-  }
-
-  bool allControlInputPortsFull() const {
-    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
-      if (it->second.getMaxSize() > it->second.size()) return false;
-    }
-    return true;
-  }
-
   virtual void receiveData(Message<T, V> msg, string inputPort = "") {
     if (inputPort.empty()) {
       auto in = this->getDataInputs();
@@ -291,13 +193,21 @@ class Operator {
       this->dataInputs.find(inputPort)->second.push_back(msg);
       this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
                                                       this->dataInputs.find(inputPort)->second.back().value);
+      if (this->toProcess.count(inputPort) == 0) this->toProcess.insert(inputPort);
     } else
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
   virtual map<string, map<string, vector<Message<T, V>>>> executeData() {
-    if (allDataInputPortsFull()) {
-      auto toEmit = this->processData();
+    vector<string> toRemove;
+    for (auto it = this->toProcess.begin(); it != this->toProcess.end(); ++it) {
+      if (this->getDataInputMaxSize(*it) > this->getDataInputSize(*it)) toRemove.push_back(*it);
+    }
+    for (int i = 0; i < toRemove.size(); i++) this->toProcess.erase(toRemove.at(i));
+
+    if (!this->toProcess.empty()) {
+      auto toEmit = processData();
+      this->toProcess.clear();
       if (!toEmit.empty()) return this->emit(toEmit);
     }
     return {};
@@ -334,6 +244,8 @@ class Operator {
     else
       return {};
   }
+
+  bool hasControlInputs() { return !this->getControlInputs().empty(); }
 
   map<string, map<string, vector<Message<T, V>>>> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
     map<string, map<string, vector<Message<T, V>>>> out;

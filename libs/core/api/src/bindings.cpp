@@ -1,7 +1,5 @@
 #include "rtbot/bindings.h"
 
-#include <stdio.h>
-
 #include <algorithm>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
@@ -35,12 +33,14 @@ void from_json(const json& j, Message<T, V>& p) {
 
 }  // namespace rtbot
 
-std::string validateOperator(std::string const& type, std::string const& json_op) {
+using namespace rtbot;
+
+string validateOperator(string const& type, string const& json_op) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
 
   try {
     // look for the schema for the give operator type
-    std::optional<nlohmann::json> schema = std::nullopt;
+    optional<nlohmann::json> schema = std::nullopt;
     for (auto it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
       if (type.compare(it["properties"]["type"]["enum"][0]) == 0) {
         schema = std::optional{it};
@@ -52,44 +52,44 @@ std::string validateOperator(std::string const& type, std::string const& json_op
     else
       return nlohmann::json({{"valid", false}, {"error", "Unknown operator type: " + type}}).dump();
 
-  } catch (const std::exception& e) {
-    std::cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
+  } catch (const exception& e) {
+    cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
     return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
   }
 
   try {
     validator.validate(
         nlohmann::json::parse(json_op));  // validate the document - uses the default throwing error-handler
-  } catch (const std::exception& e) {
+  } catch (const exception& e) {
     return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
   }
 
   return nlohmann::json({{"valid", true}}).dump();
 }
 
-std::string validate(std::string const& json_program) {
+string validate(string const& json_program) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
 
   try {
     validator.set_root_schema(rtbot_schema);  // insert root-schema
   } catch (const std::exception& e) {
-    std::cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
+    cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
     return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
   }
 
   try {
     validator.validate(
         nlohmann::json::parse(json_program));  // validate the document - uses the default throwing error-handler
-  } catch (const std::exception& e) {
+  } catch (const exception& e) {
     return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
   }
 
   return nlohmann::json({{"valid", true}}).dump();
 }
 
-std::string createProgram(std::string const& id, std::string const& json_program) {
+string createProgram(string const& id, string const& json_program) {
   // first validate it
-  std::string validation = validate(json_program);
+  string validation = validate(json_program);
 
   if (nlohmann::json::parse(validation)["valid"])
     return factory.createProgram(id, json_program);
@@ -97,16 +97,43 @@ std::string createProgram(std::string const& id, std::string const& json_program
     return validation;
 }
 
-std::string deleteProgram(std::string const& id) { return factory.deleteProgram(id); }
+string deleteProgram(string const& id) { return to_string(factory.deleteProgram(id)); }
 
-std::vector<std::optional<rtbot::Message<std::uint64_t, double>>> processMessage(
-    const std::string& id, rtbot::Message<std::uint64_t, double> const& msg) {
-  return factory.processMessage(id, msg);
+string addToMessageBuffer(const string& apId, const string& portId, Message<uint64_t, double> msg) {
+  return to_string(factory.addToMessageBuffer(apId, portId, msg));
 }
 
-std::string processMessageDebug(std::string const& id, unsigned long time, double value) {
-  rtbot::Message msg = rtbot::Message<std::uint64_t, double>(time, value);
+string processMessageBuffer(const string& apId) {
+  auto result = factory.processMessageBuffer(apId);
+  return nlohmann::json(result).dump();
+}
 
-  auto result = factory.processMessageDebug(id, msg);
+string processMessageBufferDebug(const string& apId) {
+  auto result = factory.processMessageBufferDebug(apId);
+  return nlohmann::json(result).dump();
+}
+
+string getProgramEntryOperatorId(const string& apId) {
+  auto result = factory.getProgramEntryOperatorId(apId);
+  return result;
+}
+
+string getProgramEntryPorts(const string& apId, const string& entryOperatorId) {
+  auto result = factory.getProgramEntryPorts(apId);
+  return nlohmann::json(result).dump();
+}
+
+string getProgramOutputFilter(const string& apId) {
+  auto result = factory.getProgramOutputFilter(apId);
+  return nlohmann::json(result).dump();
+}
+
+string processMessageMap(const string& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  auto result = factory.processMessageMap(id, messagesMap);
+  return nlohmann::json(result).dump();
+}
+
+string processMessageMapDebug(string const& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  auto result = factory.processMessageMapDebug(id, messagesMap);
   return nlohmann::json(result).dump();
 }

@@ -2,13 +2,10 @@
     "title": "Peak detector",
     "description": "This is a program to detect peaks",
     "date": "now",
-    "version": "v1",
+    "apiVersion": "v1",
     "author": "Eduardo",
     "license": "MIT",
-    "entryNode": "ma1",
-    "optim": {
-        "algorithm": "Nelder-Mead"
-    },
+    "entryOperator": "in1",
     "operators": [
         {
             "id": "in1",

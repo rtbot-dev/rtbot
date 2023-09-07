@@ -76,8 +76,7 @@ TEST_CASE("ppg peak detector") {
   auto diff = Minus<uint64_t, double>("diff");
   auto peak = PeakDetector<uint64_t, double>("b1", 2 * ma1.getDataInputMaxSize() + 1);
   auto join = Join<uint64_t, double>("j1", 2);
-  ofstream out("peak.txt");
-  auto o1 = Output_os<uint64_t, double>("o1", out);
+  auto o1 = Output<uint64_t, double>("o1");
 
   // draw the pipeline
 
