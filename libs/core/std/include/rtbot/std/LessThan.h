@@ -5,21 +5,6 @@
 
 namespace rtbot {
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   Emits only the messages received with value less than the number set. Messages that do not
- *   comply with the condition are ignored.
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   x:
- *     type: number
- *     description: The reference value
- * required: ["id", "x"]
- */
 template <class T, class V>
 struct LessThan : public FilterByValue<T, V> {
   LessThan() = default;

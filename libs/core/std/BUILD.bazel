@@ -3,6 +3,13 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
+    name = "md",
+    srcs = glob([
+        "include/**/*.md",
+    ]),
+)
+
+filegroup(
     name = "srcs",
     srcs = glob([
         "include/**/*.h",

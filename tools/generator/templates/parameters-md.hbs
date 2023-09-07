@@ -1,0 +1,12 @@
+## Parameters
+
+{{#each parameters}}
+_{{ name }}_: {{ description }}
+{{#if (defined default)}}
+Default value: {{ default }}.
+{{/if}}
+{{#if (defined minimum)}}
+Minimum value: {{ minimum }}.
+{{/if}}
+
+{{/each}}

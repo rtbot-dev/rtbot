@@ -7,20 +7,31 @@ import { parse } from "yaml";
 
 const fs = require("fs");
 const prettier = require("prettier");
+const path = require("path");
 
 const program = new Command();
 
 const jsonschemaTemplate = compileTemplate("jsonschema");
 const typescriptTemplate = compileTemplate("typescript");
 const pythonTemplate = compileTemplate("python");
-const JSONSCHEMA_TAG = "@jsonschema";
+const usageMdTemplate = compileTemplate("usage-md");
+const parametersMdTemplate = compileTemplate("parameters-md");
 
 program
   .description("RtBot code generator")
-  .option("-s, --sources [sources...]", "A list of files of RtBot core c++")
+  .option(
+    "-s, --sources [sources...]",
+    "A list of markdown files where the documentation and schema of the operators are stored"
+  )
   .option("-o, --output <string>", "Output directory")
   .addOption(
-    new Option("-t, --target <target>", "Target output format").choices(["jsonschema", "typescript", "cpp", "python"])
+    new Option("-t, --target <target>", "Target output format").choices([
+      "jsonschema",
+      "typescript",
+      "cpp",
+      "python",
+      "markdown",
+    ])
   )
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
@@ -31,14 +42,10 @@ program
       sources.map(async (f: string) => {
         try {
           const fileContent = await fs.readFileSync(f).toString();
-          if (fileContent.indexOf(JSONSCHEMA_TAG) > -1) {
-            const schemaStr = fileContent
-              .split(JSONSCHEMA_TAG)[1]
-              .split("*/")[0]
-              .replaceAll(" * ", "")
-              .replaceAll(" *\n", "\n");
-            const schema = parse(schemaStr);
-            const type = fileContent.split("string typeName()")[1].split('return "')[1].split('"')[0];
+          if (fileContent.indexOf("---") > -1) {
+            const schemaStr = fileContent.split("---")[1];
+            const schema = parse(schemaStr).jsonschema;
+            const type = path.basename(f).replace(".md", "");
             schema.properties.type = { enum: [type] };
             schema.required = ["type", ...schema.required];
             return schema;
@@ -54,6 +61,60 @@ program
     const jsonschemaContent = JSON.stringify(programJsonschema, null, 2);
 
     fs.writeFileSync(`${output}/jsonschema.json`, jsonschemaContent);
+
+    if (target === "markdown") {
+      sources.map(async (f: string) => {
+        try {
+          let fileContent = await fs.readFileSync(f).toString();
+          if (fileContent.indexOf("---") > -1) {
+            const frontMatterStr = fileContent.split("---")[1];
+            const frontMatter = parse(frontMatterStr);
+            const schema = frontMatter.jsonschema;
+            // cook up an example parameter object
+            const getExampleParameter = (k: string) => {
+              if (k === "id") return '"id"';
+              if (schema.properties[k].examples) {
+                if(schema.properties[k].type === "array")
+                  return `[${schema.properties[k].examples[0]}]`;
+                return schema.properties[k].examples[0];
+              }
+              if (schema.properties[k].type === "integer") return 2;
+              if (schema.properties[k].type === "numeric") return 2.0;
+              if (schema.properties[k].type === "string") return "some";
+            };
+            const exampleParameters = Object.keys(schema.properties).reduce(
+              (acc, k) => ({ ...acc, [`${k}`]: getExampleParameter(k) }),
+              {}
+            );
+            const opParams = Object.keys(exampleParameters).join(", ");
+            const opParamsDef = Object.keys(exampleParameters).reduce(
+              (acc, k) => `${acc}const ${k} = ${exampleParameters[k]};\n`,
+              ""
+            );
+            const opParamsYaml = Object.keys(exampleParameters).reduce(
+              (acc, k) => `${acc}    ${k}: ${exampleParameters[k]}\n`,
+              ""
+            );
+            const opParamsJson = Object.keys(exampleParameters)
+              .reduce((acc, k) => [...acc, `"${k}": ${exampleParameters[k]}`], [])
+              .join(", ");
+
+            const op = path.basename(f).replace(".md", "");
+            const usageSection = usageMdTemplate({ op, opParams, opParamsDef, opParamsYaml, opParamsJson });
+            const parameters = {
+              parameters: Object.entries(schema.properties).map(([k, v]: [string, any]) => ({ name: k, ...v })),
+            };
+            const parametersSection = parametersMdTemplate(parameters);
+            fileContent += "\n\n" + parametersSection;
+            fileContent += "\n\n" + usageSection;
+
+            fs.writeFileSync(`${output}/${path.basename(f)}x`, fileContent);
+          }
+        } catch (e) {
+          console.log(chalk.red(`Error: ${e.message}, file ${f}`), e.stack);
+        }
+      });
+    }
 
     if (target === "cpp") {
       fs.writeFileSync(

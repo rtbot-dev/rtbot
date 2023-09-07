@@ -1,0 +1,50 @@
+## Usage
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs groupId="language">
+  <TabItem value="ts" label="TypeScript">
+
+```js
+import { Program, {{op}} } from "@rtbot/api";
+
+{{{opParamsDef}}}
+const program = new Program();
+program.addOperator(new {{op}}({{opParams}}));
+```
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+
+```python
+import rtbot as rb
+
+program = rb.Program()
+program.addOperator(rb.{{op}}({{opParams}}))
+```
+
+  </TabItem>
+  <TabItem value="yaml" label="YAML">
+
+```yaml
+# minimal RtBot program
+operators:
+  - type: {{op}}
+{{{ opParamsYaml }}}
+
+```
+
+  </TabItem>
+  <TabItem value="json" label="Json">
+
+```json
+{
+  "operators": [
+    { "type": "{{op}}", {{{ opParamsJson }}} }
+  ] 
+}
+```
+
+  </TabItem>
+</Tabs>

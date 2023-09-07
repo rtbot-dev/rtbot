@@ -9,27 +9,6 @@ namespace rtbot {
 
 using namespace std;
 
-/**
- * @jsonschema
- * type: object
- * description: |
- *   Adds a constant (dt * times) to each input message time.
- *   $$y(t_n)= x(t_n) + (dt * times)$$
- * properties:
- *   id:
- *     type: string
- *     description: The id of the operator
- *   dt:
- *     type: integer
- *     default: 1
- *     minimum: 1
- *     description: The constant that defines the time grid.
- *   times:
- *     type: integer
- *     default: 1
- *     description: The multiplier to apppy.
- * required: ["id"]
- */
 template <class T, class V>
 struct TimeShift : public Operator<T, V> {
   TimeShift() = default;
