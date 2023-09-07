@@ -91,7 +91,7 @@ class Operator {
     if (dataInputs.count(inputPort) > 0)
       return dataInputs.find(inputPort)->second.getSum();
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
@@ -104,7 +104,7 @@ class Operator {
     if (dataInputs.count(inputPort) > 0)
       return dataInputs.find(inputPort)->second.getMaxSize();
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
   size_t getDataInputSize(string inputPort = "") {
@@ -116,7 +116,7 @@ class Operator {
     if (this->dataInputs.count(inputPort) > 0)
       return this->dataInputs.find(inputPort)->second.size();
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return 0;
   }
 
@@ -127,7 +127,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
@@ -138,7 +138,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
@@ -149,7 +149,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
+      throw runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
     return {};
   }
 
@@ -160,7 +160,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
+      throw runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
     return {};
   }
 
@@ -171,7 +171,7 @@ class Operator {
       else
         return {};
     else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
@@ -188,14 +188,14 @@ class Operator {
         this->dataInputs.find(inputPort)->second.pop_front();
       } else if (this->dataInputs.find(inputPort)->second.getMaxSize() <
                  this->dataInputs.find(inputPort)->second.size())
-        throw std::runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
+        throw runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
 
       this->dataInputs.find(inputPort)->second.push_back(msg);
       this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
                                                       this->dataInputs.find(inputPort)->second.back().value);
       if (this->toProcess.count(inputPort) == 0) this->toProcess.insert(inputPort);
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
   virtual map<string, map<string, vector<Message<T, V>>>> executeData() {
@@ -227,14 +227,14 @@ class Operator {
         this->controlInputs.find(inputPort)->second.pop_front();
       } else if (this->controlInputs.find(inputPort)->second.getMaxSize() <
                  this->controlInputs.find(inputPort)->second.size())
-        throw std::runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
+        throw runtime_error(typeName() + ": " + inputPort + " : went above maximum size");
 
       this->controlInputs.find(inputPort)->second.push_back(msg);
       this->controlInputs.find(inputPort)->second.setSum(this->controlInputs.find(inputPort)->second.getSum() +
                                                          this->controlInputs.find(inputPort)->second.back().value);
 
     } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
+      throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
   virtual map<string, map<string, vector<Message<T, V>>>> executeControl() {
@@ -295,31 +295,31 @@ class Operator {
       if (this->outputIds.count(it->first) > 0) {
         mergeOutput(out, emit(it->second, {it->first}));
       } else
-        throw std::runtime_error(typeName() + ": " + it->first + " refers to a non existing output port");
+        throw runtime_error(typeName() + ": " + it->first + " refers to a non existing output port");
     }
     return out;
   }
 
   Operator<T, V>* addDataInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
-      throw std::runtime_error(typeName() + " : input port have to be specified");
+      throw runtime_error(typeName() + " : input port have to be specified");
     }
     if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
       dataInputs.emplace(inputId, Input(inputId, max));
       return this;
     } else
-      throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
+      throw runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
   }
 
   Operator<T, V>* addControlInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
-      throw std::runtime_error(typeName() + " : control port have to be specified");
+      throw runtime_error(typeName() + " : control port have to be specified");
     }
     if (dataInputs.count(inputId) == 0 && controlInputs.count(inputId) == 0) {
       controlInputs.emplace(inputId, Input(inputId, max));
       return this;
     } else
-      throw std::runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
+      throw runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
   }
 
   vector<string> getDataInputs() const {
@@ -396,9 +396,8 @@ class Operator {
     }
 
     if (inputPort.empty())
-      throw std::runtime_error(child->typeName() + ": input port found empty and could not be deducted");
-    if (outputPort.empty())
-      throw std::runtime_error(typeName() + ": output port found empty and could not be deducted");
+      throw runtime_error(child->typeName() + ": input port found empty and could not be deducted");
+    if (outputPort.empty()) throw runtime_error(typeName() + ": output port found empty and could not be deducted");
 
     if (find(out.begin(), out.end(), outputPort) != out.end() && find(in.begin(), in.end(), inputPort) != in.end()) {
       Connection c;
