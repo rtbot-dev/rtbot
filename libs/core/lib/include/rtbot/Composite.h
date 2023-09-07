@@ -19,6 +19,7 @@
 #include "rtbot/std/Difference.h"
 #include "rtbot/std/Division.h"
 #include "rtbot/std/EqualTo.h"
+#include "rtbot/std/FiniteImpulseResponse.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/Identity.h"
@@ -199,6 +200,14 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": unique id is required");
   }
 
+  string createFiniteImpulseResponse(string id, vector<V> coeff) {
+    if (this->ops.count(id) == 0) {
+      this->ops.emplace(id, make_shared<FiniteImpulseResponse<T, V>>(id, coeff));
+      return id;
+    } else
+      throw std::runtime_error(typeName() + ": unique id is required");
+  }
+
   string createVariable(string id, V value = 0) {
     if (this->ops.count(id) == 0) {
       this->ops.emplace(id, make_shared<Variable<T, V>>(id, value));
@@ -209,7 +218,7 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
 
   string createOutput(string id, size_t numPorts = 1) {
     if (this->ops.count(id) == 0 && this->output == nullptr) {
-      this->output = make_shared<Output_vec<T, V>>(id, numPorts);
+      this->output = make_shared<Output<T, V>>(id, numPorts);
       vector<string> outs = this->output->getOutputs();
       for (int i = 0; i < outs.size(); i++) this->addOutput(outs.at(i));
       this->ops.emplace(id, this->output);

@@ -19,6 +19,7 @@
 #include "rtbot/std/Difference.h"
 #include "rtbot/std/Division.h"
 #include "rtbot/std/EqualTo.h"
+#include "rtbot/std/FiniteImpulseResponse.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/Identity.h"
@@ -39,22 +40,10 @@ using json = nlohmann::json;
 
 namespace rtbot {
 
+using namespace std;
+
 /* Operators serialization - deserialization - begin */
 
-/*
-{
-    "type": "Input",
-    "id": "in",
-    "numPorts": 1
-}
-*/
-
-/*
-{
-    "type": "Input",
-    "id": "in"
-}
-*/
 template <class T, class V>
 void to_json(json& j, const Input<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};
@@ -106,6 +95,16 @@ void from_json(const json& j, MovingAverage<T, V>& p) {
 }
 
 template <class T, class V>
+void to_json(json& j, const FiniteImpulseResponse<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"coeff", p.getCoefficients()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, FiniteImpulseResponse<T, V>& p) {
+  p = FiniteImpulseResponse<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
+}
+
+template <class T, class V>
 void to_json(json& j, const Join<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
 }
@@ -116,13 +115,13 @@ void from_json(const json& j, Join<T, V>& p) {
 }
 
 template <class T, class V>
-void to_json(json& j, const Output_opt<T, V>& p) {
+void to_json(json& j, const Output<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumPorts()}};
 }
 
 template <class T, class V>
-void from_json(const json& j, Output_opt<T, V>& p) {
-  p = Output_opt<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
+void from_json(const json& j, Output<T, V>& p) {
+  p = Output<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
 template <class T, class V>
@@ -307,12 +306,12 @@ void from_json(const json& j, Power<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Difference<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"useOldestTime", p.getUseOldestTime()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Difference<T, V>& p) {
-  p = Difference<T, V>(j["id"].get<string>(), j.value("useOldestTime", true));
+  p = Difference<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -347,75 +346,68 @@ void from_json(const json& j, RelativeStrengthIndex<T, V>& p) {
 
 /* Operators serialization - deserialization - end */
 
-std::string FactoryOp::createProgram(std::string const& id, std::string const& json_program) {
+string FactoryOp::createProgram(string const& id, string const& json_program) {
   try {
     programs.emplace(id, createProgram(json_program));
     return "";
   } catch (const json::parse_error& e) {
     // output exception information
-    std::cout << "message: " << e.what() << '\n'
-              << "exception id: " << e.id << '\n'
-              << "byte position of error: " << e.byte << std::endl;
-    return std::string("Unable to parse program: ") + e.what();
+    cout << "message: " << e.what() << '\n'
+         << "exception id: " << e.id << '\n'
+         << "byte position of error: " << e.byte << endl;
+    return string("Unable to parse program: ") + e.what();
   }
 }
 
 /// register some the operators. Notice that this can be done on any constructor
 /// whenever we create a static instance later, as  below:
 FactoryOp::FactoryOp() {
-  op_registry_add<Input<std::uint64_t, double>, json>();
-  op_registry_add<CosineResampler<std::uint64_t, double>, json>();
-  op_registry_add<HermiteResampler<std::uint64_t, double>, json>();
-  op_registry_add<MovingAverage<std::uint64_t, double>, json>();
-  op_registry_add<StandardDeviation<std::uint64_t, double>, json>();
-  op_registry_add<PeakDetector<std::uint64_t, double>, json>();
-  op_registry_add<Join<std::uint64_t, double>, json>();
-  op_registry_add<Minus<std::uint64_t, double>, json>();
-  op_registry_add<Division<std::uint64_t, double>, json>();
-  op_registry_add<Multiplication<std::uint64_t, double>, json>();
-  op_registry_add<Plus<std::uint64_t, double>, json>();
-  op_registry_add<Linear<std::uint64_t, double>, json>();
-  op_registry_add<AutoRegressive<std::uint64_t, double>, json>();
-  op_registry_add<Output_opt<std::uint64_t, double>, json>();
-  op_registry_add<GreaterThan<std::uint64_t, double>, json>();
-  op_registry_add<LessThan<std::uint64_t, double>, json>();
-  op_registry_add<EqualTo<std::uint64_t, double>, json>();
-  op_registry_add<Scale<std::uint64_t, double>, json>();
-  op_registry_add<Constant<std::uint64_t, double>, json>();
-  op_registry_add<CumulativeSum<std::uint64_t, double>, json>();
-  op_registry_add<Count<std::uint64_t, double>, json>();
-  op_registry_add<Add<std::uint64_t, double>, json>();
-  op_registry_add<Difference<std::uint64_t, double>, json>();
-  op_registry_add<Demultiplexer<std::uint64_t, double>, json>();
-  op_registry_add<Power<std::uint64_t, double>, json>();
-  op_registry_add<Identity<std::uint64_t, double>, json>();
-  op_registry_add<RelativeStrengthIndex<std::uint64_t, double>, json>();
-  op_registry_add<Variable<std::uint64_t, double>, json>();
-  op_registry_add<TimeShift<std::uint64_t, double>, json>();
-
-  json j;
-  for (auto const& it : op_registry()) {
-    json ji = json::parse(it.second.to_string_default());
-    j.push_back(ji);
-  }
-  std::ofstream out("op_list.json");
-  out << std::setw(4) << j << "\n";
+  op_registry_add<Input<uint64_t, double>, json>();
+  op_registry_add<CosineResampler<uint64_t, double>, json>();
+  op_registry_add<HermiteResampler<uint64_t, double>, json>();
+  op_registry_add<MovingAverage<uint64_t, double>, json>();
+  op_registry_add<FiniteImpulseResponse<uint64_t, double>, json>();
+  op_registry_add<StandardDeviation<uint64_t, double>, json>();
+  op_registry_add<PeakDetector<uint64_t, double>, json>();
+  op_registry_add<Join<uint64_t, double>, json>();
+  op_registry_add<Minus<uint64_t, double>, json>();
+  op_registry_add<Division<uint64_t, double>, json>();
+  op_registry_add<Multiplication<uint64_t, double>, json>();
+  op_registry_add<Plus<uint64_t, double>, json>();
+  op_registry_add<Linear<uint64_t, double>, json>();
+  op_registry_add<AutoRegressive<uint64_t, double>, json>();
+  op_registry_add<Output<uint64_t, double>, json>();
+  op_registry_add<GreaterThan<uint64_t, double>, json>();
+  op_registry_add<LessThan<uint64_t, double>, json>();
+  op_registry_add<EqualTo<uint64_t, double>, json>();
+  op_registry_add<Scale<uint64_t, double>, json>();
+  op_registry_add<Constant<uint64_t, double>, json>();
+  op_registry_add<CumulativeSum<uint64_t, double>, json>();
+  op_registry_add<Count<uint64_t, double>, json>();
+  op_registry_add<Add<uint64_t, double>, json>();
+  op_registry_add<Difference<uint64_t, double>, json>();
+  op_registry_add<Demultiplexer<uint64_t, double>, json>();
+  op_registry_add<Power<uint64_t, double>, json>();
+  op_registry_add<Identity<uint64_t, double>, json>();
+  op_registry_add<RelativeStrengthIndex<uint64_t, double>, json>();
+  op_registry_add<Variable<uint64_t, double>, json>();
+  op_registry_add<TimeShift<uint64_t, double>, json>();
 }
 
 static FactoryOp factory;
 
-Op_ptr<std::uint64_t, double> FactoryOp::readOp(const std::string& program) {
+Op_ptr<uint64_t, double> FactoryOp::readOp(const string& program) {
   auto json = json::parse(program);
   string type = json.at("type");
   auto it = op_registry().find(type);
-  if (it == op_registry().end()) throw std::runtime_error(string("invalid Operator type while parsing ") + type);
+  if (it == op_registry().end()) throw runtime_error(string("invalid Operator type while parsing ") + type);
   return it->second.from_string(program);
 }
 
-std::string FactoryOp::writeOp(Op_ptr<std::uint64_t, double> const& op) {
+string FactoryOp::writeOp(Op_ptr<uint64_t, double> const& op) {
   string type = op->typeName();
   auto it = op_registry().find(type);
-  if (it == op_registry().end()) throw std::runtime_error(string("invalid Operator type while parsing ") + type);
+  if (it == op_registry().end()) throw runtime_error(string("invalid Operator type while parsing ") + type);
   return it->second.to_string(op);
 }
 

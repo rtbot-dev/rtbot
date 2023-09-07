@@ -22,7 +22,11 @@ TEST_CASE("read  pipeline test demultiplexer") {
 
     // process the data
     for (int i = 1; i <= 100; i++) {
-      auto output = pipe.receiveDebug(Message<std::uint64_t, double>(i, (i < 20) ? 1 : 2));
+      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      vector<Message<uint64_t, double>> v;
+      v.push_back(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
+      messagesMap.emplace("i1", v);
+      auto output = pipe.receiveDebug(messagesMap);
 
       if (i < 21 && i > 1) {
         REQUIRE(output.find("dm")->second.find("o1")->second.size() == 1);
