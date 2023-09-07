@@ -33,8 +33,10 @@ struct FiniteImpulseResponse : public Operator<T, V> {
     out.time = this->getDataInputLastMessage(inputPort).time;
     out.value = 0;
 
-    for (int i = 0; i < this->dataInputs.find(inputPort)->second.size(); i++) {
-      out.value = out.value + this->dataInputs.find(inputPort)->second.at(i).value * this->coeff.at(i);
+    size_t size = this->dataInputs.find(inputPort)->second.size();
+
+    for (int i = 0; i < size; i++) {
+      out.value = out.value + this->dataInputs.find(inputPort)->second.at((size - 1) - i).value * this->coeff.at(i);
     }
 
     toEmit.push_back(out);
