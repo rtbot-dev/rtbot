@@ -1,6 +1,7 @@
 import { Exclude, instanceToPlain, plainToInstance } from "class-transformer";
 import { programSchema } from "./generated";
 import { nanoid } from "nanoid";
+import { RtBot } from "./api";
 
 export type OperatorId = string;
 export type PortId = string;
@@ -70,6 +71,29 @@ export class Program {
     )
       throw new Error(`There is already a connection from ${opFrom.id}:${opFromPort} to ${opTo.id}:${opToPort}`);
     this.connections.push(new Connection(opFrom.id, opTo.id, opFromPort, opToPort));
+  }
+
+  // operational methods, these are supposed to be use in production
+  // for development purposes the `RtBotRun` class provides a better api
+  async start() {
+    this.validate();
+    const plain = this.toPlain();
+    const programStr = JSON.stringify(plain, null, 2);
+    const createProgramResponseStr = await RtBot.getInstance().createProgram(this.programId, programStr);
+
+    if (createProgramResponseStr) {
+      const createProgramResponse = JSON.parse(createProgramResponseStr);
+      // if program fails validation, throw an error
+      if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+    }
+  }
+
+  async processMessageDebug(time: number, value: number) {
+    return await RtBot.getInstance().processMessageDebug(this.programId, time, value);
+  }
+
+  async stop() {
+    await RtBot.getInstance().deleteProgram(this.programId);
   }
 }
 

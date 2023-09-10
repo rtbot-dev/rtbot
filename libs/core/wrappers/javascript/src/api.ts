@@ -34,7 +34,7 @@ export class RtBot {
     return (await this.rtbot).deleteProgram(programId);
   }
 
-  async sendMessage(programId: string, time: number, value: number): Promise<RtBotIterationOutput> {
+  async processMessageDebug(programId: string, time: number, value: number): Promise<RtBotIterationOutput> {
     return JSON.parse((await this.rtbot).processMessageDebug(programId, time, value));
   }
 }
@@ -83,7 +83,7 @@ export class RtBotRun {
     await Promise.all(
       this.data.map(async ([time, ...value]) => {
         // TODO generalize to the case where we have several inputs
-        const iterationOutput = await RtBot.getInstance().sendMessage(this.program.programId, time, value[0]);
+        const iterationOutput = await RtBot.getInstance().processMessageDebug(this.program.programId, time, value[0]);
         if (this.verbose) console.log("iteration ", time, value, "=>", iterationOutput);
         // record the outputs
         if (this.format === RtBotRunOutputFormat.COLLAPSED) {
