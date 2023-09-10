@@ -1,0 +1,9 @@
+load("//tools:antlr.bzl", "antlr_cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+antlr_cc_library(
+    name = "rtbot",
+    src = "rtbot.g4",
+    package = "rtbot_parser_internal",
+)
