@@ -1,0 +1,19 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_binary(
+    name = "rtbot",
+    srcs = glob([
+        "include/**/*.h",
+        "src/**/*.cpp",
+    ]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+      "@antlr4_runtimes//:cpp",
+      "@cli11//:lib",
+      "//compiler/antlr4:rtbot_cc_parser"
+    ],
+    data = glob(["**/*.rtbot"])
+)
