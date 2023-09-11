@@ -87,53 +87,54 @@ string validate(string const& json_program) {
   return nlohmann::json({{"valid", true}}).dump();
 }
 
-string createProgram(string const& id, string const& json_program) {
+string createProgram(string const& programId, string const& json_program) {
   // first validate it
   string validation = validate(json_program);
 
   if (nlohmann::json::parse(validation)["valid"])
-    return factory.createProgram(id, json_program);
+    return factory.createProgram(programId, json_program);
   else
     return validation;
 }
 
-string deleteProgram(string const& id) { return to_string(factory.deleteProgram(id)); }
+string deleteProgram(string const& programId) { return to_string(factory.deleteProgram(programId)); }
 
-string addToMessageBuffer(const string& apId, const string& portId, Message<uint64_t, double> msg) {
-  return to_string(factory.addToMessageBuffer(apId, portId, msg));
+string addToMessageBuffer(const string& programId, const string& portId, unsigned long long time, double value) {
+  return to_string(factory.addToMessageBuffer(programId, portId, Message<uint64_t, double>(time, value)));
 }
 
-string processMessageBuffer(const string& apId) {
-  auto result = factory.processMessageBuffer(apId);
+string processMessageBuffer(const string& programId) {
+  auto result = factory.processMessageBuffer(programId);
   return nlohmann::json(result).dump();
 }
 
-string processMessageBufferDebug(const string& apId) {
-  auto result = factory.processMessageBufferDebug(apId);
+string processMessageBufferDebug(const string& programId) {
+  auto result = factory.processMessageBufferDebug(programId);
   return nlohmann::json(result).dump();
 }
 
-string getProgramEntryOperatorId(const string& apId) {
-  auto result = factory.getProgramEntryOperatorId(apId);
+string getProgramEntryOperatorId(const string& programId) {
+  auto result = factory.getProgramEntryOperatorId(programId);
   return result;
 }
 
-string getProgramEntryPorts(const string& apId, const string& entryOperatorId) {
-  auto result = factory.getProgramEntryPorts(apId);
+string getProgramEntryPorts(const string& programId) {
+  auto result = factory.getProgramEntryPorts(programId);
   return nlohmann::json(result).dump();
 }
 
-string getProgramOutputFilter(const string& apId) {
-  auto result = factory.getProgramOutputFilter(apId);
+string getProgramOutputFilter(const string& programId) {
+  auto result = factory.getProgramOutputFilter(programId);
   return nlohmann::json(result).dump();
 }
 
-string processMessageMap(const string& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
-  auto result = factory.processMessageMap(id, messagesMap);
+string processMessageMap(const string& programId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  auto result = factory.processMessageMap(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
 
-string processMessageMapDebug(string const& id, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
-  auto result = factory.processMessageMapDebug(id, messagesMap);
+string processMessageMapDebug(string const& programId,
+                              const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  auto result = factory.processMessageMapDebug(programId, messagesMap);
   return nlohmann::json(result).dump();
 }

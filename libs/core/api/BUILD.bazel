@@ -3,6 +3,7 @@ load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
 load("@aspect_rules_js//npm:defs.bzl", "npm_package")
 load("//tools/generator:generator.bzl", "rtbot_generate")
+load("@aspect_rules_js//npm:defs.bzl", "stamped_package_json")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -31,7 +32,7 @@ cc_library(
         "-Iexternal/rtbot/libs/core/lib/include/rtbot",
         # this is only needed for wasm compilation, we may want to create
         # a different rule later
-        "-fexceptions",
+        #"-fexceptions",
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
@@ -73,34 +74,33 @@ genrule(
     echo "  validateOperator(type: string, operatorStr: string): string;" >> $@
     echo "  createProgram(programId: string, programStr: string): string;" >> $@
     echo "  deleteProgram(programId: string): string;" >> $@
-    echo "  processMessage(programId: string, time: number, value: number): string;" >> $@
-    echo "  processMessageDebug(programId: string, time: number, value: number): string;" >> $@
+    echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number): string;" >> $@
+    echo "  processMessageBuffer(programId: string): string;" >> $@
+    echo "  processMessageBufferDebug(programId: string): string;" >> $@
+    echo "  getProgramEntryOperatorId(programId: string): string;" >> $@
+    echo "  getProgramEntryPorts(programId: string): string;" >> $@
+    echo "  getProgramOutputFilter(programId: string): string;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
     echo "export default factory;" >> $@
     """,
 )
 
-genrule(
-    name = "package_json",
-    outs = ["package.json"],
-    cmd = """
-            echo "{
-    \\"name\\": \\"@rtbot/wasm\\",
-    \\"version\\": \\"0.1.0\\",
-    \\"main\\": \\"./rtbot-wasm/bindings-cpp-wasm\\",
-    \\"typings\\": \\"index.d.ts\\"
-}" > $@
-    """,
+stamped_package_json(
+    name = "package",
+    stamp_var = "VERSION",
 )
 
 # npm package for wasm code
 npm_package(
     name = "js",
     srcs = [
+        ":package",
         ":declarations",
-        ":package_json",
         ":rtbot-wasm",
     ],
-    package = "@rtbot/wasm",
+    package = "@rtbot-dev/wasm",
+    replace_prefixes = {
+      "rtbot-wasm": "."
+    }
 )

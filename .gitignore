@@ -39,4 +39,5 @@ cmake-build-debug
 **/*/target/
 bazel-out/
 .cache
+venv/
 settings.json

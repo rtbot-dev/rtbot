@@ -1,6 +1,7 @@
 import { Exclude, instanceToPlain, plainToInstance } from "class-transformer";
 import { programSchema } from "./generated";
 import { nanoid } from "nanoid";
+import { RtBot } from "./api";
 
 export type OperatorId = string;
 export type PortId = string;
@@ -9,8 +10,10 @@ export class Program {
   operators: Operator[] = [];
   connections: Connection[] = [];
   programId: string;
+  defaultPort?: string;
 
   constructor(
+    public entryOperator?: string,
     readonly title?: string,
     readonly description?: string,
     readonly date?: string,
@@ -42,6 +45,9 @@ export class Program {
   addOperator(op: Operator) {
     op.setProgram(this);
     this.operators.push(op);
+    if (op.type === "Input") {
+      this.entryOperator = op.id;
+    }
   }
 
   deleteOperator(opId: OperatorId) {
@@ -70,6 +76,33 @@ export class Program {
     )
       throw new Error(`There is already a connection from ${opFrom.id}:${opFromPort} to ${opTo.id}:${opToPort}`);
     this.connections.push(new Connection(opFrom.id, opTo.id, opFromPort, opToPort));
+  }
+
+  // operational methods, these are supposed to be use in production
+  // for development purposes the `RtBotRun` class provides a better api
+  async start() {
+    this.validate();
+    const plain = this.toPlain();
+    const programStr = JSON.stringify(plain, null, 2);
+    const createProgramResponseStr = await RtBot.getInstance().createProgram(this.programId, programStr);
+
+    if (createProgramResponseStr) {
+      const createProgramResponse = JSON.parse(createProgramResponseStr);
+      // if program fails validation, throw an error
+      if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+    }
+    // set the default port
+    this.defaultPort = (await RtBot.getInstance().getProgramEntryPorts(this.programId))[0];
+  }
+
+  async processMessageDebug(time: number, value: number, port?: string) {
+    port = port ?? this.defaultPort;
+    if (port) return await RtBot.getInstance().processDebug(this.programId, { [`${port}`]: [{ time, value }] });
+    else console.warn("Please specify an entry port to send the message");
+  }
+
+  async stop() {
+    await RtBot.getInstance().deleteProgram(this.programId);
   }
 }
 

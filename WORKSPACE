@@ -65,6 +65,10 @@ esbuild_register_toolchains(
     esbuild_version = LATEST_ESBUILD_VERSION,
 )
 
+load("@aspect_bazel_lib//lib:repositories.bzl", "register_jq_toolchains")
+
+register_jq_toolchains()
+
 load("@emsdk//:deps.bzl", emsdk_deps = "deps")
 
 emsdk_deps()

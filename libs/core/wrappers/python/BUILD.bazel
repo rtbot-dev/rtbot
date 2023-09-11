@@ -34,10 +34,27 @@ py_package(
 copy_to_directory(
     name = "copy",
     srcs = [":rtbot", ":generated"],
-    replace_prefixes = {
-        "generated/jsonschema.py": "operators.py",
-        "rtbot.py": "__init__.py"
-    },
+    # while compiling the py extension succeeds in windows
+    # the produced artifact has a wrong .so extension
+    # here we fix that 
+    # (rtbotapi.so should be rtbotapi.pyd in windows)
+    replace_prefixes = select({
+        "@platforms//os:windows": {
+            "generated/jsonschema.py": "operators.py",
+            "rtbot.py": "__init__.py",
+            "rtbotapi.so": "rtbotapi.pyd",
+        },
+        "@platforms//os:macos": {
+            "generated/jsonschema.py": "operators.py",
+            "rtbot.py": "__init__.py",
+            "rtbotapi.so": "rtbotapi.so",
+        },
+        "@platforms//os:linux": {
+            "generated/jsonschema.py": "operators.py",
+            "rtbot.py": "__init__.py",
+            "rtbotapi.so": "rtbotapi.so",
+        }
+    }),
     out = "rtbot"
 )
 
@@ -46,7 +63,8 @@ py_wheel(
     name = "rtbot_wheel",
     distribution = "rtbot",
     python_tag = "py3",
-    version = "0.1.0",
+    stamp = 1,
+    version = "{VERSION}",
     strip_path_prefixes = [
         "libs/core/wrappers/python",
     ],

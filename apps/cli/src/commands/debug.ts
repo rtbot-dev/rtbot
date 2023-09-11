@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { readFileSync, writeFileSync } from "fs";
 import Papa, { ParseResult } from "papaparse";
-import { Program, RtBotRun, RtBotRunOutputFormat, ExtendedFormat } from "@rtbot/api";
+import { Program, RtBotRun, RtBotRunOutputFormat, ExtendedFormat } from "@rtbot-dev/rtbot";
 import { tui } from "../tui";
 
 export const registerDebug = (program: Command) => {
