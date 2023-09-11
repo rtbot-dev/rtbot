@@ -10,8 +10,10 @@ export class Program {
   operators: Operator[] = [];
   connections: Connection[] = [];
   programId: string;
+  defaultPort?: string;
 
   constructor(
+    public entryOperator?: string,
     readonly title?: string,
     readonly description?: string,
     readonly date?: string,
@@ -43,6 +45,9 @@ export class Program {
   addOperator(op: Operator) {
     op.setProgram(this);
     this.operators.push(op);
+    if (op.type === "Input") {
+      this.entryOperator = op.id;
+    }
   }
 
   deleteOperator(opId: OperatorId) {
@@ -86,10 +91,14 @@ export class Program {
       // if program fails validation, throw an error
       if (createProgramResponse.error) throw new Error(createProgramResponse.error);
     }
+    // set the default port
+    this.defaultPort = (await RtBot.getInstance().getProgramEntryPorts(this.programId))[0];
   }
 
-  async processMessageDebug(time: number, value: number) {
-    return await RtBot.getInstance().processMessageDebug(this.programId, time, value);
+  async processMessageDebug(time: number, value: number, port?: string) {
+    port = port ?? this.defaultPort;
+    if (port) return await RtBot.getInstance().processDebug(this.programId, { [`${port}`]: [{ time, value }] });
+    else console.warn("Please specify an entry port to send the message");
   }
 
   async stop() {

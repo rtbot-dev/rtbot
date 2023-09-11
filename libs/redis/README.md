@@ -1,4 +1,5 @@
-# redis-rtbot
+  visitor.visitStart(rtbotParser::StartContext *context)
+  # redis-rtbot
 
 This is a native redis module that allows running `rtbot` programs
 inside redis.

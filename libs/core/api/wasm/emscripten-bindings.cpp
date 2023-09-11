@@ -36,10 +36,17 @@ EMSCRIPTEN_BINDINGS(RtBot) {
       .field("time", &rtbot::Message<std::uint64_t, double>::time)
       .field("value", &rtbot::Message<std::uint64_t, double>::value);
 
-  function("validateOperator", &validateOperator);
-  function("validate", &validate);
-  function("createProgram", &createProgram);
-  function("deleteProgram", &deleteProgram);
-  function("processMessageDebug", &processMessageDebug);
-  function("processMessage", &processMessage);
+  emscripten::function("validate", &validate);
+  emscripten::function("validateOperator", &validateOperator);
+
+  emscripten::function("createProgram", &createProgram);
+  emscripten::function("deleteProgram", &deleteProgram);
+
+  emscripten::function("addToMessageBuffer", &addToMessageBuffer);
+  emscripten::function("processMessageBuffer", &processMessageBuffer);
+  emscripten::function("processMessageBufferDebug", &processMessageBufferDebug);
+
+  emscripten::function("getProgramEntryOperatorId", &getProgramEntryOperatorId);
+  emscripten::function("getProgramEntryPorts", &getProgramEntryPorts);
+  emscripten::function("getProgramOutputFilter", &getProgramOutputFilter);
 }

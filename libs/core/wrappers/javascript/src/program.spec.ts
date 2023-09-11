@@ -111,7 +111,7 @@ describe("Program", () => {
   const description = "description";
 
   beforeEach(() => {
-    program = new Program(title, description);
+    program = new Program("input1", title, description);
     const input = new Input("input1");
     const op1 = new MovingAverage("ma1", 2);
     const output = new Output("out1");

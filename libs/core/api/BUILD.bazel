@@ -74,8 +74,12 @@ genrule(
     echo "  validateOperator(type: string, operatorStr: string): string;" >> $@
     echo "  createProgram(programId: string, programStr: string): string;" >> $@
     echo "  deleteProgram(programId: string): string;" >> $@
-    echo "  processMessage(programId: string, time: number, value: number): string;" >> $@
-    echo "  processMessageDebug(programId: string, time: number, value: number): string;" >> $@
+    echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number): string;" >> $@
+    echo "  processMessageBuffer(programId: string): string;" >> $@
+    echo "  processMessageBufferDebug(programId: string): string;" >> $@
+    echo "  getProgramEntryOperatorId(programId: string): string;" >> $@
+    echo "  getProgramEntryPorts(programId: string): string;" >> $@
+    echo "  getProgramOutputFilter(programId: string): string;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
     echo "export default factory;" >> $@
