@@ -165,13 +165,13 @@ TEST_CASE("Composite") {
   std::vector<double> values = {54.8,  56.8,  57.85, 59.85, 60.57, 61.1,  62.17, 60.6,  62.35, 62.15,
                                 62.35, 61.45, 62.8,  61.37, 62.5,  62.57, 60.8,  59.37, 60.35, 62.35,
                                 62.17, 62.55, 64.55, 64.37, 65.3,  64.42, 62.9,  61.6,  62.05, 60.05,
-                                59.7,  60.9,  60.25, 58.27, 58.7,  57.72, 58.1,  58.2,  0};
+                                59.7,  60.9,  60.25, 58.27, 58.7,  57.72, 58.1,  58.2};
 
   std::vector<double> rsis = {0,        0,        0,        0,        0,        0,        0,        0,
                               0,        0,        0,        0,        0,        0,        74.21384, 74.33552,
                               65.87129, 59.93370, 62.43288, 66.96205, 66.18862, 67.05377, 71.22679, 70.36299,
                               72.23644, 67.86486, 60.99822, 55.79821, 57.15964, 49.81579, 48.63810, 52.76154,
-                              50.40119, 43.95111, 45.57992, 42.54534, 44.09946, 44.52472, 7.71906};
+                              50.40119, 43.95111, 45.57992, 42.54534, 44.09946, 44.52472};
 
   auto rsi = RelativeStrengthIndex<std::uint64_t, double>("rsi", 14);
 
@@ -180,8 +180,13 @@ TEST_CASE("Composite") {
   SECTION("Emit rsi") {
     for (int i = 0; i < values.size(); i++) {
       rsi.receiveData(Message<uint64_t, double>(i + 1, values.at(i)));
+      rsi.executeData();
       composite.receiveData(Message<uint64_t, double>(i + 1, values.at(i)));
+      composite.executeData();
     }
+
+    REQUIRE(c1.getDataInputSize("i1") > 0);
+    REQUIRE(c1.getDataInputSize("i1") == c2.getDataInputSize("i1"));
 
     for (int i = 0; i < c1.getDataInputSize("i1"); i++) {
       REQUIRE(abs(c1.getDataInputMessage("i1", i).value - c2.getDataInputMessage("i1", i).value) < 0.00000001);
