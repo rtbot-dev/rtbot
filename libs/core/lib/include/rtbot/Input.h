@@ -16,7 +16,7 @@ struct Input : public Operator<T, V> {
       string inputPort = "i" + to_string(i);
       string outputPort = "o" + to_string(i);
       portsMap.emplace(inputPort, outputPort);
-      this->addDataInput(inputPort, 2);
+      this->addDataInput(inputPort, 1);
       this->addOutput(outputPort);
     }
   }
@@ -29,12 +29,21 @@ struct Input : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
     while (!this->toProcess.empty()) {
       string inputPort = *(this->toProcess.begin());
-      Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
       Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
-      if (m1.time > m0.time) {
+      if (this->lastSent.count(inputPort) > 0) {
+        Message last = this->lastSent.at(inputPort);
+        if (last.time < m0.time) {
+          vector<Message<T, V>> v;
+          v.push_back(m0);
+          outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+          this->lastSent.erase(inputPort);
+          this->lastSent.emplace(inputPort, m0);
+        }
+      } else {
         vector<Message<T, V>> v;
         v.push_back(m0);
         outputMsgs.emplace(portsMap.find(inputPort)->second, v);
+        this->lastSent.emplace(inputPort, m0);
       }
       this->toProcess.erase(inputPort);
     }
@@ -43,6 +52,7 @@ struct Input : public Operator<T, V> {
 
  private:
   map<string, string> portsMap;
+  map<string, Message<T, V>> lastSent;
 };
 
 }  // namespace rtbot

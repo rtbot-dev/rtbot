@@ -41,16 +41,16 @@ TEST_CASE("Demultiplexer") {
       in1.receiveData(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
       auto output = in1.executeData();
 
-      if (i < 21 && i > 1) {
+      if (i < 20) {
         REQUIRE(output.find("demult")->second.find("o1")->second.size() == 1);
         REQUIRE(output.find("demult")->second.find("o1")->second.at(0).value == 1);
-        REQUIRE(output.find("demult")->second.find("o1")->second.at(0).time == (i - 1));
+        REQUIRE(output.find("demult")->second.find("o1")->second.at(0).time == i);
 
         REQUIRE(output.find("demult")->second.count("o2") == 0);
-      } else if (i >= 21) {
+      } else if (i >= 20) {
         REQUIRE(output.find("demult")->second.find("o2")->second.size() == 1);
         REQUIRE(output.find("demult")->second.find("o2")->second.at(0).value == 2);
-        REQUIRE(output.find("demult")->second.find("o2")->second.at(0).time == (i - 1));
+        REQUIRE(output.find("demult")->second.find("o2")->second.at(0).time == i);
 
         REQUIRE(output.find("demult")->second.count("o1") == 0);
       }
