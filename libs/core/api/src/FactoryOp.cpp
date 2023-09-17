@@ -11,6 +11,7 @@
 #include "rtbot/Output.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Add.h"
+#include "rtbot/std/And.h"
 #include "rtbot/std/AutoRegressive.h"
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/CosineResampler.h"
@@ -28,6 +29,7 @@
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/Multiplication.h"
+#include "rtbot/std/Or.h"
 #include "rtbot/std/PeakDetector.h"
 #include "rtbot/std/Plus.h"
 #include "rtbot/std/Power.h"
@@ -142,6 +144,26 @@ void to_json(json& j, const Minus<T, V>& p) {
 template <class T, class V>
 void from_json(const json& j, Minus<T, V>& p) {
   p = Minus<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const And<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, And<T, V>& p) {
+  p = And<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const Or<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Or<T, V>& p) {
+  p = Or<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -371,6 +393,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<PeakDetector<uint64_t, double>, json>();
   op_registry_add<Join<uint64_t, double>, json>();
   op_registry_add<Minus<uint64_t, double>, json>();
+  op_registry_add<And<uint64_t, double>, json>();
+  op_registry_add<Or<uint64_t, double>, json>();
   op_registry_add<Division<uint64_t, double>, json>();
   op_registry_add<Multiplication<uint64_t, double>, json>();
   op_registry_add<Plus<uint64_t, double>, json>();

@@ -22,14 +22,14 @@ TEST_CASE("Join peak and value") {
       in1.receiveData(Message<uint64_t, double>(i, i % 5));
       auto output = in1.executeData();
 
-      if (i > 5 && i % 5 == 1) {
+      if (i >= 5 && i % 5 == 0) {
         REQUIRE(output.find("join")->second.find("o1")->second.size() == 1);
         REQUIRE(output.find("join")->second.find("o1")->second.at(0).value == 4);
-        REQUIRE(output.find("join")->second.find("o1")->second.at(0).time == i - 2);
+        REQUIRE(output.find("join")->second.find("o1")->second.at(0).time == i - 1);
 
         REQUIRE(output.find("join")->second.find("o2")->second.size() == 1);
         REQUIRE(output.find("join")->second.find("o2")->second.at(0).value == 4);
-        REQUIRE(output.find("join")->second.find("o2")->second.at(0).time == i - 2);
+        REQUIRE(output.find("join")->second.find("o2")->second.at(0).time == i - 1);
 
       } else {
         REQUIRE(output.count("join") == 0);
