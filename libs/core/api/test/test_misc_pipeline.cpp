@@ -49,7 +49,7 @@ TEST_CASE("read ppg pipeline") {
       v.push_back(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
       messagesMap.emplace("i1", v);
       string pipe1result = processMessageMap("pipe1", messagesMap);
-      addToMessageBuffer("pipe2", "i1", Message<uint64_t, double>(s.ti[i], s.ppg[i]));
+      addToMessageBuffer("pipe2", "i1", s.ti[i], s.ppg[i]);
       string pipe2result = processMessageBuffer("pipe2");
 
       REQUIRE(pipe1result == pipe2result);
@@ -76,14 +76,14 @@ TEST_CASE("read  pipeline test data basic data") {
       messagesMap.emplace("i1", v);
       auto output = pipe.receiveDebug(messagesMap);
 
-      if (i > 5 && i % 5 == 1) {
+      if (i >= 5 && i % 5 == 0) {
         REQUIRE(output.find("join")->second.find("o1")->second.size() == 1);
         REQUIRE(output.find("join")->second.find("o1")->second.at(0).value == 4);
-        REQUIRE(output.find("join")->second.find("o1")->second.at(0).time == i - 2);
+        REQUIRE(output.find("join")->second.find("o1")->second.at(0).time == i - 1);
 
         REQUIRE(output.find("join")->second.find("o2")->second.size() == 1);
         REQUIRE(output.find("join")->second.find("o2")->second.at(0).value == 4);
-        REQUIRE(output.find("join")->second.find("o2")->second.at(0).time == i - 2);
+        REQUIRE(output.find("join")->second.find("o2")->second.at(0).time == i - 1);
       } else {
         REQUIRE(output.count("join") == 0);
       }
@@ -112,12 +112,12 @@ TEST_CASE("read  pipeline test join port") {
 
       if (i >= 2) {
         REQUIRE(output.find("sc1")->second.find("o1")->second.size() == 1);
-        REQUIRE(output.find("sc1")->second.find("o1")->second.at(0).time == i - 1);
-        REQUIRE(output.find("sc1")->second.find("o1")->second.at(0).value == 2 * ((i - 1) % 5));
+        REQUIRE(output.find("sc1")->second.find("o1")->second.at(0).time == i);
+        REQUIRE(output.find("sc1")->second.find("o1")->second.at(0).value == 2 * (i % 5));
 
         REQUIRE(output.find("sc2")->second.find("o1")->second.size() == 1);
-        REQUIRE(output.find("sc2")->second.find("o1")->second.at(0).time == i - 1);
-        REQUIRE(output.find("sc2")->second.find("o1")->second.at(0).value == 3 * ((i - 1) % 5));
+        REQUIRE(output.find("sc2")->second.find("o1")->second.at(0).time == i);
+        REQUIRE(output.find("sc2")->second.find("o1")->second.at(0).value == 3 * (i % 5));
       }
     }
 

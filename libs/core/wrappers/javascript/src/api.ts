@@ -1,4 +1,4 @@
-import bindings, { RtBotEmbindModule } from "@rtbot/wasm";
+import bindings, { RtBotEmbindModule } from "@rtbot-dev/wasm";
 import { Operator, Program } from "./program";
 
 export interface RtBotIterationOutput {
@@ -34,8 +34,34 @@ export class RtBot {
     return (await this.rtbot).deleteProgram(programId);
   }
 
-  async sendMessage(programId: string, time: number, value: number): Promise<RtBotIterationOutput> {
-    return JSON.parse((await this.rtbot).processMessageDebug(programId, time, value));
+  async processDebug(
+    programId: string,
+    messages: { [portId: string]: { time: number; value: number }[] }
+  ): Promise<RtBotIterationOutput> {
+    this.prepareInternalMessageBuffer(programId, messages, await this.rtbot);
+    return JSON.parse((await this.rtbot).processMessageBufferDebug(programId));
+  }
+
+  async process(
+    programId: string,
+    messages: { [portId: string]: { time: number; value: number }[] }
+  ): Promise<RtBotIterationOutput> {
+    this.prepareInternalMessageBuffer(programId, messages, await this.rtbot);
+    return JSON.parse((await this.rtbot).processMessageBuffer(programId));
+  }
+
+  prepareInternalMessageBuffer(
+    programId: string,
+    messages: { [portId: string]: { time: number; value: number }[] },
+    rtbot: RtBotEmbindModule
+  ) {
+    Object.entries(messages).map(([port, msgs]) =>
+      msgs.map(({ time, value }) => rtbot.addToMessageBuffer(programId, port, time, value))
+    );
+  }
+
+  async getProgramEntryPorts(programId: string) {
+    return (await this.rtbot).getProgramEntryPorts(programId);
   }
 }
 
@@ -45,7 +71,7 @@ export enum RtBotRunOutputFormat {
 }
 
 export type CollapsedFormat = { [operatorId: string]: number[][] };
-export type ExtendedFormat = { in: RtBotMessage; out: RtBotIterationOutput }[];
+export type ExtendedFormat = { in: { [portId: string]: RtBotMessage[] }; out: RtBotIterationOutput }[];
 
 export class RtBotRun {
   // this variable will hold the outputs from different
@@ -79,12 +105,13 @@ export class RtBotRun {
     }
 
     if (this.verbose) console.log("Sending data...");
+    const entryPorts: string[] = JSON.parse(await RtBot.getInstance().getProgramEntryPorts(this.program.programId));
     // iterate over the data passed and send it to the rtbot program
     await Promise.all(
-      this.data.map(async ([time, ...value]) => {
-        // TODO generalize to the case where we have several inputs
-        const iterationOutput = await RtBot.getInstance().sendMessage(this.program.programId, time, value[0]);
-        if (this.verbose) console.log("iteration ", time, value, "=>", iterationOutput);
+      this.data.map(async ([time, ...values]) => {
+        const msgs = Object.fromEntries(entryPorts.map((p, i) => [p, [{ time, value: values[i] }]]));
+        const iterationOutput = await RtBot.getInstance().processDebug(this.program.programId, msgs);
+        if (this.verbose) console.log("iteration ", time, values, "=>", iterationOutput);
         // record the outputs
         if (this.format === RtBotRunOutputFormat.COLLAPSED) {
           Object.entries(iterationOutput as RtBotIterationOutput).forEach(([opId, opOut]) => {
@@ -101,7 +128,7 @@ export class RtBotRun {
             });
           });
         } else {
-          (this.outputs as ExtendedFormat).push({ in: { time, value: value[0] }, out: iterationOutput });
+          (this.outputs as ExtendedFormat).push({ in: msgs, out: iterationOutput });
         }
       })
     );

@@ -28,16 +28,16 @@ TEST_CASE("read  pipeline test demultiplexer") {
       messagesMap.emplace("i1", v);
       auto output = pipe.receiveDebug(messagesMap);
 
-      if (i < 21 && i > 1) {
+      if (i < 20) {
         REQUIRE(output.find("dm")->second.find("o1")->second.size() == 1);
         REQUIRE(output.find("dm")->second.find("o1")->second.at(0).value == 1);
-        REQUIRE(output.find("dm")->second.find("o1")->second.at(0).time == (i - 1));
+        REQUIRE(output.find("dm")->second.find("o1")->second.at(0).time == i);
 
         REQUIRE(output.find("dm")->second.count("o2") == 0);
-      } else if (i >= 21) {
+      } else if (i >= 20) {
         REQUIRE(output.find("dm")->second.find("o2")->second.size() == 1);
         REQUIRE(output.find("dm")->second.find("o2")->second.at(0).value == 2);
-        REQUIRE(output.find("dm")->second.find("o2")->second.at(0).time == (i - 1));
+        REQUIRE(output.find("dm")->second.find("o2")->second.at(0).time == i);
 
         REQUIRE(output.find("dm")->second.count("o1") == 0);
       }

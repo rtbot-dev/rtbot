@@ -1,4 +1,4 @@
-import { Program, ExtendedFormat } from "@rtbot/api";
+import { Program, ExtendedFormat } from "@rtbot-dev/rtbot";
 import { outputTable } from "./output-table";
 import { selectOperatorsForm } from "./select-operators-form";
 import { DebuggerOperatorDef, debuggerStore } from "./store";

@@ -1,6 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { produce } from "immer";
-import { Program, ExtendedFormat, RtBotMessage } from "@rtbot/api";
+import { Program, ExtendedFormat, RtBotMessage } from "@rtbot-dev/rtbot";
 
 export type DebuggerStateActions = {
   forward: () => void;

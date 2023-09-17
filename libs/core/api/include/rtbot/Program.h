@@ -33,7 +33,7 @@ struct Program {
   string getProgramEntryOperatorId() { return entryOperator; }
 
   vector<string> getProgramEntryPorts() {
-    if (!this->entryOperator.empty()) throw runtime_error("Entry operator was not defined");
+    if (this->entryOperator.empty()) throw runtime_error("Entry operator was not defined");
     if (this->all_op.count(this->entryOperator) == 0)
       throw runtime_error("Entry operator " + this->entryOperator + " was not found");
 

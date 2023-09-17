@@ -1,0 +1,175 @@
+# Cut a release whenever a new tag is pushed to the repo.
+# You should use an annotated tag, like `git tag -a v1.2.3`
+# and put the release notes into the commit message for the tag.
+name: Release
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 8
+          run_install: |
+            - args: [--no-frozen-lockfile]
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          cache: pnpm
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Test lib
+        run: |
+          bazelisk test //libs/core/lib/test
+      - name: Test std
+        run: |
+          bazelisk test //libs/core/std/test
+      - name: Test api
+        run: |
+          bazelisk test //libs/core/api/test
+      - name: Test finance
+        run: |
+          bazelisk test //libs/core/finance/test
+      # - name: Test python
+      #   run: |
+      #     # TODO: make sure we don't have to build the wheel and install it
+      #     # in order to make the test to pass
+      #     bazelisk build //libs/core/wrappers/python:rtbot_wheel
+      #     pip install --force-reinstall dist/bin/libs/core/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
+      #     bazelisk test //libs/core/wrappers/python:rtbot_test
+      - name: Test javascript
+        run: |
+          bazelisk test //libs/core/wrappers/javascript:test
+
+  build_npm:
+    name: Build npm package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 8
+          run_install: |
+            - args: [--no-frozen-lockfile]
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Build npm package
+        run: |
+          bazelisk build --stamp //libs/core/wrappers/javascript:js
+      - uses: actions/upload-artifact@v3
+        with:
+          name: npm.tar
+          path: dist/bin/libs/core/wrappers/javascript/js
+
+  build_wheels:
+    name: Build wheel on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macOS-11, windows-2019]
+        # TODO: add more python versions later, when we can afford the cost
+        #python: [3.11]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 8
+          run_install: |
+            - args: [--frozen-lockfile]
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.11 #${{ matrix.python }}
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ matrix.os }}
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Build wheel
+        run: |
+          bazelisk build --stamp //libs/core/wrappers/python:rtbot_wheel
+      - uses: actions/upload-artifact@v3
+        with:
+          name: wheel-${{ matrix.os }}.tar
+          path: dist/bin/libs/core/wrappers/python/rtbot-*.whl
+
+  publish:
+    needs:
+      - tests
+      - build_wheels
+      - build_npm
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Prepare release
+        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+      - name: Compute wheel version
+        id: version
+        run: |
+          GIT_TAG=${{ github.ref_name }}
+          echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel-ubuntu-20.04.tar
+          path: wheel-linux
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel-macOS-11.tar
+          path: wheel-macos
+      - uses: actions/download-artifact@v3
+        with:
+          name: wheel-windows-2019.tar
+          path: wheel-windows
+      - uses: actions/download-artifact@v3
+        with:
+          name: npm.tar
+          path: npm
+      - name: Patch files before publishing
+        run: |
+          ls -l
+          cd wheel-linux
+          mv rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
+          cd ..
+          cd wheel-macos
+          mv rtbot-_VERSION_-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
+          cd ..
+          cd wheel-windows
+          ls -l
+          mv rtbot-_VERSION_-py3-none-win_amd64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-win_amd64.whl
+          cd ..
+          tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm
+
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          # Use GH feature to populate the changelog automatically
+          generate_release_notes: true
+          body_path: release_notes.txt
+          files: |
+            *.tar.gz
+            wheel-linux/*
+            wheel-macos/*
+            wheel-windows/*
+          fail_on_unmatched_files: true

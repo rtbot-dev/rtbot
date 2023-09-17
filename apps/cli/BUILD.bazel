@@ -13,7 +13,7 @@ cc_binary(
 
 _DEPS = [
     "//:node_modules/@base2/pretty-print-object",
-    "//:node_modules/@rtbot/api",
+    "//:node_modules/@rtbot-dev/rtbot",
     "//:node_modules/@types/node",
     "//:node_modules/@types/papaparse",
     "//:node_modules/@types/react",

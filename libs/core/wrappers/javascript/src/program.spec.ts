@@ -1,4 +1,4 @@
-import { Program, MovingAverage, Input, Output, RtBotRun } from "@rtbot/api";
+import { Program, MovingAverage, Input, Output, RtBotRun, RtBotRunOutputFormat } from "@rtbot-dev/rtbot";
 
 const data = [
   [1, 10.0],
@@ -111,7 +111,7 @@ describe("Program", () => {
   const description = "description";
 
   beforeEach(() => {
-    program = new Program(title, description);
+    program = new Program("input1", title, description);
     const input = new Input("input1");
     const op1 = new MovingAverage("ma1", 2);
     const output = new Output("out1");
@@ -148,9 +148,11 @@ describe("Program", () => {
   });
 
   it("can process data", async () => {
-    const rtbotRun = new RtBotRun(program, data);
-    const result = await rtbotRun.run();
-    console.log("result", result);
+    const rtbotRun = new RtBotRun(program, data, RtBotRunOutputFormat.EXTENDED);
+    await rtbotRun.run();
+    const result = rtbotRun.getOutputs();
+    expect(result).toBeDefined();
+    expect(result.length).toBe(data.length);
   });
 
   it("there has to be at least one Input operator in a program to be valid", () => {

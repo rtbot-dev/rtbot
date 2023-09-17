@@ -4,6 +4,8 @@ load("@aspect_rules_js//npm:defs.bzl", "npm_link_package", "npm_package")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config", "ts_project")
 load("@aspect_rules_jest//jest:defs.bzl", "jest_test")
 load("//tools/generator:generator.bzl", "rtbot_generate")
+load("@aspect_rules_js//npm:defs.bzl", "stamped_package_json")
+
 
 package(default_visibility = ["//visibility:public"])
 
@@ -36,7 +38,7 @@ copy_file(
 )
 
 _DEPS = [
-    "//:node_modules/@rtbot/wasm",
+    "//:node_modules/@rtbot-dev/wasm",
     "//:node_modules/@types/node",
     "//:node_modules/class-transformer",
     "//:node_modules/nanoid",
@@ -80,21 +82,8 @@ ts_project(
     tsconfig = ":tsconfig",
     deps = _DEPS + [
         "//:node_modules/@types/jest",
-        "//:node_modules/@rtbot/api",
+        "//:node_modules/@rtbot-dev/rtbot",
     ],
-)
-
-genrule(
-    name = "package_json",
-    outs = ["package.json"],
-    cmd = """
-            echo "{
-    \\"name\\": \\"@rtbot/api\\",
-    \\"version\\": \\"0.1.0\\",
-    \\"main\\": \\"index.js\\",
-    \\"typings\\": \\"index.d.ts\\"
-}" > $@
-    """,
 )
 
 jest_test(
@@ -102,19 +91,27 @@ jest_test(
     # config = "//:jest_config",
     data = [
         ":ts_test",
-        "//:node_modules/@rtbot/api",
+        "//:node_modules/@rtbot-dev/rtbot",
         "//:node_modules/@types/jest",
     ],
     node_modules = "//:node_modules",
 )
 
+stamped_package_json(
+    # name of the resulting `jq` target, must be "package"
+    name = "package",
+    # a key from the bazel-out/stable-status.txt or bazel-out/volatile-status.txt files
+    stamp_var = "VERSION",
+)
+
 npm_package(
     name = "js",
     srcs = [
-        ":package_json",
+        ":package",
         ":ts",
         ":wasm",
     ],
+    exclude_srcs_patterns = ["src/**", "tsconfig.bazel.json"],
     data = _DEPS,
-    package = "@rtbot/api",
+    package = "@rtbot-dev/rtbot",
 )
