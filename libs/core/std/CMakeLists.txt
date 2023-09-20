@@ -1,21 +1,8 @@
-set(header
-    include/rtbot/std/Composite.h
-    include/rtbot/std/CosineResampler.h
-    include/rtbot/std/FilterByValue.h
-    include/rtbot/std/HermiteResampler.h
-    include/rtbot/std/MovingAverage.h
-    include/rtbot/std/PeakDetector.h
-)
+file(GLOB std_SRC CONFIGURE_DEPENDS "include/rtbot/std/*.h" "src/*.cpp")
 
-set(source
-    src/empty.cpp
-)
+add_library(${PROJECT_NAME}-std STATIC ${std_SRC})
 
-add_library(${PROJECT_NAME}-std STATIC
-    ${header}
-    ${source}
-)
-
+set_property(TARGET ${PROJECT_NAME}-std PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(${PROJECT_NAME}-std PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

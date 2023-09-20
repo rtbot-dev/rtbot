@@ -13,11 +13,20 @@ FetchContent_Declare(
 )
 
 FetchContent_Declare(
-  json
+  nlohmann_json
   GIT_REPOSITORY https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent
   GIT_PROGRESS TRUE
   GIT_SHALLOW TRUE
   GIT_TAG v3.11.2
 )
 
-FetchContent_MakeAvailable(Catch2 pybind11 json)
+FetchContent_Declare(
+  json_schema_validator
+  GIT_REPOSITORY https://github.com/pboettch/json-schema-validator.git
+  GIT_TAG main
+)
+
+set(JSON_VALIDATOR_BUILD_TESTS OFF)
+set(JSON_VALIDATOR_BUILD_EXAMPLES OFF)
+
+FetchContent_MakeAvailable(Catch2 pybind11 nlohmann_json json_schema_validator)

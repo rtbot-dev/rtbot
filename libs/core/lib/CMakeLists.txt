@@ -1,21 +1,5 @@
-set(header
-    include/rtbot/Message.h
-    include/rtbot/Buffer.h
-    include/rtbot/Operator.h
-    include/rtbot/Output.h
-    include/rtbot/Join.h
-    include/rtbot/Enums.h
-    include/rtbot/Input.h
-)
-
-set(source
-    src/empty.cpp
-)
-
-add_library(${PROJECT_NAME} STATIC
-    ${header}
-    ${source}
-)
+file(GLOB lib_SRC CONFIGURE_DEPENDS "include/rtbot/*.h" "src/*.cpp")
+add_library(${PROJECT_NAME} STATIC ${lib_SRC})
 
 
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
