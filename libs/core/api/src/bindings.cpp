@@ -11,7 +11,11 @@
 // notice that this file is generated
 // and bazel will guarantee it will be there
 // at build time
+
+#if __has_include(<jsonschema>)
 #include "rtbot/jsonschema.hpp"
+#define have_jsonschema 1
+#endif
 
 rtbot::FactoryOp factory;
 
@@ -34,6 +38,8 @@ void from_json(const json& j, Message<T, V>& p) {
 }  // namespace rtbot
 
 using namespace rtbot;
+
+#ifdef have_jsonschema
 
 string validateOperator(string const& type, string const& json_op) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
@@ -87,14 +93,18 @@ string validate(string const& json_program) {
   return nlohmann::json({{"valid", true}}).dump();
 }
 
+#endif
+
 string createProgram(string const& programId, string const& json_program) {
   // first validate it
+#ifdef have_jsonschema
   string validation = validate(json_program);
 
-  if (nlohmann::json::parse(validation)["valid"])
-    return factory.createProgram(programId, json_program);
+  if (!nlohmann::json::parse(validation)["valid"])
+      return validation;
   else
-    return validation;
+#endif
+    return factory.createProgram(programId, json_program);
 }
 
 string deleteProgram(string const& programId) { return to_string(factory.deleteProgram(programId)); }

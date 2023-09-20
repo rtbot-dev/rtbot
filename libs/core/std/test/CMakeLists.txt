@@ -1,11 +1,7 @@
-add_executable(test-std
-    test_join.cpp
-    test_peak_detector.cpp
-    test_resamplers.cpp
-    tools.h
-)
+file(GLOB test_std_SRC CONFIGURE_DEPENDS "*.h" "*.cpp")
 
-target_include_directories(test-std INTERFACE Catch2::Catch2)
+add_executable(test-std ${test_std_SRC})
+
 target_link_libraries(test-std PRIVATE ${PROJECT_NAME}-std)
 target_link_libraries(test-std PRIVATE Catch2::Catch2)
 
@@ -15,5 +11,7 @@ include(Catch)
 catch_discover_tests(test-std)
 
 
-target_include_directories(test-std INTERFACE nlohmann_json::nlohmann_json)
 target_link_libraries(test-std PRIVATE nlohmann_json::nlohmann_json)
+
+file(COPY ${CMAKE_SOURCE_DIR}/../examples/data/ppg.csv
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/examples/data)

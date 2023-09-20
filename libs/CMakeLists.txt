@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_subdirectory(core/lib)
 add_subdirectory(core/std)
+add_subdirectory(core/finance)
 add_subdirectory(core/api)
 
 #---------- external dependencies ---------
@@ -16,11 +17,12 @@ include(external/external.cmake)
 
 add_subdirectory(core/lib/test)
 add_subdirectory(core/std/test)
+add_subdirectory(core/finance/test)
 add_subdirectory(core/api/test)
 
 #---------- pybinding ---------------
 
-add_subdirectory(core/wrappers/python)
+#add_subdirectory(core/wrappers/python)
 
 #----------- example -----------------
 

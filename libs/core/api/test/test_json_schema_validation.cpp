@@ -1,3 +1,10 @@
+#if __has_include(<jsonschema>)
+#include "rtbot/jsonschema.hpp"
+#define have_jsonschema 1
+#endif
+
+#ifdef have_jsonschema
+
 #include <catch2/catch.hpp>
 #include <fstream>
 #include <iomanip>
@@ -11,6 +18,7 @@
 
 using namespace rtbot;
 using namespace std;
+
 
 TEST_CASE("jsonschema validation") {
   SECTION("validates a valid program") {
@@ -38,3 +46,5 @@ TEST_CASE("jsonschema validation") {
     REQUIRE(!nlohmann::json::parse(result)["valid"]);
   }
 }
+
+#endif
