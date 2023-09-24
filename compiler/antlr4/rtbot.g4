@@ -1,6 +1,9 @@
 grammar rtbot;
 
-start : expr ;
+start : (initialization)? '---' (expr|declaration)+ ;
+initialization: streamId '(' entries ')' ;
+entries: (COMA)+ ;
+declaration: streamId '=' expr ;
 
 expr  : literal                                                                       # LiteralTerm
       | identifier                                                                    # IdentifierTerm
@@ -22,11 +25,14 @@ expr  : literal                                                                 
       | left=expr '||' right=expr                                                     # Or
       ;
 
-stream: STREAMID | operator;
+
+
+stream: streamId | operator;
 operator: operatorName '('  arguments  ')' ;
 operatorName: ID;
 arguments: ( '[' exprs ']' COMA '[' (exprs)? ']' COMA '[' (exprs)? ']' ) | ( '[' exprs ']' COMA '[' (exprs)? ']' ) | ( '[' exprs ']' );
 exprs: (expr (COMA expr)*);
+streamId: STREAMID;
 identifier: ID;
 literal: intLiteral | floatLiteral;
 intLiteral: INT_LITERAL;
