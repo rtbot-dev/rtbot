@@ -43,22 +43,39 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog)
       it = all_op.emplace(x["id"], FactoryOp::readOp(x.dump().c_str()));
     }
 
-    // connections, save the used id,key
-    set<string> all_id_key;
+    // make connections, save the used in/out ports
+    set<string> used_input;
+    set<string> used_output;
     for (const OpConnection x : j.at("connections")) {
-      if (all_op.at(x.from)->connect(all_op.at(x.to).get(), x.fromPort, x.toPort) == nullptr)
-        throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + " from output port " + x.fromPort +
-                                 " to input port " + x.toPort);
-      all_id_key.emplace(x.to+":"+x.toPort);
+        Op_ptr<T,V> op1=all_op.at(x.from);
+        Op_ptr<T,V> op2=all_op.at(x.to);
+        if (op1->connect(op2, x.fromPort, x.toPort) == nullptr)
+            throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + " from output port " + x.fromPort +
+                                     " to input port " + x.toPort);
+
+        // save the used input ports
+        if (op2->dataInputs.size()==1 && op2->controlInputs.size()==0)
+            used_input.emplace(x.to+":"+op2->dataInputs.begin()->first);
+        else
+            used_input.emplace(x.to+":"+x.toPort);
+
+        // save the used output ports
+        if (op1->ouputIds.size()==1)
+            used_output.emplace(x.from+":"+*(op2->dataInputs.begin()));
+        else
+            used_output.emplace(x.to+":"+x.toPort);
     }
 
-    // build the inputs
-    for(auto [id,op] : all_op)
-        for(auto [key,input] : op->dataInputs) // map<string, Input> Op::dataInputs;
-           if (auto it=all_id_key.find(id+":"+key); it!=all_id_key.end())
+    // build the inputs and outputs
+    for(auto [id,op] : all_op) {
+        for(auto [key,_] : op->dataInputs) // map<string, Input> Op::dataInputs;
+           if (auto it=used_input.find(id+":"+key); it==used_input.end())
                inputs.emplace(id+":"+key, op);
 
-    //build the outputs
+        for(auto key : op->outputIds) // set<string> Op::outputIds;
+           if (auto it=used_output.find(id+":"+key); it==used_output.end())
+               outputs.emplace(id+":"+key, op);
+    }
 }
 
 }

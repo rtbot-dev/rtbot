@@ -19,6 +19,11 @@ struct Pipeline : public Operator<T,V> {
     Pipeline(string const& id, const string& json_prog);
 
     string typeName() const override { return "Pipeline"; }
+
+    map<string, vector<Message<T, V>>> processData() override
+    {
+
+    }
 };
 
 }
