@@ -23,20 +23,21 @@ struct OpConnection {
   }
 };
 
-void to_json(json& j, const OpConnection& p) {
+inline void to_json(json& j, const OpConnection& p) {
   j = json{{"from", p.from}, {"to", p.to}, {"toPort", p.toPort}, {"fromPort", p.fromPort}};
 }
 
-void from_json(const json& j, OpConnection& p) {
+inline void from_json(const json& j, OpConnection& p) {
   p = OpConnection(j["from"].get<string>(), j["to"].get<string>(), j.value("toPort", ""), j.value("fromPort", ""));
 }
 
 template<class T, class V>
-Pipeline<T,V>::Pipeline(string const& id, const string& json_prog)
+Pipeline<T,V>::Pipeline(string const& id, const string& json_prog_)
     : Operator<T, V>(id)
+    , json_prog(json_prog_)
 {
     //TODO: check the sanity of the json
-    auto j = json::parse(json_prog);
+    auto j = json::parse(json_prog_);
 
     for (const json& x : j.at("operators")) {
       pair<map<string, Op_ptr<uint64_t, double>>::iterator, bool> it;
@@ -47,9 +48,9 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog)
     set<string> used_input;
     set<string> used_output;
     for (const OpConnection x : j.at("connections")) {
-        Op_ptr<T,V> op1=all_op.at(x.from);
-        Op_ptr<T,V> op2=all_op.at(x.to);
-        if (op1->connect(op2, x.fromPort, x.toPort) == nullptr)
+        Op_ptr<T,V> &op1=all_op.at(x.from);
+        Op_ptr<T,V> &op2=all_op.at(x.to);
+        if (op1->connect(op2.get(), x.fromPort, x.toPort) == nullptr)
             throw std::runtime_error("Couldn't connect " + x.from + " to " + x.to + " from output port " + x.fromPort +
                                      " to input port " + x.toPort);
 
@@ -60,22 +61,26 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog)
             used_input.emplace(x.to+":"+x.toPort);
 
         // save the used output ports
-        if (op1->ouputIds.size()==1)
-            used_output.emplace(x.from+":"+*(op2->dataInputs.begin()));
+        if (op1->outputIds.size()==1)
+            used_output.emplace(x.from+":"+op2->dataInputs.begin()->first);
         else
             used_output.emplace(x.to+":"+x.toPort);
     }
 
     // build the inputs and outputs
-    for(auto [id,op] : all_op) {
+    for(const auto& [id,op] : all_op) {
         for(auto [key,_] : op->dataInputs) // map<string, Input> Op::dataInputs;
            if (auto it=used_input.find(id+":"+key); it==used_input.end())
-               inputs.emplace(id+":"+key, op);
+               inputs.emplace(id+":"+key, op.get());
 
         for(auto key : op->outputIds) // set<string> Op::outputIds;
            if (auto it=used_output.find(id+":"+key); it==used_output.end())
-               outputs.emplace(id+":"+key, op);
+               outputs.emplace(id+":"+key, op.get());
     }
 }
+
+
+// force the instantiation
+template struct Pipeline<uint64_t, double>;
 
 }

@@ -37,6 +37,7 @@
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
 #include "rtbot/std/Variable.h"
+#include "rtbot/Pipeline.h"
 
 using json = nlohmann::json;
 
@@ -366,6 +367,16 @@ void from_json(const json& j, RelativeStrengthIndex<T, V>& p) {
   p = RelativeStrengthIndex<T, V>(j["id"].get<string>(), j["n"].get<size_t>());
 }
 
+template <class T, class V>
+void to_json(json& j, const Pipeline<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"prog", json::parse(p.json_prog)}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Pipeline<T, V>& p) {
+  p = Pipeline<T, V>(j["id"].get<string>(), j["prog"].get<string>());
+}
+
 /* Operators serialization - deserialization - end */
 
 string FactoryOp::createProgram(string const& id, string const& json_program) {
@@ -416,6 +427,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<RelativeStrengthIndex<uint64_t, double>, json>();
   op_registry_add<Variable<uint64_t, double>, json>();
   op_registry_add<TimeShift<uint64_t, double>, json>();
+  op_registry_add<Pipeline<uint64_t, double>, json>();
 }
 
 static FactoryOp factory;
