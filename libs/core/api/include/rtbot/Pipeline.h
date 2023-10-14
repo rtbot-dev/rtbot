@@ -25,11 +25,11 @@ struct Pipeline : public Operator<T,V> {
 
     void receiveData(Message<T, V> msg, string inputPort = "") override
     {
+        if (inputPort.empty() && inputs.size()==1)
+            inputPort=inputs.begin()->first ;
         auto [id,port]=split2(inputPort);
-        if (id.empty() && this->dataInputs.size()==1)
-            id=inputs.begin()->first;
-        inputs.at(id)->receiveData(msg,port);
-        this->toProcess.insert(id);
+        inputs.at(inputPort)->receiveData(msg,port);
+        this->toProcess.insert(inputPort);
     }
 
     map<string, map<string, vector<Message<T, V>>>> executeData() override
@@ -39,7 +39,15 @@ struct Pipeline : public Operator<T,V> {
             auto results = inputs.at(id)->executeData();
             Operator<T,V>::mergeOutput(opResults, results);
         }
-        return opResults;
+        this->toProcess.clear();
+        if (opResults.empty()) return opResults;
+
+        // add the prefix of the pipeline: {id, {port,value}} --> {id:port, value}
+        map<string, vector<Message<T,V>>> output;
+        for(auto [id, op1] : opResults)
+            for(auto [port, value] : op1)
+                output.emplace(id+":"+port, value);
+        return {{this->id, output}};
     }
 
     map<string, vector<Message<T, V>>> processData() override { return {}; } // do nothing
@@ -48,9 +56,10 @@ private:
     static auto split2(string const& s, char delim = ':')
     {
         std::istringstream is(s);
-        string word1;
+        string word1, word2;
         getline(is, word1, delim);
-        return make_pair(word1, is.str());
+        getline(is, word2, char(0));
+        return make_pair(word1, word2);
     }
 };
 

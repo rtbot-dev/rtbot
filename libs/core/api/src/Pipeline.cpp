@@ -62,9 +62,9 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog_)
 
         // save the used output ports
         if (op1->outputIds.size()==1)
-            used_output.emplace(x.from+":"+op2->dataInputs.begin()->first);
+            used_output.emplace(x.from+":"+ *op1->outputIds.begin());
         else
-            used_output.emplace(x.to+":"+x.toPort);
+            used_output.emplace(x.from+":"+x.fromPort);
     }
 
     // build the inputs and outputs
