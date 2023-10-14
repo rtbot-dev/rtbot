@@ -19,6 +19,18 @@ struct Pipeline : public Operator<T,V> {
 
     Pipeline(string const& id, const string& json_prog_);
 
+    Pipeline(const Pipeline& p) : Pipeline(p.id, p.json_prog) {}
+
+    Pipeline& operator=(const Pipeline& p)
+    {
+        Pipeline tmp(p);
+        std::swap(json_prog, tmp.json_prog);
+        std::swap(all_op, tmp.all_op);
+        std::swap(inputs, tmp.inputs);
+        std::swap(outputs, tmp.outputs);
+        return *this;
+    }
+
     string typeName() const override { return "Pipeline"; }
 
     string toJson() const;

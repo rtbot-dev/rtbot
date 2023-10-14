@@ -22,7 +22,9 @@ TEST_CASE("Pipeline operator") {
         }
 
         auto s = SamplePPG("examples/data/ppg.csv");
-        auto pipe = Pipeline<>("pipe", json.dump());
+        auto pipe1 = Pipeline<>("pipe", json.dump());
+        Pipeline<> pipe;
+        pipe = pipe1;
 
         // process the data
         for (auto i = 0u; i < s.ti.size(); i++) {

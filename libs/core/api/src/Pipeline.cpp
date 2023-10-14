@@ -47,7 +47,8 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog_)
     // make connections, save the used in/out ports
     set<string> used_input;
     set<string> used_output;
-    for (const OpConnection x : j.at("connections")) {
+    for (const json& jx : j.at("connections")) {
+        OpConnection x=jx;
         Op_ptr<T,V> &op1=all_op.at(x.from);
         Op_ptr<T,V> &op2=all_op.at(x.to);
         if (op1->connect(op2.get(), x.fromPort, x.toPort) == nullptr)
@@ -67,13 +68,13 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog_)
             used_output.emplace(x.from+":"+x.fromPort);
     }
 
-    // build the inputs and outputs
+    // build the Pipeline input and output ports: the unused ones
     for(const auto& [id,op] : all_op) {
-        for(auto [key,_] : op->dataInputs) // map<string, Input> Op::dataInputs;
+        for(const auto& [key,_] : op->dataInputs)
            if (auto it=used_input.find(id+":"+key); it==used_input.end())
                inputs.emplace(id+":"+key, op.get());
 
-        for(auto key : op->outputIds) // set<string> Op::outputIds;
+        for(const auto& key : op->outputIds)
            if (auto it=used_output.find(id+":"+key); it==used_output.end())
                outputs.emplace(id+":"+key, op.get());
     }
