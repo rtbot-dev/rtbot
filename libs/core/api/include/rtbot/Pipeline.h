@@ -21,19 +21,19 @@ struct Pipeline : public Operator<T,V> {
 
     Pipeline(const Pipeline& p) : Pipeline(p.id, p.json_prog) {}
 
-    Pipeline& operator=(const Pipeline& p)
+    Pipeline& operator=(Pipeline p)
     {
-        Pipeline tmp(p);
-        std::swap(json_prog, tmp.json_prog);
-        std::swap(all_op, tmp.all_op);
-        std::swap(inputs, tmp.inputs);
-        std::swap(outputs, tmp.outputs);
+        Operator<T,V>& op1=*this;
+        Operator<T,V>& op2=p;
+        swap(op1,op2);
+        std::swap(json_prog, p.json_prog);
+        std::swap(all_op, p.all_op);
+        std::swap(inputs, p.inputs);
+        std::swap(outputs, p.outputs);
         return *this;
     }
 
     string typeName() const override { return "Pipeline"; }
-
-    string toJson() const;
 
     void receiveData(Message<T, V> msg, string inputPort = "") override
     {

@@ -374,7 +374,7 @@ void to_json(json& j, const Pipeline<T, V>& p) {
 
 template <class T, class V>
 void from_json(const json& j, Pipeline<T, V>& p) {
-  p = Pipeline<T, V>(j["id"].get<string>(), j["prog"].get<string>());
+  p = Pipeline<T, V>(j.at("id").get<string>(), j.at("prog").dump());
 }
 
 /* Operators serialization - deserialization - end */

@@ -23,8 +23,7 @@ TEST_CASE("Pipeline operator") {
 
         auto s = SamplePPG("examples/data/ppg.csv");
         auto pipe1 = Pipeline<>("pipe", json.dump());
-        Pipeline<> pipe;
-        pipe = pipe1;
+        Pipeline<> pipe = pipe1;
 
         // process the data
         for (auto i = 0u; i < s.ti.size(); i++) {
@@ -45,25 +44,28 @@ TEST_CASE("Pipeline operator") {
             if (!in) throw runtime_error("file not found");
             in >> json;
         }
-        SECTION("using the pipeline") {
-            auto pipe = Pipeline<>("pipe", json.dump());
+        auto pipe = Pipeline<>("pipe", json.dump());
 
-            // process the data
-            for (int i = 0; i < 100; i++) {
-                pipe.receiveData(Message<uint64_t,double>(i, i % 5), "in1:i1");
-                auto output=pipe.executeData();
+        // pass through the factory
+        string s=FactoryOp::writeOp(make_unique<Pipeline<>>(pipe));
+        cout<<"Pipeline to json:\n"<< s << endl;
+        auto op=FactoryOp::readOp(s);
 
-                if (i >= 5 && i % 5 == 0) {
-                    REQUIRE(output.find("pipe")->second.find("join:o1")->second.size() == 1);
-                    REQUIRE(output.find("pipe")->second.find("join:o1")->second.at(0).value == 4);
-                    REQUIRE(output.find("pipe")->second.find("join:o1")->second.at(0).time == i - 1);
+        // process the data
+        for (int i = 0; i < 100; i++) {
+            op->receiveData(Message<uint64_t,double>(i, i % 5), "in1:i1");
+            auto output=op->executeData();
 
-                    REQUIRE(output.find("pipe")->second.find("join:o2")->second.size() == 1);
-                    REQUIRE(output.find("pipe")->second.find("join:o2")->second.at(0).value == 4);
-                    REQUIRE(output.find("pipe")->second.find("join:o2")->second.at(0).time == i - 1);
-                } else {
-                    REQUIRE(output.find("pipe")->second.count("join") == 0);
-                }
+            if (i >= 5 && i % 5 == 0) {
+                REQUIRE(output.find("pipe")->second.find("join:o1")->second.size() == 1);
+                REQUIRE(output.find("pipe")->second.find("join:o1")->second.at(0).value == 4);
+                REQUIRE(output.find("pipe")->second.find("join:o1")->second.at(0).time == i - 1);
+
+                REQUIRE(output.find("pipe")->second.find("join:o2")->second.size() == 1);
+                REQUIRE(output.find("pipe")->second.find("join:o2")->second.at(0).value == 4);
+                REQUIRE(output.find("pipe")->second.find("join:o2")->second.at(0).time == i - 1);
+            } else {
+                REQUIRE(output.find("pipe")->second.count("join") == 0);
             }
         }
     }

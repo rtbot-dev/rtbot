@@ -78,6 +78,16 @@ class Operator {
   explicit Operator(string const& id) { this->id = id; }
   virtual ~Operator() = default;
 
+  void friend swap(Operator& op1, Operator& op2)
+  {
+      std::swap(op1.id, op2.id);
+      std::swap(op1.dataInputs, op2.dataInputs);
+      std::swap(op1.controlInputs, op2.controlInputs);
+      std::swap(op1.outputIds, op2.outputIds);
+      std::swap(op1.outputs, op2.outputs);
+      std::swap(op1.toProcess, op2.toProcess);
+  }
+
   virtual string typeName() const = 0;
 
   virtual map<string, vector<Message<T, V>>> processData() = 0;
