@@ -14,6 +14,7 @@ struct Pipeline : public Operator<T,V> {
     string json_prog;
     map<string, Op_ptr<T,V>> all_op;  // from id to operator
     map<string, Operator<T,V>*> inputs, outputs;
+    map<string, string> portsMap;
 
     using Operator<T,V>::Operator;
 
@@ -30,6 +31,7 @@ struct Pipeline : public Operator<T,V> {
         std::swap(all_op, p.all_op);
         std::swap(inputs, p.inputs);
         std::swap(outputs, p.outputs);
+        std::swap(portsMap, p.portsMap);
         return *this;
     }
 
@@ -39,6 +41,7 @@ struct Pipeline : public Operator<T,V> {
     {
         if (inputPort.empty() && inputs.size()==1)
             inputPort=inputs.begin()->first ;
+        inputPort=portsMap.at(inputPort);
         auto [id,port]=split2(inputPort);
         inputs.at(inputPort)->receiveData(msg,port);
         this->toProcess.insert(inputPort);
@@ -55,11 +58,13 @@ struct Pipeline : public Operator<T,V> {
         if (opResults.empty()) return opResults;
 
         // add the prefix of the pipeline: {id, {port,value}} --> {id:port, value}
+        // transform this to o1, o2 notation
         map<string, vector<Message<T,V>>> output;
         for(auto [id, op1] : opResults)
             for(auto [port, value] : op1)
-                output.emplace(id+":"+port, value);
-        return {{this->id, output}};
+                if (auto it=outputs.find(id+":"+port); it!=outputs.end())
+                    output.emplace(portsMap.at(it->first), value);
+        return this->emit(output);
     }
 
     map<string, vector<Message<T, V>>> processData() override { return {}; } // do nothing
@@ -73,6 +78,7 @@ private:
         getline(is, word2, char(0));
         return make_pair(word1, word2);
     }
+
 };
 
 }

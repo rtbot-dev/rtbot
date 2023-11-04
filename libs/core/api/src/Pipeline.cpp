@@ -78,6 +78,22 @@ Pipeline<T,V>::Pipeline(string const& id, const string& json_prog_)
            if (auto it=used_output.find(id+":"+key); it==used_output.end())
                outputs.emplace(id+":"+key, op.get());
     }
+
+    // register the inputs in parent class Operator
+    int c=1;
+    for (auto [key, op] : inputs) {
+        string name="i"s+std::to_string(c++);
+        this->addDataInput(name, 1);
+        portsMap.emplace(name,key);
+    }
+
+    // register the outputs in parent class Operator
+    c=1;
+    for (auto [key, op] : outputs) {
+        string name="o"s+std::to_string(c++);
+        this->addOutput(name);
+        portsMap.emplace(key,name); // reverse map
+    }
 }
 
 
