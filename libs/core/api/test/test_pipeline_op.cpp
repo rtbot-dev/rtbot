@@ -3,6 +3,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/FactoryOp.h"
 #include "rtbot/Pipeline.h"
 #include "rtbot/Output.h"
@@ -73,4 +74,46 @@ TEST_CASE("Pipeline operator") {
             }
         }
     }
+}
+
+#include "rtbot/Composite.h"
+
+TEST_CASE("Composite replacement") {
+  double n = 14;
+  auto composite = Composite<uint64_t, double>("cmp");
+  using nlohmann::json;
+  auto c1 = Collector<uint64_t, double>("c1", 50);
+  auto c2 = Collector<uint64_t, double>("c2", 50);
+  nlohmann::json j;
+  j["operators"]=
+  {
+          {{"type","Input"}, {"id", "in"}},
+          {{"type","Demultiplexer"}, {"id", "dm"}, {"numOutputPorts", 2}},
+          {{"type","Count"}, {"id", "count"}},
+          {{"type","LessThan"}, {"id", "lt"}, {"value", n + 1.0}},
+          {{"type","EqualTo"}, {"id", "et"}, {"value", n + 1.0}},
+          {{"type","GreaterThan"}, {"id", "gt"}, {"value", n + 1.0}},
+          {{"type","EqualTo"}, {"id", "etn2"}, {"value", n + 2.0}},
+
+          {{"type","Constant"}, {"id", "cgtz"}, {"value", 0}},
+          {{"type","Constant"}, {"id", "cgto"}, {"value", 1}},
+          {{"type","Constant"}, {"id", "cltz"}, {"value", 0}},
+          {{"type","Constant"}, {"id", "clto"}, {"value", 1}},
+          {{"type","Constant"}, {"id", "cetz"}, {"value", 0}},
+          {{"type","Constant"}, {"id", "ceto"}, {"value", 1}},
+
+          {{"type","Difference"}, {"id", "diff1"}},
+          {{"type","Difference"}, {"id", "diff2"}},
+          {{"type","LessThan"}, {"id", "lt0"}, {"value", 0.0}},
+          {{"type","EqualTo"}, {"id", "et0"}, {"value", 0.0}},
+          {{"type","GreaterThan"}, {"id", "gt0"}, {"value", 0.0}},
+          {{"type","CumulativeSum"}, {"id", "sum0"}},
+          {{"type","Scale"}, {"id", "sc0"}, {"value", 1.0 / n}},
+            composite.createLinear("l1", {1.0 * (n - 1) / n, 1.0 / n});
+            composite.createScale("neg0", -1.0);
+            composite.createCumulativeSum("sum1");
+            composite.createScale("sc1", 1.0 / n);
+            composite.createLinear("l2", {1.0 * (n - 1) / n, 1.0 / n});
+  };
+
 }
