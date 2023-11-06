@@ -41,7 +41,7 @@ struct Pipeline : public Operator<T,V> {
     {
         if (inputPort.empty() && inputs.size()==1)
             inputPort=inputs.begin()->first ;
-        inputPort=portsMap.at(inputPort);
+        else inputPort=portsMap.at(inputPort);
         auto [id,port]=split2(inputPort);
         inputs.at(inputPort)->receiveData(msg,port);
         this->toProcess.insert(inputPort);
