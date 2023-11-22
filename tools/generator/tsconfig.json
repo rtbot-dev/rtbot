@@ -4,9 +4,9 @@
     "declaration": true,
     "inlineSourceMap": true,
     "skipLibCheck": true,
-    "module": "CommonJS",
+    "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "resolveJsonModule": true,
-    "target": "ESNext",
-  },
+    "target": "ESNext"
+  }
 }
