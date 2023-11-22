@@ -74,8 +74,7 @@ program
             const getExampleParameter = (k: string) => {
               if (k === "id") return '"id"';
               if (schema.properties[k].examples) {
-                if(schema.properties[k].type === "array")
-                  return `[${schema.properties[k].examples[0]}]`;
+                if (schema.properties[k].type === "array") return `[${schema.properties[k].examples[0]}]`;
                 return schema.properties[k].examples[0];
               }
               if (schema.properties[k].type === "integer") return 2;
@@ -119,13 +118,20 @@ program
     if (target === "cpp") {
       fs.writeFileSync(
         `${output}/jsonschema.hpp`,
-        `#include <nlohmann/json.hpp>
+        `#ifndef RTBOT_JSONSCHEMA_H_
+        #define RTBOT_JSONSCHEMA_H_
+
+        #include <nlohmann/json.hpp>
 
         using nlohmann::json;
 
         static json rtbot_schema = ""
-          ${jsonschemaContent.split("\n").map(l => '"' + l.replaceAll('"', '\\"')  + '"').join('\n')}
-        ""_json;`
+          ${jsonschemaContent
+            .split("\n")
+            .map((l) => '"' + l.replaceAll('"', '\\"') + '"')
+            .join("\n")}
+        ""_json;
+        #endif`.replace(/       +/g, "")
       );
     }
 
