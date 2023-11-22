@@ -47,7 +47,6 @@
   },
   "devDependencies": {
     "@base2/pretty-print-object": "^1.0.2",
-    "@bazel/runfiles": "^5.8.1",
     "@types/jest": "^29.5.2",
     "@types/mocha": "^10.0.1",
     "@types/node": "18.11.9",

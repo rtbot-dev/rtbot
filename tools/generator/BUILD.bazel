@@ -6,7 +6,6 @@ package(default_visibility = ["//visibility:public"])
 
 _DEPS = [
     "//:node_modules/@base2/pretty-print-object",
-    "//:node_modules/@bazel/runfiles",
     "//:node_modules/@types/node",
     "//:node_modules/chalk",
     "//:node_modules/commander",
