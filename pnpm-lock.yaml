@@ -109,9 +109,6 @@ devDependencies:
   '@base2/pretty-print-object':
     specifier: ^1.0.2
     version: 1.0.2
-  '@bazel/runfiles':
-    specifier: ^5.8.1
-    version: 5.8.1
   '@types/jest':
     specifier: ^29.5.2
     version: 29.5.2
@@ -1688,10 +1685,6 @@ packages:
     resolution: {integrity: sha512-KgqAWMH0emL6f3xH6nqyTryoBMqlJ627LBIe9PT1PRRQPz2FtHib3FIHJPukp1slzF3hJYZvdiVwgPnHbaSOOA==}
     hasBin: true
     dev: false
-
-  /@bazel/runfiles@5.8.1:
-    resolution: {integrity: sha512-NDdfpdQ6rZlylgv++iMn5FkObC/QlBQvipinGLSOguTYpRywmieOyJ29XHvUilspwTFSILWpoE9CqMGkHXug1g==}
-    dev: true
 
   /@bcoe/v8-coverage@0.2.3:
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
