@@ -92,13 +92,13 @@ export class Program {
       if (createProgramResponse.error) throw new Error(createProgramResponse.error);
     }
     // set the default port
-    this.defaultPort = (await RtBot.getInstance().getProgramEntryPorts(this.programId))[0];
+    this.defaultPort = JSON.parse(await RtBot.getInstance().getProgramEntryPorts(this.programId))[0];
   }
 
   async processMessageDebug(time: number, value: number, port?: string) {
     port = port ?? this.defaultPort;
     if (port) return await RtBot.getInstance().processDebug(this.programId, { [`${port}`]: [{ time, value }] });
-    else console.warn("Please specify an entry port to send the message");
+    else throw new Error("Please specify an entry port to send the message");
   }
 
   async stop() {
