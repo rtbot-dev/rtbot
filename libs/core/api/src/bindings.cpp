@@ -109,7 +109,7 @@ string createProgram(string const& programId, string const& json_program) {
 
 string deleteProgram(string const& programId) { return to_string(factory.deleteProgram(programId)); }
 
-string addToMessageBuffer(const string& programId, const string& portId, unsigned long long time, double value) {
+string addToMessageBuffer(const string& programId, const string& portId, unsigned long time, double value) {
   return to_string(factory.addToMessageBuffer(programId, portId, Message<uint64_t, double>(time, value)));
 }
 

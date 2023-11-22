@@ -18,7 +18,8 @@ string validateOperator(string const& type, string const& json_op);
 string createProgram(string const& programId, string const& json_program);
 string deleteProgram(string const& programId);
 
-string addToMessageBuffer(const string& programId, const string& portId, unsigned long long time, double value);
+// TODO: wasm support for 64 bit looks uncertain, hence we use only `unsigned long` for the api
+string addToMessageBuffer(const string& programId, const string& portId, unsigned long time, double value);
 string processMessageBuffer(const string& programId);
 string processMessageBufferDebug(const string& programId);
 
