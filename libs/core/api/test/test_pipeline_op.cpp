@@ -37,7 +37,6 @@ TEST_CASE("Pipeline operator") {
             if (out.empty()) continue;
             if (auto it=out.at(pipe.id).find("o1"); it!=out.at(pipe.id).end()) {
                 auto msg=it->second.at(0);
-                cout << msg.time<<" "<<msg.value << endl;
                 REQUIRE(out.count(out1.id));    // to test the connection
             }
         }
