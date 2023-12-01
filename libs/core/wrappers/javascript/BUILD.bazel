@@ -115,3 +115,16 @@ npm_package(
     data = _DEPS,
     package = "@rtbot-dev/rtbot",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(
+        ["src/**/*.ts"],
+        exclude = ["**/*.spec.ts"],
+    )
+)
+
+exports_files(glob(
+    ["src/**/*.ts"],
+    exclude = ["**/*.spec.ts"],
+))

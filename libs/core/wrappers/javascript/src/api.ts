@@ -80,19 +80,25 @@ export class RtBotRun {
   // the second element will be a list with all the first values
   // of the operator output, and so on.
   private readonly outputs: CollapsedFormat | ExtendedFormat;
+  private readonly program: Program;
 
   constructor(
-    private readonly program: Program,
+    program: Program | string,
     private readonly data: number[][],
-    private readonly format: RtBotRunOutputFormat = RtBotRunOutputFormat.COLLAPSED,
+    private readonly format: RtBotRunOutputFormat,
+    private readonly progressCb: ((progress: number) => void) | undefined,
     private readonly verbose: boolean = false
   ) {
+    console.log("api format", format, "verbose", verbose);
+    if (typeof program === "string") this.program = Program.toInstance(JSON.parse(program));
+    else this.program = program;
     if (format === RtBotRunOutputFormat.COLLAPSED) this.outputs = {};
     else this.outputs = [];
   }
 
   async run() {
-    this.program.validate();
+    // const { success } = this.program.safeValidate();
+    // if (!success) throw new Error(`Program is invalid`);
     const program = this.program.toPlain();
     const programStr = JSON.stringify(program, null, 2);
     if (this.verbose) console.log("Sending", programStr);
@@ -107,31 +113,40 @@ export class RtBotRun {
     if (this.verbose) console.log("Sending data...");
     const entryPorts: string[] = JSON.parse(await RtBot.getInstance().getProgramEntryPorts(this.program.programId));
     // iterate over the data passed and send it to the rtbot program
-    await Promise.all(
-      this.data.map(async ([time, ...values]) => {
-        const msgs = Object.fromEntries(entryPorts.map((p, i) => [p, [{ time, value: values[i] }]]));
-        const iterationOutput = await RtBot.getInstance().processDebug(this.program.programId, msgs);
-        if (this.verbose) console.log("iteration ", time, values, "=>", iterationOutput);
-        // record the outputs
-        if (this.format === RtBotRunOutputFormat.COLLAPSED) {
-          Object.entries(iterationOutput as RtBotIterationOutput).forEach(([opId, opOut]) => {
-            Object.entries(opOut).forEach(([port, msgs]) => {
-              const k = `${opId}:${port}`;
-              msgs.forEach(({ time, value }) => {
-                if (!(this.outputs as CollapsedFormat)[k]) (this.outputs as CollapsedFormat)[k] = [[], []];
+    const dataSize = this.data.length;
+    const progressStepSize = Math.floor(dataSize / 20);
+    let progressStepCounter = 0;
+    for (let i = 0; i < dataSize; i++) {
+      const [time, ...values] = this.data[i];
+      const msgs = Object.fromEntries(entryPorts.map((p, i) => [p, [{ time, value: values[i] }]]));
+      const iterationOutput = await RtBot.getInstance().processDebug(this.program.programId, msgs);
+      if (this.verbose) console.log("iteration ", time, values, "=>", iterationOutput);
+      // record the outputs
+      if (this.format === RtBotRunOutputFormat.COLLAPSED) {
+        Object.entries(iterationOutput as RtBotIterationOutput).forEach(([opId, opOut]) => {
+          Object.entries(opOut).forEach(([port, msgs]) => {
+            const k = `${opId}:${port}`;
+            msgs.forEach(({ time, value }) => {
+              if (!(this.outputs as CollapsedFormat)[k]) (this.outputs as CollapsedFormat)[k] = [[], []];
 
-                // add the time to the first list in the output
-                (this.outputs as CollapsedFormat)[k][0].push(time);
-                // add the values to the correspondent lists in the output
-                (this.outputs as CollapsedFormat)[k][1].push(value);
-              });
+              // add the time to the first list in the output
+              (this.outputs as CollapsedFormat)[k][0].push(time);
+              // add the values to the correspondent lists in the output
+              (this.outputs as CollapsedFormat)[k][1].push(value);
             });
           });
-        } else {
-          (this.outputs as ExtendedFormat).push({ in: msgs, out: iterationOutput });
+        });
+      } else {
+        (this.outputs as ExtendedFormat).push({ in: msgs, out: iterationOutput });
+      }
+      if (this.progressCb) {
+        progressStepCounter++;
+        if (progressStepCounter === progressStepSize) {
+          progressStepCounter = 0;
+          this.progressCb(i / dataSize);
         }
-      })
-    );
+      }
+    }
 
     await RtBot.getInstance().deleteProgram(this.program.programId);
     if (this.verbose) console.log("Done!", this.outputs);

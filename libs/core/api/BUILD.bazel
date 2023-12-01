@@ -49,6 +49,7 @@ cc_library(
 BASE_LINKOPTS = [
     "--bind",  # Enable embind
     "-s MODULARIZE",
+    "-s ALLOW_MEMORY_GROWTH",
     #"-s MEMORY64=2",
     "-s NO_DISABLE_EXCEPTION_CATCHING",
     #"-s EXPORT_ES6=1",

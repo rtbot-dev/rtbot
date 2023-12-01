@@ -42,6 +42,10 @@ export class Program {
     programSchema.parse(JSON.parse(JSON.stringify(this)));
   }
 
+  safeValidate() {
+    return programSchema.safeParse(JSON.parse(JSON.stringify(this)));
+  }
+
   addOperator(op: Operator) {
     op.setProgram(this);
     this.operators.push(op);
