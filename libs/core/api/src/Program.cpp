@@ -25,11 +25,11 @@ struct OpConnection {
   }
 };
 
-void to_json(json& j, const OpConnection& p) {
+inline void to_json(json& j, const OpConnection& p) {
   j = json{{"from", p.from}, {"to", p.to}, {"toPort", p.toPort}, {"fromPort", p.fromPort}};
 }
 
-void from_json(const json& j, OpConnection& p) {
+inline void from_json(const json& j, OpConnection& p) {
   p = OpConnection(j["from"].get<string>(), j["to"].get<string>(), j.value("toPort", ""), j.value("fromPort", ""));
 }
 

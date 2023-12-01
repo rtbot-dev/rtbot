@@ -1,12 +1,11 @@
-#ifndef PIPELINE_H
-#define PIPELINE_H
+#ifndef PROGRAM_H
+#define PROGRAM_H
 
 #include <map>
 #include <memory>
 #include <optional>
 
 #include "rtbot/Operator.h"
-#include "rtbot/Output.h"
 
 namespace rtbot {
 
@@ -23,12 +22,7 @@ struct Program {
 
   Program(Program const&) = delete;
   void operator=(Program const&) = delete;
-
-  Program(Program&& other) {
-    all_op = move(other.all_op);
-    entryOperator = move(other.entryOperator);
-    outputFilter = move(other.outputFilter);
-  }
+  Program(Program&& other)=default;
 
   string getProgramEntryOperatorId() { return entryOperator; }
 
@@ -95,4 +89,4 @@ struct Program {
 
 }  // namespace rtbot
 
-#endif  // PIPELINE_H
+#endif  // PROGRAM_H
