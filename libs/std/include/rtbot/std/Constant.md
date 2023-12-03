@@ -15,6 +15,9 @@ jsonschema:
       description: The id of the operator
     value:
       type: number
+      examples:
+        - 3.14
+        - 2.718
       description: The constant to emit when required.
   required: ["id", "value"]
 ---

@@ -16,8 +16,10 @@ jsonschema:
   required: ["id"]
 ---
 
-# Minus
+# Or
+
+TODO: review this
 Synchronizes two streams and emits the or-logic between the values for a given $t$. 
 Synchronization mechanism inherited from `Join`.
 
-$$y(t_n)=x_1(t_n) || x_2(t_n)$$
+$$y(t_n)=x_1(t_n) \lor x_2(t_n)$$

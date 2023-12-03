@@ -5,13 +5,13 @@ load("//tools/generator:generator.bzl", "rtbot_generate")
 rtbot_generate(
     name = "mdx-core",
     target = "markdown",
-    srcs = ["//libs/core/lib:md"],
+    srcs = ["//libs/core:md"],
 )
 
 rtbot_generate(
     name = "mdx-std",
     target = "markdown",
-    srcs = ["//libs/core/std:md"],
+    srcs = ["//libs/std:md"],
 )
 
 copy_to_directory(

@@ -16,8 +16,9 @@ jsonschema:
   required: ["id"]
 ---
 
-# Minus
-Synchronizes two streams and emits the and-logic between the values for a given $t$. 
+# And
+
+Synchronizes two streams and emits the and-logic between the values for a given $t_n$. 
 Synchronization mechanism inherited from `Join`.
 
-$$y(t_n)=x_1(t_n) && x_2(t_n)$$
+$$y(t_n)=x_1(t_n) \wedge x_2(t_n)$$

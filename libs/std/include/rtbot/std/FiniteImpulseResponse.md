@@ -15,6 +15,8 @@ jsonschema:
       description: The id of the operator
     coeff:
       type: array
+      examples: 
+        - [1, 0, -1]
       description: The vector of coefficients to be combined with the buffered message values.
       items:
         type: number

@@ -21,5 +21,6 @@ jsonschema:
 
 # Add
 
+TODO: review this
 Adds a constant specified value to each input message.
 $$y(t_n)= x(t_n) + C$$
