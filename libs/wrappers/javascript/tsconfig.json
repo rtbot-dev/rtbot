@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      // this is only for enabling intellisense
+      "@rtbot-dev/rtbot": ["./src"],
+      "./generated": ["../../../dist/bin/libs/wrappers/javascript/src/generated.ts"]
+    }
+  }
+}

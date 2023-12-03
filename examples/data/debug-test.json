@@ -5,6 +5,7 @@
   "apiVersion": "v1",
   "author": "Someone <someone@gmail.com>",
   "license": "MIT",
+  "entryOperator": "in1",
   "operators": [
     {
       "id": "in1",

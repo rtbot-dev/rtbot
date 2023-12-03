@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.hpp",
+        "**/*.h",
+    ]),
+    data = glob([
+        "**/*.json",
+        "**/*.csv",
+    ]) + [
+        "//examples/data:ppg.csv",
+        "//examples/data:program-test-1.json",
+        "//examples/data:program-test-2.json",
+        "//examples/data:program-test-3.json",
+        "//examples/data:program-test-4.json"
+    ],
+    # defines = ["CATCH_CONFIG_MAIN"],
+    deps = [        
+        "//libs/api:rtbot-api",
+        "@catch2",
+    ],
+    copts = ["-Iexternal/json-schema-validator/src", "-fpermissive"]
+)

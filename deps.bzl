@@ -9,7 +9,7 @@ def deps():
 
     http_archive(
         name = "yaml-cpp",
-        build_file = "@rtbot//libs/external:yaml-cpp.BUILD",
+        build_file = "@rtbot//tools/external:yaml-cpp.BUILD",
         sha256 = "4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5",
         strip_prefix = "yaml-cpp-yaml-cpp-0.7.0",
         url = "https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.zip",
@@ -17,7 +17,7 @@ def deps():
 
     http_archive(
         name = "json-cpp",
-        build_file = "@rtbot//libs/external:json-cpp.BUILD",
+        build_file = "@rtbot//tools/external:json-cpp.BUILD",
         sha256 = "95651d7d1fcf2e5c3163c3d37df6d6b3e9e5027299e6bd050d157322ceda9ac9",
         strip_prefix = "json-3.11.2",
         url = "https://github.com/nlohmann/json/archive/refs/tags/v3.11.2.zip",
@@ -25,7 +25,7 @@ def deps():
 
     http_archive(
         name = "json-schema-validator",
-        build_file = "@rtbot//libs/external:json-schema-validator.BUILD",
+        build_file = "@rtbot//tools/external:json-schema-validator.BUILD",
         sha256 = "d6dd8415b88c70faac6e2a2f1c61cb65de839b332e4ec91a317de384c0edc01e",
         strip_prefix = "json-schema-validator-2.2.0",
         url = "https://github.com/pboettch/json-schema-validator/archive/refs/tags/2.2.0.zip",
@@ -33,7 +33,7 @@ def deps():
 
     http_archive(
         name = "fast_double_parser",
-        build_file = "@rtbot//libs/external:fast_double_parser.BUILD",
+        build_file = "@rtbot//tools/external:fast_double_parser.BUILD",
         sha256 = "fc408309a03dc1606620c8be358e98c652479766afd50e5cdb22032a3f09b5d8",
         strip_prefix = "fast_double_parser-0.7.0",
         url = "https://github.com/lemire/fast_double_parser/archive/refs/tags/v0.7.0.zip",
@@ -41,7 +41,7 @@ def deps():
 
     http_archive(
         name = "quill",
-        build_file = "@rtbot//libs/external:quill.BUILD",
+        build_file = "@rtbot//tools/external:quill.BUILD",
         strip_prefix = "quill-6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce/quill",
         url = "https://github.com/odygrd/quill/archive/6f71257bfd58b6dbfd26cb7ad5a2453bb9844bce.zip",
     )
@@ -119,6 +119,7 @@ def deps():
     http_archive(
         name = "emsdk",
         strip_prefix = "emsdk-3.1.34/bazel",
+        sha256 = "e03ed88f9f8075c78f49c43241e3586798300593e7ea873f766e9403e662516c",
         url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/3.1.34.tar.gz",
     )
 

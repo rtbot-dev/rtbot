@@ -1,0 +1,16 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.h",
+    ]),
+    #defines = ["CATCH_CONFIG_MAIN"],
+    deps = [
+        "//libs/core:rtbot",
+        "//libs/std:rtbot-std",
+        "//libs/finance:rtbot-finance",
+        "@catch2",
+    ],
+)

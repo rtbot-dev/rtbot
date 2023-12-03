@@ -95,13 +95,13 @@ load("@rules_rust//crate_universe:defs.bzl", "crates_repository")
 
 crates_repository(
     name = "crate_index",
-    cargo_lockfile = "//libs:Cargo.lock",
-    lockfile = "//libs:Cargo.Bazel.lock",
+    cargo_lockfile = "//apps:Cargo.lock",
+    lockfile = "//apps:Cargo.Bazel.lock",
     manifests = [
-        "//libs:Cargo.toml",
-        "//libs:redis-module/Cargo.toml",
-        "//libs:rtbot-server/Cargo.toml",
-        "//libs:rtbot-rs/Cargo.toml",
+        "//apps:Cargo.toml",
+        "//apps:redis-module/Cargo.toml",
+        "//apps:rtbot-server/Cargo.toml",
+        "//apps:rtbot-rs/Cargo.toml",
     ],
 )
 

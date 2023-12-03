@@ -1,0 +1,108 @@
+load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("//tools/generator:generator.bzl", "rtbot_generate")
+load("@aspect_rules_js//npm:defs.bzl", "stamped_package_json")
+
+package(default_visibility = ["//visibility:public"])
+
+rtbot_generate(
+    name = "jsonschema",
+    target = "cpp",
+)
+
+copy_file(
+    name = "jsonschema_to_src",
+    src = ":jsonschema",
+    out = "include/rtbot/jsonschema.hpp",
+)
+
+cc_library(
+    name = "rtbot-api",
+    srcs = glob([
+        "src/**/*.cpp",
+        "src/**/*.hpp",
+    ]),
+    hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
+    copts = [
+        "-Iexternal/json-schema-validator/src",
+        "-Ilibs/core/include/rtbot",
+        # this is needed when building from another workspace
+        "-Iexternal/rtbot/libs/core/include/rtbot",
+        # this is only needed for wasm compilation, we may want to create
+        # a different rule later
+        #"-fexceptions",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/finance:rtbot-finance",
+        "//libs/core:rtbot",
+        "//libs/std:rtbot-std",
+        "@json-cpp//:lib",
+        "@json-schema-validator//:lib",
+        "@yaml-cpp//:lib",
+    ],
+)
+
+BASE_LINKOPTS = [
+    "--bind",  # Enable embind
+    "-s MODULARIZE",
+    "-s ALLOW_MEMORY_GROWTH",
+    #"-s MEMORY64=2",
+    "-s NO_DISABLE_EXCEPTION_CATCHING",
+    #"-s EXPORT_ES6=1",
+]
+
+cc_binary(
+    name = "bindings-cpp-wasm",
+    srcs = ["wasm/emscripten-bindings.cpp"],
+    linkopts = BASE_LINKOPTS,
+    deps = [":rtbot-api"],
+)
+
+wasm_cc_binary(
+    name = "rtbot-wasm",
+    cc_target = ":bindings-cpp-wasm",
+)
+
+genrule(
+    name = "declarations",
+    outs = ["index.d.ts"],
+    cmd = """
+    echo "export interface RtBotEmbindModule {" >> $@
+    echo "  validate(programStr: string): string;" >> $@
+    echo "  validateOperator(type: string, operatorStr: string): string;" >> $@
+    echo "  createProgram(programId: string, programStr: string): string;" >> $@
+    echo "  deleteProgram(programId: string): string;" >> $@
+    echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number): string;" >> $@
+    echo "  processMessageBuffer(programId: string): string;" >> $@
+    echo "  processMessageBufferDebug(programId: string): string;" >> $@
+    echo "  getProgramEntryOperatorId(programId: string): string;" >> $@
+    echo "  getProgramEntryPorts(programId: string): string;" >> $@
+    echo "  getProgramOutputFilter(programId: string): string;" >> $@
+    echo "}" >> $@
+    echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
+    echo "export default factory;" >> $@
+    """,
+)
+
+stamped_package_json(
+    name = "package",
+    stamp_var = "VERSION",
+)
+
+# npm package for wasm code
+npm_package(
+    name = "js",
+    srcs = [
+        ":package",
+        ":declarations",
+        ":rtbot-wasm",
+    ],
+    package = "@rtbot-dev/wasm",
+    replace_prefixes = {
+      "rtbot-wasm": "."
+    }
+)

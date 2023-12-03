@@ -54,8 +54,8 @@ _rtbot_generate = rule(
         "srcs": attr.label_list(
             allow_files = [".md"],
             default = [
-              "//libs/core/std:md",
-              "//libs/core/lib:md"
+              "//libs/std:md",
+              "//libs/core:md"
             ],
         ),
         "generate": attr.label(
