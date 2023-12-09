@@ -105,6 +105,12 @@ export class Program {
     else throw new Error("Please specify an entry port to send the message");
   }
 
+  async processMessage(time: number, value: number, port?: string) {
+    port = port ?? this.defaultPort;
+    if (port) return await RtBot.getInstance().process(this.programId, { [`${port}`]: [{ time, value }] });
+    else throw new Error("Please specify an entry port to send the message");
+  }
+
   async stop() {
     await RtBot.getInstance().deleteProgram(this.programId);
   }

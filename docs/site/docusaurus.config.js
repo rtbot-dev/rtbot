@@ -6,14 +6,39 @@ const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const math = require("remark-math");
 const katex = require("rehype-katex");
 
-const path = require("path");
-
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "RtBot",
-  tagline: "real time programs, made easy",
+  tagline: "low latency, incremental analytical engine",
   favicon: "img/favicon.ico",
+
   plugins: [
+    async function configureTailwind(context, options) {
+      return {
+        name: "docusaurus-tailwindcss",
+        configurePostCss(postcssOptions) {
+          // Appends TailwindCSS and AutoPrefixer.
+          postcssOptions.plugins.push(require("tailwindcss"));
+          postcssOptions.plugins.push(require("autoprefixer"));
+          return postcssOptions;
+        },
+      };
+    },
+    async (context, options) => {
+      return {
+        name: "custom-docusaurus-plugin",
+        configureWebpack(config, isServer, utils) {
+          return {
+            resolve: {
+              fallback: {
+                path: false,
+                fs: false,
+              },
+            },
+          };
+        },
+      };
+    },
     async (context, options) => {
       return {
         configureWebpack(config, isServer, utils, content) {
@@ -97,7 +122,12 @@ const config = {
   ],
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-    ({
+    {
+      colorMode: {
+        defaultMode: "dark",
+        disableSwitch: true,
+        respectPrefersColorScheme: false,
+      },
       // Replace with your project's social card
       image: "img/docusaurus-social-card.jpg",
       navbar: {
@@ -113,7 +143,7 @@ const config = {
             position: "left",
             label: "Documentation",
           },
-          { to: "/blog", label: "Blog", position: "left" },
+          //{ to: "/blog", label: "Blog", position: "left" },
           {
             href: "https://github.com/rtbot-dev/rtbot",
             label: "GitHub",
@@ -162,7 +192,7 @@ const config = {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
       },
-    }),
+    },
 };
 
 module.exports = config;
