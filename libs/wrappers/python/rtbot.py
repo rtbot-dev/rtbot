@@ -6,17 +6,27 @@ from typing import Optional
 from json import JSONEncoder
 
 class Run(object):
-    def __init__(self, program, data):
+    def __init__(self, program):
         program.validate()
         self.program = program
-        # data is a list of rows
-        # the first elemet of a row is the time 
-        # the other elements are assumend to correspond to 
-        # the input of the port i according to the `ports` 
-        # list passed
-        self.data = data
 
-    def exec(self):
+        api.deleteProgram(self.program.id)
+        result = api.createProgram(self.program.id, self.program.toJson())
+        if result != "":
+            raise Exception(json.loads(result)["error"])
+
+
+    def __del__(self):
+        api.deleteProgram(self.program.id)
+
+
+    def exec(self, data):
+        # data is a list of rows
+        # the first elemet of a row is the time
+        # the other elements are assumend to correspond to
+        # the input of the port i according to the `ports`
+        # list passed
+        api.deleteProgram(self.program.id)
         result = api.createProgram(self.program.id, self.program.toJson())
         # TODO: here we assume that the data is a list of rows, which are a list
         # of numbers, where the first element of the row is the time and the remaining 
@@ -30,7 +40,7 @@ class Run(object):
 
         result = {}
 
-        for row in self.data:
+        for row in data:
             # print(f"Sending {row[0]}, {row[1]}")
             for i in range(1, len(row)):
                 api.addToMessageBuffer(self.program.id, ports[i - 1], row[0], row[i])
@@ -46,7 +56,29 @@ class Run(object):
                         result[key]['time'].append(int(msg.get("time")))
                         result[key]['value'].append(float(msg.get("value")))
 
-        api.deleteProgram(self.program.id)
+        return result
+
+
+    def receive(self, message):
+        ports = json.loads(api.getProgramEntryPorts(self.program.id))
+        result = {}
+
+        row=message
+        # print(f"Sending {row[0]}, {row[1]}")
+        for i in range(1, len(row)):
+            api.addToMessageBuffer(self.program.id, ports[i - 1], row[0], row[i])
+
+        response = json.loads(api.processMessageBufferDebug(self.program.id))
+        # print(f"response {response}")
+        for opId, op in response.items():
+            for portId, msgs in op.items():
+                key = f"{opId}:{portId}"
+                if not key in result:
+                    result[key] = { 'time': [], 'value': []}
+                for msg in msgs:
+                    result[key]['time'].append(int(msg.get("time")))
+                    result[key]['value'].append(float(msg.get("value")))
+
         return result
 
 
@@ -101,8 +133,12 @@ class Program:
         if self.date:
             obj["date"] = self.date
 
-        if self.date:
+        if self.entryOperator:
             obj["entryOperator"] = self.entryOperator
+        else:
+            for op in obj["operators"]:
+                if op["type"]=="Input":
+                    obj["entryOperator"]=op["id"]
 
         return json.dumps(obj)
 
