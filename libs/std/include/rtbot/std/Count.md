@@ -18,4 +18,9 @@ jsonschema:
 
 # Count
 
-Counts how many messages have passthrough it.
+Inputs: `i1`  
+Outputs: `o1`
+
+Counts how many messages have passed through it. 
+
+The `Count` operator does not hold a message buffer on `i1`, so it emits a message containing the amount of messages it has received on `i1` through `o1` right after it receives a message on `i1`.

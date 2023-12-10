@@ -90,6 +90,10 @@ program
               (acc, k) => `${acc}const ${k} = ${exampleParameters[k]};\n`,
               ""
             );
+            const opParamsDefPy = Object.keys(exampleParameters).reduce(
+              (acc, k) => `${acc}${k} = ${exampleParameters[k]};\n`,
+              ""
+            );
             const opParamsYaml = Object.keys(exampleParameters).reduce(
               (acc, k) => `${acc}    ${k}: ${exampleParameters[k]}\n`,
               ""
@@ -99,7 +103,7 @@ program
               .join(", ");
 
             const op = path.basename(f).replace(".md", "");
-            const usageSection = usageMdTemplate({ op, opParams, opParamsDef, opParamsYaml, opParamsJson });
+            const usageSection = usageMdTemplate({ op, opParams, opParamsDef, opParamsYaml, opParamsJson, opParamsDefPy });
             const parameters = {
               parameters: Object.entries(schema.properties).map(([k, v]: [string, any]) => ({ name: k, ...v })),
             };

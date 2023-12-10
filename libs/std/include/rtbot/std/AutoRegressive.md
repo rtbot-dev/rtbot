@@ -16,7 +16,8 @@ jsonschema:
     coeff:
       type: array
       description: The list of auto-regression coefficients.
-      examples: [[1, 2]]
+      examples: 
+        - [1, 2]
       minItems: 1
       items:
         type: number
@@ -25,5 +26,11 @@ jsonschema:
 
 # AutoRegressive
 
-Implements classical auto-regressive output.
-    $$y(t_n)=c_{1} y(t_{n-1}) + ... + c_N y(t_{t-N})$$
+Inputs: `i1`  
+Outputs: `o1`
+
+Implements a classical auto-regressive model. 
+
+The `AutoRegressive` operator does not hold a message buffer on `i1`, so it emits a modified version of the message through `o1` right after it receives a message on `i1`.
+
+$$y(t_n)=c_{1} y(t_{n-1}) + ... + c_N y(t_{t-N})$$

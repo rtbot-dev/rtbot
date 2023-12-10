@@ -21,5 +21,9 @@ jsonschema:
 
 # LessThan
 
-Emits only the messages received with value less than the number set. Messages that do not
-comply with the condition are ignored.
+Inputs: `i1`  
+Outputs: `o1`
+
+Emits only the messages received with a value less than the provided number (value) otherwise it emits an empty message {}. 
+
+The `LessThan` operator does not hold a message buffer on `i1`, so it emits a the message through `o1` right after it receives a message on `i1` but only if the received message value is less than the provided number (value) otherwise it emits an empty message {}.

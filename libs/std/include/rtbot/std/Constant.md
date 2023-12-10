@@ -24,4 +24,11 @@ jsonschema:
 
 # Constant
 
-A constant operator. Always emits the same value: $y(t_n)=C$.
+Inputs: `i1`  
+Outputs: `o1`
+
+Emits the same value regardless the time field of the message received on `i1`. 
+
+The `Constant` operator does not hold a message buffer on `i1`, so it emits a message with a constant value field through `o1` right after it receives a message on `i1`.
+
+$$y(t_n)=C$$.

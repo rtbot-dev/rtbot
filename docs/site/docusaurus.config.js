@@ -134,7 +134,7 @@ const config = {
         title: "RtBot",
         logo: {
           alt: "RtBot Logo",
-          src: "img/logo.svg",
+          src: "img/rtbot-dark-mode.svg",
         },
         items: [
           {
