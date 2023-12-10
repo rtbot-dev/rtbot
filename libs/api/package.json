@@ -1,6 +1,6 @@
 {
   "name": "@rtbot-dev/wasm",
-  "main": "./bindings-cpp-wasm.js"
+  "main": "./bindings-cpp-wasm.js",
   "repository": "github:rtbot-dev/rtbot",
   "private": false,
   "license": "MIT"
