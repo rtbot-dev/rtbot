@@ -78,7 +78,11 @@ jobs:
           bazelisk build --stamp //libs/wrappers/javascript:js
       - uses: actions/upload-artifact@v3
         with:
-          name: npm.tar
+          name: npm-wasm.tar
+          path: dist/bin/libs/api/js
+      - uses: actions/upload-artifact@v3
+        with:
+          name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
 
   build_wheels:
