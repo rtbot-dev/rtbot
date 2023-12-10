@@ -84,6 +84,9 @@ jobs:
         with:
           name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
+      - name: Build jsonschema.hpp
+        run: |
+          bazelisk build //libs/api:jsonschema
       - uses: actions/upload-artifact@v3
         with:
           name: jsonschema.tar
