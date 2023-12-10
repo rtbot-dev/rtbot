@@ -48,6 +48,9 @@ const config = {
               alias: {
                 react: reactPath,
               },
+              fallback: {
+                crypto: false
+              },
             },
           };
         },
@@ -67,14 +70,6 @@ const config = {
 
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "warn",
-
-  // Even if you don't use internalization, you can use this field to set useful
-  // metadata like html lang. For example, if your site is Chinese, you may want
-  // to replace "en" with "zh-Hans".
-  i18n: {
-    defaultLocale: "en",
-    locales: ["en"],
-  },
 
   presets: [
     [
@@ -121,7 +116,7 @@ const config = {
   ],
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
-    {
+    ({
       colorMode: {
         defaultMode: "dark",
         disableSwitch: true,
@@ -185,13 +180,13 @@ const config = {
             ],
           },
         ],
-        copyright: `Copyright © ${new Date().getFullYear()} RtBot, Inc. Built with Docusaurus.`,
+        copyright: `Copyright © ${new Date().getFullYear()} RtBot, Inc.`,
       },
       prism: {
         theme: lightCodeTheme,
         darkTheme: darkCodeTheme,
       },
-    },
+    }),
 };
 
 module.exports = config;

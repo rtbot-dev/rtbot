@@ -1,12 +1,16 @@
 import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
 import { Editor as MonacoEditor } from "@monaco-editor/react";
 import { Program } from "@rtbot-dev/rtbot";
-import Plot from "react-plotly.js";
 import { useDebounce } from "usehooks-ts";
 import JSON5 from "json5";
 import { createSyntheticSignal } from "./streams/synthetic";
+import BrowserOnly from '@docusaurus/BrowserOnly';
+import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 
-const data$ = createSyntheticSignal(100, 0.25, 100, 80);
+if (ExecutionEnvironment.canUseDOM) {
+  const { default: Plot } = require("react-plotly.js");
+  console.log("Plot", Plot, "loaded")
+}
 
 const sampleProgram = `
 // RtBot tutorial
@@ -62,6 +66,7 @@ export const Player = () => {
   });
 
   useLayoutEffect(() => {
+    const data$ = createSyntheticSignal(100, 0.25, 100, 80);
     data$.subscribe((p) => {
       // send the data to the program
       if (programRef.current) {
@@ -148,28 +153,34 @@ export const Player = () => {
   return (
     <div className="w-full grid grid-cols-6 gap-4">
       <div ref={plotRef} className="col-start-1 col-span-3 bg-yellow h-[50vh]">
-        <Plot
-          data={traces}
-          layout={{
-            plot_bgcolor: "#1e293b",
-            paper_bgcolor: "#1e293b",
-            title: "sine wave plus white noise",
-            width,
-            height,
-            xaxis: { color: "#a6adbb" },
-            yaxis: { color: "#a6adbb" },
-            datarevision,
-          }}
-          onLegendClick={(event) => {
-            console.log("trace selected", event);
-            const { name, visible } = event.data[event.curveNumber];
-            // toggle visible
-            if (visible === "legendonly")
-              setIgnoreOutputs(ignoreOutputs.filter((k) => k !== name));
-            else if (visible && ignoreOutputs.indexOf(name) < 0)
-              setIgnoreOutputs([...ignoreOutputs, name]);
-          }}
-        />
+        <BrowserOnly>
+        {() => {
+            const { default: Plot } = require("react-plotly.js");
+            return <Plot
+              data={traces}
+              layout={{
+                plot_bgcolor: "#1e293b",
+                paper_bgcolor: "#1e293b",
+                title: "sine wave plus white noise",
+                width,
+                height,
+                xaxis: { color: "#a6adbb" },
+                yaxis: { color: "#a6adbb" },
+                datarevision,
+              }}
+              onLegendClick={(event) => {
+                console.log("trace selected", event);
+                const { name, visible } = event.data[event.curveNumber];
+                // toggle visible
+                if (visible === "legendonly")
+                  setIgnoreOutputs(ignoreOutputs.filter((k) => k !== name));
+                else if (visible && ignoreOutputs.indexOf(name) < 0)
+                  setIgnoreOutputs([...ignoreOutputs, name]);
+              }}
+            />
+          }
+        }
+        </BrowserOnly>
       </div>
       <div className="col-start-4 col-span-3 h-[50vh] bg-slate-300">
         <MonacoEditor

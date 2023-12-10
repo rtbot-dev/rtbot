@@ -42,6 +42,13 @@ copy_file(
     out = "static/bindings-cpp-wasm.wasm",
 )
 
+copy_file(
+    name = "public-wasm-release-build",
+    src = "//libs/api:rtbot-wasm/bindings-cpp-wasm.wasm",
+    # notice that the src part is needed for the web worker api to work
+    out = "static/assets/js/bindings-cpp-wasm.wasm",
+)
+
 _DEPS = [
     "//:package_json",
     "//:node_modules/@docusaurus/core",
@@ -52,6 +59,7 @@ _DEPS = [
     "//:node_modules/@rtbot-dev/wasm",
     "//:node_modules/autoprefixer",
     "//:node_modules/clsx",
+    "//:node_modules/firebase",
     "//:node_modules/json5",
     "//:node_modules/plotly.js",
     "//:node_modules/postcss",
@@ -67,11 +75,11 @@ _DEPS = [
 docusaurus_bin.docusaurus_binary(
     name = "build",
     # TODO: compute the output dir
-    args = ["build", "docs/site", "--out-dir /home/robert/Documents/rtbot-dev/rtbot/build"],
+    args = ["build", "docs/site", "--out-dir /tmp/site-build"],
     data = glob(
         ["**/*"],
         exclude = ["node_modules/**/*"],
-    ) + [ ":mdx-core-copy"] + _DEPS,
+    ) + [":mdx-core-copy", ":mdx-std-copy", ":public-wasm-release-build"] + _DEPS,
 )
 
 docusaurus_bin.docusaurus_binary(
