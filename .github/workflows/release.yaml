@@ -84,6 +84,10 @@ jobs:
         with:
           name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
+      - uses: actions/upload-artifact@v3
+        with:
+          name: jsonschema.tar
+          path: dist/bin/libs/api/jsonschema/jsonschema.hpp
 
   build_wheels:
     name: Build wheel on ${{ matrix.os }}
@@ -133,8 +137,8 @@ jobs:
       # Setup .npmrc file to publish to npm
       - uses: actions/setup-node@v3
         with:
-          node-version: '18.x'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: "18.x"
+          registry-url: "https://registry.npmjs.org"
       - name: Prepare release
         run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
       - name: Compute wheel version
@@ -162,6 +166,10 @@ jobs:
         with:
           name: npm-rtbot.tar
           path: npm-rtbot
+      - uses: actions/download-artifact@v3
+        with:
+          name: jsonschema.tar
+          path: jsonschema.hpp
       - name: Patch files before publishing
         run: |
           ls -l
@@ -197,6 +205,7 @@ jobs:
           body_path: release_notes.txt
           files: |
             *.tar.gz
+            *.hpp
             wheel-linux/*
             wheel-macos/*
             wheel-windows/*
