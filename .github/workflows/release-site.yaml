@@ -4,7 +4,7 @@ on:
     paths:
       - .github/workflows/release-site.yaml
       - docs/site/**
-      - **/*.md
+      - '**.md'
     branches:
       - master
 
