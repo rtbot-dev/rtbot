@@ -1,0 +1,42 @@
+name: Release Site
+on:
+  push:
+    paths:
+      - .github/workflows/release-site.yaml
+      - docs/site/**
+      - **/*.md
+    branches:
+      - master
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: 8
+          run_install: |
+            - args: [--no-frozen-lockfile]
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: pnpm
+      - name: Mount bazel caches
+        uses: actions/cache@v3
+        with:
+          path: |
+            "~/.cache/bazel"
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          restore-keys: bazel-cache-
+      - uses: bazelbuild/setup-bazelisk@v2
+      - name: Build site
+        run: |
+          bazelisk run //docs/site:build
+          # bring it to the working dir
+          cp -r /tmp/site-build build
+      - name: Deploy to firebase hosting
+        run:
+          pnpm firebase deploy --only hosting:rtbot-docs
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
