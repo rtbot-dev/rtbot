@@ -4,7 +4,7 @@ on:
     paths:
       - .github/workflows/release-site.yaml
       - docs/site/**
-      - '**.md'
+      - "**.md"
     branches:
       - master
 
@@ -36,9 +36,9 @@ jobs:
           bazelisk run //docs/site:build
           # bring it to the working dir
           cp -r /tmp/site-build build
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
       - name: Deploy to firebase hosting
-        run:
-          pnpm firebase deploy --only hosting:rtbot-docs
+        run: pnpm firebase deploy --only hosting:rtbot-docs
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          REACT_APP_FIREBASE_API_KEY: ${{ secrets.REACT_APP_FIREBASE_API_KEY }}
