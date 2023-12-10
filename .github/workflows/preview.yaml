@@ -27,7 +27,7 @@ jobs:
             - args: [--no-frozen-lockfile]
       - uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: 18.x
           cache: pnpm
       - uses: actions/setup-python@v4
         with:

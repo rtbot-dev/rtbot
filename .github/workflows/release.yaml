@@ -177,8 +177,9 @@ jobs:
           tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm-rtbot
       - name: Release Npm Packages
         run: |
-          cd npm-wasm && pnpm publish
-          cd npm-rtbot && pnpm publish
+          rm -rf node_modules package.json pnpm pnpm-lock.yaml
+          cd npm-wasm && pnpm publish --no-git-checks && cd..
+          cd npm-rtbot && pnpm publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
