@@ -183,8 +183,8 @@ jobs:
       - name: Release Npm Packages
         run: |
           rm -rf node_modules package.json pnpm pnpm-lock.yaml
-          cd npm-wasm && pnpm publish --no-git-checks && cd..
-          cd npm-rtbot && pnpm publish --no-git-checks
+          cd npm-wasm && pnpm publish --no-git-checks --access=public && cd..
+          cd npm-rtbot && pnpm publish --no-git-checks --access=public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
