@@ -42,3 +42,4 @@ bazel-out/
 venv/
 settings.json
 .firebase
+.envrc

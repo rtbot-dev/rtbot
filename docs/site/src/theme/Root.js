@@ -6,7 +6,7 @@ import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 
 if (ExecutionEnvironment.canUseDOM) {
   const firebaseConfig = {
-    apiKey: "AIzaSyCqB0uKOBnMh85SgneXjLid9aOsCQmDnqU",
+    apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
     authDomain: "rtbot-6515d.firebaseapp.com",
     projectId: "rtbot-6515d",
     storageBucket: "rtbot-6515d.appspot.com",

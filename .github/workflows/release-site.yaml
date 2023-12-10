@@ -41,3 +41,4 @@ jobs:
           pnpm firebase deploy --only hosting:rtbot-docs
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          REACT_APP_FIREBASE_API_KEY: ${{ secrets.REACT_APP_FIREBASE_API_KEY }}
