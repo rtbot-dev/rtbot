@@ -2,6 +2,9 @@
 
 A low latency, high efficiency, incremental analytical engine.
 
+- site: [https://rtbot.dev](https://rtbot.dev)
+- repo: [https://github.com/rtbot-dev/rtbot](https://github.com/rtbot-dev/rtbot)
+
 ## What is?
 
 `RtBot` is a framework, written in c++, to process streams of numerical data
@@ -63,13 +66,30 @@ A more interesting example can be found at [rtbot-dev/rtbot-example-websocket-ts
 
 ## Python
 
-The `python` wrapper have been designed with a data science public in mind. To install it:
+The `python` wrapper have been designed with a data science public in mind.
+
+### Install
+
+The best way to install the python library is to clone the [repo](https://github.com/rtbot-dev/rtbot) and
+build the wheel. You will need [bazel](https://bazel.build/) installed first, please follow
+the instructions for your os in the bazel page.
+
+After cloning the repository build the wheel with:
 
 ```shell
-pip install @rtbot-dev/rtbot
+bazel build //libs/wrappers/python:rtbot_wheel
 ```
 
-Note: we currently support only the following python versions:
- - `v3.10.x` 
- - `v3.11.x` 
- - `v3.12.x` 
+Once the build finishes, you can install the produced wheel as usual:
+
+```shell
+# the wheel name will vary according to your os
+pip install dist/bin/libs/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
+```
+
+Another option is to download a pre-compiled version of the wheel from our GitHub [releases](https://github.com/rtbot-dev/rtbot/releases) page.
+Notice though that we currently support a limited set of os and python version combinations.
+
+### Example notebooks
+
+Some example notebooks can be found at the [examples/notebook](https://github.com/rtbot-dev/rtbot/tree/master/examples/notebook) directory.
