@@ -4,6 +4,9 @@
   "private": false,
   "license": "MIT",
   "dependencies": {
-    "@rtbot-dev/wasm": "latest"
+    "@rtbot-dev/wasm": "latest",
+    "class-transformer": "^0.5.1",
+    "nanoid": "3.3.5",
+    "zod": "^3.21.4"
   }
 }
