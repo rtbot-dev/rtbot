@@ -108,7 +108,7 @@ dependencies:
     specifier: '5'
     version: 5.0.0
   remark-math:
-    specifier: '3'
+    specifier: ^3.0.1
     version: 3.0.1
   rxjs:
     specifier: ^7.8.1
