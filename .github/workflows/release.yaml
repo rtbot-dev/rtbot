@@ -208,7 +208,7 @@ jobs:
           body_path: release_notes.txt
           files: |
             *.tar.gz
-            *.hpp
+            jsonschema.hpp
             wheel-linux/*
             wheel-macos/*
             wheel-windows/*
