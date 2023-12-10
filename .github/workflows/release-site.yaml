@@ -34,7 +34,6 @@ jobs:
       - name: Build site
         run: |
           bazelisk run //docs/site:build
-          # bring it to the working dir
           cp -r /tmp/site-build build
         env:
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
