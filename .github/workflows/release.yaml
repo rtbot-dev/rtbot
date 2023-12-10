@@ -148,8 +148,12 @@ jobs:
           path: wheel-windows
       - uses: actions/download-artifact@v3
         with:
-          name: npm.tar
-          path: npm
+          name: npm-wasm.tar
+          path: npm-wasm
+      - uses: actions/download-artifact@v3
+        with:
+          name: npm-rtbot.tar
+          path: npm-rtbot
       - name: Patch files before publishing
         run: |
           ls -l
@@ -163,9 +167,20 @@ jobs:
           ls -l
           mv rtbot-_VERSION_-py3-none-win_amd64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-win_amd64.whl
           cd ..
-          tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm
+          # copy repo readme to main npm package
+          cp README.md ./npm-rtbot
+          # package npm files, which will be used on the github release
+          tar -zcvf wasm-npm-${{ github.ref_name }}.tar.gz npm-wasm
+          tar -zcvf rtbot-npm-${{ github.ref_name }}.tar.gz npm-rtbot
 
-      - name: Release
+      - name: Release Npm Packages
+        run: |
+          cd npm-wasm && pnpm publish
+          cd npm-rtbot && pnpm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Release GitHub
         uses: softprops/action-gh-release@v1
         with:
           # Use GH feature to populate the changelog automatically
