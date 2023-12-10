@@ -9,7 +9,8 @@ on:
       - master
 
 jobs:
-  tests:
+  name: Build and release
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
