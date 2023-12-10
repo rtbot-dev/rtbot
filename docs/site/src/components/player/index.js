@@ -1,65 +1,30 @@
 import React, { useState, useRef, useLayoutEffect, useEffect } from "react";
-import { Subject } from "rxjs";
 import { Editor as MonacoEditor } from "@monaco-editor/react";
 import { Program } from "@rtbot-dev/rtbot";
 import Plot from "react-plotly.js";
 import { useDebounce } from "usehooks-ts";
 import JSON5 from "json5";
+import { createSyntheticSignal } from "./streams/synthetic";
 
-const ws$ = new Subject();
-const ws = new WebSocket(
-  // we will streaming the live market data for the pair btc/usdt
-  // feel free to change this direction to stream whatever you want!
-  "wss://stream.binance.com:443/ws/ethusdt@kline_1s"
-);
-console.log("ws", ws);
+const data$ = createSyntheticSignal(100, 0.25, 100, 80);
 
-ws.onerror = (error) =>
-  console.error(`Unable to open websocket connection`, error);
+const sampleProgram = `
+// RtBot tutorial
+// follow the instructions in the comments carefully!
 
-ws.onmessage = (event) => {
-  // decode the message
-  const msg = JSON.parse(event.data);
-  // emit only the price property
-  ws$.next({
-    time: Math.round(msg.k.T / 1000),
-    value: parseFloat(msg.k.c),
-  });
-};
-
-const sampleProgram2 = `{
-  // this is a sample program in rtbot
-  // it has two operators connected 
-  "entryOperator": "in1",
-  "operators": [
-    // each operator is identified with an "id" and has a "type"
-    { "id": "in1", "type": "Input" },
-    // some operators have extra parameters, like here n=3
-    // try changing the value of n!
-    { "id": "ma1", "type": "MovingAverage", "n": 3 },
-    { 
-      "id": "out1", 
-      "type": "Output", 
-      "metadata": { 
-        "plot": {
-          "legendPorts": {
-            "o1": "ma(3)"
-          }
-        } 
-      } 
-    },
-  ],
-  "connections": [{ "from": "in1", "to": "ma1" }],
-}`;
-
-const sampleProgram = `{
+{
   "entryOperator": "in1",
   "operators": [
     { "id": "in1", "type": "Input" },
     { "id": "ma1", "type": "MovingAverage", "n": 2 },
-    // try changing the value of n to 3, 4, 10, ...!
+    // 1- try changing the value of n from 2 to 3, up to 5
+    // 2- uncomment the following and the correspondent line in the connections
+    //{ "id": "peak1", "type": "PeakDetector", "n": 6 },
   ],
-  "connections": [{ "from": "in1", "to": "ma1" }],
+  "connections": [
+    { "from": "in1", "to": "ma1" },
+    //{ "from": "ma1", "to": "peak1" },
+  ],
 }`;
 export const Player = () => {
   const programRef = useRef(Program.toInstance(JSON5.parse(sampleProgram)));
@@ -97,25 +62,40 @@ export const Player = () => {
   });
 
   useLayoutEffect(() => {
-    ws$.subscribe((p) => {
+    data$.subscribe((p) => {
       // send the data to the program
       if (programRef.current) {
         programRef.current
           .processMessage(p.time, p.value)
           .then((result) => {
-            console.log("Result", result);
-            const newOutput = Object.keys(result).reduce((acc, k) => {
+            console.log("Result program", programRef.current.programId, result);
+            let newOutput = Object.keys(result).reduce((acc, k) => {
               if (!acc[k]) acc[k] = { x: [], y: [] };
               // here we consider only operators with a single output
               acc[k].x = [...acc[k].x, ...result[k].o1.map((v) => v.time)];
               acc[k].y = [...acc[k].y, ...result[k].o1.map((v) => v.value)];
               // max number of points stored
-              if (acc[k].x.length > 80) {
+              if (acc[k].x.length > 50) {
                 acc[k].x.shift();
                 acc[k].y.shift();
               }
               return acc;
             }, output);
+            // remove too old entries
+            const inputTimes = output[programRef.current.entryOperator].x;
+            const oldestInputTime = inputTimes[0];
+            newOutput = Object.fromEntries(
+              Object.entries(newOutput).map(([k, out]) => {
+                for (let i = 0; i < out.x.length; i++) {
+                  if (out.x[i] < oldestInputTime) {
+                    out.x.shift();
+                    out.y.shift();
+                    i--;
+                  }
+                }
+                return [k, out];
+              })
+            );
             setOutput(newOutput);
             setDatarevision(p.time);
           })
@@ -158,9 +138,9 @@ export const Player = () => {
     x: x.map((t) => new Date(t * 1000)),
     y,
     type: "scattergl",
-    mode: "lines+markers",
+    mode: k.indexOf("peak") > -1 ? "markers" : "lines+markers",
     marker: {
-      size: 3,
+      size: k.indexOf("peak") > -1 ? 10 : 3,
     },
     visible: ignoreOutputs.indexOf(k) < 0 ? true : "legendonly",
   }));
@@ -173,7 +153,7 @@ export const Player = () => {
           layout={{
             plot_bgcolor: "#1e293b",
             paper_bgcolor: "#1e293b",
-            title: "eth/usdt",
+            title: "sine wave plus white noise",
             width,
             height,
             xaxis: { color: "#a6adbb" },

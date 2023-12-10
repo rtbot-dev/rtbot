@@ -87,8 +87,7 @@ const config = {
           sidebarPath: require.resolve("./sidebars.js"),
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
-          editUrl:
-            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+          editUrl: "https://github.com/rtbot-dev/rtbot/tree/master/docs/",
         },
         blog: {
           showReadingTime: true,
@@ -131,7 +130,7 @@ const config = {
       // Replace with your project's social card
       image: "img/docusaurus-social-card.jpg",
       navbar: {
-        title: "RtBot",
+        title: "",
         logo: {
           alt: "RtBot Logo",
           src: "img/rtbot-dark-mode.svg",
@@ -155,10 +154,10 @@ const config = {
         style: "dark",
         links: [
           {
-            title: "Docs",
+            title: "Learn",
             items: [
               {
-                label: "Tutorial",
+                label: "Documentation",
                 to: "/docs/intro",
               },
             ],
@@ -168,17 +167,17 @@ const config = {
             items: [
               {
                 label: "Discord",
-                href: "https://discord.gg/ySVKpmdf",
+                href: "https://discord.gg/XSv6mZq7YQ",
+              },
+              {
+                label: "Reddit",
+                href: "https://www.reddit.com/r/rtbot/",
               },
             ],
           },
           {
             title: "More",
             items: [
-              {
-                label: "Blog",
-                to: "/blog",
-              },
               {
                 label: "GitHub",
                 href: "https://github.com/rtbot-dev/rtbot",
