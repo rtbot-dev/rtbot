@@ -26,6 +26,16 @@ program.addOperator(rb.{{op}}({{opParams}}))
 ```
 
   </TabItem>
+  <TabItem value="c++" label="C++">
+
+```cpp
+#include "rtbot/{{op}}.h"
+
+{{{opParamsDefCpp}}}
+auto op = {{op}}<std::uint64_t, double>({{opParams}})
+```
+
+  </TabItem>
   <TabItem value="yaml" label="YAML">
 
 ```yaml
