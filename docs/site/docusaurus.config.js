@@ -11,6 +11,10 @@ const config = {
   title: "RtBot",
   tagline: "low latency, incremental analytical engine",
   favicon: "img/favicon.ico",
+  customFields: {
+    // Put your custom environment here
+    firebaseApiKey: process.env.FIREBASE_API_KEY,
+  },
 
   plugins: [
     async function configureTailwind(context, options) {
