@@ -19,7 +19,7 @@ jobs:
             - args: [--no-frozen-lockfile]
       - uses: actions/setup-node@v3
         with:
-          node-version: 16.x
+          node-version: 18.x
           cache: pnpm
       - uses: actions/setup-python@v4
         with:
@@ -130,6 +130,11 @@ jobs:
       - uses: pnpm/action-setup@v2.2.4
         with:
           version: 8
+      # Setup .npmrc file to publish to npm
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          registry-url: 'https://registry.npmjs.org'
       - name: Prepare release
         run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
       - name: Compute wheel version
