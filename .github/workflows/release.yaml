@@ -172,7 +172,7 @@ jobs:
       - uses: actions/download-artifact@v3
         with:
           name: jsonschema.tar
-          path: jsonschema.hpp
+          path: jsonschema
       - name: Patch files before publishing
         run: |
           ls -l
@@ -183,7 +183,7 @@ jobs:
           mv rtbot-_VERSION_-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
           cd ..
           cd wheel-windows
-          ls -l
+          ls -l jsonschema
           mv rtbot-_VERSION_-py3-none-win_amd64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-win_amd64.whl
           cd ..
           # copy repo readme to main npm package
@@ -208,7 +208,7 @@ jobs:
           body_path: release_notes.txt
           files: |
             *.tar.gz
-            jsonschema.hpp
+            jsonschema/*
             wheel-linux/*
             wheel-macos/*
             wheel-windows/*
