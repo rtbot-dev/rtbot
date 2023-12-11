@@ -84,13 +84,13 @@ jobs:
         with:
           name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
-      - name: Build jsonschema.hpp
+      - name: Generate jsonschema
         run: |
           bazelisk build //libs/api:jsonschema
       - uses: actions/upload-artifact@v3
         with:
           name: jsonschema.tar
-          path: dist/bin/libs/api/jsonschema/jsonschema.hpp
+          path: dist/bin/libs/api/jsonschema
 
   build_wheels:
     name: Build wheel on ${{ matrix.os }}
