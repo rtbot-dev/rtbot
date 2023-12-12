@@ -67,8 +67,11 @@ _DEPS = [
     "//:node_modules/react",
     "//:node_modules/react-plotly.js",
     "//:node_modules/react-dom",
+    "//:node_modules/react-vega",
     "//:node_modules/rxjs",
     "//:node_modules/tailwindcss",
+    "//:node_modules/vega",
+    "//:node_modules/vega-lite",
     "//:node_modules/usehooks-ts",
 ]
 

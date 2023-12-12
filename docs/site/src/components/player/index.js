@@ -4,7 +4,8 @@ import { Program } from "@rtbot-dev/rtbot";
 import { useDebounce } from "usehooks-ts";
 import JSON5 from "json5";
 import { createSyntheticSignal } from "./streams/synthetic";
-import BrowserOnly from "@docusaurus/BrowserOnly";
+import { Vega } from "react-vega";
+import * as vega from "vega";
 
 const sampleProgram = `
 // RtBot tutorial
@@ -15,22 +16,20 @@ const sampleProgram = `
   "operators": [
     { "id": "in1", "type": "Input" },
     { "id": "ma1", "type": "MovingAverage", "n": 2 },
-    // 1- try changing the value of n from 2 to 3, up to 5
+    // 1- try changing the value of n from 2 to 3, up to 8
     // 2- uncomment the following and the correspondent line in the connections
-    //{ "id": "peak1", "type": "PeakDetector", "n": 6 },
+    //{ "id": "peak1", "type": "PeakDetector", "n": 16 },
   ],
   "connections": [
     { "from": "in1", "to": "ma1" },
     //{ "from": "ma1", "to": "peak1" },
   ],
 }`;
+
+const t0 = new Date().getTime();
+
 export const Player = () => {
   const programRef = useRef(Program.toInstance(JSON5.parse(sampleProgram)));
-
-  const [output, setOutput] = useState({});
-
-  // needed to trigger redraw of plotly
-  const [datarevision, setDatarevision] = useState(0);
 
   // resize
   const plotRef = useRef(null);
@@ -60,43 +59,40 @@ export const Player = () => {
   });
 
   useLayoutEffect(() => {
-    const data$ = createSyntheticSignal(150, 0.15, 100, 80);
+    const data$ = createSyntheticSignal(100, 0.0015, 100, 80);
     data$.subscribe((p) => {
       // send the data to the program
       if (programRef.current) {
         programRef.current
           .processMessage(p.time, p.value)
           .then((result) => {
-            console.log("Result program", programRef.current.programId, result);
-            let newOutput = Object.keys(result).reduce((acc, k) => {
-              if (!acc[k]) acc[k] = { x: [], y: [] };
-              // here we consider only operators with a single output
-              acc[k].x = [...acc[k].x, ...result[k].o1.map((v) => v.time)];
-              acc[k].y = [...acc[k].y, ...result[k].o1.map((v) => v.value)];
-              // max number of points stored
-              if (acc[k].x.length > 100) {
-                acc[k].x.shift();
-                acc[k].y.shift();
-              }
-              return acc;
-            }, output);
-            // remove too old entries
-            const inputTimes = output[programRef.current.entryOperator].x;
-            const oldestInputTime = inputTimes[0];
-            newOutput = Object.fromEntries(
-              Object.entries(newOutput).map(([k, out]) => {
-                for (let i = 0; i < out.x.length; i++) {
-                  if (out.x[i] < oldestInputTime) {
-                    out.x.shift();
-                    out.y.shift();
-                    i--;
-                  }
-                }
-                return [k, out];
-              })
-            );
-            setOutput(newOutput);
-            setDatarevision(p.time);
+            if (view.current) {
+              const tuples = Object.entries(result).reduce(
+                (a, [opId, out]) => [
+                  ...a,
+                  ...Object.entries(out).reduce(
+                    (acc, [port, msgs]) => [
+                      ...acc,
+                      ...msgs.map((m) => ({
+                        output: `${opId}:${port}`,
+                        x: new Date(t0 + m.time),
+                        [opId.startsWith("peak") ? "peak" : "y"]: m.value,
+                      })),
+                    ],
+                    []
+                  ),
+                ],
+                []
+              );
+
+              const changeSet = vega
+                .changeset()
+                .insert(tuples)
+                .remove(function (t) {
+                  return t.x < t0 + p.time - 10000;
+                });
+              view.current.change("table", changeSet).run();
+            }
           })
           .catch((e) => console.error(e));
       }
@@ -130,20 +126,6 @@ export const Player = () => {
     }
   }, [debouncedContent]);
 
-  const [ignoreOutputs, setIgnoreOutputs] = useState([]);
-
-  const traces = Object.entries(output).map(([k, { x, y }]) => ({
-    name: k,
-    x, //: x.map((t) => new Date(t * 1000)),
-    y,
-    type: "scattergl",
-    mode: k.indexOf("peak") > -1 ? "markers" : "lines+markers",
-    marker: {
-      size: k.indexOf("peak") > -1 ? 10 : 3,
-    },
-    visible: ignoreOutputs.indexOf(k) < 0 ? true : "legendonly",
-  }));
-
   const handleEditorWillMount = (monaco) => {
     monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
       comments: "ignore",
@@ -151,39 +133,97 @@ export const Player = () => {
     });
   };
 
+  const view = useRef(null);
+  const plotPadding = width < 500 ? 10 : 80;
+
+  const spec = {
+    $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+    data: { name: "table" },
+    width: width - 2 * plotPadding,
+    height: height - 2 * plotPadding,
+    padding: plotPadding,
+    bounds: "flush",
+    autosize: {
+      type: "fit",
+    },
+    config: {
+      axis: {
+        grid: true,
+        gridOpacity: 0.1,
+        tickOpacity: 0.1,
+        strokeWidth: 0,
+        strokeOpacity: 0,
+      },
+      view: {
+        stroke: "transparent",
+        strokeWidth: 0,
+        strokeOpacity: 0,
+      },
+      style: {
+        cell: {
+          stroke: "transparent",
+        },
+      },
+    },
+    layer: [
+      {
+        mark: {
+          type: "line",
+          points: true,
+        },
+        encoding: {
+          x: {
+            field: "x",
+            type: "temporal",
+            axis: {
+              tickCount: 4,
+              labelExpr: "[timeFormat(datum.value, '%H:%M:%S')]",
+            },
+          },
+          y: {
+            field: "y",
+            type: "quantitative",
+            title: "signal",
+            axis: {
+              tickCount: 4,
+            },
+          },
+          color: { field: "output", type: "nominal" },
+        },
+      },
+      {
+        mark: {
+          type: "circle",
+          filled: true,
+          color: "#ffff00",
+          opacity: 1,
+        },
+        encoding: {
+          x: { field: "x", type: "temporal", title: "t" },
+          y: {
+            field: "peak",
+            type: "quantitative",
+            title: "peaks",
+          },
+          color: { field: "output", type: "nominal" },
+          size: { value: 200 },
+        },
+      },
+    ],
+  };
   return (
-    <div className="w-full grid grid-cols-6 gap-4">
+    <div className="w-full grid grid-cols-6 gap-4 px-4">
       <div ref={plotRef} className="col-start-1 col-span-3 bg-yellow h-[50vh]">
-        <BrowserOnly>
-          {() => {
-            const { default: Plot } = require("react-plotly.js");
-            return (
-              <Plot
-                data={traces}
-                layout={{
-                  plot_bgcolor: "#1e293b",
-                  paper_bgcolor: "#1e293b",
-                  title: "sine wave plus white noise",
-                  width,
-                  height,
-                  xaxis: { color: "#a6adbb" },
-                  yaxis: { color: "#a6adbb" },
-                  datarevision,
-                }}
-                config={{ staticPlot: true }}
-                onLegendClick={(event) => {
-                  console.log("trace selected", event);
-                  const { name, visible } = event.data[event.curveNumber];
-                  // toggle visible
-                  if (visible === "legendonly")
-                    setIgnoreOutputs(ignoreOutputs.filter((k) => k !== name));
-                  else if (visible && ignoreOutputs.indexOf(name) < 0)
-                    setIgnoreOutputs([...ignoreOutputs, name]);
-                }}
-              />
-            );
-          }}
-        </BrowserOnly>
+        {width && height && (
+          <Vega
+            spec={spec}
+            // TODO: with canvas renderer some border appear in chrome
+            renderer="svg"
+            actions={false}
+            theme="dark"
+            onNewView={(v) => (view.current = v)}
+          />
+        )}
       </div>
       <div className="col-start-4 col-span-3 h-[50vh] bg-slate-300">
         <MonacoEditor
