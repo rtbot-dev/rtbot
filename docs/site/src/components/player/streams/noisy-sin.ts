@@ -1,6 +1,6 @@
 import { Subject } from "rxjs";
 
-export const createSyntheticSignal = (
+export const getNoisySinSignal = (
   ms: number,
   w: number,
   mainAmplitude: number,
@@ -24,5 +24,6 @@ export const createSyntheticSignal = (
     });
     // }
   }, ms);
+
   return data$;
 };

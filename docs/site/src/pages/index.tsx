@@ -4,6 +4,8 @@ import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import Layout from "@theme/Layout";
 
 import { Player } from "../components/player";
+import { simpleProgram } from "../components/player/programs/simple";
+import { getNoisySinSignal } from "../components/player/streams/noisy-sin";
 
 function HomepageHeader() {
   const { siteConfig } = useDocusaurusContext();
@@ -33,11 +35,13 @@ function HomepageHeader() {
 
 export default function Home() {
   const { siteConfig } = useDocusaurusContext();
+  const programStr = simpleProgram;
+  const getStream = () => getNoisySinSignal(100, 0.0015, 100, 80);
   return (
     <Layout title={`${siteConfig.title}`} description="RtBot">
       <HomepageHeader />
       <main>
-        <Player />
+        <Player programStr={programStr} getStream={getStream} />
       </main>
     </Layout>
   );
