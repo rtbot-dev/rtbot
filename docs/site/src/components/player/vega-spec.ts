@@ -3,7 +3,8 @@ export const getVegaSpec = (
   width: number,
   height: number,
   plotPadding: number,
-  numViews: number
+  opIds: string[],
+  opColors: string[]
 ): vega.TopLevelSpec => ({
   $schema: "https://vega.github.io/schema/vega-lite/v5.json",
   data: { name: "table" },
@@ -59,7 +60,15 @@ export const getVegaSpec = (
             tickCount: 4,
           },
         },
-        color: { field: "output", type: "nominal", title: "op" },
+        color: {
+          field: "output",
+          type: "nominal",
+          title: "op",
+          scale: {
+            domain: opIds,
+            range: opColors,
+          },
+        },
       },
     },
     {

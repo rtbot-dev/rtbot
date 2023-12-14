@@ -9,6 +9,9 @@ import { getVegaSpec } from "./vega-spec";
 import { Subject } from "rxjs";
 import { View } from "vega";
 import { Monaco } from "@monaco-editor/react";
+import { SET3_COLOR_SCHEME } from "./color-schemes";
+
+const colorScheme = SET3_COLOR_SCHEME;
 
 export type PlayerProps = {
   getStream: () => Subject<{ time: number; value: number }>;
@@ -16,6 +19,32 @@ export type PlayerProps = {
   t0: number;
   tWindowSize: number;
 };
+
+type VegaRef = {
+  dimensions: {
+    width: number;
+    height: number;
+    plotPadding: number;
+  };
+  opByViewIds: { [id: string]: string[] };
+  views: { [id: string]: View };
+  opIds: string[];
+  opColors: string[];
+};
+
+const computeOpByViewIds = (program: Program) =>
+  program.operators.reduce((acc, op: Operator) => {
+    const plotId = op.metadata?.plot?.id ?? "default";
+    if (acc[plotId] && acc[plotId].indexOf(op.id) < 0) acc[plotId].push(op.id);
+    else acc[plotId] = [op.id];
+    return { ...acc };
+  }, {} as { [viewId: string]: string[] });
+const computeOpIds = (program: Program) => program.operators.map((op) => op.id);
+const computeOpColors = (program: Program) =>
+  program.operators.map(
+    (op, i) =>
+      op.metadata?.plot?.style?.color ?? colorScheme[i % colorScheme.length]
+  );
 
 export const Player = ({
   getStream,
@@ -28,14 +57,16 @@ export const Player = ({
 
   // resize
   const plotRef = useRef<HTMLDivElement>(null);
-  const dimensionsRef = useRef<{
-    width: number;
-    height: number;
-    plotPadding: number;
-  }>({
-    width: 0,
-    height: 0,
-    plotPadding: 0,
+  const configRef = useRef<VegaRef>({
+    dimensions: {
+      width: 0,
+      height: 0,
+      plotPadding: 0,
+    },
+    opByViewIds: {},
+    views: {},
+    opIds: [],
+    opColors: [],
   });
 
   useEffect(() => {
@@ -45,18 +76,18 @@ export const Player = ({
     const observer = new ResizeObserver(() => {
       const newWidth = Math.floor(element.getBoundingClientRect().width);
       const newHeight = Math.floor(element.getBoundingClientRect().height);
-      const numViews = Object.keys(opByViewIdsRef.current).length;
-      if (dimensionsRef.current.width !== newWidth) {
-        dimensionsRef.current.width = newWidth;
-        dimensionsRef.current.plotPadding =
-          dimensionsRef.current.width < 500 ? 10 : 80;
-        if (dimensionsRef.current.height / numViews < 500)
-          dimensionsRef.current.plotPadding = 5;
-        setForceRender(Object.entries(dimensionsRef.current));
+      const numViews = Object.keys(configRef.current.opByViewIds).length;
+      if (configRef.current.dimensions.width !== newWidth) {
+        configRef.current.dimensions.width = newWidth;
+        configRef.current.dimensions.plotPadding =
+          configRef.current.dimensions.width < 500 ? 10 : 80;
+        if (configRef.current.dimensions.height / numViews < 500)
+          configRef.current.dimensions.plotPadding = 5;
+        setForceRender(Object.entries(configRef.current.dimensions));
       }
-      if (dimensionsRef.current.height !== newHeight) {
-        dimensionsRef.current.height = newHeight;
-        setForceRender(Object.entries(dimensionsRef.current));
+      if (configRef.current.dimensions.height !== newHeight) {
+        configRef.current.dimensions.height = newHeight;
+        setForceRender(Object.entries(configRef.current.dimensions));
       }
     });
 
@@ -65,8 +96,6 @@ export const Player = ({
       observer.disconnect();
     };
   }, []);
-
-  const opByViewIdsRef = useRef<{ [id: string]: string[] }>({});
 
   useLayoutEffect(() => {
     if (programRef.current) {
@@ -80,11 +109,17 @@ export const Player = ({
               programRef.current
                 .processMessage(p.time, p.value)
                 .then((result) => {
-                  const numViews = Object.keys(opByViewIdsRef.current).length;
-                  console.log("numViews", numViews, dimensionsRef.current);
+                  const numViews = Object.keys(
+                    configRef.current.opByViewIds
+                  ).length;
+                  console.log(
+                    "numViews",
+                    numViews,
+                    configRef.current.dimensions
+                  );
 
                   // update each one of the views
-                  Object.entries(opByViewIdsRef.current).forEach(
+                  Object.entries(configRef.current.opByViewIds).forEach(
                     ([viewId, ops]) => {
                       const tuples = Object.entries(result)
                         .filter(([opId]) => {
@@ -109,25 +144,25 @@ export const Player = ({
                           [] as { [k: string]: string | number | Date }[]
                         );
 
-                      if (viewsRef.current[viewId]) {
+                      if (configRef.current.views[viewId]) {
                         const changeSet = vega
                           .changeset()
                           .insert(tuples)
                           .remove(function (t: { x: number }) {
                             return t.x < t0 + p.time - tWindowSize;
                           });
-                        viewsRef.current[viewId]
+                        configRef.current.views[viewId]
                           .change("table", changeSet)
                           .width(
-                            dimensionsRef.current.width -
-                              2 * dimensionsRef.current.plotPadding
+                            configRef.current.dimensions.width -
+                              2 * configRef.current.dimensions.plotPadding
                           )
                           .height(
-                            dimensionsRef.current.height / numViews -
-                              2 * dimensionsRef.current.plotPadding -
+                            configRef.current.dimensions.height / numViews -
+                              2 * configRef.current.dimensions.plotPadding -
                               3
                           )
-                          .padding(dimensionsRef.current.plotPadding)
+                          .padding(configRef.current.dimensions.plotPadding)
                           .signal("tmax", t0 + p.time)
                           .signal("tmin", t0 + p.time - tWindowSize)
                           .resize()
@@ -149,15 +184,6 @@ export const Player = ({
   const [content, setContent] = useState(programStr);
   const debouncedContent = useDebounce(content, 500);
 
-  const computeOpByViewIds = (program: Program) =>
-    program.operators.reduce((acc, op: Operator) => {
-      const plotId = op.metadata?.plot?.id ?? "default";
-      if (acc[plotId] && acc[plotId].indexOf(op.id) < 0)
-        acc[plotId].push(op.id);
-      else acc[plotId] = [op.id];
-      return { ...acc };
-    }, {} as { [viewId: string]: string[] });
-
   useEffect(() => {
     // Triggers when "debouncedContent" changes
     try {
@@ -172,8 +198,11 @@ export const Player = ({
       }
       // update the possible views
       console.log("new opByViewIds", computeOpByViewIds(newProgram));
-      opByViewIdsRef.current = computeOpByViewIds(newProgram);
-      setForceRender(Object.entries(opByViewIdsRef.current));
+      configRef.current.opByViewIds = computeOpByViewIds(newProgram);
+      configRef.current.opIds = computeOpIds(newProgram);
+      configRef.current.opColors = computeOpColors(newProgram);
+
+      setForceRender(Object.entries(configRef.current.opByViewIds));
 
       newProgram
         .start()
@@ -195,12 +224,12 @@ export const Player = ({
     });
   };
 
-  const viewsRef = useRef<{ [id: string]: View }>({});
-
   const vegaSpec = getVegaSpec(
-    dimensionsRef.current.width,
-    dimensionsRef.current.height,
-    dimensionsRef.current.plotPadding
+    configRef.current.dimensions.width,
+    configRef.current.dimensions.height,
+    configRef.current.dimensions.plotPadding,
+    configRef.current.opIds,
+    configRef.current.opColors
   );
 
   return (
@@ -209,7 +238,7 @@ export const Player = ({
         ref={plotRef}
         className="col-start-1 col-span-3 gap-0 bg-yellow h-[50vh]"
       >
-        {Object.keys(opByViewIdsRef.current).map((viewId) => (
+        {Object.keys(configRef.current.opByViewIds).map((viewId) => (
           <Vega
             key={viewId}
             spec={vegaSpec}
@@ -218,15 +247,15 @@ export const Player = ({
             actions={false}
             theme="dark"
             onNewView={(v) => {
-              viewsRef.current[viewId] = v;
+              configRef.current.views[viewId] = v;
             }}
           />
         ))}
       </div>
       <div className="col-start-4 col-span-3 h-[50vh] bg-slate-300">
         <MonacoEditor
-          width={dimensionsRef.current.width}
-          height={dimensionsRef.current.height}
+          width={configRef.current.dimensions.width}
+          height={configRef.current.dimensions.height}
           defaultLanguage="json"
           defaultValue={programStr}
           theme={"vs-dark"}
