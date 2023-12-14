@@ -10,7 +10,7 @@ export default function Root({ children }) {
   const {
     siteConfig: { customFields },
   } = useDocusaurusContext();
-  if (ExecutionEnvironment.canUseDOM) {
+  if (ExecutionEnvironment.canUseDOM && Object.keys(customFields).length > 0) {
     console.log("customFields", customFields);
     const firebaseConfig = {
       apiKey: customFields.firebaseApiKey,

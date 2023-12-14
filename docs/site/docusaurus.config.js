@@ -9,7 +9,7 @@ const katex = require("rehype-katex");
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "RtBot",
-  tagline: "low latency, incremental analytical engine",
+  tagline: "Low Latency, Incremental Analytical Engine",
   favicon: "img/favicon.ico",
   customFields: {
     // Put your custom environment here
