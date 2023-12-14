@@ -120,8 +120,22 @@ export class Connection {
   constructor(readonly from: OperatorId, readonly to: OperatorId, readonly fromPort: PortId, readonly toPort: PortId) {}
 }
 
+export type OperatorMetadata = {
+  plot?: {
+    id?: string,
+    style: {
+      color?: string;
+      marker?: string;
+    }
+  }
+}
+
 export abstract class Operator {
   abstract type: string;
+  // not required by the core jsonschemas but useful
+  // for formalizing how the operator output should look like, etc.
+  metadata?: OperatorMetadata;
+
   @Exclude()
   private program?: Program;
 
