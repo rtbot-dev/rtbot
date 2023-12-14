@@ -41,7 +41,12 @@ export default function Home() {
     <Layout title={`${siteConfig.title}`} description="RtBot">
       <HomepageHeader />
       <main>
-        <Player programStr={programStr} getStream={getStream} />
+        <Player
+          programStr={programStr}
+          getStream={getStream}
+          t0={new Date().getTime()}
+          tWindowSize={10000}
+        />
       </main>
     </Layout>
   );

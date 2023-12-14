@@ -1,14 +1,16 @@
 import * as vega from "vega-lite";
-export const getVegaSpec = (width, height, plotPadding): vega.TopLevelSpec => ({
+export const getVegaSpec = (
+  width: number,
+  height: number,
+  plotPadding: number,
+  numViews: number
+): vega.TopLevelSpec => ({
   $schema: "https://vega.github.io/schema/vega-lite/v5.json",
   data: { name: "table" },
   width: width - 2 * plotPadding,
   height: height - 2 * plotPadding,
   padding: plotPadding,
-  bounds: "flush",
-  autosize: {
-    type: "fit",
-  },
+  autosize: { type: "fit" },
   config: {
     axis: {
       grid: true,
@@ -21,6 +23,17 @@ export const getVegaSpec = (width, height, plotPadding): vega.TopLevelSpec => ({
       strokeOpacity: 0,
     },
   },
+  // these will be updated through the js api
+  params: [
+    {
+      name: "tmin",
+      value: 0,
+    },
+    {
+      name: "tmax",
+      value: 10000,
+    },
+  ],
   layer: [
     {
       mark: {
@@ -33,6 +46,9 @@ export const getVegaSpec = (width, height, plotPadding): vega.TopLevelSpec => ({
           axis: {
             tickCount: 4,
             labelExpr: "[timeFormat(datum.value, '%H:%M:%S')]",
+          },
+          scale: {
+            domain: [{ expr: "tmin" }, { expr: "tmax" }],
           },
         },
         y: {

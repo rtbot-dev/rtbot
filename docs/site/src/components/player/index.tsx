@@ -10,20 +10,33 @@ import { Subject } from "rxjs";
 import { View } from "vega";
 import { Monaco } from "@monaco-editor/react";
 
-const t0 = new Date().getTime();
-
 export type PlayerProps = {
   getStream: () => Subject<{ time: number; value: number }>;
   programStr: string;
+  t0: number;
+  tWindowSize: number;
 };
 
-export const Player = ({ getStream, programStr }: PlayerProps) => {
+export const Player = ({
+  getStream,
+  programStr,
+  t0,
+  tWindowSize,
+}: PlayerProps) => {
+  const [, setForceRender] = useState<any>();
   const programRef = useRef(Program.toInstance(JSON5.parse(programStr)));
 
   // resize
   const plotRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
-  const [height, setHeight] = useState(0);
+  const dimensionsRef = useRef<{
+    width: number;
+    height: number;
+    plotPadding: number;
+  }>({
+    width: 0,
+    height: 0,
+    plotPadding: 0,
+  });
 
   useEffect(() => {
     const element: HTMLDivElement | null = plotRef?.current;
@@ -32,15 +45,26 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
     const observer = new ResizeObserver(() => {
       const newWidth = Math.floor(element.getBoundingClientRect().width);
       const newHeight = Math.floor(element.getBoundingClientRect().height);
-      if (width !== newWidth) setWidth(newWidth);
-      if (height !== newHeight) setHeight(newHeight);
+      const numViews = Object.keys(opByViewIdsRef.current).length;
+      if (dimensionsRef.current.width !== newWidth) {
+        dimensionsRef.current.width = newWidth;
+        dimensionsRef.current.plotPadding =
+          dimensionsRef.current.width < 500 ? 10 : 80;
+        if (dimensionsRef.current.height / numViews < 500)
+          dimensionsRef.current.plotPadding = 5;
+        setForceRender(Object.entries(dimensionsRef.current));
+      }
+      if (dimensionsRef.current.height !== newHeight) {
+        dimensionsRef.current.height = newHeight;
+        setForceRender(Object.entries(dimensionsRef.current));
+      }
     });
 
     observer.observe(element);
     return () => {
       observer.disconnect();
     };
-  }, [setWidth, setHeight]);
+  }, []);
 
   const opByViewIdsRef = useRef<{ [id: string]: string[] }>({});
 
@@ -56,6 +80,9 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
               programRef.current
                 .processMessage(p.time, p.value)
                 .then((result) => {
+                  const numViews = Object.keys(opByViewIdsRef.current).length;
+                  console.log("numViews", numViews, dimensionsRef.current);
+
                   // update each one of the views
                   Object.entries(opByViewIdsRef.current).forEach(
                     ([viewId, ops]) => {
@@ -87,10 +114,22 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
                           .changeset()
                           .insert(tuples)
                           .remove(function (t: { x: number }) {
-                            return t.x < t0 + p.time - 10000;
+                            return t.x < t0 + p.time - tWindowSize;
                           });
                         viewsRef.current[viewId]
                           .change("table", changeSet)
+                          .width(
+                            dimensionsRef.current.width -
+                              2 * dimensionsRef.current.plotPadding
+                          )
+                          .height(
+                            dimensionsRef.current.height / numViews -
+                              2 * dimensionsRef.current.plotPadding -
+                              3
+                          )
+                          .padding(dimensionsRef.current.plotPadding)
+                          .signal("tmax", t0 + p.time)
+                          .signal("tmin", t0 + p.time - tWindowSize)
                           .resize()
                           .run();
                       } else {
@@ -113,12 +152,12 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
   const computeOpByViewIds = (program: Program) =>
     program.operators.reduce((acc, op: Operator) => {
       const plotId = op.metadata?.plot?.id ?? "default";
-      if (acc[plotId]) acc[plotId].push(op.id);
+      if (acc[plotId] && acc[plotId].indexOf(op.id) < 0)
+        acc[plotId].push(op.id);
       else acc[plotId] = [op.id];
       return { ...acc };
     }, {} as { [viewId: string]: string[] });
 
-  const [, setForceRender] = useState<any>();
   useEffect(() => {
     // Triggers when "debouncedContent" changes
     try {
@@ -132,6 +171,7 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
         return;
       }
       // update the possible views
+      console.log("new opByViewIds", computeOpByViewIds(newProgram));
       opByViewIdsRef.current = computeOpByViewIds(newProgram);
       setForceRender(Object.entries(opByViewIdsRef.current));
 
@@ -156,32 +196,37 @@ export const Player = ({ getStream, programStr }: PlayerProps) => {
   };
 
   const viewsRef = useRef<{ [id: string]: View }>({});
-  const plotPadding = width < 500 ? 10 : 80;
-  const vegaSpec = getVegaSpec(width, height, plotPadding);
+
+  const vegaSpec = getVegaSpec(
+    dimensionsRef.current.width,
+    dimensionsRef.current.height,
+    dimensionsRef.current.plotPadding
+  );
 
   return (
     <div className="w-full grid grid-cols-6 gap-4 px-4">
-      <div ref={plotRef} className="col-start-1 col-span-3 bg-yellow h-[50vh]">
-        {width &&
-          height &&
-          Object.keys(opByViewIdsRef.current).map((viewId) => (
-            <Vega
-              key={viewId}
-              spec={vegaSpec}
-              // TODO: with canvas renderer some border appears in chrome
-              renderer="svg"
-              actions={false}
-              theme="dark"
-              onNewView={(v) => {
-                viewsRef.current[viewId] = v;
-              }}
-            />
-          ))}
+      <div
+        ref={plotRef}
+        className="col-start-1 col-span-3 gap-0 bg-yellow h-[50vh]"
+      >
+        {Object.keys(opByViewIdsRef.current).map((viewId) => (
+          <Vega
+            key={viewId}
+            spec={vegaSpec}
+            // TODO: with canvas renderer some border appears in chrome
+            renderer="svg"
+            actions={false}
+            theme="dark"
+            onNewView={(v) => {
+              viewsRef.current[viewId] = v;
+            }}
+          />
+        ))}
       </div>
       <div className="col-start-4 col-span-3 h-[50vh] bg-slate-300">
         <MonacoEditor
-          width={width}
-          height={height}
+          width={dimensionsRef.current.width}
+          height={dimensionsRef.current.height}
           defaultLanguage="json"
           defaultValue={programStr}
           theme={"vs-dark"}
