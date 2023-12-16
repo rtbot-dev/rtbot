@@ -5,7 +5,7 @@ import { useDebounce } from "usehooks-ts";
 import JSON5 from "json5";
 import { Vega } from "react-vega";
 import * as vega from "vega";
-import { getVegaSpec } from "./vega-spec";
+import { getVegaSpec } from "./get-vega-spec";
 import { Subject } from "rxjs";
 import { View } from "vega";
 import { Monaco } from "@monaco-editor/react";
@@ -26,8 +26,13 @@ type VegaRef = {
     height: number;
     plotPadding: number;
   };
+  timeScale: {
+    tmin: number;
+    tmax: number;
+  };
   opByViewIds: { [id: string]: string[] };
   views: { [id: string]: View };
+  values: { [id: string]: any };
   opIds: string[];
   opColors: string[];
 };
@@ -63,8 +68,13 @@ export const Player = ({
       height: 0,
       plotPadding: 0,
     },
+    timeScale: {
+      tmin: 0,
+      tmax: 100,
+    },
     opByViewIds: {},
     views: {},
+    values: {},
     opIds: [],
     opColors: [],
   });
@@ -79,16 +89,20 @@ export const Player = ({
       const numViews = Object.keys(configRef.current.opByViewIds).length;
       if (configRef.current.dimensions.width !== newWidth) {
         configRef.current.dimensions.width = newWidth;
-        configRef.current.dimensions.plotPadding =
-          configRef.current.dimensions.width < 500 ? 10 : 80;
-        if (configRef.current.dimensions.height / numViews < 500)
-          configRef.current.dimensions.plotPadding = 5;
-        setForceRender(Object.entries(configRef.current.dimensions));
       }
       if (configRef.current.dimensions.height !== newHeight) {
         configRef.current.dimensions.height = newHeight;
-        setForceRender(Object.entries(configRef.current.dimensions));
       }
+      configRef.current.dimensions.plotPadding =
+        configRef.current.dimensions.width < 400 ||
+        configRef.current.dimensions.height / numViews < 400
+          ? 10
+          : 80;
+      configRef.current.values = Object.entries(configRef.current.views).reduce(
+        (acc, [viewId, view]) => ({ ...acc, [viewId]: view.data("data_0") }),
+        {}
+      );
+      setForceRender(Object.entries(configRef.current.dimensions));
     });
 
     observer.observe(element);
@@ -102,7 +116,7 @@ export const Player = ({
       programRef.current
         .start()
         .then(() => {
-          const data$ = getStream(); //createSyntheticSignal(100, 0.0015, 100, 80);
+          const data$ = getStream();
           data$.subscribe((p) => {
             // send the data to the program
             if (programRef.current) {
@@ -112,11 +126,9 @@ export const Player = ({
                   const numViews = Object.keys(
                     configRef.current.opByViewIds
                   ).length;
-                  console.log(
-                    "numViews",
-                    numViews,
-                    configRef.current.dimensions
-                  );
+                  // update the time scale reference range
+                  configRef.current.timeScale.tmax = t0 + p.time;
+                  configRef.current.timeScale.tmin = t0 + p.time - tWindowSize;
 
                   // update each one of the views
                   Object.entries(configRef.current.opByViewIds).forEach(
@@ -163,8 +175,8 @@ export const Player = ({
                               3
                           )
                           .padding(configRef.current.dimensions.plotPadding)
-                          .signal("tmax", t0 + p.time)
-                          .signal("tmin", t0 + p.time - tWindowSize)
+                          .signal("tmax", configRef.current.timeScale.tmax)
+                          .signal("tmin", configRef.current.timeScale.tmin)
                           .resize()
                           .run();
                       } else {
@@ -197,10 +209,14 @@ export const Player = ({
         return;
       }
       // update the possible views
-      console.log("new opByViewIds", computeOpByViewIds(newProgram));
       configRef.current.opByViewIds = computeOpByViewIds(newProgram);
       configRef.current.opIds = computeOpIds(newProgram);
       configRef.current.opColors = computeOpColors(newProgram);
+      configRef.current.values = Object.entries(configRef.current.views).reduce(
+        (acc, [viewId, view]) => ({ ...acc, [viewId]: view.data("data_0") }),
+        {}
+      );
+      console.log("init values", configRef.current.values);
 
       setForceRender(Object.entries(configRef.current.opByViewIds));
 
@@ -224,14 +240,6 @@ export const Player = ({
     });
   };
 
-  const vegaSpec = getVegaSpec(
-    configRef.current.dimensions.width,
-    configRef.current.dimensions.height,
-    configRef.current.dimensions.plotPadding,
-    configRef.current.opIds,
-    configRef.current.opColors
-  );
-
   return (
     <div className="w-full grid grid-cols-6 gap-4 px-4">
       <div
@@ -241,12 +249,25 @@ export const Player = ({
         {Object.keys(configRef.current.opByViewIds).map((viewId) => (
           <Vega
             key={viewId}
-            spec={vegaSpec}
+            spec={getVegaSpec(
+              configRef.current.dimensions.width,
+              configRef.current.dimensions.height,
+              configRef.current.dimensions.plotPadding,
+              configRef.current.opIds,
+              configRef.current.opColors
+            )}
             // TODO: with canvas renderer some border appears in chrome
             renderer="svg"
             actions={false}
             theme="dark"
             onNewView={(v) => {
+              const changeSet = vega
+                .changeset()
+                .insert(configRef.current.values[viewId] ?? []);
+              v.change("table", changeSet)
+                .signal("tmax", configRef.current.timeScale.tmax)
+                .signal("tmin", configRef.current.timeScale.tmin)
+                .run();
               configRef.current.views[viewId] = v;
             }}
           />
