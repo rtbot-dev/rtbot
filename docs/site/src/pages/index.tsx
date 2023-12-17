@@ -36,7 +36,7 @@ function HomepageHeader() {
 export default function Home() {
   const { siteConfig } = useDocusaurusContext();
   const programStr = simpleProgram;
-  const getStream = () => getNoisySinSignal(100, 0.0015, 100, 80);
+  const getStream = () => getNoisySinSignal(100, 0.0015, 100, 80, 2);
   return (
     <Layout title={`${siteConfig.title}`} description="RtBot">
       <HomepageHeader />

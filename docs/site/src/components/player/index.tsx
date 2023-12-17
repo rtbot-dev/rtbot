@@ -9,9 +9,7 @@ import { getVegaSpec } from "./get-vega-spec";
 import { Subject } from "rxjs";
 import { View } from "vega";
 import { Monaco } from "@monaco-editor/react";
-import { SET3_COLOR_SCHEME } from "./color-schemes";
-
-const colorScheme = SET3_COLOR_SCHEME;
+import * as R from "ramda";
 
 export type PlayerProps = {
   getStream: () => Subject<{ time: number; value: number }>;
@@ -30,11 +28,10 @@ type VegaRef = {
     tmin: number;
     tmax: number;
   };
+  spec: any;
   opByViewIds: { [id: string]: string[] };
   views: { [id: string]: View };
   values: { [id: string]: any };
-  opIds: string[];
-  opColors: string[];
 };
 
 const computeOpByViewIds = (program: Program) =>
@@ -44,12 +41,6 @@ const computeOpByViewIds = (program: Program) =>
     else acc[plotId] = [op.id];
     return { ...acc };
   }, {} as { [viewId: string]: string[] });
-const computeOpIds = (program: Program) => program.operators.map((op) => op.id);
-const computeOpColors = (program: Program) =>
-  program.operators.map(
-    (op, i) =>
-      op.metadata?.plot?.style?.color ?? colorScheme[i % colorScheme.length]
-  );
 
 export const Player = ({
   getStream,
@@ -72,11 +63,10 @@ export const Player = ({
       tmin: 0,
       tmax: 100,
     },
+    spec: undefined,
     opByViewIds: {},
     views: {},
     values: {},
-    opIds: [],
-    opColors: [],
   });
 
   useEffect(() => {
@@ -133,7 +123,7 @@ export const Player = ({
                   // update each one of the views
                   Object.entries(configRef.current.opByViewIds).forEach(
                     ([viewId, ops]) => {
-                      const tuples = Object.entries(result)
+                      const tuplesPerOp = Object.entries(result)
                         .filter(([opId]) => {
                           return ops.indexOf(opId) > -1;
                         })
@@ -144,10 +134,8 @@ export const Player = ({
                               (acc, [port, msgs]) => [
                                 ...acc,
                                 ...msgs.map((m) => ({
-                                  output: `${opId}:${port}`.replace(":o1", ""),
-                                  x: new Date(t0 + m.time),
-                                  [opId.startsWith("peak") ? "peak" : "y"]:
-                                    m.value,
+                                  t: t0 + m.time,
+                                  [`${opId}${port}`]: m.value,
                                 })),
                               ],
                               [] as { [k: string]: string | number | Date }[]
@@ -156,12 +144,17 @@ export const Player = ({
                           [] as { [k: string]: string | number | Date }[]
                         );
 
+                      const tuples = R.map(
+                        R.mergeAll,
+                        R.collectBy(R.prop("t"), tuplesPerOp)
+                      );
+                      //console.log("tuples", tuples);
                       if (configRef.current.views[viewId]) {
                         const changeSet = vega
                           .changeset()
                           .insert(tuples)
-                          .remove(function (t: { x: number }) {
-                            return t.x < t0 + p.time - tWindowSize;
+                          .remove(function ({ t }: { t: number }) {
+                            return t < t0 + p.time - tWindowSize;
                           });
                         configRef.current.views[viewId]
                           .change("table", changeSet)
@@ -210,13 +203,17 @@ export const Player = ({
       }
       // update the possible views
       configRef.current.opByViewIds = computeOpByViewIds(newProgram);
-      configRef.current.opIds = computeOpIds(newProgram);
-      configRef.current.opColors = computeOpColors(newProgram);
       configRef.current.values = Object.entries(configRef.current.views).reduce(
         (acc, [viewId, view]) => ({ ...acc, [viewId]: view.data("data_0") }),
         {}
       );
       console.log("init values", configRef.current.values);
+      configRef.current.spec = getVegaSpec(
+        configRef.current.dimensions.width,
+        configRef.current.dimensions.height,
+        configRef.current.dimensions.plotPadding,
+        newProgram
+      );
 
       setForceRender(Object.entries(configRef.current.opByViewIds));
 
@@ -249,15 +246,9 @@ export const Player = ({
         {Object.keys(configRef.current.opByViewIds).map((viewId) => (
           <Vega
             key={viewId}
-            spec={getVegaSpec(
-              configRef.current.dimensions.width,
-              configRef.current.dimensions.height,
-              configRef.current.dimensions.plotPadding,
-              configRef.current.opIds,
-              configRef.current.opColors
-            )}
+            spec={configRef.current.spec}
             // TODO: with canvas renderer some border appears in chrome
-            renderer="svg"
+            renderer="canvas"
             actions={false}
             theme="dark"
             onNewView={(v) => {

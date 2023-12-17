@@ -122,13 +122,15 @@ export class Connection {
 
 export type OperatorMetadata = {
   plot?: {
-    id?: string,
-    style: {
+    id?: string;
+    // see https://vega.github.io/vega-lite/docs/mark.html#mark-def
+    // for a full list of possible values we can add here
+    mark?: {
       color?: string;
-      marker?: string;
-    }
-  }
-}
+      [k: string]: any;
+    };
+  };
+};
 
 export abstract class Operator {
   abstract type: string;
