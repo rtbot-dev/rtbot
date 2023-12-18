@@ -45,7 +45,7 @@ export default function Home() {
           programStr={programStr}
           getStream={getStream}
           t0={new Date().getTime()}
-          tWindowSize={10000}
+          initialWindowSize={10000}
         />
       </main>
     </Layout>

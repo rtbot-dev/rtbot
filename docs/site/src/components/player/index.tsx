@@ -15,7 +15,7 @@ export type PlayerProps = {
   getStream: () => Subject<{ time: number; value: number }>;
   programStr: string;
   t0: number;
-  tWindowSize: number;
+  initialWindowSize: number;
 };
 
 type VegaRef = {
@@ -25,8 +25,8 @@ type VegaRef = {
     plotPadding: number;
   };
   timeScale: {
-    tmin: number;
-    tmax: number;
+    t: number;
+    dt: number;
   };
   spec: any;
   opByViewIds: { [id: string]: string[] };
@@ -46,7 +46,7 @@ export const Player = ({
   getStream,
   programStr,
   t0,
-  tWindowSize,
+  initialWindowSize,
 }: PlayerProps) => {
   const [, setForceRender] = useState<any>();
   const programRef = useRef(Program.toInstance(JSON5.parse(programStr)));
@@ -60,8 +60,7 @@ export const Player = ({
       plotPadding: 0,
     },
     timeScale: {
-      tmin: 0,
-      tmax: 100,
+      dt: initialWindowSize,
     },
     spec: undefined,
     opByViewIds: {},
@@ -84,8 +83,8 @@ export const Player = ({
         configRef.current.dimensions.height = newHeight;
       }
       configRef.current.dimensions.plotPadding =
-        configRef.current.dimensions.width < 400 ||
-        configRef.current.dimensions.height / numViews < 400
+        configRef.current.dimensions.width < 300 ||
+        configRef.current.dimensions.height / numViews < 300
           ? 10
           : 80;
       configRef.current.values = Object.entries(configRef.current.views).reduce(
@@ -116,9 +115,10 @@ export const Player = ({
                   const numViews = Object.keys(
                     configRef.current.opByViewIds
                   ).length;
-                  // update the time scale reference range
-                  configRef.current.timeScale.tmax = t0 + p.time;
-                  configRef.current.timeScale.tmin = t0 + p.time - tWindowSize;
+                  // update time scale range
+                  const tmax = t0 + p.time;
+                  const tmin = t0 + p.time - configRef.current.timeScale.dt;
+                  configRef.current.timeScale.t = tmax;
 
                   // update each one of the views
                   Object.entries(configRef.current.opByViewIds).forEach(
@@ -154,7 +154,8 @@ export const Player = ({
                           .changeset()
                           .insert(tuples)
                           .remove(function ({ t }: { t: number }) {
-                            return t < t0 + p.time - tWindowSize;
+                            // keep values up to the original window size
+                            return t < t0 + p.time - initialWindowSize;
                           });
                         configRef.current.views[viewId]
                           .change("table", changeSet)
@@ -168,8 +169,8 @@ export const Player = ({
                               3
                           )
                           .padding(configRef.current.dimensions.plotPadding)
-                          .signal("tmax", configRef.current.timeScale.tmax)
-                          .signal("tmin", configRef.current.timeScale.tmin)
+                          .signal("tmax", tmax)
+                          .signal("tmin", tmin)
                           .resize()
                           .run();
                       } else {
@@ -237,11 +238,28 @@ export const Player = ({
     });
   };
 
+  // do not scroll page while using the wheel over the vega charts
+  const preventDefault = (e: any) => {
+    e = e || window.event;
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+    e.returnValue = false;
+  };
+
   return (
     <div className="w-full grid grid-cols-6 gap-4 px-4">
       <div
         ref={plotRef}
         className="col-start-1 col-span-3 gap-0 bg-yellow h-[50vh]"
+        onMouseLeave={() => {
+          document.removeEventListener("wheel", preventDefault, false);
+        }}
+        onMouseEnter={() => {
+          document.addEventListener("wheel", preventDefault, {
+            passive: false,
+          });
+        }}
       >
         {Object.keys(configRef.current.opByViewIds).map((viewId) => (
           <Vega
@@ -255,9 +273,24 @@ export const Player = ({
               const changeSet = vega
                 .changeset()
                 .insert(configRef.current.values[viewId] ?? []);
+              // enable zoom
+              v.addEventListener("wheel", (e) => {
+                const dt = Math.min(
+                  Math.max(
+                    configRef.current.timeScale.dt *
+                      (1 + 0.1 * Math.sign(e.deltaY)),
+                    initialWindowSize / 10
+                  ),
+                  initialWindowSize
+                );
+                configRef.current.timeScale.dt = dt;
+              });
               v.change("table", changeSet)
-                .signal("tmax", configRef.current.timeScale.tmax)
-                .signal("tmin", configRef.current.timeScale.tmin)
+                .signal("tmax", configRef.current.timeScale.t)
+                .signal(
+                  "tmin",
+                  configRef.current.timeScale.t - configRef.current.timeScale.dt
+                )
                 .run();
               configRef.current.views[viewId] = v;
             }}

@@ -7,7 +7,10 @@ const colorScheme = SET3_COLOR_SCHEME;
 const computeLayers = (program: Program) =>
   // TODO:: we should show the output of all ports not only the o1 one
   program.operators.map((op, i) => ({
-    transform: [{ filter: { field: `${op.id}o1`, valid: true } }],
+    transform: [
+      { filter: { field: `${op.id}o1`, valid: true } },
+      { filter: "datum.t > tmin" },
+    ],
     mark: {
       type: "line",
       interpolate: "linear",
@@ -21,7 +24,9 @@ const computeLayers = (program: Program) =>
         field: "t",
         type: "temporal",
         axis: {
+          ticks: false,
           tickCount: 4,
+          labelBound: true,
           labelExpr: "[timeFormat(datum.value, '%H:%M:%S')]",
         },
         scale: {
