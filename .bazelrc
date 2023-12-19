@@ -10,7 +10,7 @@ import %workspace%/.aspect/bazelrc/performance.bazelrc
 test --test_output=all
 
 build --symlink_prefix=dist/
-
+test --notest_verbose_timeout_warnings
 # in general we don't want to pass  -Wno-c++11-narrowing argument
 # but currently it's required in order to make the cpp 
 # jsonschema validation library to compile

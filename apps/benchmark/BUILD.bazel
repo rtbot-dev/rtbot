@@ -1,0 +1,14 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "benchmark",
+    srcs = glob(["src/**/*.cpp"]) + ["//libs/std/test:tools.h"],
+    copts = ["-Iexternal/benchmark/include", "-Ilibs/std/test", "-lbenchmark", "-lpthread"],
+    deps = [
+        "//libs/core:rtbot",
+        "//libs/std:rtbot-std",
+        "@benchmark//:benchmark_main",
+    ],
+    args = ["--benchmark_counters_tabular=true"],
+    data = ["//examples/data:ppg.csv"]
+)
