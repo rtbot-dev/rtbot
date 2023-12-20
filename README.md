@@ -2,6 +2,12 @@
 
 A low latency, high efficiency, incremental analytical engine.
 
+![GitHub License](https://img.shields.io/github/license/rtbot-dev/rtbot)
+![Discord](https://img.shields.io/discord/1097198588490162246)
+![GitHub release (with filter)](https://img.shields.io/github/v/release/rtbot-dev/rtbot)
+![npm (scoped)](https://img.shields.io/npm/v/%40rtbot-dev/rtbot)
+![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/rtbot-dev/rtbot/release.yaml)
+
 - site: [https://rtbot.dev](https://rtbot.dev)
 - repo: [https://github.com/rtbot-dev/rtbot](https://github.com/rtbot-dev/rtbot)
 
@@ -10,7 +16,7 @@ A low latency, high efficiency, incremental analytical engine.
 `RtBot` is a framework, written in c++, to process streams of numerical data
 in real time and to derive analytics from it with the lowest latency possible.
 You can use it to detect anomalies, local peaks or to simply continuously transform
-your data in real time, efficiently. 
+your data in real time, efficiently.
 
 `RtBot` have been designed as an extensible dsp framework, where the building blocks
 are called _operators_ and data flows through them according to the defined _connections_.
@@ -36,11 +42,11 @@ on a web app or into a micro-controller. As such, it can drastically reduce the 
 of producing software essentially due to the lack of translation phase.
 This is perhaps one of the main reasons to adopt it.
 
-Develop an `RtBot` program means finding the right operators, their configuration and how they 
-are connected, such that they produce the result you want as the data comes in. A common 
-workflow would be to use the `python` library to develop an `RtBot` program using historical 
+Develop an `RtBot` program means finding the right operators, their configuration and how they
+are connected, such that they produce the result you want as the data comes in. A common
+workflow would be to use the `python` library to develop an `RtBot` program using historical
 data, and then, once the program is ready, use the `JavaScript` version to deploy it into a web
-app or the `c++` code directly to deploy it into any platform, depending on the needs. 
+app or the `c++` code directly to deploy it into any platform, depending on the needs.
 
 # Wrappers
 
