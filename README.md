@@ -2,11 +2,11 @@
 
 A low latency, high efficiency, incremental analytical engine.
 
-![GitHub License](https://img.shields.io/github/license/rtbot-dev/rtbot)
-![Discord](https://img.shields.io/discord/1097198588490162246)
-![GitHub release (with filter)](https://img.shields.io/github/v/release/rtbot-dev/rtbot)
-![npm (scoped)](https://img.shields.io/npm/v/%40rtbot-dev/rtbot)
-![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/rtbot-dev/rtbot/release.yaml)
+[![GitHub License](https://img.shields.io/github/license/rtbot-dev/rtbot)]((./LICENSE))
+[![Discord](https://img.shields.io/discord/1097198588490162246)](https://discord.gg/XSv6mZq7YQ)
+[![GitHub release (with filter)](https://img.shields.io/github/v/release/rtbot-dev/rtbot)](https://github.com/rtbot-dev/rtbot/releases)
+[![npm (scoped)](https://img.shields.io/npm/v/%40rtbot-dev/rtbot)](https://www.npmjs.com/package/@rtbot-dev/rtbot)
+[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/rtbot-dev/rtbot/release.yaml)](https://github.com/rtbot-dev/rtbot/actions/workflows/release.yaml)
 
 - site: [https://rtbot.dev](https://rtbot.dev)
 - repo: [https://github.com/rtbot-dev/rtbot](https://github.com/rtbot-dev/rtbot)
