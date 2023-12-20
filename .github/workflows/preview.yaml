@@ -42,16 +42,16 @@ jobs:
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Test lib
         run: |
-          bazelisk test //libs/core/lib/test
+          bazelisk test //libs/core/test
       - name: Test std
         run: |
-          bazelisk test //libs/core/std/test
+          bazelisk test //libs/std/test
       - name: Test api
         run: |
-          bazelisk test //libs/core/api/test
+          bazelisk test //libs/api/test
       - name: Test finance
         run: |
-          bazelisk test //libs/core/finance/test
+          bazelisk test //libs/finance/test
       - name: Test python
         run: |
           # TODO: make sure we don't have to build the wheel and install it
@@ -61,4 +61,4 @@ jobs:
           bazelisk test //libs/core/wrappers/python:rtbot_test
       - name: Test javascript
         run: |
-          bazelisk test //libs/core/wrappers/javascript:test
+          bazelisk test //libs/wrappers/javascript:test
