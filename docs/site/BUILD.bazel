@@ -15,6 +15,11 @@ rtbot_generate(
     srcs = ["//libs/std:md"],
 )
 
+rtbot_generate(
+    name = "jsonschema",
+    target = "jsonschema",
+)
+
 copy_to_directory(
     # Name of the rule.
     name = "mdx-core-copy",
@@ -47,6 +52,16 @@ copy_file(
     src = "//libs/api:rtbot-wasm/bindings-cpp-wasm.wasm",
     # notice that the src part is needed for the web worker api to work
     out = "static/assets/js/bindings-cpp-wasm.wasm",
+)
+
+copy_to_directory(
+    # Name of the rule.
+    name = "jsonschema-copy",
+    srcs = [":jsonschema"],
+    out = "src/jsonschema",
+    replace_prefixes = {
+      "jsonschema": ".",
+    }
 )
 
 _DEPS = [
@@ -83,7 +98,7 @@ docusaurus_bin.docusaurus_binary(
     data = glob(
         ["**/*"],
         exclude = ["node_modules/**/*"],
-    ) + [":mdx-core-copy", ":mdx-std-copy", ":public-wasm-release-build"] + _DEPS,
+    ) + [":jsonschema-copy", ":mdx-core-copy", ":mdx-std-copy", ":public-wasm-release-build"] + _DEPS,
 )
 
 docusaurus_bin.docusaurus_binary(
@@ -93,7 +108,7 @@ docusaurus_bin.docusaurus_binary(
     data = glob(
         ["**/*"],
         exclude = ["node_modules/**/*"],
-    ) + [":mdx-core-copy", ":mdx-std-copy", ":public-wasm-release"] + _DEPS,
+    ) + [":jsonschema-copy", ":mdx-core-copy", ":mdx-std-copy", ":public-wasm-release"] + _DEPS,
     tags = ["ibazel_notify_changes"],
 )
 
