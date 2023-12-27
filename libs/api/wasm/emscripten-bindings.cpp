@@ -13,7 +13,7 @@ struct BindingType<std::vector<T, Allocator>> {
   using ValBinding = BindingType<val>;
   using WireType = ValBinding::WireType;
 
-  static WireType toWireType(const std::vector<T, Allocator> &vec) { return ValBinding::toWireType(val::array(vec)); }
+  static WireType toWireType(const std::vector<T, Allocator>& vec) { return ValBinding::toWireType(val::array(vec)); }
 
   static std::vector<T, Allocator> fromWireType(WireType value) {
     return vecFromJSArray<T>(ValBinding::fromWireType(value));
@@ -30,6 +30,21 @@ struct TypeID<
 
 }  // namespace internal
 }  // namespace emscripten
+
+string processBatch32(string const& programId, vector<uint32_t> times32, vector<double> values,
+                      vector<string>  const& ports) {
+  // translate passed 32 bit timestamp into 64 bit internal type
+  vector<uint64_t> times(times32.begin(), times32.end());
+  return processBatch(programId, times, values, ports);
+}
+
+string processBatch32Debug(string const& programId, vector<uint32_t> times32, vector<double> values,
+                      vector<string> const& ports) {
+  // translate passed 32 bit timestamp into 64 bit internal type
+  vector<uint64_t> times(times32.begin(), times32.end());
+  return processBatchDebug(programId, times, values, ports);
+}
+
 
 EMSCRIPTEN_BINDINGS(RtBot) {
   value_object<rtbot::Message<std::uint64_t, double>>("Message")
@@ -49,4 +64,7 @@ EMSCRIPTEN_BINDINGS(RtBot) {
   emscripten::function("getProgramEntryOperatorId", &getProgramEntryOperatorId);
   emscripten::function("getProgramEntryPorts", &getProgramEntryPorts);
   emscripten::function("getProgramOutputFilter", &getProgramOutputFilter);
+
+  emscripten::function("processBatch", &processBatch32);
+  emscripten::function("processBatchDebug", &processBatch32Debug);
 }

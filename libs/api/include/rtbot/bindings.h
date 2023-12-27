@@ -31,4 +31,9 @@ string processMessageMap(string const& programId, const map<string, vector<Messa
 string processMessageMapDebug(string const& programId,
                               const map<string, vector<Message<uint64_t, double>>>& messagesMap);
 
+string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
+                    vector<string> const& ports);
+string processBatchDebug(string const& programId, vector<uint64_t> times, vector<double> values,
+                         vector<string> const& ports);
+
 #endif  // BINDINGS_H

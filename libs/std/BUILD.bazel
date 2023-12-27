@@ -22,6 +22,7 @@ cc_library(
     srcs = glob([
         "src/**/*.cpp",
     ]),
+    copts = ["-O3"],
     hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
     visibility = ["//visibility:public"],

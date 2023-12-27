@@ -78,14 +78,13 @@ class Operator {
   explicit Operator(string const& id) { this->id = id; }
   virtual ~Operator() = default;
 
-  void friend swap(Operator& op1, Operator& op2)
-  {
-      std::swap(op1.id, op2.id);
-      std::swap(op1.dataInputs, op2.dataInputs);
-      std::swap(op1.controlInputs, op2.controlInputs);
-      std::swap(op1.outputIds, op2.outputIds);
-      std::swap(op1.outputs, op2.outputs);
-      std::swap(op1.toProcess, op2.toProcess);
+  void friend swap(Operator& op1, Operator& op2) {
+    std::swap(op1.id, op2.id);
+    std::swap(op1.dataInputs, op2.dataInputs);
+    std::swap(op1.controlInputs, op2.controlInputs);
+    std::swap(op1.outputIds, op2.outputIds);
+    std::swap(op1.outputs, op2.outputs);
+    std::swap(op1.toProcess, op2.toProcess);
   }
 
   virtual string typeName() const = 0;
@@ -131,45 +130,49 @@ class Operator {
   }
 
   Message<T, V> getDataInputMessage(string inputPort, size_t index) {
-    if (this->dataInputs.count(inputPort) > 0)
-      if (!this->dataInputs.find(inputPort)->second.empty())
-        return this->dataInputs.find(inputPort)->second.at(index);
+    if (this->dataInputs.count(inputPort) > 0) {
+      auto result = this->dataInputs.find(inputPort);
+      if (!result->second.empty())
+        return result->second.at(index);
       else
         return {};
-    else
+    } else
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
   Message<T, V> getDataInputLastMessage(string inputPort) {
-    if (this->dataInputs.count(inputPort) > 0)
-      if (!this->dataInputs.find(inputPort)->second.empty())
-        return this->dataInputs.find(inputPort)->second.back();
+    if (this->dataInputs.count(inputPort) > 0) {
+      auto result = this->dataInputs.find(inputPort);
+      if (!result->second.empty())
+        return result->second.back();
       else
         return {};
-    else
+    } else
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
     return {};
   }
 
   Message<T, V> getControlInputLastMessage(string controlPort) {
-    if (this->controlInputs.count(controlPort) > 0)
-      if (!this->controlInputs.find(controlPort)->second.empty())
-        return this->controlInputs.find(controlPort)->second.back();
+    if (this->controlInputs.count(controlPort) > 0) {
+      auto result = this->controlInputs.find(controlPort);
+      if (!result->second.empty())
+        return result->second.back();
       else
         return {};
-    else
+    } else
       throw runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
     return {};
   }
 
   Message<T, V> getControlInputMessage(string controlPort, size_t index) {
-    if (this->controlInputs.count(controlPort) > 0)
-      if (!this->controlInputs.find(controlPort)->second.empty())
-        return this->controlInputs.find(controlPort)->second.at(index);
+    if (this->controlInputs.count(controlPort) > 0) {
+      auto result = this->controlInputs.find(controlPort);
+      if (!result->second.empty())
+        return result->second.at(index);
       else
         return {};
-    else
+    } else
       throw runtime_error(typeName() + ": " + controlPort + " refers to a non existing control port");
     return {};
   }

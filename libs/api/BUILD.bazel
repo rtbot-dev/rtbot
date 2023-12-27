@@ -26,6 +26,7 @@ cc_library(
     ]),
     hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
     copts = [
+        "-O3",
         "-Iexternal/json-schema-validator/src",
         "-Ilibs/core/include/rtbot",
         # this is needed when building from another workspace
@@ -47,8 +48,10 @@ cc_library(
 )
 
 BASE_LINKOPTS = [
-    "--bind",  # Enable embind
+    "-O3",
+    "-lembind",  # Enable embind
     "-s MODULARIZE",
+    "--embind-emit-tsd",
     "-s ALLOW_MEMORY_GROWTH",
     #"-s MEMORY64=2",
     "-s NO_DISABLE_EXCEPTION_CATCHING",
@@ -82,6 +85,7 @@ genrule(
     echo "  getProgramEntryOperatorId(programId: string): string;" >> $@
     echo "  getProgramEntryPorts(programId: string): string;" >> $@
     echo "  getProgramOutputFilter(programId: string): string;" >> $@
+    echo "  processBatch(programId: string, times: number[], values: number[], ports: string[]): string;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
     echo "export default factory;" >> $@

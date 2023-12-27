@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
+#include <chrono>
 
 #include "rtbot/FactoryOp.h"
 
@@ -18,6 +19,10 @@ rtbot::FactoryOp factory;
 
 using json = nlohmann::json;
 using nlohmann::json_schema::json_validator;
+/* using std::chrono::duration; */
+/* using std::chrono::duration_cast; */
+/* using std::chrono::high_resolution_clock; */
+/* using std::chrono::nanoseconds; */
 
 namespace rtbot {
 
@@ -93,7 +98,7 @@ string createProgram(string const& programId, string const& json_program) {
   string validation = validate(json_program);
 
   if (!nlohmann::json::parse(validation)["valid"])
-      return validation;
+    return validation;
   else
     return factory.createProgram(programId, json_program);
 }
@@ -137,5 +142,47 @@ string processMessageMap(const string& programId, const map<string, vector<Messa
 string processMessageMapDebug(string const& programId,
                               const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
   auto result = factory.processMessageMapDebug(programId, messagesMap);
+  return nlohmann::json(result).dump();
+}
+
+// helper function to load the batch into the input buffers
+void addBatchToMessageBuffers(string const& programId, vector<uint64_t> times, vector<double> values,
+                              vector<string> const& ports) {
+  if (times.size() != values.size() || times.size() != ports.size() || values.size() != ports.size())
+    throw std::runtime_error("vectors passed to processBatch are not of the same length");
+
+  // fill the message buffers
+  for (size_t i = 0; i < times.size(); i++) {
+    auto time = times[i];
+    auto value = values[i];
+    auto portId = ports[i];
+    factory.addToMessageBuffer(programId, portId, Message<uint64_t, double>(time, value));
+  }
+}
+
+string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
+                    vector<string> const& ports) {
+  /* auto t1 = high_resolution_clock::now(); */
+  addBatchToMessageBuffers(programId, times, values, ports);
+  /* auto t2 = high_resolution_clock::now(); */
+  /* auto dt1 = duration_cast<nanoseconds>(t2 - t1); */
+  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl; */
+
+  auto result = factory.processMessageBuffer(programId);
+  /* auto t3 = high_resolution_clock::now(); */
+  /* auto dt2 = duration_cast<nanoseconds>(t3 - t2); */
+  /* cout << "[processBatch][" << dt2.count() << " ns] process messages in buffers" << endl; */
+  auto json = nlohmann::json(result).dump();
+  /* auto t4 = high_resolution_clock::now(); */
+  /* auto dt3 = duration_cast<nanoseconds>(t4 - t3); */
+  /* cout << "[processBatch][" << dt3.count() << " ns] convert result to json" << endl; */
+
+  return json;
+}
+
+string processBatchDebug(string const& programId, vector<uint64_t> times, vector<double> values,
+                         vector<string> const& ports) {
+  addBatchToMessageBuffers(programId, times, values, ports);
+  auto result = factory.processMessageBufferDebug(programId);
   return nlohmann::json(result).dump();
 }
