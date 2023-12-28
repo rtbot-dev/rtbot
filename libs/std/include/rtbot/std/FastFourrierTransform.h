@@ -73,7 +73,7 @@ class FastFourrierTransform : public Operator<T, V> {
         outputMsgs.emplace("p" + to_string(i + 1), toEmit);
       }
 
-      Message<T, V> w(time, i * 1.0 / this->n);
+      Message<T, V> w(time, (i + 1.0) / this->n);
       vector<Message<T, V>> toEmit = {w};
       outputMsgs.emplace("w" + to_string(i + 1), toEmit);
     }
