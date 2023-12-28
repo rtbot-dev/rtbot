@@ -1,4 +1,5 @@
 #include <complex>
+#include <valarray>
 
 #include "rtbot/Operator.h"
 
@@ -33,8 +34,6 @@ class FastFourrierTransform : public Operator<T, V> {
   map<string, vector<Message<T, V>>> processData() override {
     this->skipCounter++;
 
-    cout << "skipCounter = " << this->skipCounter << endl;
-    cout << "skip = " << this->skip << endl;
     if (this->skipCounter < this->skip) return map<string, vector<Message<T, V>>>();
 
     this->skipCounter = 0;
@@ -49,26 +48,24 @@ class FastFourrierTransform : public Operator<T, V> {
 
     auto input = this->dataInputs.find(inputPort)->second;
     for (int i = 0; i < this->n; i++) {
-      this->a[i].real((input.at((this->n - 1) - i).value));
+      this->a[i].real((input.at(i).value));
       this->a[i].imag(0);
     }
 
     // compute the FFT
-    fft(this->a, false);
+    fft(this->a);
 
     auto time = this->getDataInputLastMessage(inputPort).time;
     for (size_t i = 0; i < this->n; i++) {
-      cout << "a[" << i << "] = " << this->a[i] << endl;
       if (this->emitRePart) {
         Message<T, V> re(time, this->a[i].real());
         vector<Message<T, V>> toEmit = {re};
         outputMsgs.emplace("re" + to_string(i + 1), toEmit);
-        cout << "re" << i + 1 << " = " << re.value << endl;
       }
       if (this->emitImPart) {
         Message<T, V> im(time, this->a[i].imag());
         vector<Message<T, V>> toEmit = {im};
-        outputMsgs.emplace("re" + to_string(i + 1), toEmit);
+        outputMsgs.emplace("im" + to_string(i + 1), toEmit);
       }
       if (this->emitPower) {
         Message<T, V> p(time, pow(this->a[i].real(), 2) + pow(this->a[i].imag(), 2));
@@ -81,16 +78,10 @@ class FastFourrierTransform : public Operator<T, V> {
       outputMsgs.emplace("w" + to_string(i + 1), toEmit);
     }
 
-    for (const auto& pair : outputMsgs) {
-      std::cout << pair.first << ": ";
-      for (const auto& msg : pair.second) {
-        std::cout << "Time: " << msg.time << ", Value: " << msg.value << "; ";
-      }
-      std::cout << std::endl;
-    }
-
     return outputMsgs;
   }
+
+  size_t getSize() { return this->n; }
 
  private:
   size_t skipCounter;
@@ -101,24 +92,42 @@ class FastFourrierTransform : public Operator<T, V> {
   bool emitImPart;
   vector<complex<V>> a;
 
-  void fft(vector<complex<V>>& a, bool invert) {
-    size_t n = a.size();
-    if (n == 1) return;
-
-    vector<complex<V>> a0(n / 2), a1(n / 2);
-    for (int i = 0; 2 * i < n; i++) {
-      a0[i] = a[2 * i];
-      a1[i] = a[2 * i + 1];
+  // see https://rosettacode.org/wiki/Fast_Fourier_transform#C.2B.2B
+  void fft(std::vector<std::complex<V>>& x) {
+    // DFT
+    unsigned int N = x.size(), k = N, n;
+    double thetaT = 3.14159265358979323846264338328L / N;
+    std::complex<V> phiT = std::complex<V>(cos(thetaT), -sin(thetaT)), Tt;
+    while (k > 1) {
+      n = k;
+      k >>= 1;
+      phiT = phiT * phiT;
+      Tt = 1.0L;
+      for (unsigned int l = 0; l < k; l++) {
+        for (unsigned int a = l; a < N; a += n) {
+          unsigned int b = a + k;
+          std::complex<V> t = x[a] - x[b];
+          x[a] += x[b];
+          x[b] = t * Tt;
+        }
+        Tt *= phiT;
+      }
     }
-    fft(a0, invert);
-    fft(a1, invert);
-
-    V ang = 2 * M_PI / n * (invert ? -1 : 1);
-    complex<V> w(1), wn(cos(ang), sin(ang));
-    for (int i = 0; 2 * i < n; i++) {
-      a[i] = a0[i] + w * a1[i];
-      if (invert) a[i] /= 2;
-      w *= wn;
+    // Decimate
+    unsigned int m = (unsigned int)log2(N);
+    for (unsigned int a = 0; a < N; a++) {
+      unsigned int b = a;
+      // Reverse bits
+      b = (((b & 0xaaaaaaaa) >> 1) | ((b & 0x55555555) << 1));
+      b = (((b & 0xcccccccc) >> 2) | ((b & 0x33333333) << 2));
+      b = (((b & 0xf0f0f0f0) >> 4) | ((b & 0x0f0f0f0f) << 4));
+      b = (((b & 0xff00ff00) >> 8) | ((b & 0x00ff00ff) << 8));
+      b = ((b >> 16) | (b << 16)) >> (32 - m);
+      if (b > a) {
+        std::complex<V> t = x[a];
+        x[a] = x[b];
+        x[b] = t;
+      }
     }
   }
 };
