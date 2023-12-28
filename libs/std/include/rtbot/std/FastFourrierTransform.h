@@ -7,8 +7,8 @@ namespace rtbot {
 template <class T, class V>
 class FastFourrierTransform : public Operator<T, V> {
  public:
-  FastFourrierTransform(string const& id, size_t N = 7, size_t skip = 127, emitPower = true, bool emitRePart = false,
-                        bool emitImPart = false)
+  FastFourrierTransform(string const& id, size_t N = 7, size_t skip = 127, bool emitPower = true,
+                        bool emitRePart = false, bool emitImPart = false)
       : Operator<T, V>(id) {
     this->n = pow(2, N);
     this->emitPower = emitPower;
@@ -30,6 +30,77 @@ class FastFourrierTransform : public Operator<T, V> {
 
   string typeName() const override { return "FastFourrierTransform"; }
 
+  map<string, vector<Message<T, V>>> processData() override {
+    this->skipCounter++;
+
+    cout << "skipCounter = " << this->skipCounter << endl;
+    cout << "skip = " << this->skip << endl;
+    if (this->skipCounter < this->skip) return map<string, vector<Message<T, V>>>();
+
+    this->skipCounter = 0;
+
+    string inputPort;
+    auto in = this->getDataInputs();
+    if (in.size() == 1)
+      inputPort = in.at(0);
+    else
+      throw runtime_error(typeName() + " : more than 1 input port found");
+    map<string, vector<Message<T, V>>> outputMsgs;
+
+    auto input = this->dataInputs.find(inputPort)->second;
+    for (int i = 0; i < this->n; i++) {
+      this->a[i].real((input.at((this->n - 1) - i).value));
+      this->a[i].imag(0);
+    }
+
+    // compute the FFT
+    fft(this->a, false);
+
+    auto time = this->getDataInputLastMessage(inputPort).time;
+    for (size_t i = 0; i < this->n; i++) {
+      cout << "a[" << i << "] = " << this->a[i] << endl;
+      if (this->emitRePart) {
+        Message<T, V> re(time, this->a[i].real());
+        vector<Message<T, V>> toEmit = {re};
+        outputMsgs.emplace("re" + to_string(i + 1), toEmit);
+        cout << "re" << i + 1 << " = " << re.value << endl;
+      }
+      if (this->emitImPart) {
+        Message<T, V> im(time, this->a[i].imag());
+        vector<Message<T, V>> toEmit = {im};
+        outputMsgs.emplace("re" + to_string(i + 1), toEmit);
+      }
+      if (this->emitPower) {
+        Message<T, V> p(time, pow(this->a[i].real(), 2) + pow(this->a[i].imag(), 2));
+        vector<Message<T, V>> toEmit = {p};
+        outputMsgs.emplace("p" + to_string(i + 1), toEmit);
+      }
+
+      Message<T, V> w(time, i * 1.0 / this->n);
+      vector<Message<T, V>> toEmit = {w};
+      outputMsgs.emplace("w" + to_string(i + 1), toEmit);
+    }
+
+    for (const auto& pair : outputMsgs) {
+      std::cout << pair.first << ": ";
+      for (const auto& msg : pair.second) {
+        std::cout << "Time: " << msg.time << ", Value: " << msg.value << "; ";
+      }
+      std::cout << std::endl;
+    }
+
+    return outputMsgs;
+  }
+
+ private:
+  size_t skipCounter;
+  size_t skip;
+  size_t n;
+  bool emitPower;
+  bool emitRePart;
+  bool emitImPart;
+  vector<complex<V>> a;
+
   void fft(vector<complex<V>>& a, bool invert) {
     size_t n = a.size();
     if (n == 1) return;
@@ -50,66 +121,6 @@ class FastFourrierTransform : public Operator<T, V> {
       w *= wn;
     }
   }
-
-  map<string, vector<Message<T, V>>> processData() override {
-    this->skipCounter++;
-
-    if (this->skipCounter < this->skip) return map<string, vector<Message<T, V>>>();
-
-    this->skipCounter = 0;
-
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    map<string, vector<Message<T, V>>> outputMsgs;
-
-    auto input = this->dataInputs.find(inputPort)->second;
-    for (int i = 0; i < this->n; i++) {
-      auto c = this->a[i];
-      c.real((input.at((this->n - 1) - i).value);
-      c.imag(0);
-    }
-
-    // compute the FFT
-    fft(this->a, false);
-
-    auto time = this->getDataInputLastMessage(inputPort).time;
-    for (size_t i = 0; i < this->n; i++) {
-      if (this->emitRePart) {
-        Message<T, V> re(time, this->a[i].real());
-        vector<Message<T, V>> toEmit(re);
-        outputMsgs.emplace("re" + to_string(i + 1), toEmit);
-      }
-      if (this->emitImPart) {
-        Message<T, V> im(time, this->a[i].imag()));
-        vector<Message<T, V>> toEmit(im);
-        outputMsgs.emplace("re" + to_string(i + 1), toEmit);
-      }
-      if (this->emitPower) {
-        Message<T, V> p(time, pow(this->a[i].real(), 2) + pow(this->a[i].imag(), 2));
-        vector<Message<T, V>> toEmit(p);
-        outputMsgs.emplace("p" + to_string(i + 1), toEmit);
-      }
-
-      Message<T, V> re(time, i / this->n);
-      vector<Message<T, V>> toEmit(re);
-      outputMsgs.emplace("w" + to_string(i + 1), toEmit);
-    }
-
-    return outputMsgs;
-  }
-
- private:
-  size_t skipCounter;
-  size_t skip;
-  size_t n;
-  bool emitPower;
-  bool emitRePart;
-  bool emitImPart;
-  vector<complex<V>> a;
 };
 
 }  // namespace rtbot
