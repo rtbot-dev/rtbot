@@ -104,7 +104,7 @@ docusaurus_bin.docusaurus_binary(
 docusaurus_bin.docusaurus_binary(
     name = "start",
     # TODO: compute the output dir
-    args = ["start", "docs/site"],
+    args = ["start", "docs/site", "--host 0.0.0.0"],
     data = glob(
         ["**/*"],
         exclude = ["node_modules/**/*"],
