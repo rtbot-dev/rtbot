@@ -5,20 +5,6 @@
 using namespace rtbot;
 using namespace std;
 
-void printEmittedMessages(
-    const std::map<std::string, std::map<std::string, std::vector<Message<uint64_t, double>>>>& emitted) {
-  for (const auto& outerPair : emitted) {
-    std::cout << outerPair.first << ": " << std::endl;
-    for (const auto& innerPair : outerPair.second) {
-      std::cout << "\t" << innerPair.first << ": ";
-      for (const auto& msg : innerPair.second) {
-        std::cout << "Time: " << msg.time << ", Value: " << msg.value << "; ";
-      }
-      std::cout << std::endl;
-    }
-  }
-}
-
 TEST_CASE("FastFourrierTransform") {
   SECTION("FFT computation and output messages") {
     auto fft = FastFourrierTransform<uint64_t, double>("fft", 3, 1, true, true, true);
