@@ -1,0 +1,54 @@
+---
+behavior:
+  buffered: true
+  throughput: variable
+view:
+  shape: circle
+  latex:
+    template: |
+      sort
+jsonschema:
+  type: object
+  properties:
+    id:
+      type: string
+      description: The id of the operator
+    numInputs:
+      type: integer
+      description: |
+        The number of input ports the operator will have. If equal to $n$,
+        the operator will have `i1`, `i2`, ..., `iN` as input ports.
+      minimum: 2
+      examples: [3, 10, 33]
+    numOutputs:
+      type: integer
+      description: |
+        The number of output ports the operator will have. If equal to $m$,
+        the operator will have `o1`, `o2`, ..., `oM` as output ports. The 
+        number of output ports should be smaller than the number of input 
+        ports, otherwise a runtime exception will be thrown.
+      minimum: 1
+      examples: [1]
+    ascending:
+      type: boolean
+      description: |
+        If `true`, which is the default value, then for all `K` the value that goes out by the port `oK-1` will be smaller than the one going
+        out through the port `oK`. In other words the output values will be ascending as the port index `K` increases.
+      default: true
+      examples: [true]
+    maxInputBufferSize:
+      type: integer
+      description: |
+        The maximum length of the internal input buffers that will hold the incoming data until synchronization occurs.
+      default: 100
+      minimum: 1
+      examples: [100, 200, 1000]
+  required: ["id", "numInputs", "numOutputs"]
+---
+
+# Sort
+
+Takes $n$ input streams through the input ports `i1`, `i2`, ..., `iN`, and emits the same values,
+whenever a synchronization happens, through the ports `o1`, `o2`, ..., `oM` ($M < N$), _after ordering_ them according to the `value` in the messages for _every_ synchronization time. In other words for a given $t$ through the port `o1` will go the smallest messages of all input messages, through `o2` the second smallest and so on. Using the `ascending` parameter it is possible to invert the order.
+
+The synchronization mechanism is inherited from the [`Join`](/docs/operators/core/Join) operator.
