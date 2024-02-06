@@ -1,4 +1,4 @@
-from . import rtbotapi as api
+from rtbot import rtbotapi as api
 import json
 import random
 
