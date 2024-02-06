@@ -13,8 +13,8 @@ jsonschema:
     id:
       type: string
       description: The id of the operator.
-      examples: ["demul1"]
-    numOutputPorts:
+      examples: ["demult1"]
+    numPorts:
       type: integer
       description: The number of output ports through which data will be routed.
       default: 1
@@ -26,8 +26,8 @@ jsonschema:
 # Demultiplexer
 
 Inputs: `i1`  
-Controls: `c1`...`cN` where N is defined by `numOutputPorts`  
-Outputs: `o1`...`oN` where N is defined by `numOutputPorts`
+Controls: `c1`...`cN` where N is defined by `numPorts`  
+Outputs: `o1`...`oN` where N is defined by `numPorts`
 
 A `Demultiplexer` is an operator that routes its incoming data through its possible output ports. 
 The choice of the output port is controlled by the messages received through its control ports.

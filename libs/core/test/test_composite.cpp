@@ -24,7 +24,6 @@ TEST_CASE("Composite") {
   composite.createConstant("cgto", 1);
   composite.createConstant("cltz", 0);
   composite.createConstant("clto", 1);
-  composite.createConstant("cetz", 0);
   composite.createConstant("ceto", 1);
 
   composite.createDifference("diff1");
