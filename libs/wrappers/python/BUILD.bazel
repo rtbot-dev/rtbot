@@ -22,7 +22,7 @@ pybind_extension(
 
 py_library(
     name = "rtbotapi",
-    data = [":rtbotapi.so", "rtbot.py"],
+    data = [":rtbotapi.so", "rtbotx.py"],
 )
 
 py_package(
