@@ -11,17 +11,18 @@ class FastFourrierTransform : public Operator<T, V> {
   FastFourrierTransform(string const& id, size_t N = 7, size_t skip = 127, bool emitPower = true,
                         bool emitRePart = false, bool emitImPart = false)
       : Operator<T, V>(id) {
-    this->n = pow(2, N);
+    this->N = N;
+    this->M = pow(2, N);
     this->emitPower = emitPower;
     this->emitRePart = emitRePart;
     this->emitImPart = emitImPart;
     // recall that the N passed in the constructor is used to compute the size of the input buffer
     // the actual size of the FFT is 2^N
-    this->addDataInput("i1", this->n);
+    this->addDataInput("i1", this->M);
     // allocate the vector that will contain the FFT
-    this->a = vector<complex<V>>(this->n);
+    this->a = vector<complex<V>>(this->M);
     // declare the output ports based on the parameters passed in the constructor
-    for (int i = 0; i < this->n; i++) {
+    for (int i = 0; i < this->M; i++) {
       this->addOutput("w" + to_string(i + 1));
       if (emitPower) this->addOutput("p" + to_string(i + 1));
       if (emitRePart) this->addOutput("re" + to_string(i + 1));
@@ -47,7 +48,7 @@ class FastFourrierTransform : public Operator<T, V> {
     map<string, vector<Message<T, V>>> outputMsgs;
 
     auto input = this->dataInputs.find(inputPort)->second;
-    for (int i = 0; i < this->n; i++) {
+    for (int i = 0; i < this->M; i++) {
       this->a[i].real((input.at(i).value));
       this->a[i].imag(0);
     }
@@ -56,7 +57,7 @@ class FastFourrierTransform : public Operator<T, V> {
     fft(this->a);
 
     auto time = this->getDataInputLastMessage(inputPort).time;
-    for (size_t i = 0; i < this->n; i++) {
+    for (size_t i = 0; i < this->M; i++) {
       if (this->emitRePart) {
         Message<T, V> re(time, this->a[i].real());
         vector<Message<T, V>> toEmit = {re};
@@ -73,7 +74,7 @@ class FastFourrierTransform : public Operator<T, V> {
         outputMsgs.emplace("p" + to_string(i + 1), toEmit);
       }
 
-      Message<T, V> w(time, (i + 1.0) / this->n);
+      Message<T, V> w(time, (i + 1.0) / this->M);
       vector<Message<T, V>> toEmit = {w};
       outputMsgs.emplace("w" + to_string(i + 1), toEmit);
     }
@@ -81,12 +82,17 @@ class FastFourrierTransform : public Operator<T, V> {
     return outputMsgs;
   }
 
-  size_t getSize() { return this->n; }
+  size_t getSize() { return this->M; }
+  size_t getN() { return this->N; }
+  bool getEmitPower() { return this->emitPower; }
+  bool getEmitRePart() { return this->emitRePart; }
+  bool getEmitImPart() { return this->emitImPart; }
 
  private:
   size_t skipCounter;
   size_t skip;
-  size_t n;
+  size_t M;
+  size_t N;
   bool emitPower;
   bool emitRePart;
   bool emitImPart;

@@ -29,7 +29,7 @@ jsonschema:
       examples: [1]
     ascending:
       type: boolean
-      description: If `true`, which is the default value, then for all `K` the value that goes out by the port `oK-1` will be smaller than the one going out through the port `oK`. In other words the output values will be ascending as the port index `K` increases.
+      description: Whether the indices are sort ascending according to the value in the input messages or not.
       default: true
       examples: [true]
     maxInputBufferSize:
@@ -42,12 +42,13 @@ jsonschema:
   required: ["id", "numInputs", "numOutputs"]
 ---
 
-# Sort
+# SortIndex
 
 Inputs: `i1`...`iN` where N defined by `numInputs`  
 Outputs: `o1`...`oM` where M defined by `numOutputs` and $M < N$
 
-Takes $n$ input streams through the input ports `i1`, `i2`, ..., `iN`, and emits the same values,
-whenever a synchronization happens, through the ports `o1`, `o2`, ..., `oM` ($M < N$), _after ordering_ them according to the `value` in the messages for _every_ synchronization time. In other words for a given $t$ through the port `o1` will go the smallest messages of all input messages, through `o2` the second smallest and so on. Using the `ascending` parameter it is possible to invert the order.
+Takes $n$ input streams through the input ports `i1`, `i2`, ..., `iN`, and emits the _indices_ (1, 2, ..., M) of the input messages, whenever a synchronization happens, through the ports `o1`, `o2`, ..., `oM` ($M < N$), _after ordering_ them according to the `value` in the messages for _every_ synchronization time. In other words for a given $t$ through the port `o1` will go the _index_ of smallest messages of all input messages, through `o2` the _index_ of the second smallest and so on. Using the `ascending` parameter it is possible to invert the order. For example, if the smallest message `value` is in the input port `i3`, then the output port `o1` will emit the value 3.
+
+Here index refers to the numeric suffix associated to the port. Port `i1` has index 1, port `i2` index 2 and so on.
 
 The synchronization mechanism is inherited from the [`Join`](/docs/operators/core/Join) operator.

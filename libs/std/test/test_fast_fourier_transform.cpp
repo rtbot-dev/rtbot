@@ -1,6 +1,6 @@
 #include <catch2/catch.hpp>
 
-#include "rtbot/std/FastFourrierTransform.h"
+#include "rtbot/std/FastFourierTransform.h"
 
 using namespace rtbot;
 using namespace std;

@@ -9,9 +9,11 @@ class SortIndex : public Join<T, V> {
  private:
   size_t numOutputs;
   size_t numInputs;
+  size_t maxInputBufferSize;
   bool ascending;
 
  public:
+  SortIndex() = default;
   SortIndex(string const& id, size_t numInputs, size_t numOutputs, bool ascending = true,
             size_t maxInputBufferSize = 100)
       : Join<T, V>(id) {
@@ -20,6 +22,7 @@ class SortIndex : public Join<T, V> {
     this->numOutputs = numOutputs;
     this->numInputs = numInputs;
     this->ascending = ascending;
+    this->maxInputBufferSize = maxInputBufferSize;
 
     // Register the inputs
     for (size_t i = 0; i < numInputs; i++) {
@@ -62,6 +65,11 @@ class SortIndex : public Join<T, V> {
 
     return outputMsgs;
   }
+
+  size_t getNumInputs() const { return this->numInputs; }
+  size_t getNumOutputs() const { return this->numOutputs; }
+  bool getAscending() const { return this->ascending; }
+  size_t getMaxInputBufferSize() const { return this->maxInputBufferSize; }
 };
 
 }  // namespace rtbot
