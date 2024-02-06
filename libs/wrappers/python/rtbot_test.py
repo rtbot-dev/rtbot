@@ -55,8 +55,9 @@ data = [
     [59, 29.7374125876128],
     [60, 29.210111131705506],
     [61, 28.51864576082498],
-    [62, 27.826735187894098]
+    [62, 27.826735187894098],
 ]
+
 
 class RtBotTest(unittest.TestCase):
     """RtBot api test"""
@@ -100,11 +101,11 @@ class RtBotTest(unittest.TestCase):
 
     def test_create_program_class(self):
         """Program can be created through the helper class"""
-        program1 = rtbot.Program(title = "test")
+        program1 = rtbot.Program(title="test")
 
     def test_able_to_add_good_connection(self):
         """Able to add a connection if operators referred have been added already to the program"""
-        program1 = rtbot.Program(title = "test")
+        program1 = rtbot.Program(title="test")
         ma1 = op.MovingAverage("ma1", 2)
         ma2 = op.MovingAverage("ma2", 2)
         program1.addOperator(ma1)
@@ -113,12 +114,14 @@ class RtBotTest(unittest.TestCase):
 
     def test_unable_to_add_bad_connection(self):
         """Unable to add a connection if operators referred haven't been added yet to the program"""
-        program1 = rtbot.Program(title = "test")
-        self.assertRaises(Exception, lambda: program1.addConnection("ma11", "ma12", "o1", "i1"))
+        program1 = rtbot.Program(title="test")
+        self.assertRaises(
+            Exception, lambda: program1.addConnection("ma11", "ma12", "o1", "i1")
+        )
 
     def test_unable_to_add_same_operator_twice(self):
         """Unable to add a connection if operators referred haven't been added yet to the program"""
-        program1 = rtbot.Program(title = "test")
+        program1 = rtbot.Program(title="test")
         ma1 = op.MovingAverage("ma1", 2)
         program1.addOperator(ma1)
         self.assertRaises(Exception, lambda: program1.addOperator(ma1))
@@ -142,5 +145,3 @@ class RtBotTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
