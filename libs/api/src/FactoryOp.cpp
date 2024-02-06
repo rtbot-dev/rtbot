@@ -9,6 +9,7 @@
 #include "rtbot/Join.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
+#include "rtbot/Pipeline.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 #include "rtbot/std/Add.h"
 #include "rtbot/std/And.h"
@@ -37,7 +38,6 @@
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
 #include "rtbot/std/Variable.h"
-#include "rtbot/Pipeline.h"
 
 using json = nlohmann::json;
 
@@ -339,12 +339,12 @@ void from_json(const json& j, Difference<T, V>& p) {
 
 template <class T, class V>
 void to_json(json& j, const Demultiplexer<T, V>& p) {
-  j = json{{"type", p.typeName()}, {"id", p.id}, {"numOutputPorts", p.getNumOutputPorts()}};
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumOutputPorts()}};
 }
 
 template <class T, class V>
 void from_json(const json& j, Demultiplexer<T, V>& p) {
-  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numOutputPorts", 1));
+  p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
 
 template <class T, class V>
