@@ -1,7 +1,7 @@
 import sys
 import os
 
-# sys.path.append(os.getcwd() + "/libs/wrappers/python")
+sys.path.append(os.getcwd() + "/libs/wrappers/python")
 
 import rtbot
 from rtbot import rtbotapi as api
