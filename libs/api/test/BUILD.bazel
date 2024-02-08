@@ -15,7 +15,8 @@ cc_test(
         "//examples/data:program-test-1.json",
         "//examples/data:program-test-2.json",
         "//examples/data:program-test-3.json",
-        "//examples/data:program-test-4.json"
+        "//examples/data:program-test-4.json",
+        "//examples/data:program-test-5.json"
     ],
     # defines = ["CATCH_CONFIG_MAIN"],
     deps = [        
