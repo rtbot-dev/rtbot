@@ -108,5 +108,7 @@ npm_package(
     package = "@rtbot-dev/wasm",
     replace_prefixes = {
       "rtbot-wasm": "."
-    }
+    },
+    # this is needed if we want to use this package in another bazel workspace
+    include_external_repositories = ["**"]
 )
