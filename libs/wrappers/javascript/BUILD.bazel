@@ -114,6 +114,8 @@ npm_package(
     exclude_srcs_patterns = ["src/**", "tsconfig.bazel.json"],
     data = _DEPS,
     package = "@rtbot-dev/rtbot",
+    # this is needed if we want to use this package in another bazel workspace
+    include_external_repositories = ["**"]
 )
 
 filegroup(
