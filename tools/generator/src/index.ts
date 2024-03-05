@@ -201,7 +201,8 @@ program
           })
         ),
       });
-      fs.writeFileSync(`${output}/index.ts`, prettier.format(typescriptContent, { parser: "babel-ts" }));
+      const formatted = await prettier.format(typescriptContent, { parser: "babel-ts" });
+      fs.writeFileSync(`${output}/index.ts`, formatted);
     }
   });
 
