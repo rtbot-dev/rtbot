@@ -23,9 +23,11 @@
 #include "rtbot/std/EqualTo.h"
 #include "rtbot/std/FiniteImpulseResponse.h"
 #include "rtbot/std/GreaterThan.h"
+#include "rtbot/std/GreaterThanStream.h"
 #include "rtbot/std/HermiteResampler.h"
 #include "rtbot/std/Identity.h"
 #include "rtbot/std/LessThan.h"
+#include "rtbot/std/LessThanStream.h"
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/Minus.h"
 #include "rtbot/std/MovingAverage.h"
@@ -165,6 +167,26 @@ void to_json(json& j, const Or<T, V>& p) {
 template <class T, class V>
 void from_json(const json& j, Or<T, V>& p) {
   p = Or<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const GreaterThanStream<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, GreaterThanStream<T, V>& p) {
+  p = GreaterThanStream<T, V>(j["id"].get<string>());
+}
+
+template <class T, class V>
+void to_json(json& j, const LessThanStream<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}};
+}
+
+template <class T, class V>
+void from_json(const json& j, LessThanStream<T, V>& p) {
+  p = LessThanStream<T, V>(j["id"].get<string>());
 }
 
 template <class T, class V>
@@ -428,6 +450,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<Variable<uint64_t, double>, json>();
   op_registry_add<TimeShift<uint64_t, double>, json>();
   op_registry_add<Pipeline<uint64_t, double>, json>();
+  op_registry_add<GreaterThanStream<uint64_t, double>, json>();
+  op_registry_add<LessThanStream<uint64_t, double>, json>();
 }
 
 static FactoryOp factory;

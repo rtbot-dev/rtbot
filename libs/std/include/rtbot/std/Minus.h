@@ -10,7 +10,7 @@ using namespace std;
 template <class T, class V>
 struct Minus : public BinaryJoin<T, V> {
   Minus() = default;
-  Minus(string const &id) : BinaryJoin<T, V>(id, [](V a, V b) { return a - b; }) {}
+  Minus(string const &id) : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> { return a - b; }) {}
 
   string typeName() const override { return "Minus"; }
 };
