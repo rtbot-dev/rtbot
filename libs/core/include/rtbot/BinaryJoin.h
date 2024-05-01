@@ -2,6 +2,7 @@
 #define BINARYJOIN_H
 
 #include <functional>
+#include <optional>
 
 #include "rtbot/Join.h"
 
