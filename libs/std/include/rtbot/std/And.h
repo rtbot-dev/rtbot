@@ -11,7 +11,7 @@ template <class T, class V>
 struct And : public BinaryJoin<T, V> {
   And() = default;
   And(string const &id)
-      : BinaryJoin<T, V>(id, [](V a, V b) {
+      : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> {
           bool left = (a < 0.5) ? false : true;
           bool right = (b >= 0.5) ? true : false;
           bool result = left && right;

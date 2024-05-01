@@ -10,7 +10,7 @@ using namespace std;
 template <class T, class V>
 struct Multiplication : public BinaryJoin<T, V> {
   Multiplication() = default;
-  Multiplication(string const &id) : BinaryJoin<T, V>(id, [](V a, V b) { return a * b; }) {}
+  Multiplication(string const &id) : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> { return a * b; }) {}
 
   string typeName() const override { return "Multiplication"; }
 };

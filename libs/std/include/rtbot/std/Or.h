@@ -11,14 +11,14 @@ template <class T, class V>
 struct Or : public BinaryJoin<T, V> {
   Or() = default;
   Or(string const &id)
-      : BinaryJoin<T, V>(id, [](V a, V b) {
+      : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> {
           bool left = (a < 0.5) ? false : true;
           bool right = (b >= 0.5) ? true : false;
           bool result = left || right;
           return (result) ? 1 : 0;
         }) {}
 
-  string typeName() const override { return "And"; }
+  string typeName() const override { return "Or"; }
 };
 
 }  // namespace rtbot
