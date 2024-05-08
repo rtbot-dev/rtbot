@@ -68,7 +68,7 @@ struct CosineResampler : public Operator<T, V> {
    */
   static V cosineInterpolate(V y1, V y2, V mu) {
     V mu2;
-    mu2 = (1 - cos(mu * 3.141592653589)) / 2;
+    mu2 = (1 - cos(mu * 3.1415926535897932)) / 2;
     return (y1 * (1 - mu2) + y2 * mu2);
   }
 };

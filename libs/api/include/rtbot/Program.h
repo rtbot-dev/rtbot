@@ -22,7 +22,7 @@ struct Program {
 
   Program(Program const&) = delete;
   void operator=(Program const&) = delete;
-  Program(Program&& other)=default;
+  Program(Program&& other) = default;
 
   string getProgramEntryOperatorId() { return entryOperator; }
 
@@ -51,16 +51,20 @@ struct Program {
           if (outResults.count(op->second.at(i)) > 0) {
             map<string, vector<Message<uint64_t, double>>> opReturn;
             opReturn.emplace(op->second.at(i), outResults.at(op->second.at(i)));
-            toReturn.emplace(op->first, opReturn);
+            if (toReturn.count(op->first) == 0)
+              toReturn.emplace(op->first, opReturn);
+            else
+              Operator<uint64_t, double>::mergeOutput(toReturn[op->first], opReturn);
           }
         }
       }
     }
 
-    if (this->outputFilter.empty())
+    if (this->outputFilter.empty()) {
       return opResults;
-    else
+    } else {
       return toReturn;
+    }
   }
 
   /// return a list of the operator that emitted: id, output message
