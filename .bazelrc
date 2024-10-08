@@ -19,15 +19,17 @@ test --notest_verbose_timeout_warnings
 build --action_env=EMCC_CFLAGS="-fexceptions  -Wno-c++11-narrowing -Wno-unused-const-variable"
 build --incompatible_enable_cc_toolchain_resolution
 
+build --enable_platform_specific_config
+build:macos --apple_crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --crosstool_top=@local_config_apple_cc//:toolchain
+build:macos --host_crosstool_top=@local_config_apple_cc//:toolchain
 
 # -- platform specific --
-# linux
-build:linux --workspace_status_command=tools/bazel_workspace_status.sh
-build:linux --action_env=BAZEL_CXXOPTS="-std=c++17"
-
-# macos
-build:macos --workspace_status_command=tools/bazel_workspace_status.sh
-build:macos --cxxopt='-std=c++17'
+# unix
+build --workspace_status_command=tools/bazel_workspace_status.sh
+build --action_env=BAZEL_CXXOPTS="-std=c++17"
+build --cxxopt=-std=c++17
+build --repo_env=CC=clang
 
 # windows
 # MSVC
@@ -35,4 +37,6 @@ build:windows --cxxopt='/std:c++17'
 # see https://bazel.build/configure/windows
 startup --windows_enable_symlinks
 
+# allow to use network while building
+build --sandbox_default_allow_network
 
