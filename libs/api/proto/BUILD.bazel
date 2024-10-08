@@ -1,0 +1,63 @@
+load("@npm//:@bufbuild/buf/package_json.bzl", "bin")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_proto_library")
+load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+
+package(default_visibility = ["//visibility:public"])
+
+_SRCS = [
+    "gen/RtBot.pb.cc",
+]
+
+_HDRS = [
+    "gen/RtBot.pb.h",
+]
+
+bin.buf(
+    name = "generate",
+    srcs = glob(["**/*.proto"]) + [
+        "buf.gen.yaml",
+        "buf.lock",
+        "buf.yaml",
+    ],
+    outs = _SRCS + _HDRS,
+    args = [
+        "generate",
+    ],
+    chdir = package_name(),
+)
+
+copy_to_directory(
+    name = "copy_headers",
+    srcs = [":generate"],
+    out = "include/rtbot/proto",
+    include_srcs_patterns = ["**/*.h"],
+    replace_prefixes = {
+        "gen": ".",
+    },
+)
+
+copy_to_directory(
+    name = "copy_cc",
+    srcs = [":generate"],
+    out = "rtbot/proto",
+    include_srcs_patterns = ["**/*.cc"],
+    replace_prefixes = {
+        "gen": ".",
+    },
+)
+
+cc_proto_library(
+    name = "protovalidate",
+    deps = ["@protovalidate//proto/protovalidate/buf/validate:validate_proto"],
+)
+
+cc_library(
+    name = "proto",
+    srcs = [":copy_cc"],
+    hdrs = [":copy_headers"],
+    includes = ["include/rtbot/proto"],
+    deps = [
+        ":protovalidate",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
