@@ -26,7 +26,7 @@ TEST_CASE("read ppg pipeline") {
 
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      PortPayload<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
       messagesMap.emplace("i1", v);
@@ -44,7 +44,7 @@ TEST_CASE("read ppg pipeline") {
     REQUIRE(entryPipe1 == "in1");
     // process the data
     for (auto i = 0u; i < s.ti.size(); i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      PortPayload<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
       messagesMap.emplace("i1", v);
@@ -70,7 +70,7 @@ TEST_CASE("read  pipeline test data basic data") {
 
     // process the data
     for (int i = 0; i < 100; i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      PortPayload<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(i, i % 5));
       messagesMap.emplace("i1", v);
@@ -104,7 +104,7 @@ TEST_CASE("read  pipeline test join port") {
 
     // process the data
     for (int i = 1; i < 100; i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      PortPayload<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(i, i % 5));
       messagesMap.emplace("i1", v);

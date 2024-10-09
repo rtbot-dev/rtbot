@@ -9,7 +9,7 @@ TEST_CASE("Scale") {
   auto scale = Scale<uint64_t, double>("sc", 0.5);
 
   SECTION("emits scale 1/2") {
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    OperatorPayload<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       scale.receiveData(Message<uint64_t, double>(i, i));
       emitted = scale.executeData();

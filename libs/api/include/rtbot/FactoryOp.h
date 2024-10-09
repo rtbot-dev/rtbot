@@ -16,7 +16,7 @@ using namespace std;
 
 class FactoryOp {
   map<string, Program> programs;
-  map<string, map<string, vector<Message<uint64_t, double>>>> messageBuffer;
+  OperatorPayload<uint64_t, double> messageBuffer;
 
  public:
   FactoryOp();
@@ -66,7 +66,7 @@ class FactoryOp {
     return true;
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageBuffer(const string& apId) {
+  OperatorPayload<uint64_t, double> processMessageBuffer(const string& apId) {
     if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
     if (this->messageBuffer.count(apId) > 0) {
       if (!this->messageBuffer.at(apId).empty()) {
@@ -79,7 +79,7 @@ class FactoryOp {
     return {};
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageBufferDebug(const string& apId) {
+  OperatorPayload<uint64_t, double> processMessageBufferDebug(const string& apId) {
     if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
     if (this->messageBuffer.count(apId) > 0) {
       if (!this->messageBuffer.at(apId).empty()) {
@@ -107,15 +107,15 @@ class FactoryOp {
     return this->programs.at(apId).getProgramOutputFilter();
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageMap(
-      string const& apId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  OperatorPayload<uint64_t, double> processMessageMap(string const& apId,
+                                                      const PortPayload<uint64_t, double>& messagesMap) {
     auto it = programs.find(apId);
     if (it == programs.end()) return {};
     return it->second.receive(messagesMap);
   }
 
-  map<string, map<string, vector<Message<uint64_t, double>>>> processMessageMapDebug(
-      string const& apId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  OperatorPayload<uint64_t, double> processMessageMapDebug(string const& apId,
+                                                           const PortPayload<uint64_t, double>& messagesMap) {
     auto it = programs.find(apId);
     if (it == programs.end()) return {};
     return it->second.receiveDebug(messagesMap);

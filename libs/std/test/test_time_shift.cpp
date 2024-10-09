@@ -9,7 +9,7 @@ TEST_CASE("TimeShift") {
   auto ts = TimeShift<uint64_t, double>("ts", 2, 2);
 
   SECTION("emits shifted 2") {
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    OperatorPayload<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       ts.receiveData(Message<uint64_t, double>(i, i));
       emitted = ts.executeData();

@@ -27,9 +27,8 @@ string getProgramEntryOperatorId(const string& programId);
 string getProgramEntryPorts(const string& programId);
 string getProgramOutputFilter(const string& programId);
 
-string processMessageMap(string const& programId, const map<string, vector<Message<uint64_t, double>>>& messagesMap);
-string processMessageMapDebug(string const& programId,
-                              const map<string, vector<Message<uint64_t, double>>>& messagesMap);
+string processMessageMap(string const& programId, const PortPayload<uint64_t, double>& messagesMap);
+string processMessageMapDebug(string const& programId, const PortPayload<uint64_t, double>& messagesMap);
 
 string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
                     vector<string> const& ports);

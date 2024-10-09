@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("LessThanStream join") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+  OperatorPayload<uint64_t, double> emitted;
   auto lts = LessThanStream<uint64_t, double>("lts");
 
   lts.receiveData(Message<uint64_t, double>(1, 1), "i1");

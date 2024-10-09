@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Variable sync") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+  OperatorPayload<uint64_t, double> emitted;
   auto variable = Variable<uint64_t, double>("variable", 0.5);
 
   variable.receiveData(Message<uint64_t, double>(1, 1.1), "i1");

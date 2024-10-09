@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Minus join") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+  OperatorPayload<uint64_t, double> emitted;
   auto minus = Minus<uint64_t, double>("minus");
 
   minus.receiveData(Message<uint64_t, double>(1, 1), "i1");

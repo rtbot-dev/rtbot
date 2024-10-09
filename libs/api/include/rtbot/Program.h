@@ -37,10 +37,9 @@ struct Program {
   map<string, vector<string>> getProgramOutputFilter() { return this->outputFilter; }
 
   /// return a list of output ports from the output operator that emitted: id, output message
-  map<string, map<string, vector<Message<uint64_t, double>>>> receive(
-      const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
-    map<string, map<string, vector<Message<uint64_t, double>>>> opResults;
-    map<string, map<string, vector<Message<uint64_t, double>>>> toReturn;
+  OperatorPayload<uint64_t, double> receive(const PortPayload<uint64_t, double>& messagesMap) {
+    OperatorPayload<uint64_t, double> opResults;
+    OperatorPayload<uint64_t, double> toReturn;
 
     opResults = receiveDebug(messagesMap);
 
@@ -49,7 +48,7 @@ struct Program {
         auto outResults = opResults.at(op->first);
         for (int i = 0; i < op->second.size(); i++) {
           if (outResults.count(op->second.at(i)) > 0) {
-            map<string, vector<Message<uint64_t, double>>> opReturn;
+            PortPayload<uint64_t, double> opReturn;
             opReturn.emplace(op->second.at(i), outResults.at(op->second.at(i)));
             if (toReturn.count(op->first) == 0)
               toReturn.emplace(op->first, opReturn);
@@ -68,12 +67,11 @@ struct Program {
   }
 
   /// return a list of the operator that emitted: id, output message
-  map<string, map<string, vector<Message<uint64_t, double>>>> receiveDebug(
-      const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+  OperatorPayload<uint64_t, double> receiveDebug(const PortPayload<uint64_t, double>& messagesMap) {
     if (this->all_op.count(this->entryOperator) == 0)
       throw runtime_error("Entry operator " + this->entryOperator + " was not found");
 
-    map<string, map<string, vector<Message<uint64_t, double>>>> opResults;
+    OperatorPayload<uint64_t, double> opResults;
 
     for (auto it = messagesMap.begin(); it != messagesMap.end(); ++it) {
       for (int j = 0; j < it->second.size(); j++) {

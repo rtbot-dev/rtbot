@@ -9,7 +9,7 @@ TEST_CASE("Constant") {
   auto constant = Constant<uint64_t, double>("const", 0.5);
 
   SECTION("emits constant 1/2 every time") {
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    OperatorPayload<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       constant.receiveData(Message<uint64_t, double>(i, i));
       emitted = constant.executeData();

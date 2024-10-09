@@ -35,15 +35,6 @@ template <class T, class V>
 using Op_ptr = unique_ptr<Operator<T, V>>;
 
 template <class T, class V>
-using Messages = vector<Message<T, V>>;
-
-template <class T, class V>
-using PortPayload = map<string, Messages<T, V>>;
-
-template <class T, class V>
-using OperatorPayload = map<string, PortPayload<T, V>>;
-
-template <class T, class V>
 class Operator {
   /********************************/
   struct Connection {

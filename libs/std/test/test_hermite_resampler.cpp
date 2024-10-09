@@ -14,7 +14,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
       i1.receiveData(Message<uint64_t, double>(i * 100, i * i));
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i1.executeData();
+      OperatorPayload<uint64_t, double> emitted = i1.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -30,7 +30,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits twice") {
     for (int i = 0; i < 20; i++) {
       i2.receiveData(Message<uint64_t, double>(i * 200, i * i));
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i2.executeData();
+      OperatorPayload<uint64_t, double> emitted = i2.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -48,8 +48,8 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
 
   SECTION("emits right values") {
     for (int i = 0; i < 20; i++) {
-      i3.receiveData(Message<int64_t, double>(i * 100, i * i));
-      map<string, map<string, vector<Message<int64_t, double>>>> emitted = i3.executeData();
+      i3.receiveData(Message<uint64_t, double>(i * 100, i * i));
+      OperatorPayload<uint64_t, double> emitted = i3.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -79,8 +79,8 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
     v.push_back(end);
 
     for (int i = 0; i < v.size(); i++) {
-      i4.receiveData(Message<int64_t, double>(v.at(i), v.at(i) * v.at(i)));
-      map<string, map<string, vector<Message<int64_t, double>>>> emitted = i4.executeData();
+      i4.receiveData(Message<uint64_t, double>(v.at(i), v.at(i) * v.at(i)));
+      OperatorPayload<uint64_t, double> emitted = i4.executeData();
 
       if (i == 0 || i == 1 || i == 2) {
         // cout << "******* (" << v.at(i) << ") *******" << endl;

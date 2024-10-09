@@ -9,7 +9,7 @@ TEST_CASE("Difference") {
   auto diff = Difference<uint64_t, double>("diff");
 
   SECTION("emits difference") {
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    OperatorPayload<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       diff.receiveData(Message<uint64_t, double>(i, i));
       emitted = diff.executeData();

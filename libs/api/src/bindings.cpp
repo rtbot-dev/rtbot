@@ -1,11 +1,11 @@
 #include "rtbot/bindings.h"
 
 #include <algorithm>
+#include <chrono>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
-#include <chrono>
 
 #include "rtbot/FactoryOp.h"
 
@@ -134,13 +134,12 @@ string getProgramOutputFilter(const string& programId) {
   return nlohmann::json(result).dump();
 }
 
-string processMessageMap(const string& programId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+string processMessageMap(const string& programId, const PortPayload<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMap(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
 
-string processMessageMapDebug(string const& programId,
-                              const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+string processMessageMapDebug(string const& programId, const PortPayload<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMapDebug(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
@@ -166,7 +165,8 @@ string processBatch(string const& programId, vector<uint64_t> times, vector<doub
   addBatchToMessageBuffers(programId, times, values, ports);
   /* auto t2 = high_resolution_clock::now(); */
   /* auto dt1 = duration_cast<nanoseconds>(t2 - t1); */
-  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl; */
+  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl;
+   */
 
   auto result = factory.processMessageBuffer(programId);
   /* auto t3 = high_resolution_clock::now(); */
