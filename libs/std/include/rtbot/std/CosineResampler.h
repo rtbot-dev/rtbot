@@ -28,15 +28,15 @@ struct CosineResampler : public Operator<T, V> {
 
   string typeName() const override { return "CosineResampler"; }
 
-  map<string, vector<Message<T, V>>> processData() override {
+  PortPayload<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    map<string, vector<Message<T, V>>> outputMsgs;
-    vector<Message<T, V>> toEmit;
+    PortPayload<T, V> outputMsgs;
+    Messages<T, V> toEmit;
 
     int j = 1;
 

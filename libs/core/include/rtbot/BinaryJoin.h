@@ -23,8 +23,8 @@ struct BinaryJoin : public Join<T, V> {
     this->addOutput("o1");
   }
 
-  map<string, vector<Message<T, V>>> processData() override {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  PortPayload<T, V> processData() override {
+    PortPayload<T, V> outputMsgs;
     Message<T, V> m1 = this->getDataInputMessage("i2", 0);
     Message<T, V> m0 = this->getDataInputMessage("i1", 0);
     Message<T, V> out;
@@ -33,7 +33,7 @@ struct BinaryJoin : public Join<T, V> {
     if (!result.has_value()) return {};
     out.value = result.value();
 
-    vector<Message<T, V>> v;
+    Messages<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
 

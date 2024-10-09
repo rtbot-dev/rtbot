@@ -24,30 +24,21 @@ class Variable : public Operator<T, V> {
 
   V getValue() const { return this->value; }
 
-  map<string, map<string, vector<Message<T, V>>>> executeData() override {
+  OperatorPayload<T, V> executeData() override {
     auto toEmit = this->processData();
     if (!toEmit.empty()) return this->emit(toEmit);
     return {};
   }
 
-  /*
-    map<outputPort, vector<Message<T, V>>>
-  */
-  virtual map<string, vector<Message<T, V>>> processData() { return query(); }
+  virtual PortPayload<T, V> processData() { return query(); }
 
-  /*
-      map<outputPort, vector<Message<T, V>>>
-  */
-  virtual map<string, vector<Message<T, V>>> processControl() { return query(); }
+  virtual PortPayload<T, V> processControl() { return query(); }
 
  private:
   V value;
   bool initialized;
-  /*
-      map<outputPort, vector<Message<T, V>>>
-  */
-  map<string, vector<Message<T, V>>> query() {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  PortPayload<T, V> query() {
+    PortPayload<T, V> outputMsgs;
 
     vector<string> in = this->getDataInputs();
     vector<string> cn = this->getControlInputs();
@@ -73,7 +64,7 @@ class Variable : public Operator<T, V> {
       Message<T, V> out;
       out.time = queryTime;
       out.value = this->value;
-      vector<Message<T, V>> v;
+      Messages<T, V> v;
       v.push_back(out);
       outputMsgs.emplace("o1", v);
       this->controlInputs.find(controlPort)->second.pop_front();
@@ -84,7 +75,7 @@ class Variable : public Operator<T, V> {
         Message<T, V> out;
         out.time = queryTime;
         out.value = this->getDataInputMessage(inputPort, 0).value;
-        vector<Message<T, V>> v;
+        Messages<T, V> v;
         v.push_back(out);
         outputMsgs.emplace("o1", v);
         this->controlInputs.find(controlPort)->second.pop_front();
@@ -97,7 +88,7 @@ class Variable : public Operator<T, V> {
           Message<T, V> out;
           out.time = queryTime;
           out.value = this->getDataInputMessage(inputPort, index).value;
-          vector<Message<T, V>> v;
+          Messages<T, V> v;
           v.push_back(out);
           outputMsgs.emplace("o1", v);
           this->controlInputs.find(controlPort)->second.pop_front();
@@ -106,7 +97,7 @@ class Variable : public Operator<T, V> {
           Message<T, V> out;
           out.time = queryTime;
           out.value = this->getDataInputMessage(inputPort, index + 1).value;
-          vector<Message<T, V>> v;
+          Messages<T, V> v;
           v.push_back(out);
           outputMsgs.emplace("o1", v);
           this->controlInputs.find(controlPort)->second.pop_front();

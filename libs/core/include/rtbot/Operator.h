@@ -29,8 +29,19 @@ using namespace std;
 
 template <class T, class V>
 class Operator;
+
+// useful type aliases
 template <class T, class V>
 using Op_ptr = unique_ptr<Operator<T, V>>;
+
+template <class T, class V>
+using Messages = vector<Message<T, V>>;
+
+template <class T, class V>
+using PortPayload = map<string, Messages<T, V>>;
+
+template <class T, class V>
+using OperatorPayload = map<string, PortPayload<T, V>>;
 
 template <class T, class V>
 class Operator {
@@ -89,9 +100,9 @@ class Operator {
 
   virtual string typeName() const = 0;
 
-  virtual map<string, vector<Message<T, V>>> processData() = 0;
+  virtual PortPayload<T, V> processData() = 0;
 
-  virtual map<string, vector<Message<T, V>>> processControl() {
+  virtual PortPayload<T, V> processControl() {
     // TODO: implement reset here
     return {};
   }
@@ -211,7 +222,7 @@ class Operator {
       throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeData() {
+  virtual OperatorPayload<T, V> executeData() {
     vector<string> toRemove;
     for (auto it = this->toProcess.begin(); it != this->toProcess.end(); ++it) {
       if (this->getDataInputMaxSize(*it) > this->getDataInputSize(*it)) toRemove.push_back(*it);
@@ -250,7 +261,7 @@ class Operator {
       throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeControl() {
+  virtual OperatorPayload<T, V> executeControl() {
     auto toEmit = this->processControl();
     if (!toEmit.empty())
       return this->emit(toEmit);
@@ -260,15 +271,15 @@ class Operator {
 
   bool hasControlInputs() { return !this->getControlInputs().empty(); }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  OperatorPayload<T, V> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
+    OperatorPayload<T, V> out;
 
     if (outputPorts.empty()) outputPorts = this->getOutputs();
     for (auto outputPort : outputPorts) {
-      vector<Message<T, V>> v;
+      Messages<T, V> v;
       v.push_back(msg);
       if (out.count(this->id) == 0) {
-        map<string, vector<Message<T, V>>> msgs;
+        PortPayload<T, V> msgs;
         msgs.emplace(outputPort, v);
         out.emplace(this->id, msgs);
       } else
@@ -293,17 +304,16 @@ class Operator {
     return out;
   }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(vector<Message<T, V>> msgs,
-                                                       vector<string> outputPorts = {}) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  OperatorPayload<T, V> emit(Messages<T, V> msgs, vector<string> outputPorts = {}) const {
+    OperatorPayload<T, V> out;
     for (auto msg : msgs) {
       mergeOutput(out, emit(msg, outputPorts));
     }
     return out;
   }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(map<string, vector<Message<T, V>>> outputMsgs) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  OperatorPayload<T, V> emit(PortPayload<T, V> outputMsgs) const {
+    OperatorPayload<T, V> out;
     for (auto it = outputMsgs.begin(); it != outputMsgs.end(); ++it) {
       if (this->outputIds.count(it->first) > 0) {
         mergeOutput(out, emit(it->second, {it->first}));
@@ -428,15 +438,14 @@ class Operator {
       return nullptr;
   }
 
-  static void mergeOutput(map<string, map<string, vector<Message<T, V>>>>& out,
-                          map<string, map<string, vector<Message<T, V>>>> const& x) {
+  static void mergeOutput(OperatorPayload<T, V>& out, OperatorPayload<T, V> const& x) {
     for (const auto& [id, map] : x) {
       auto& mapOut = out[id];
       mergeOutput(mapOut, map);
     }
   }
 
-  static void mergeOutput(map<string, vector<Message<T, V>>>& out, map<string, vector<Message<T, V>>> const& x) {
+  static void mergeOutput(PortPayload<T, V>& out, PortPayload<T, V> const& x) {
     for (const auto& [id, msgs] : x) {
       auto& vec = out[id];
       for (auto resultMessage : msgs) vec.push_back(resultMessage);

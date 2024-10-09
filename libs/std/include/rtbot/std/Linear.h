@@ -24,10 +24,10 @@ struct Linear : public Join<T, V> {
   string typeName() const override { return "Linear"; }
 
   /*
-    map<outputPort, vector<Message<T, V>>>
+    map<outputPort, Messages<T, V>>
   */
-  map<string, vector<Message<T, V>>> processData() override {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  PortPayload<T, V> processData() override {
+    PortPayload<T, V> outputMsgs;
     int i = 0;
     Message<T, V> out;
     out.value = 0;
@@ -38,7 +38,7 @@ struct Linear : public Join<T, V> {
       i++;
     }
 
-    vector<Message<T, V>> v;
+    Messages<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
 

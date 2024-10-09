@@ -41,7 +41,7 @@ class Join : public Operator<T, V> {
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
+  virtual OperatorPayload<T, V> executeData() override {
     string inputPort;
     auto in = this->getDataInputs();
     inputPort = in.at(0);
@@ -85,14 +85,11 @@ class Join : public Operator<T, V> {
     return {};
   }
 
-  /*
-    map<outputPort, vector<Message<T, V>>>
-  */
-  virtual map<string, vector<Message<T, V>>> processData() {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  virtual PortPayload<T, V> processData() {
+    PortPayload<T, V> outputMsgs;
     for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
       Message<T, V> out = it->second.front();
-      vector<Message<T, V>> v;
+      Messages<T, V> v;
       v.push_back(out);
       outputMsgs.emplace(this->controlMap.find(it->first)->second, v);
     }

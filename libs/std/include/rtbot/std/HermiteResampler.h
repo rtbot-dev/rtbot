@@ -29,15 +29,15 @@ struct HermiteResampler : public Operator<T, V> {
 
   string typeName() const override { return "HermiteResampler"; }
 
-  map<string, vector<Message<T, V>>> processData() override {
+  PortPayload<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    map<string, vector<Message<T, V>>> outputMsgs;
-    vector<Message<T, V>> toEmit;
+    PortPayload<T, V> outputMsgs;
+    Messages<T, V> toEmit;
 
     if (before.get() == nullptr) {
       toEmit = this->lookAt(0, 1, inputPort);
@@ -63,8 +63,8 @@ struct HermiteResampler : public Operator<T, V> {
     the four points required for the Hermite Interpolation execution.
   */
 
-  vector<Message<T, V>> lookAt(int from, int to, string inputPort) {
-    vector<Message<T, V>> toEmit;
+  Messages<T, V> lookAt(int from, int to, string inputPort) {
+    Messages<T, V> toEmit;
     int j = 1;
 
     while (this->get(to, inputPort).time - this->get(from, inputPort).time >= (j * dt) - carryOver) {

@@ -37,7 +37,7 @@ struct AutoRegressive : public Operator<T, V> {
       throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeData() override {
+  virtual OperatorPayload<T, V> executeData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
@@ -51,7 +51,7 @@ struct AutoRegressive : public Operator<T, V> {
     return this->emit(toEmit);
   }
 
-  virtual map<string, vector<Message<T, V>>> processData() override {
+  virtual PortPayload<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
@@ -61,8 +61,8 @@ struct AutoRegressive : public Operator<T, V> {
     size_t n = this->getDataInputMaxSize(inputPort);
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     for (auto i = 0; i < n; i++) out.value += this->coeff[i] * this->getDataInputMessage(inputPort, i).value;
-    map<string, vector<Message<T, V>>> toEmit;
-    vector<Message<T, V>> v;
+    PortPayload<T, V> toEmit;
+    Messages<T, V> v;
     v.push_back(out);
     toEmit.emplace("o1", v);
     return toEmit;

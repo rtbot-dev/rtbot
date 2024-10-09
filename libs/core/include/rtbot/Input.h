@@ -25,22 +25,22 @@ struct Input : public Operator<T, V> {
 
   string typeName() const override { return "Input"; }
 
-  virtual map<string, vector<Message<T, V>>> processData() override {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  virtual PortPayload<T, V> processData() override {
+    PortPayload<T, V> outputMsgs;
     while (!this->toProcess.empty()) {
       string inputPort = *(this->toProcess.begin());
       Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
       if (this->lastSent.count(inputPort) > 0) {
         Message last = this->lastSent.at(inputPort);
         if (last.time < m0.time) {
-          vector<Message<T, V>> v;
+          Messages<T, V> v;
           v.push_back(m0);
           outputMsgs.emplace(portsMap.find(inputPort)->second, v);
           this->lastSent.erase(inputPort);
           this->lastSent.emplace(inputPort, m0);
         }
       } else {
-        vector<Message<T, V>> v;
+        Messages<T, V> v;
         v.push_back(m0);
         outputMsgs.emplace(portsMap.find(inputPort)->second, v);
         this->lastSent.emplace(inputPort, m0);

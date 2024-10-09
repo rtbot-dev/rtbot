@@ -18,18 +18,18 @@ struct CumulativeSum : public Operator<T, V> {
     this->addOutput("o1");
   }
   string typeName() const override { return "CumulativeSum"; }
-  map<string, vector<Message<T, V>>> processData() override {
+  PortPayload<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    map<string, vector<Message<T, V>>> outputMsgs;
+    PortPayload<T, V> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     this->accumulated = this->accumulated + out.value;
     out.value = this->accumulated;
-    vector<Message<T, V>> v;
+    Messages<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;
