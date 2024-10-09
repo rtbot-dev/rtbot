@@ -1,0 +1,21 @@
+# this file is added mainly for intellisense purposes
+If:
+  PathMatch: .*\.h
+CompileFlags:
+  Add:
+    - -DLOCAL
+    - -Wall
+    - -O2
+    - -Wextra
+    - -Wshadow
+    - -Wconversion
+    - -Wfloat-equal
+    - -Wno-unused-const-variable
+    - -Wno-sign-conversion
+    - -std=c++17
+    - -I./dist/bin/libs/api/proto
+    - -I./libs/api/include
+    - -I./libs/core/include
+    - -I./libs/std/include
+Index:
+  Background: Skip

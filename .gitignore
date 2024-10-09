@@ -43,3 +43,4 @@ venv/
 settings.json
 .firebase
 .envrc
+compile_commands.json
