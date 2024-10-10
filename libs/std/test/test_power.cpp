@@ -9,7 +9,7 @@ TEST_CASE("Power") {
   auto pow = Power<uint64_t, double>("pow", -1);
 
   SECTION("emits Power -1") {
-    OperatorPayload<uint64_t, double> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       pow.receiveData(Message<uint64_t, double>(i, i * 2));
       emitted = pow.executeData();

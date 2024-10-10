@@ -46,8 +46,8 @@ struct Pipeline : public Operator<T, V> {
     this->toProcess.insert(inputPort);
   }
 
-  OperatorPayload<T, V> executeData() override {
-    OperatorPayload<T, V> opResults;
+  ProgramMessage<T, V> executeData() override {
+    ProgramMessage<T, V> opResults;
     for (auto id : this->toProcess) {
       auto results = inputs.at(id)->executeData();
       Operator<T, V>::mergeOutput(opResults, results);
@@ -57,14 +57,14 @@ struct Pipeline : public Operator<T, V> {
 
     // add the prefix of the pipeline: {id, {port,value}} --> {id:port, value}
     // transform this to o1, o2 notation
-    PortPayload<T, V> output;
+    OperatorMessage<T, V> output;
     for (auto [id, op1] : opResults)
       for (auto [port, value] : op1)
         if (auto it = outputs.find(id + ":" + port); it != outputs.end()) output.emplace(portsMap.at(it->first), value);
     return this->emit(output);
   }
 
-  PortPayload<T, V> processData() override { return {}; }  // do nothing
+  OperatorMessage<T, V> processData() override { return {}; }  // do nothing
 
  private:
   static auto split2(string const& s, char delim = ':') {

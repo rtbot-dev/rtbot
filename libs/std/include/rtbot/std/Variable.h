@@ -11,6 +11,7 @@ template <class T, class V>
 class Variable : public Operator<T, V> {
  public:
   Variable() = default;
+
   Variable(string const &id, V value = 0) : Operator<T, V>(id) {
     this->value = value;
     this->initialized = false;
@@ -18,27 +19,55 @@ class Variable : public Operator<T, V> {
     this->addControlInput("c1", 1);
     this->addOutput("o1");
   }
+
   virtual ~Variable() = default;
+
+  virtual Bytes collect() {
+    Bytes bytes = Operator<T, V>::collect();
+
+    // Serialize value
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&value),
+                 reinterpret_cast<const unsigned char *>(&value) + sizeof(value));
+
+    // Serialize initialized
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&initialized),
+                 reinterpret_cast<const unsigned char *>(&initialized) + sizeof(initialized));
+
+    return bytes;
+  }
+
+  virtual void restore(Bytes::const_iterator &it) {
+    Operator<T, V>::restore(it);
+
+    // Deserialize value
+    value = *reinterpret_cast<const V *>(&(*it));
+    it += sizeof(value);
+
+    // Deserialize initialized
+    initialized = *reinterpret_cast<const bool *>(&(*it));
+    it += sizeof(initialized);
+  }
 
   virtual string typeName() const override { return "Variable"; }
 
   V getValue() const { return this->value; }
 
-  OperatorPayload<T, V> executeData() override {
+  ProgramMessage<T, V> executeData() override {
     auto toEmit = this->processData();
     if (!toEmit.empty()) return this->emit(toEmit);
     return {};
   }
 
-  virtual PortPayload<T, V> processData() { return query(); }
+  virtual OperatorMessage<T, V> processData() { return query(); }
 
-  virtual PortPayload<T, V> processControl() { return query(); }
+  virtual OperatorMessage<T, V> processControl() { return query(); }
 
  private:
   V value;
   bool initialized;
-  PortPayload<T, V> query() {
-    PortPayload<T, V> outputMsgs;
+
+  OperatorMessage<T, V> query() {
+    OperatorMessage<T, V> outputMsgs;
 
     vector<string> in = this->getDataInputs();
     vector<string> cn = this->getControlInputs();
@@ -64,7 +93,7 @@ class Variable : public Operator<T, V> {
       Message<T, V> out;
       out.time = queryTime;
       out.value = this->value;
-      Messages<T, V> v;
+      PortMessage<T, V> v;
       v.push_back(out);
       outputMsgs.emplace("o1", v);
       this->controlInputs.find(controlPort)->second.pop_front();
@@ -75,7 +104,7 @@ class Variable : public Operator<T, V> {
         Message<T, V> out;
         out.time = queryTime;
         out.value = this->getDataInputMessage(inputPort, 0).value;
-        Messages<T, V> v;
+        PortMessage<T, V> v;
         v.push_back(out);
         outputMsgs.emplace("o1", v);
         this->controlInputs.find(controlPort)->second.pop_front();
@@ -88,7 +117,7 @@ class Variable : public Operator<T, V> {
           Message<T, V> out;
           out.time = queryTime;
           out.value = this->getDataInputMessage(inputPort, index).value;
-          Messages<T, V> v;
+          PortMessage<T, V> v;
           v.push_back(out);
           outputMsgs.emplace("o1", v);
           this->controlInputs.find(controlPort)->second.pop_front();
@@ -97,7 +126,7 @@ class Variable : public Operator<T, V> {
           Message<T, V> out;
           out.time = queryTime;
           out.value = this->getDataInputMessage(inputPort, index + 1).value;
-          Messages<T, V> v;
+          PortMessage<T, V> v;
           v.push_back(out);
           outputMsgs.emplace("o1", v);
           this->controlInputs.find(controlPort)->second.pop_front();
@@ -108,7 +137,7 @@ class Variable : public Operator<T, V> {
         }
       }
     } else if (queryTime < this->getDataInputMessage(inputPort, 0).time && this->initialized)
-      throw std::runtime_error(typeName() + ": " + "Messages out of order detected");
+      throw std::runtime_error(typeName() + ": " + "PortMessage out of order detected");
 
     return {};
   }

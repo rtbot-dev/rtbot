@@ -20,7 +20,7 @@ struct RelativeStrengthIndex : public Operator<T, V> {
 
   string typeName() const override { return "RelativeStrengthIndex"; }
 
-  PortPayload<T, V> processData() override {
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
@@ -74,8 +74,8 @@ struct RelativeStrengthIndex : public Operator<T, V> {
 
     out.time = this->getDataInputLastMessage(inputPort).time;
 
-    PortPayload<T, V> outputMsgs;
-    Messages<T, V> v;
+    OperatorMessage<T, V> outputMsgs;
+    PortMessage<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;

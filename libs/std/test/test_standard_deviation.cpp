@@ -15,7 +15,7 @@ TEST_CASE("Standard deviation") {
   SECTION("emits zeros") {
     for (int i = 0; i < 20; i++) {
       i1.receiveData(Message<uint64_t, double>(i * 100, 10));
-      OperatorPayload<uint64_t, double> emitted = i1.executeData();
+      ProgramMessage<uint64_t, double> emitted = i1.executeData();
       if (i <= 3) {
         REQUIRE(emitted.empty());
       } else
@@ -26,7 +26,7 @@ TEST_CASE("Standard deviation") {
   SECTION("emits correct std") {
     for (int i = 0; i < 10; i++) {
       i2.receiveData(Message<uint64_t, double>(i * 100, i + 1));
-      OperatorPayload<uint64_t, double> emitted = i2.executeData();
+      ProgramMessage<uint64_t, double> emitted = i2.executeData();
 
       if (i <= 8) {
         REQUIRE(emitted.empty());

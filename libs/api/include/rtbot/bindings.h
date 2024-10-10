@@ -12,6 +12,15 @@
 using namespace std;
 using namespace rtbot;
 
+Bytes collect(string const& programId);
+// after creating a program, we can restore it with the a collected state
+void restore(string const& programId, Bytes const& bytes);
+
+// TODO
+/*const ProgramMessage<uint64_t, double>& processMessageMapNative(string const& programId,
+                                                                const OperatorMessage<uint64_t, double>& messagesMap);
+*/
+
 string validate(string const& json_program);
 string validateOperator(string const& type, string const& json_op);
 
@@ -27,8 +36,8 @@ string getProgramEntryOperatorId(const string& programId);
 string getProgramEntryPorts(const string& programId);
 string getProgramOutputFilter(const string& programId);
 
-string processMessageMap(string const& programId, const PortPayload<uint64_t, double>& messagesMap);
-string processMessageMapDebug(string const& programId, const PortPayload<uint64_t, double>& messagesMap);
+string processMessageMap(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap);
+string processMessageMapDebug(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap);
 
 string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
                     vector<string> const& ports);

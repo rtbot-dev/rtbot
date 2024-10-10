@@ -10,7 +10,7 @@ TEST_CASE("Identity") {
   auto idDelayed = Identity<uint64_t, double>("idd");
 
   SECTION("emits Identity no delay") {
-    OperatorPayload<uint64_t, double> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       id.receiveData(Message<uint64_t, double>(i, i));
       emitted = id.executeData();

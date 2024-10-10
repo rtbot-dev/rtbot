@@ -16,7 +16,7 @@ using namespace std;
 
 class FactoryOp {
   map<string, Program> programs;
-  OperatorPayload<uint64_t, double> messageBuffer;
+  ProgramMessage<uint64_t, double> messageBuffer;
 
  public:
   FactoryOp();
@@ -54,7 +54,18 @@ class FactoryOp {
 
   static Op_ptr<uint64_t, double> readOp(string const& json_string);
   static string writeOp(Op_ptr<uint64_t, double> const& op);
+
   static Program createProgram(string const& json_string) { return Program(json_string); }
+
+  Bytes collect(string const& programId) {
+    if (this->programs.count(programId) == 0) throw runtime_error("Program " + programId + " was not found");
+    return programs.at(programId).collect();
+  }
+
+  void restore(string const& programId, Bytes const& bytes) {
+    if (this->programs.count(programId) == 0) throw runtime_error("Program " + programId + " was not found");
+    programs.at(programId).restore(bytes);
+  }
 
   string createProgram(string const& id, string const& json_program);
 
@@ -66,7 +77,7 @@ class FactoryOp {
     return true;
   }
 
-  OperatorPayload<uint64_t, double> processMessageBuffer(const string& apId) {
+  ProgramMessage<uint64_t, double> processMessageBuffer(const string& apId) {
     if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
     if (this->messageBuffer.count(apId) > 0) {
       if (!this->messageBuffer.at(apId).empty()) {
@@ -79,7 +90,7 @@ class FactoryOp {
     return {};
   }
 
-  OperatorPayload<uint64_t, double> processMessageBufferDebug(const string& apId) {
+  ProgramMessage<uint64_t, double> processMessageBufferDebug(const string& apId) {
     if (this->programs.count(apId) == 0) throw runtime_error("Program " + apId + " was not found");
     if (this->messageBuffer.count(apId) > 0) {
       if (!this->messageBuffer.at(apId).empty()) {
@@ -107,15 +118,15 @@ class FactoryOp {
     return this->programs.at(apId).getProgramOutputFilter();
   }
 
-  OperatorPayload<uint64_t, double> processMessageMap(string const& apId,
-                                                      const PortPayload<uint64_t, double>& messagesMap) {
+  ProgramMessage<uint64_t, double> processMessageMap(string const& apId,
+                                                     const OperatorMessage<uint64_t, double>& messagesMap) {
     auto it = programs.find(apId);
     if (it == programs.end()) return {};
     return it->second.receive(messagesMap);
   }
 
-  OperatorPayload<uint64_t, double> processMessageMapDebug(string const& apId,
-                                                           const PortPayload<uint64_t, double>& messagesMap) {
+  ProgramMessage<uint64_t, double> processMessageMapDebug(string const& apId,
+                                                          const OperatorMessage<uint64_t, double>& messagesMap) {
     auto it = programs.find(apId);
     if (it == programs.end()) return {};
     return it->second.receiveDebug(messagesMap);

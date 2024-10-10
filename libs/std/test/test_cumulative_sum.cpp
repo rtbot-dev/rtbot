@@ -9,7 +9,7 @@ TEST_CASE("CumulativeSum test") {
   auto cs = CumulativeSum<uint64_t, double>("cs");
 
   SECTION("emits  sum") {
-    OperatorPayload<uint64_t, double> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       cs.receiveData(Message<uint64_t, double>(i, i));
       emitted = cs.executeData();

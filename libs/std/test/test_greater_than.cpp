@@ -13,7 +13,7 @@ TEST_CASE("Greater Than") {
     int sign = 1;
     double v = 0.0;
 
-    OperatorPayload<uint64_t, double> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     for (int i = 1; i <= 11; i++) {
       t++;
       v += sign * 0.1;

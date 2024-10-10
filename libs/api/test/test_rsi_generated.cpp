@@ -35,7 +35,7 @@ TEST_CASE("read  pipeline test rsi") {
     // process the data
     int firstTime = 15;
     for (int i = 1; i < values.size(); i++) {
-      PortPayload<uint64_t, double> messagesMap;
+      OperatorMessage<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(i, values.at(i - 1)));
       messagesMap.emplace("i1", v);

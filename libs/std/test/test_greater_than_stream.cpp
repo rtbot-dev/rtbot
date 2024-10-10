@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("GreaterThanStream join") {
-  OperatorPayload<uint64_t, double> emitted;
+  ProgramMessage<uint64_t, double> emitted;
   auto gts = GreaterThanStream<uint64_t, double>("gts");
 
   gts.receiveData(Message<uint64_t, double>(1, 1), "i1");

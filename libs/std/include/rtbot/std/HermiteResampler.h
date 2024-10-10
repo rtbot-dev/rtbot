@@ -27,17 +27,60 @@ struct HermiteResampler : public Operator<T, V> {
     this->addOutput("o1");
   }
 
+  virtual Bytes collect() {
+    Bytes bytes = Operator<T, V>::collect();
+
+    // Serialize carryOver
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&carryOver),
+                 reinterpret_cast<const unsigned char*>(&carryOver) + sizeof(carryOver));
+
+    bool hasBefore = this->before.get() != nullptr;
+    // Serialize hasBefore
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&hasBefore),
+                 reinterpret_cast<const unsigned char*>(&hasBefore) + sizeof(hasBefore));
+
+    if (hasBefore) {
+      // Serialize before
+      auto beforeBytes = this->before->collect();
+      bytes.insert(bytes.end(), beforeBytes.begin(), beforeBytes.end());
+    }
+
+    return bytes;
+  }
+
+  virtual void restore(Bytes::const_iterator& it) {
+    Operator<T, V>::restore(it);
+    // Deserialize carryOver
+    carryOver = *reinterpret_cast<const T*>(&(*it));
+    it += sizeof(carryOver);
+
+    // Deserialize hasBefore
+    auto hasBefore = *reinterpret_cast<const bool*>(&(*it));
+    it += sizeof(hasBefore);
+
+    if (hasBefore) {
+      // Deserialize before
+      this->before = make_unique<Message<T, V>>();
+      this->before->restore(it);
+    }
+  }
+
+  virtual string debug(string empty) const override {
+    string toReturn = "carryOver: " + to_string(carryOver);
+    return Operator<T, V>::debug(toReturn);
+  }
+
   string typeName() const override { return "HermiteResampler"; }
 
-  PortPayload<T, V> processData() override {
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    PortPayload<T, V> outputMsgs;
-    Messages<T, V> toEmit;
+    OperatorMessage<T, V> outputMsgs;
+    PortMessage<T, V> toEmit;
 
     if (before.get() == nullptr) {
       toEmit = this->lookAt(0, 1, inputPort);
@@ -63,8 +106,8 @@ struct HermiteResampler : public Operator<T, V> {
     the four points required for the Hermite Interpolation execution.
   */
 
-  Messages<T, V> lookAt(int from, int to, string inputPort) {
-    Messages<T, V> toEmit;
+  PortMessage<T, V> lookAt(int from, int to, string inputPort) {
+    PortMessage<T, V> toEmit;
     int j = 1;
 
     while (this->get(to, inputPort).time - this->get(from, inputPort).time >= (j * dt) - carryOver) {

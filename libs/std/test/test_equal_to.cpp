@@ -10,8 +10,8 @@ TEST_CASE("Equal To") {
   auto et1 = EqualTo<uint64_t, double>("et1", 1);
 
   SECTION("only one emission") {
-    OperatorPayload<uint64_t, double> emitted0;
-    OperatorPayload<uint64_t, double> emitted1;
+    ProgramMessage<uint64_t, double> emitted0;
+    ProgramMessage<uint64_t, double> emitted1;
     for (int i = 1; i <= 20; i++) {
       et0.receiveData(Message<uint64_t, double>(i, i % 2));
       et1.receiveData(Message<uint64_t, double>(i, i % 2));

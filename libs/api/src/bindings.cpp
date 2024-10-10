@@ -39,7 +39,9 @@ void from_json(const json& j, Message<T, V>& p) {
 
 }  // namespace rtbot
 
-using namespace rtbot;
+Bytes collect(string const& programId) { return factory.collect(programId); }
+
+void restore(string const& programId, Bytes const& bytes) { factory.restore(programId, bytes); }
 
 string validateOperator(string const& type, string const& json_op) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
@@ -134,12 +136,12 @@ string getProgramOutputFilter(const string& programId) {
   return nlohmann::json(result).dump();
 }
 
-string processMessageMap(const string& programId, const PortPayload<uint64_t, double>& messagesMap) {
+string processMessageMap(const string& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMap(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
 
-string processMessageMapDebug(string const& programId, const PortPayload<uint64_t, double>& messagesMap) {
+string processMessageMapDebug(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMapDebug(programId, messagesMap);
   return nlohmann::json(result).dump();
 }

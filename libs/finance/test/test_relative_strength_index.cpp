@@ -23,7 +23,7 @@ TEST_CASE("Relative Strength Index") {
   SECTION("emits right values") {
     for (int i = 0; i < values.size(); i++) {
       rsi.receiveData(Message<uint64_t, double>(i + 1, values.at(i)));
-      OperatorPayload<uint64_t, double> emitted = rsi.executeData();
+      ProgramMessage<uint64_t, double> emitted = rsi.executeData();
 
       if (i < 14) {
         REQUIRE(emitted.empty());

@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("And join") {
-  OperatorPayload<uint64_t, double> emitted;
+  ProgramMessage<uint64_t, double> emitted;
   auto andL = And<uint64_t, double>("and");
 
   andL.receiveData(Message<uint64_t, double>(1, 1), "i1");
