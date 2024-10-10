@@ -22,15 +22,15 @@ struct StandardDeviation : public Operator<T, V> {
 
   string typeName() const override { return "StandardDeviation"; }
 
-  PortPayload<T, V> processData() override {
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    PortPayload<T, V> outputMsgs;
-    Messages<T, V> toEmit;
+    OperatorMessage<T, V> outputMsgs;
+    PortMessage<T, V> toEmit;
     Message<T, V> out;
     size_t size = this->getDataInputSize(inputPort);
 

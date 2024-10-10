@@ -10,6 +10,7 @@ using namespace std;
 template <class T, class V>
 struct Linear : public Join<T, V> {
   Linear() = default;
+
   Linear(string const& id, vector<V> const& coeff) : Join<T, V>(id) {
     if (coeff.size() < 2) throw runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
     this->coeff = coeff;
@@ -23,11 +24,8 @@ struct Linear : public Join<T, V> {
 
   string typeName() const override { return "Linear"; }
 
-  /*
-    map<outputPort, Messages<T, V>>
-  */
-  PortPayload<T, V> processData() override {
-    PortPayload<T, V> outputMsgs;
+  OperatorMessage<T, V> processData() override {
+    OperatorMessage<T, V> outputMsgs;
     int i = 0;
     Message<T, V> out;
     out.value = 0;
@@ -38,7 +36,7 @@ struct Linear : public Join<T, V> {
       i++;
     }
 
-    Messages<T, V> v;
+    PortMessage<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
 

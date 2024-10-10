@@ -26,17 +26,34 @@ struct CosineResampler : public Operator<T, V> {
     this->addOutput("o1");
   }
 
+  virtual Bytes collect() {
+    Bytes bytes = Operator<T, V>::collect();
+
+    // Serialize carryOver
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&carryOver),
+                 reinterpret_cast<const unsigned char *>(&carryOver) + sizeof(carryOver));
+
+    return bytes;
+  }
+
+  virtual void restore(Bytes::const_iterator &it) {
+    Operator<T, V>::restore(it);
+    // Deserialize carryOver
+    carryOver = *reinterpret_cast<const T *>(&(*it));
+    it += sizeof(carryOver);
+  }
+
   string typeName() const override { return "CosineResampler"; }
 
-  PortPayload<T, V> processData() override {
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    PortPayload<T, V> outputMsgs;
-    Messages<T, V> toEmit;
+    OperatorMessage<T, V> outputMsgs;
+    PortMessage<T, V> toEmit;
 
     int j = 1;
 

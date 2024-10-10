@@ -12,7 +12,7 @@ struct Collector : public Operator<T, V> {
 
   string typeName() const override { return "Collector"; }
 
-  PortPayload<T, V> processData() override { return {}; }
+  OperatorMessage<T, V> processData() override { return {}; }
 };
 
 }  // end namespace rtbot

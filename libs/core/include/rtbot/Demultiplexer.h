@@ -40,7 +40,7 @@ class Demultiplexer : public Operator<T, V> {
       throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input data port");
   }
 
-  virtual OperatorPayload<T, V> executeData() override {
+  virtual ProgramMessage<T, V> executeData() override {
     auto toEmit = processData();
     if (!toEmit.empty()) return this->emit(toEmit);
     return {};
@@ -61,21 +61,21 @@ class Demultiplexer : public Operator<T, V> {
       throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input control port");
   }
 
-  virtual OperatorPayload<T, V> executeControl() override {
+  virtual ProgramMessage<T, V> executeControl() override {
     auto toEmit = processControl();
     if (!toEmit.empty()) return this->emit(toEmit);
     return {};
   }
 
-  virtual PortPayload<T, V> processData() { return join(); }
+  virtual OperatorMessage<T, V> processData() { return join(); }
 
-  virtual PortPayload<T, V> processControl() { return join(); }
+  virtual OperatorMessage<T, V> processControl() { return join(); }
 
  private:
   map<string, string> controlMap;
 
-  PortPayload<T, V> join() {
-    PortPayload<T, V> outputMsgs;
+  OperatorMessage<T, V> join() {
+    OperatorMessage<T, V> outputMsgs;
 
     vector<string> in = this->getDataInputs();
     string inputPort;
@@ -105,7 +105,7 @@ class Demultiplexer : public Operator<T, V> {
     if (instructions == this->getNumControlInputs()) {
       for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
         if (it->second.front().value == 1) {
-          Messages<T, V> v;
+          PortMessage<T, V> v;
           v.push_back(this->dataInputs.find(inputPort)->second.front());
           outputMsgs.emplace(this->controlMap.find(it->first)->second, v);
         }

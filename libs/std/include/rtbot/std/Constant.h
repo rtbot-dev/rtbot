@@ -16,17 +16,17 @@ struct Constant : public Operator<T, V> {
     this->value = value;
   }
   string typeName() const override { return "Constant"; }
-  PortPayload<T, V> processData() override {
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    PortPayload<T, V> outputMsgs;
+    OperatorMessage<T, V> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
     out.value = this->value;
-    Messages<T, V> v;
+    PortMessage<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;

@@ -309,7 +309,7 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual OperatorPayload<T, V> executeData() override {
+  virtual ProgramMessage<T, V> executeData() override {
     if (this->input != nullptr)
       return this->input.get()->executeData();
     else
@@ -323,16 +323,16 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual OperatorPayload<T, V> executeControl() override {
+  virtual ProgramMessage<T, V> executeControl() override {
     if (this->input != nullptr)
       return this->input.get()->executeControl();
     else
       throw std::runtime_error(typeName() + ": the input operator have not been found");
   }
 
-  virtual PortPayload<T, V> processData() override { return {}; }
+  virtual OperatorMessage<T, V> processData() override { return {}; }
 
-  virtual PortPayload<T, V> processControl() override { return {}; }
+  virtual OperatorMessage<T, V> processControl() override { return {}; }
 
   virtual Operator<T, V> *connect(Operator<T, V> &child, string outputPort = "", string inputPort = "") override {
     if (this->output != nullptr)
