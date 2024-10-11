@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <memory>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
@@ -42,6 +43,11 @@ void from_json(const json& j, Message<T, V>& p) {
 Bytes collect(string const& programId) { return factory.collect(programId); }
 
 void restore(string const& programId, Bytes const& bytes) { factory.restore(programId, bytes); }
+
+ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
+                                                         const OperatorMessage<uint64_t, double>& messagesMap) {
+  return factory.processMessageMap(programId, messagesMap);
+}
 
 string validateOperator(string const& type, string const& json_op) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
