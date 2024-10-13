@@ -46,10 +46,9 @@ TEST_CASE("Program collect and restore") {
       auto output = program.receive(messagesMap);
     }
 
-    Bytes bytes = program.collect();
+    Bytes bytes = program.serialize();
     // create a new program
-    auto program2 = FactoryOp::createProgram(json.dump().c_str());
-    program2.restore(bytes);
+    auto program2 = Program(bytes);
 
     // send the second half of the data
     for (int i = half; i < v.size(); i++) {

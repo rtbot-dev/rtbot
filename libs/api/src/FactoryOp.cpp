@@ -401,9 +401,20 @@ void from_json(const json& j, Pipeline<T, V>& p) {
 
 /* Operators serialization - deserialization - end */
 
+Bytes FactoryOp::serialize(string const& programId) {
+  if (this->programs.count(programId) == 0) throw runtime_error("Program " + programId + " was not found");
+  return programs.at(programId).serialize();
+}
+
+string FactoryOp::createProgram(string const& id, Bytes const& bytes) {
+  if (this->programs.count(id) > 0) throw runtime_error("Program " + id + " already exists");
+  programs.emplace(id, Program(bytes));
+  return id;
+}
+
 string FactoryOp::createProgram(string const& id, string const& json_program) {
   try {
-    programs.emplace(id, createProgram(json_program));
+    programs.emplace(id, Program(json_program));
     return "";
   } catch (const json::parse_error& e) {
     // output exception information

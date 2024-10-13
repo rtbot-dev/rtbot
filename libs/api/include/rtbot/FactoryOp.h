@@ -57,15 +57,9 @@ class FactoryOp {
 
   static Program createProgram(string const& json_string) { return Program(json_string); }
 
-  Bytes collect(string const& programId) {
-    if (this->programs.count(programId) == 0) throw runtime_error("Program " + programId + " was not found");
-    return programs.at(programId).collect();
-  }
+  Bytes serialize(string const& programId);
 
-  void restore(string const& programId, Bytes const& bytes) {
-    if (this->programs.count(programId) == 0) throw runtime_error("Program " + programId + " was not found");
-    programs.at(programId).restore(bytes);
-  }
+  string createProgram(string const& id, Bytes const& bytes);
 
   string createProgram(string const& id, string const& json_program);
 

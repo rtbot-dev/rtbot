@@ -34,8 +34,12 @@ inline void from_json(const json& j, OpConnection& p) {
 }
 
 Program::Program(const string& json_string) {
-  auto j = json::parse(json_string);
+  program_json = json_string;
+  init();
+}
 
+void Program::init() {
+  auto j = json::parse(program_json);
   this->entryOperator = j.value("entryOperator", "");
 
   if (this->entryOperator.empty()) throw runtime_error("Entry operator was not specified");
@@ -70,6 +74,31 @@ Program::Program(const string& json_string) {
     this->outputFilter.clear();
     runtime_error("Entry operator can not have control inputs");
   }
+}
+
+Bytes Program::serialize() {
+  Bytes bytes;
+
+  // save the program json definition, starting with the size of the string
+  uint64_t size = program_json.size();
+  bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&size),
+               reinterpret_cast<const unsigned char*>(&size) + sizeof(size));
+  bytes.insert(bytes.end(), program_json.begin(), program_json.end());
+
+  // save the state of the operators
+  for (auto& [opId, op] : all_op) {
+    // save the size of the operator id
+    size = opId.size();
+    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&size),
+                 reinterpret_cast<const unsigned char*>(&size) + sizeof(size));
+    bytes.insert(bytes.end(), opId.begin(), opId.end());
+
+    // save the operator state
+    Bytes opBytes = op->collect();
+    bytes.insert(bytes.end(), opBytes.begin(), opBytes.end());
+  }
+
+  return bytes;
 }
 
 string Program::getProgram() {

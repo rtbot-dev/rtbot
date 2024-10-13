@@ -40,9 +40,9 @@ void from_json(const json& j, Message<T, V>& p) {
 
 }  // namespace rtbot
 
-Bytes collect(string const& programId) { return factory.collect(programId); }
+Bytes serializeProgram(string const& programId) { return factory.serialize(programId); }
 
-void restore(string const& programId, Bytes const& bytes) { factory.restore(programId, bytes); }
+void createProgram(string const& programId, Bytes const& bytes) { factory.createProgram(programId, bytes); }
 
 ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
                                                          const OperatorMessage<uint64_t, double>& messagesMap) {

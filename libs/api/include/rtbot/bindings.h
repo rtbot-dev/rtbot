@@ -13,9 +13,8 @@
 using namespace std;
 using namespace rtbot;
 
-Bytes collect(string const& programId);
-// after creating a program, we can restore it with the a collected state
-void restore(string const& programId, Bytes const& bytes);
+Bytes serializeProgram(string const& programId);
+void createProgram(string const& programId, Bytes const& bytes);
 
 ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
                                                          const OperatorMessage<uint64_t, double>& messagesMap);

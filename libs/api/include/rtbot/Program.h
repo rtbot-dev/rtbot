@@ -4,6 +4,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <string>
 
 #include "rtbot/Operator.h"
 
@@ -13,41 +14,46 @@ using namespace std;
 
 struct Program {
  private:
+  string program_json;
   map<string, Op_ptr<uint64_t, double>> all_op;  // from id to operator
   string entryOperator;                          // id of the entry operator
   map<string, vector<string>> outputFilter;
 
  public:
   explicit Program(string const& json_string);
+  explicit Program(Bytes const& bytes) {
+    // create an iterator
+    Bytes::const_iterator bytes_it = bytes.begin();
+    // read the size of the program json
+    uint64_t size = *reinterpret_cast<const uint64_t*>(&(*bytes_it));
+    bytes_it += sizeof(size);
+    // read the program json
+    program_json = string(bytes_it, bytes_it + size);
+    bytes_it += size;
+
+    // init the program
+    init();
+
+    // load the state of the operators
+    while (bytes_it != bytes.end()) {
+      // read the size of the operator id
+      size = *reinterpret_cast<const uint64_t*>(&(*bytes_it));
+      bytes_it += sizeof(size);
+      string opId(bytes_it, bytes_it + size);
+      bytes_it += size;
+
+      // read the operator state
+      all_op.at(opId)->restore(bytes_it);
+    }
+  }
 
   Program(Program const&) = delete;
   void operator=(Program const&) = delete;
   Program(Program&& other) = default;
 
-  Bytes collect() {
-    Bytes bytes;
-    for (auto it = this->all_op.begin(); it != this->all_op.end(); ++it) {
-      Bytes opBytes = it->second->collect();
-      bytes.insert(bytes.end(), opBytes.begin(), opBytes.end());
-    }
+  void init();
 
-    return bytes;
-  }
-
-  void restore(Bytes const& bytes) {
-    Bytes::const_iterator bytes_it = bytes.begin();
-    for (auto it = this->all_op.begin(); it != this->all_op.end(); ++it) {
-      it->second->restore(bytes_it);
-    }
-  }
-
-  string debug() {
-    string toReturn;
-    for (auto it = this->all_op.begin(); it != this->all_op.end(); ++it) {
-      toReturn += "\n  " + it->second->debug("");
-    }
-    return toReturn;
-  }
+  Bytes serialize();
 
   string getProgramEntryOperatorId() { return entryOperator; }
 
