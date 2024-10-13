@@ -1,5 +1,6 @@
 #include <emscripten/bind.h>
 
+#include "RtBot.pb.h"
 #include "rtbot/Message.h"
 #include "rtbot/bindings.h"
 
@@ -31,20 +32,21 @@ struct TypeID<
 }  // namespace internal
 }  // namespace emscripten
 
+void test(rtbot::api::proto::Input const& input) { std::cout << "Input: " << input.DebugString() << std::endl; }
+
 string processBatch32(string const& programId, vector<uint32_t> times32, vector<double> values,
-                      vector<string>  const& ports) {
+                      vector<string> const& ports) {
   // translate passed 32 bit timestamp into 64 bit internal type
   vector<uint64_t> times(times32.begin(), times32.end());
   return processBatch(programId, times, values, ports);
 }
 
 string processBatch32Debug(string const& programId, vector<uint32_t> times32, vector<double> values,
-                      vector<string> const& ports) {
+                           vector<string> const& ports) {
   // translate passed 32 bit timestamp into 64 bit internal type
   vector<uint64_t> times(times32.begin(), times32.end());
   return processBatchDebug(programId, times, values, ports);
 }
-
 
 EMSCRIPTEN_BINDINGS(RtBot) {
   value_object<rtbot::Message<std::uint64_t, double>>("Message")

@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Multiplication join") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+  ProgramMessage<uint64_t, double> emitted;
   auto mult = Multiplication<uint64_t, double>("mult");
 
   mult.receiveData(Message<uint64_t, double>(1, 1), "i1");

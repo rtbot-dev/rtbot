@@ -50,7 +50,6 @@ TEST_CASE("Pipeline operator") {
 
     // pass through the factory
     string s = FactoryOp::writeOp(make_unique<Pipeline<>>(pipe));
-    cout << "Pipeline to json:\n" << s << endl;
     auto op = FactoryOp::readOp(s);
 
     // process the data

@@ -44,7 +44,7 @@ TEST_CASE("read  pipeline test bollinger_bands") {
     v.push_back(end);
 
     for (int i = 0; i < v.size(); i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      OperatorMessage<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> x;
       x.push_back(Message<uint64_t, double>(v.at(i), v.at(i) * v.at(i)));
       messagesMap.emplace("i1", x);

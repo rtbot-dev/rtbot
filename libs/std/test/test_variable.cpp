@@ -6,7 +6,7 @@ using namespace rtbot;
 using namespace std;
 
 TEST_CASE("Variable sync") {
-  map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+  ProgramMessage<uint64_t, double> emitted;
   auto variable = Variable<uint64_t, double>("variable", 0.5);
 
   variable.receiveData(Message<uint64_t, double>(1, 1.1), "i1");
@@ -99,5 +99,46 @@ TEST_CASE("Variable sync") {
   REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 5.1);
   REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 12);
 
-  // REQUIRE(emitted.empty());
+  SECTION("Variable controInputs can be collected and restored") {
+    auto var = Variable<uint64_t, double>("var", 1);
+    for (int i = 0; i < 5; i++) {
+      var.receiveData(Message<uint64_t, double>(i * 10, i), "i1");
+      var.receiveControl(Message<unsigned long long, double>(i * 10, i), "c1");
+    }
+
+    Bytes bytes = var.collect();
+    // print the bytes in hex format
+    // cout << hexStr(bytes.data(), bytes.size()) << endl;
+
+    // create a second Join operator with the same constructor arguments
+    auto var2 = Variable<uint64_t, double>("var2", 2);
+    // restore the state in the second operator
+    Bytes::const_iterator it = bytes.begin();
+    var2.restore(it);
+
+    // check that the controlInputs of the two operators are the same
+    for (auto [port, data2] : var2.controlInputs) {
+      auto data1 = var.controlInputs.at(port);
+      for (uint i = 0; i < data2.size(); i++) {
+        auto msg1 = data1.at(i);
+        auto msg2 = data2.at(i);
+        REQUIRE(msg1.time == msg2.time);
+        REQUIRE(msg1.value == msg2.value);
+      }
+    }
+
+    // check that the dataInputs of the two operators are the same
+    for (auto [port, data2] : var2.dataInputs) {
+      auto data1 = var.dataInputs.at(port);
+      for (uint i = 0; i < data2.size(); i++) {
+        auto msg1 = data1.at(i);
+        auto msg2 = data2.at(i);
+        REQUIRE(msg1.time == msg2.time);
+        REQUIRE(msg1.value == msg2.value);
+      }
+    }
+
+    // check that the value of the two operators are the same
+    REQUIRE(var2.getValue() == var.getValue());
+  }
 }

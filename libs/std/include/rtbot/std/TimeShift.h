@@ -12,28 +12,31 @@ using namespace std;
 template <class T, class V>
 struct TimeShift : public Operator<T, V> {
   TimeShift() = default;
+
   TimeShift(string const &id, T dt = 1, int times = 1) : Operator<T, V>(id) {
     this->addDataInput("i1", 1);
     this->addOutput("o1");
     this->dt = dt;
     this->times = times;
   }
+
   string typeName() const override { return "TimeShift"; }
-  map<string, vector<Message<T, V>>> processData() override {
+
+  OperatorMessage<T, V> processData() override {
     string inputPort;
     auto in = this->getDataInputs();
     if (in.size() == 1)
       inputPort = in.at(0);
     else
       throw runtime_error(typeName() + " : more than 1 input port found");
-    map<string, vector<Message<T, V>>> outputMsgs;
+    OperatorMessage<T, V> outputMsgs;
     Message<T, V> out = this->getDataInputLastMessage(inputPort);
 
     out.time = ((this->dt * this->times < 0) && (out.time > abs((double)(this->dt * this->times))) ||
                 (this->dt * this->times > 0))
                    ? out.time + this->dt * this->times
                    : 0;
-    vector<Message<T, V>> v;
+    PortMessage<T, V> v;
     v.push_back(out);
     outputMsgs.emplace("o1", v);
     return outputMsgs;

@@ -1,11 +1,12 @@
 #include "rtbot/bindings.h"
 
 #include <algorithm>
+#include <chrono>
+#include <memory>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
 #include <ostream>
-#include <chrono>
 
 #include "rtbot/FactoryOp.h"
 
@@ -39,7 +40,14 @@ void from_json(const json& j, Message<T, V>& p) {
 
 }  // namespace rtbot
 
-using namespace rtbot;
+Bytes serializeProgram(string const& programId) { return factory.serialize(programId); }
+
+void createProgram(string const& programId, Bytes const& bytes) { factory.createProgram(programId, bytes); }
+
+ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
+                                                         const OperatorMessage<uint64_t, double>& messagesMap) {
+  return factory.processMessageMap(programId, messagesMap);
+}
 
 string validateOperator(string const& type, string const& json_op) {
   json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
@@ -134,13 +142,12 @@ string getProgramOutputFilter(const string& programId) {
   return nlohmann::json(result).dump();
 }
 
-string processMessageMap(const string& programId, const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+string processMessageMap(const string& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMap(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
 
-string processMessageMapDebug(string const& programId,
-                              const map<string, vector<Message<uint64_t, double>>>& messagesMap) {
+string processMessageMapDebug(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
   auto result = factory.processMessageMapDebug(programId, messagesMap);
   return nlohmann::json(result).dump();
 }
@@ -166,7 +173,8 @@ string processBatch(string const& programId, vector<uint64_t> times, vector<doub
   addBatchToMessageBuffers(programId, times, values, ports);
   /* auto t2 = high_resolution_clock::now(); */
   /* auto dt1 = duration_cast<nanoseconds>(t2 - t1); */
-  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl; */
+  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl;
+   */
 
   auto result = factory.processMessageBuffer(programId);
   /* auto t3 = high_resolution_clock::now(); */

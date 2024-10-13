@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
@@ -11,6 +12,12 @@
 
 using namespace std;
 using namespace rtbot;
+
+Bytes serializeProgram(string const& programId);
+void createProgram(string const& programId, Bytes const& bytes);
+
+ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
+                                                         const OperatorMessage<uint64_t, double>& messagesMap);
 
 string validate(string const& json_program);
 string validateOperator(string const& type, string const& json_op);
@@ -27,9 +34,8 @@ string getProgramEntryOperatorId(const string& programId);
 string getProgramEntryPorts(const string& programId);
 string getProgramOutputFilter(const string& programId);
 
-string processMessageMap(string const& programId, const map<string, vector<Message<uint64_t, double>>>& messagesMap);
-string processMessageMapDebug(string const& programId,
-                              const map<string, vector<Message<uint64_t, double>>>& messagesMap);
+string processMessageMap(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap);
+string processMessageMapDebug(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap);
 
 string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
                     vector<string> const& ports);

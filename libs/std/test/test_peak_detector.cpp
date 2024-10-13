@@ -46,7 +46,7 @@ TEST_CASE("simple peak detector") {
     int sign = 1;
     double v = 0.0;
 
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     auto pd = PeakDetector<uint64_t, double>("b2", nlag);
     for (int i = 1; i <= 10; i++) {
       t++;

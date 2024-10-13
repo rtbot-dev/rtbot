@@ -9,7 +9,7 @@ TEST_CASE("Add") {
   auto add = Add<uint64_t, double>("add", 1);
 
   SECTION("emits add 1") {
-    map<string, map<string, vector<Message<uint64_t, double>>>> emitted;
+    ProgramMessage<uint64_t, double> emitted;
     for (int i = 1; i <= 50; i++) {
       add.receiveData(Message<uint64_t, double>(i, i));
       emitted = add.executeData();

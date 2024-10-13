@@ -2,6 +2,7 @@
 #define OPERATOR_H
 
 #include <algorithm>
+#include <cstddef>
 #include <deque>
 #include <iostream>
 #include <limits>
@@ -24,11 +25,14 @@ using namespace std;
  * rtbot framework.
  *
  * @tparam T Numeric type used for integer computations, (`int`, `int64`, etc.).
- * @tparam V Numeric type used for floating computations, (`float`, `double`, etc.).
+ * @tparam V Numeric type used for floating computations, (`float`, `double`,
+ * etc.).
  */
 
 template <class T, class V>
 class Operator;
+
+// useful type aliases
 template <class T, class V>
 using Op_ptr = unique_ptr<Operator<T, V>>;
 
@@ -36,7 +40,7 @@ template <class T, class V>
 class Operator {
   /********************************/
   struct Connection {
-    Operator<T, V>* fOperator;
+    Operator<T, V> *fOperator;
     string inputPort;
   };
   /********************************/
@@ -56,9 +60,75 @@ class Operator {
     void push_back(Message<T, V> msg) { data.push_back(msg); }
     void pop_front() { data.pop_front(); }
     void pop_back() { data.pop_back(); }
+    string getId() const { return id; }
     V getSum() { return sum; }
     void setSum(V value) { sum = value; }
     size_t getMaxSize() const { return max; }
+
+    string debug() const {
+      string toReturn = "sum: " + to_string(sum) + " max: " + to_string(max) + " data: ";
+      toReturn += "[";
+      for (auto &msg : data) {
+        toReturn += msg.debug() + " ";
+      }
+      toReturn += "]";
+      return toReturn;
+    }
+
+    Bytes collect() const {
+      Bytes bytes;
+
+      // Serialize id
+      size_t idSize = id.size();
+      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&idSize),
+                   reinterpret_cast<const unsigned char *>(&idSize) + sizeof(idSize));
+      bytes.insert(bytes.end(), id.begin(), id.end());
+
+      // Serialize max
+      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&max),
+                   reinterpret_cast<const unsigned char *>(&max) + sizeof(max));
+      // Serialize sum
+      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&sum),
+                   reinterpret_cast<const unsigned char *>(&sum) + sizeof(sum));
+
+      // Serialize deque<Message<T, V>> data
+      size_t dataSize = data.size();
+      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&dataSize),
+                   reinterpret_cast<const unsigned char *>(&dataSize) + sizeof(dataSize));
+
+      for (const auto &msg : data) {
+        Bytes msgBytes = msg.collect();
+        bytes.insert(bytes.end(), msgBytes.begin(), msgBytes.end());
+      }
+
+      return bytes;
+    }
+
+    void restore(Bytes::const_iterator &it) {
+      // Deserialize id
+      size_t idSize = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(idSize);
+      id = string(it, it + idSize);
+      it += idSize;
+
+      // Deserialize max
+      max = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(max);
+
+      // Deserialize sum
+      sum = *reinterpret_cast<const V *>(&(*it));
+      it += sizeof(sum);
+
+      // Deserialize deque<Message<T, V>> data
+      size_t dataSize = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(dataSize);
+
+      for (size_t i = 0; i < dataSize; i++) {
+        Message<T, V> msg;
+        msg.restore(it);
+        data.push_back(msg);
+      }
+    }
 
    private:
     string id;
@@ -74,11 +144,144 @@ class Operator {
   map<string, vector<Connection>> outputs;
   set<string> toProcess;
 
+  virtual Bytes collect() {
+    // here we want to copy only the data that is needed to restore the state
+    // of the operator, mainly the dataInputs and controlInputs
+    // we will not copy the outputs and outputIds as they are not needed
+    // to restore the state of the operator
+    Bytes state;
+
+    // serialize the dataInputs
+    size_t dataInputsSize = this->dataInputs.size();
+    state.insert(state.end(), reinterpret_cast<const unsigned char *>(&dataInputsSize),
+                 reinterpret_cast<const unsigned char *>(&dataInputsSize) + sizeof(dataInputsSize));
+
+    for (auto &[port, input] : this->dataInputs) {
+      // write the size of the port word
+      size_t portSize = port.size();
+      state.insert(state.end(), reinterpret_cast<const unsigned char *>(&portSize),
+                   reinterpret_cast<const unsigned char *>(&portSize) + sizeof(portSize));
+      state.insert(state.end(), port.begin(), port.end());
+
+      // write the input data
+      Bytes inputBytes = input.collect();
+      state.insert(state.end(), inputBytes.begin(), inputBytes.end());
+    }
+
+    // serialize the controlInputs
+    size_t controlInputsSize = this->controlInputs.size();
+    state.insert(state.end(), reinterpret_cast<const unsigned char *>(&controlInputsSize),
+                 reinterpret_cast<const unsigned char *>(&controlInputsSize) + sizeof(controlInputsSize));
+    for (auto &[port, input] : this->controlInputs) {
+      // write the size of the port word
+      size_t portSize = port.size();
+      state.insert(state.end(), reinterpret_cast<const unsigned char *>(&portSize),
+                   reinterpret_cast<const unsigned char *>(&portSize) + sizeof(portSize));
+      state.insert(state.end(), port.begin(), port.end());
+
+      // write the input data
+      Bytes inputBytes = input.collect();
+      state.insert(state.end(), inputBytes.begin(), inputBytes.end());
+    }
+
+    // serialize toProcess
+    size_t toProcessSize = this->toProcess.size();
+    state.insert(state.end(), reinterpret_cast<const unsigned char *>(&toProcessSize),
+                 reinterpret_cast<const unsigned char *>(&toProcessSize) + sizeof(toProcessSize));
+
+    for (const auto &port : this->toProcess) {
+      // write the size of the port word
+      size_t portSize = port.size();
+      state.insert(state.end(), reinterpret_cast<const unsigned char *>(&portSize),
+                   reinterpret_cast<const unsigned char *>(&portSize) + sizeof(portSize));
+      state.insert(state.end(), port.begin(), port.end());
+    }
+
+    return state;
+  }
+
+  virtual void restore(Bytes::const_iterator &it) {
+    // read the dataInputs size
+    size_t dataInputsSize = *reinterpret_cast<const size_t *>(&(*it));
+    it += sizeof(dataInputsSize);
+
+    for (size_t i = 0; i < dataInputsSize; i++) {
+      // read the size of the port word
+      size_t portSize = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(portSize);
+      string port(it, it + portSize);
+      it += portSize;
+
+      Input input("");
+      input.restore(it);
+      this->dataInputs.erase(input.getId());
+      this->dataInputs.insert({input.getId(), input});
+    }
+
+    // read the controlInputs size
+    size_t controlInputsSize = *reinterpret_cast<const size_t *>(&(*it));
+    it += sizeof(controlInputsSize);
+
+    for (size_t i = 0; i < controlInputsSize; i++) {
+      // read the size of the port word
+      size_t portSize = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(portSize);
+      string port(it, it + portSize);
+      it += portSize;
+
+      Input input("");
+      input.restore(it);
+
+      this->controlInputs.erase(input.getId());
+      this->controlInputs.insert({input.getId(), input});
+    }
+
+    // read the toProcess size
+    size_t toProcessSize = *reinterpret_cast<const size_t *>(&(*it));
+    it += sizeof(toProcessSize);
+
+    for (size_t i = 0; i < toProcessSize; i++) {
+      // read the size of the port word
+      size_t portSize = *reinterpret_cast<const size_t *>(&(*it));
+      it += sizeof(portSize);
+      string port(it, it + portSize);
+      it += portSize;
+
+      this->toProcess.insert(port);
+    }
+  }
+
+  virtual string debug(string params) const {
+    string s = typeName() + "(";
+    s += id + ", " + params;
+    s += ")";
+    // now internals
+    s += "{";
+    s += "dataInputs=[";
+    for (const auto &input : this->dataInputs) {
+      s += input.first + ": " + input.second.debug() + ",";
+    }
+    s += "],";
+    s += "controlInputs=[";
+    for (const auto &input : this->controlInputs) {
+      s += input.first + ": " + input.second.debug() + ",";
+    }
+    s += "],";
+    s += "toProcess=[";
+    for (const auto &input : this->toProcess) {
+      s += input + ",";
+    }
+    s += "]";
+
+    s += "}";
+    return s;
+  }
+
   Operator() = default;
-  explicit Operator(string const& id) { this->id = id; }
+  explicit Operator(string const &id) { this->id = id; }
   virtual ~Operator() = default;
 
-  void friend swap(Operator& op1, Operator& op2) {
+  void friend swap(Operator &op1, Operator &op2) {
     std::swap(op1.id, op2.id);
     std::swap(op1.dataInputs, op2.dataInputs);
     std::swap(op1.controlInputs, op2.controlInputs);
@@ -89,9 +292,9 @@ class Operator {
 
   virtual string typeName() const = 0;
 
-  virtual map<string, vector<Message<T, V>>> processData() = 0;
+  virtual OperatorMessage<T, V> processData() = 0;
 
-  virtual map<string, vector<Message<T, V>>> processControl() {
+  virtual OperatorMessage<T, V> processControl() {
     // TODO: implement reset here
     return {};
   }
@@ -211,7 +414,7 @@ class Operator {
       throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeData() {
+  virtual ProgramMessage<T, V> executeData() {
     vector<string> toRemove;
     for (auto it = this->toProcess.begin(); it != this->toProcess.end(); ++it) {
       if (this->getDataInputMaxSize(*it) > this->getDataInputSize(*it)) toRemove.push_back(*it);
@@ -250,7 +453,7 @@ class Operator {
       throw runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input port");
   }
 
-  virtual map<string, map<string, vector<Message<T, V>>>> executeControl() {
+  virtual ProgramMessage<T, V> executeControl() {
     auto toEmit = this->processControl();
     if (!toEmit.empty())
       return this->emit(toEmit);
@@ -260,15 +463,15 @@ class Operator {
 
   bool hasControlInputs() { return !this->getControlInputs().empty(); }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  ProgramMessage<T, V> emit(Message<T, V> msg, vector<string> outputPorts = {}) const {
+    ProgramMessage<T, V> out;
 
     if (outputPorts.empty()) outputPorts = this->getOutputs();
     for (auto outputPort : outputPorts) {
-      vector<Message<T, V>> v;
+      PortMessage<T, V> v;
       v.push_back(msg);
       if (out.count(this->id) == 0) {
-        map<string, vector<Message<T, V>>> msgs;
+        OperatorMessage<T, V> msgs;
         msgs.emplace(outputPort, v);
         out.emplace(this->id, msgs);
       } else
@@ -293,17 +496,16 @@ class Operator {
     return out;
   }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(vector<Message<T, V>> msgs,
-                                                       vector<string> outputPorts = {}) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  ProgramMessage<T, V> emit(PortMessage<T, V> msgs, vector<string> outputPorts = {}) const {
+    ProgramMessage<T, V> out;
     for (auto msg : msgs) {
       mergeOutput(out, emit(msg, outputPorts));
     }
     return out;
   }
 
-  map<string, map<string, vector<Message<T, V>>>> emit(map<string, vector<Message<T, V>>> outputMsgs) const {
-    map<string, map<string, vector<Message<T, V>>>> out;
+  ProgramMessage<T, V> emit(OperatorMessage<T, V> outputMsgs) const {
+    ProgramMessage<T, V> out;
     for (auto it = outputMsgs.begin(); it != outputMsgs.end(); ++it) {
       if (this->outputIds.count(it->first) > 0) {
         mergeOutput(out, emit(it->second, {it->first}));
@@ -313,7 +515,7 @@ class Operator {
     return out;
   }
 
-  Operator<T, V>* addDataInput(string inputId, size_t max = 0) {
+  Operator<T, V> *addDataInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
       throw runtime_error(typeName() + " : input port have to be specified");
     }
@@ -324,7 +526,7 @@ class Operator {
       throw runtime_error(typeName() + ": " + inputId + " refers to an already existing input port");
   }
 
-  Operator<T, V>* addControlInput(string inputId, size_t max = 0) {
+  Operator<T, V> *addControlInput(string inputId, size_t max = 0) {
     if (inputId.empty()) {
       throw runtime_error(typeName() + " : control port have to be specified");
     }
@@ -359,7 +561,7 @@ class Operator {
     return keys;
   }
 
-  Operator<T, V>* addOutput(string outputId) {
+  Operator<T, V> *addOutput(string outputId) {
     outputIds.insert(outputId);
     return this;
   }
@@ -390,11 +592,11 @@ class Operator {
 
   size_t getNumControlInputs() const { return this->controlInputs.size(); }
 
-  virtual Operator<T, V>* connect(Operator<T, V>& child, string outputPort = "", string inputPort = "") {
+  virtual Operator<T, V> *connect(Operator<T, V> &child, string outputPort = "", string inputPort = "") {
     return connect(&child, outputPort, inputPort);
   }
 
-  virtual Operator<T, V>* connect(Operator<T, V>* child, string outputPort = "", string inputPort = "") {
+  virtual Operator<T, V> *connect(Operator<T, V> *child, string outputPort = "", string inputPort = "") {
     vector<string> out = this->getOutputs();
     vector<string> in = child->getAllInputs();
 
@@ -428,17 +630,16 @@ class Operator {
       return nullptr;
   }
 
-  static void mergeOutput(map<string, map<string, vector<Message<T, V>>>>& out,
-                          map<string, map<string, vector<Message<T, V>>>> const& x) {
-    for (const auto& [id, map] : x) {
-      auto& mapOut = out[id];
+  static void mergeOutput(ProgramMessage<T, V> &out, ProgramMessage<T, V> const &x) {
+    for (const auto &[id, map] : x) {
+      auto &mapOut = out[id];
       mergeOutput(mapOut, map);
     }
   }
 
-  static void mergeOutput(map<string, vector<Message<T, V>>>& out, map<string, vector<Message<T, V>>> const& x) {
-    for (const auto& [id, msgs] : x) {
-      auto& vec = out[id];
+  static void mergeOutput(OperatorMessage<T, V> &out, OperatorMessage<T, V> const &x) {
+    for (const auto &[id, msgs] : x) {
+      auto &vec = out[id];
       for (auto resultMessage : msgs) vec.push_back(resultMessage);
     }
   }

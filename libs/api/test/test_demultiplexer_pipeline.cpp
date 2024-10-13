@@ -22,7 +22,7 @@ TEST_CASE("read  pipeline test demultiplexer") {
 
     // process the data
     for (int i = 1; i <= 100; i++) {
-      map<string, vector<Message<uint64_t, double>>> messagesMap;
+      OperatorMessage<uint64_t, double> messagesMap;
       vector<Message<uint64_t, double>> v;
       v.push_back(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
       messagesMap.emplace("i1", v);

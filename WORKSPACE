@@ -4,6 +4,42 @@ load("//:deps.bzl", "deps")
 
 deps()
 
+load(
+    "@build_bazel_apple_support//lib:repositories.bzl",
+    "apple_support_dependencies",
+)
+
+apple_support_dependencies()
+
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
+load("@rules_buf//buf:repositories.bzl", "rules_buf_dependencies", "rules_buf_toolchains")
+
+rules_buf_dependencies()
+
+rules_buf_toolchains(
+    version = "v1.32.1",
+)
+
+# rules_proto
+load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies")
+
+rules_proto_dependencies()
+
+load("@rules_proto//proto:setup.bzl", "rules_proto_setup")
+
+rules_proto_setup()
+
+load("@rules_proto//proto:toolchains.bzl", "rules_proto_toolchains")
+
+rules_proto_toolchains()
+
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 
 python_configure(
@@ -27,7 +63,7 @@ load("@rules_nodejs//nodejs:repositories.bzl", "nodejs_register_toolchains")
 
 nodejs_register_toolchains(
     name = "nodejs",
-    node_version = '18.13.0',
+    node_version = "18.13.0",
 )
 
 load("@aspect_rules_js//npm:npm_import.bzl", "npm_translate_lock")

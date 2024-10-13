@@ -8,13 +8,13 @@ using namespace std;
 TEST_CASE("Hermite Resampler test emit at right frequencies") {
   auto i1 = HermiteResampler<uint64_t, double>("i1", 99);
   auto i2 = HermiteResampler<uint64_t, double>("i2", 99);
-  auto i3 = HermiteResampler<int64_t, double>("i3", 99);
-  auto i4 = HermiteResampler<int64_t, double>("i4", 1);
+  auto i3 = HermiteResampler<uint64_t, double>("i3", 99);
+  auto i4 = HermiteResampler<uint64_t, double>("i4", 1);
 
   SECTION("emits once") {
     for (int i = 0; i < 20; i++) {
       i1.receiveData(Message<uint64_t, double>(i * 100, i * i));
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i1.executeData();
+      ProgramMessage<uint64_t, double> emitted = i1.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -30,7 +30,7 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
   SECTION("emits twice") {
     for (int i = 0; i < 20; i++) {
       i2.receiveData(Message<uint64_t, double>(i * 200, i * i));
-      map<string, map<string, vector<Message<uint64_t, double>>>> emitted = i2.executeData();
+      ProgramMessage<uint64_t, double> emitted = i2.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -48,8 +48,8 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
 
   SECTION("emits right values") {
     for (int i = 0; i < 20; i++) {
-      i3.receiveData(Message<int64_t, double>(i * 100, i * i));
-      map<string, map<string, vector<Message<int64_t, double>>>> emitted = i3.executeData();
+      i3.receiveData(Message<uint64_t, double>(i * 100, i * i));
+      ProgramMessage<uint64_t, double> emitted = i3.executeData();
 
       if (i == 0 || i == 1 || i == 2)
         REQUIRE(emitted.empty());
@@ -79,8 +79,8 @@ TEST_CASE("Hermite Resampler test emit at right frequencies") {
     v.push_back(end);
 
     for (int i = 0; i < v.size(); i++) {
-      i4.receiveData(Message<int64_t, double>(v.at(i), v.at(i) * v.at(i)));
-      map<string, map<string, vector<Message<int64_t, double>>>> emitted = i4.executeData();
+      i4.receiveData(Message<uint64_t, double>(v.at(i), v.at(i) * v.at(i)));
+      ProgramMessage<uint64_t, double> emitted = i4.executeData();
 
       if (i == 0 || i == 1 || i == 2) {
         // cout << "******* (" << v.at(i) << ") *******" << endl;

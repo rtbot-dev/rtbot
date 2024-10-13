@@ -1,9 +1,8 @@
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@emsdk//emscripten_toolchain:wasm_rules.bzl", "wasm_cc_binary")
-load("@aspect_rules_js//npm:defs.bzl", "npm_package")
+load("@aspect_rules_js//npm:defs.bzl", "npm_package", "stamped_package_json")
 load("//tools/generator:generator.bzl", "rtbot_generate")
-load("@aspect_rules_js//npm:defs.bzl", "stamped_package_json")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -38,8 +37,9 @@ cc_library(
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
-        "//libs/finance:rtbot-finance",
+        "//libs/api/proto",
         "//libs/core:rtbot",
+        "//libs/finance:rtbot-finance",
         "//libs/std:rtbot-std",
         "@json-cpp//:lib",
         "@json-schema-validator//:lib",
@@ -50,11 +50,13 @@ cc_library(
 BASE_LINKOPTS = [
     "-O3",
     "-lembind",  # Enable embind
-    "-s MODULARIZE",
-    "--embind-emit-tsd",
-    "-s ALLOW_MEMORY_GROWTH",
+    "-sMODULARIZE",
+    # TODO: enable typescript emit, although this is non blocking
+    #"--emit-tsd",
+    "-sALLOW_MEMORY_GROWTH",
     #"-s MEMORY64=2",
-    "-s NO_DISABLE_EXCEPTION_CATCHING",
+    "-sWASM_BIGINT",
+    "-sNO_DISABLE_EXCEPTION_CATCHING",
     #"-s EXPORT_ES6=1",
 ]
 
@@ -101,14 +103,14 @@ stamped_package_json(
 npm_package(
     name = "js",
     srcs = [
-        ":package",
         ":declarations",
+        ":package",
         ":rtbot-wasm",
     ],
+    # this is needed if we want to use this package in another bazel workspace
+    include_external_repositories = ["**"],
     package = "@rtbot-dev/wasm",
     replace_prefixes = {
-      "rtbot-wasm": "."
+        "rtbot-wasm": ".",
     },
-    # this is needed if we want to use this package in another bazel workspace
-    include_external_repositories = ["**"]
 )

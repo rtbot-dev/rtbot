@@ -1,5 +1,3 @@
-#include "rtbot/jsonschema.hpp"
-
 #include <catch2/catch.hpp>
 #include <fstream>
 #include <iomanip>
@@ -9,6 +7,7 @@
 
 #include "rtbot/FactoryOp.h"
 #include "rtbot/bindings.h"
+#include "rtbot/jsonschema.hpp"
 #include "tools.h"
 
 using namespace rtbot;
@@ -22,10 +21,8 @@ TEST_CASE("jsonschema validation") {
       if (!in) throw runtime_error("file not found");
       in >> program;
     }
-    cout << "validating program....." << endl;
 
     std::string result = validate(program.dump());
-    cout << "result " << result << endl;
     REQUIRE(nlohmann::json::parse(result)["valid"]);
   }
   SECTION("validates a valid operator") {
@@ -40,4 +37,3 @@ TEST_CASE("jsonschema validation") {
     REQUIRE(!nlohmann::json::parse(result)["valid"]);
   }
 }
-

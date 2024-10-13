@@ -115,12 +115,12 @@ def deps():
         strip_prefix = "bazel-lib-1.34.0",
         url = "https://github.com/aspect-build/bazel-lib/releases/download/v1.34.0/bazel-lib-v1.34.0.tar.gz",
     )
-    
+
     http_archive(
         name = "emsdk",
-        strip_prefix = "emsdk-3.1.34/bazel",
-        sha256 = "e03ed88f9f8075c78f49c43241e3586798300593e7ea873f766e9403e662516c",
-        url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/3.1.34.tar.gz",
+        sha256 = "97f21c32c0c1eecb963d19d1cacf58538086ce28eb28274993ab21d3673b5c29",
+        strip_prefix = "emsdk-3.1.68/bazel",
+        url = "https://github.com/emscripten-core/emsdk/archive/refs/tags/3.1.68.tar.gz",
     )
 
     http_archive(
@@ -141,4 +141,43 @@ def deps():
         url = "https://github.com/google/benchmark/archive/refs/tags/v1.7.1.zip",
         sha256 = "aeec52381284ec3752505a220d36096954c869da4573c2e1df3642d2f0a4aac6",
         strip_prefix = "benchmark-1.7.1",
+    )
+
+    http_archive(
+        name = "build_bazel_apple_support",
+        sha256 = "b53f6491e742549f13866628ddffcc75d1f3b2d6987dc4f14a16b242113c890b",
+        url = "https://github.com/bazelbuild/apple_support/releases/download/1.17.1/apple_support.1.17.1.tar.gz",
+    )
+
+    http_archive(
+        name = "com_google_protobuf",
+        # notice that when we change the version here we also have to change the version as well for
+        # the buf plugin buf.build/protocolbuffers/cpp in the files:
+        #  - libs/api/proto/buf.gen.yaml
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protobuf-27.3.zip",
+        strip_prefix = "protobuf-27.3",
+        sha256 = "a49147217f69e8d19aab0cc5c0059d6201261f5cb62145f8ab4ac8b94e7ffa86",
+    )
+
+    http_archive(
+        name = "rules_buf",
+        integrity = "sha256-Hr64Q/CaYr0E3ptAjEOgdZd1yc+cBjp7OG1wzuf3DIs=",
+        strip_prefix = "rules_buf-0.3.0",
+        urls = [
+            "https://github.com/bufbuild/rules_buf/archive/refs/tags/v0.3.0.zip",
+        ],
+    )
+
+    http_archive(
+        name = "rules_proto",
+        sha256 = "6fb6767d1bef535310547e03247f7518b03487740c11b6c6adb7952033fe1295",
+        strip_prefix = "rules_proto-6.0.2",
+        url = "https://github.com/bazelbuild/rules_proto/releases/download/6.0.2/rules_proto-6.0.2.tar.gz",
+    )
+
+    http_archive(
+        name = "protovalidate",
+        sha256 = "6e49ffdf4502d32472b568cf1b279d113cc8548ffb19134f800f903d5148184b",
+        url = "https://github.com/bufbuild/protovalidate/archive/refs/tags/v0.8.2.zip",
+        strip_prefix = "protovalidate-0.8.2",
     )

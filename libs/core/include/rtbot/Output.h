@@ -30,12 +30,12 @@ struct Output : public Operator<T, V> {
 
   string typeName() const override { return "Output"; }
 
-  virtual map<string, vector<Message<T, V>>> processData() override {
-    map<string, vector<Message<T, V>>> outputMsgs;
+  virtual OperatorMessage<T, V> processData() override {
+    OperatorMessage<T, V> outputMsgs;
     while (!this->toProcess.empty()) {
       string inputPort = *(this->toProcess.begin());
       Message<T, V> out = this->getDataInputLastMessage(inputPort);
-      vector<Message<T, V>> v;
+      PortMessage<T, V> v;
       v.push_back(out);
       outputMsgs.emplace(portsMap.find(inputPort)->second, v);
       this->toProcess.erase(inputPort);
