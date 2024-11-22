@@ -399,6 +399,34 @@ void from_json(const json& j, Pipeline<T, V>& p) {
   p = Pipeline<T, V>(j.at("id").get<string>(), j.at("prog").dump());
 }
 
+template <class T, class V>
+void to_json(json& j, const ConstantResampler<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"interval", p.getInterval()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, ConstantResampler<T, V>& p) {
+  p = ConstantResampler<T, V>(j["id"].get<string>(), j["interval"].get<T>());
+}
+
+template <class T, class V>
+void to_json(json& j, const Function<T, V>& p) {
+  vector<vector<V>> points_array;
+  for (const auto& point : p.getPoints()) {
+    points_array.push_back({point.first, point.second});
+  }
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"points", points_array}, {"type", p.getInterpolationType()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Function<T, V>& p) {
+  vector<pair<V, V>> points;
+  for (const auto& point : j["points"]) {
+    points.push_back({point[0].get<V>(), point[1].get<V>()});
+  }
+  p = Function<T, V>(j["id"].get<string>(), points, j.value("type", "linear"));
+}
+
 /* Operators serialization - deserialization - end */
 
 Bytes FactoryOp::serialize(string const& programId) {
@@ -463,6 +491,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<Pipeline<uint64_t, double>, json>();
   op_registry_add<GreaterThanStream<uint64_t, double>, json>();
   op_registry_add<LessThanStream<uint64_t, double>, json>();
+  op_registry_add<Function<uint64_t, double>, json>();
+  op_registry_add<ConstantResampler<uint64_t, double>, json>();
 }
 
 static FactoryOp factory;
