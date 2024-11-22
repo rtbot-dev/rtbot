@@ -21,6 +21,7 @@
 #include "rtbot/std/Difference.h"
 #include "rtbot/std/Division.h"
 #include "rtbot/std/EqualTo.h"
+#include "rtbot/std/FastFourierTransform.h"
 #include "rtbot/std/FiniteImpulseResponse.h"
 #include "rtbot/std/GreaterThan.h"
 #include "rtbot/std/GreaterThanStream.h"
@@ -37,6 +38,8 @@
 #include "rtbot/std/Plus.h"
 #include "rtbot/std/Power.h"
 #include "rtbot/std/Scale.h"
+#include "rtbot/std/Sort.h"
+#include "rtbot/std/SortIndex.h"
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
 #include "rtbot/std/Variable.h"
@@ -107,6 +110,22 @@ void to_json(json& j, const FiniteImpulseResponse<T, V>& p) {
 template <class T, class V>
 void from_json(const json& j, FiniteImpulseResponse<T, V>& p) {
   p = FiniteImpulseResponse<T, V>(j["id"].get<string>(), j["coeff"].get<vector<V>>());
+}
+
+template <class T, class V>
+void to_json(json& j, const FastFourrierTransform<T, V>& p) {
+  j = json{{"type", p.typeName()},
+           {"id", p.id},
+           {"N", p.getN()},
+           {"emitPower", p.getEmitPower()},
+           {"emitRePart", p.getEmitRePart()},
+           {"emitImPart", p.getEmitImPart()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, FastFourrierTransform<T, V>& p) {
+  p = FastFourrierTransform<T, V>(j["id"].get<string>(), j["N"].get<size_t>(), j["emitPower"].get<bool>(),
+                                  j["emitRePart"].get<bool>(), j["emitImPart"].get<bool>());
 }
 
 template <class T, class V>
@@ -340,6 +359,32 @@ void from_json(const json& j, Scale<T, V>& p) {
 }
 
 template <class T, class V>
+void to_json(json& j, const Sort<T, V>& p) {
+  j = json{{"type", p.typeName()},          {"id", p.id},
+           {"numInputs", p.getNumInputs()}, {"numOutputs", p.getNumOutputs()},
+           {"ascending", p.getAscending()}, {"maxInputBufferSize", p.getMaxInputBufferSize()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Sort<T, V>& p) {
+  p = Sort<T, V>(j["id"].get<string>(), j["numInputs"].get<size_t>(), j["numOutputs"].get<size_t>(),
+                 j["ascending"].get<bool>(), j["maxInputBufferSize"].get<size_t>());
+}
+
+template <class T, class V>
+void to_json(json& j, const SortIndex<T, V>& p) {
+  j = json{{"type", p.typeName()},          {"id", p.id},
+           {"numInputs", p.getNumInputs()}, {"numOutputs", p.getNumOutputs()},
+           {"ascending", p.getAscending()}, {"maxInputBufferSize", p.getMaxInputBufferSize()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, SortIndex<T, V>& p) {
+  p = SortIndex<T, V>(j["id"].get<string>(), j["numInputs"].get<size_t>(), j["numOutputs"].get<size_t>(),
+                      j["ascending"].get<bool>(), j["maxInputBufferSize"].get<size_t>());
+}
+
+template <class T, class V>
 void to_json(json& j, const Power<T, V>& p) {
   j = json{{"type", p.typeName()}, {"id", p.id}, {"value", p.getValue()}};
 }
@@ -477,6 +522,8 @@ FactoryOp::FactoryOp() {
   op_registry_add<LessThan<uint64_t, double>, json>();
   op_registry_add<EqualTo<uint64_t, double>, json>();
   op_registry_add<Scale<uint64_t, double>, json>();
+  op_registry_add<Sort<uint64_t, double>, json>();
+  op_registry_add<SortIndex<uint64_t, double>, json>();
   op_registry_add<Constant<uint64_t, double>, json>();
   op_registry_add<CumulativeSum<uint64_t, double>, json>();
   op_registry_add<Count<uint64_t, double>, json>();

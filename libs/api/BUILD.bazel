@@ -25,7 +25,7 @@ cc_library(
     ]),
     hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
     copts = [
-        "-O3",
+        # "-O3",
         "-Iexternal/json-schema-validator/src",
         "-Ilibs/core/include/rtbot",
         # this is needed when building from another workspace
@@ -48,7 +48,7 @@ cc_library(
 )
 
 BASE_LINKOPTS = [
-    "-O3",
+    # "-O3",
     "-lembind",  # Enable embind
     "-sMODULARIZE",
     # TODO: enable typescript emit, although this is non blocking
