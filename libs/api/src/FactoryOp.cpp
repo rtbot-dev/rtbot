@@ -7,6 +7,7 @@
 #include "rtbot/Demultiplexer.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
+#include "rtbot/Multiplexer.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
 #include "rtbot/Pipeline.h"
@@ -368,6 +369,15 @@ template <class T, class V>
 void from_json(const json& j, Demultiplexer<T, V>& p) {
   p = Demultiplexer<T, V>(j["id"].get<string>(), j.value("numPorts", 1));
 }
+template <class T, class V>
+void to_json(json& j, const Multiplexer<T, V>& p) {
+  j = json{{"type", p.typeName()}, {"id", p.id}, {"numPorts", p.getNumDataInputs()}};
+}
+
+template <class T, class V>
+void from_json(const json& j, Multiplexer<T, V>& p) {
+  p = Multiplexer<T, V>(j["id"].get<string>(), j.value("numPorts", 2));
+}
 
 template <class T, class V>
 void to_json(json& j, const Identity<T, V>& p) {
@@ -483,6 +493,7 @@ FactoryOp::FactoryOp() {
   op_registry_add<Add<uint64_t, double>, json>();
   op_registry_add<Difference<uint64_t, double>, json>();
   op_registry_add<Demultiplexer<uint64_t, double>, json>();
+  op_registry_add<Multiplexer<uint64_t, double>, json>();
   op_registry_add<Power<uint64_t, double>, json>();
   op_registry_add<Identity<uint64_t, double>, json>();
   op_registry_add<RelativeStrengthIndex<uint64_t, double>, json>();
