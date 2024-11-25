@@ -1,92 +1,58 @@
 #ifndef MESSAGE_H
 #define MESSAGE_H
 
-#include <map>
+#include <typeindex>
 #include <vector>
 
 namespace rtbot {
-
 using Bytes = std::vector<unsigned char>;
 
-template <class T, class V>
-struct Message {
-  T time;
-  V value;
+using timestamp_t = std::int64_t;
 
-  Message() = default;
-  Message(T time, V value) {
-    this->time = time;
-    this->value = value;
-  }
-
-  std::string debug() const { return "(" + std::to_string(time) + ": " + std::to_string(value) + ")"; }
-
-  Bytes collect() const {
-    Bytes bytes;
-
-    // Serialize time
-    bytes.insert(bytes.end(), reinterpret_cast<const char*>(&time),
-                 reinterpret_cast<const char*>(&time) + sizeof(time));
-
-    // Serialize value
-    bytes.insert(bytes.end(), reinterpret_cast<const char*>(&value),
-                 reinterpret_cast<const char*>(&value) + sizeof(value));
-
-    return bytes;
-  }
-
-  void restore(Bytes::const_iterator& it) {
-    // Deserialize time
-    time = *reinterpret_cast<const T*>(&(*it));
-    it += sizeof(time);
-
-    // Deserialize value
-    value = *reinterpret_cast<const V*>(&(*it));
-    it += sizeof(value);
-  }
+// Core data types
+struct NumberData {
+  double value;
+};
+struct BooleanData {
+  bool value;
+};
+struct VectorNumberData {
+  std::vector<double> values;
+};
+struct VectorBooleanData {
+  std::vector<bool> values;
 };
 
-template <class T, class V>
-bool operator==(Message<T, V> const& a, Message<T, V> const& b) {
-  return a.time == b.time && a.value == b.value;
-}
+// Base message struct
+struct BaseMessage {
+  timestamp_t time;
+  virtual ~BaseMessage() = default;
+  virtual std::unique_ptr<BaseMessage> clone() const = 0;
+  virtual std::type_index type() const = 0;
+};
 
-template <class T, class V>
-using PortMessage = std::vector<Message<T, V>>;
+// Type-specific message implementation
+template <typename T>
+struct Message : BaseMessage {
+  T data;
 
-template <class T, class V>
-using OperatorMessage = std::map<std::string, PortMessage<T, V>>;
-
-template <class T, class V>
-std::string debug(OperatorMessage<T, V> const& messagesMap) {
-  std::string s = "{";
-  for (const auto& [port, messages] : messagesMap) {
-    s += port + ": [";
-    for (const auto& message : messages) {
-      s += message.debug() + ", ";
-    }
-    // remove last comma
-    s.pop_back();
-    s += "], ";
+  std::unique_ptr<BaseMessage> clone() const override {
+    auto cloned = std::make_unique<Message<T>>();
+    cloned->time = this->time;
+    cloned->data = this->data;
+    return cloned;
   }
-  s += "}";
-  return s;
-}
 
-template <class T, class V>
-using ProgramMessage = std::map<std::string, OperatorMessage<T, V>>;
+  std::type_index type() const override { return std::type_index(typeid(T)); }
+};
 
-template <class T, class V>
-std::string debug(ProgramMessage<T, V> const& messagesMap) {
-  std::string s = "{";
-  for (const auto& [opId, messages] : messagesMap) {
-    s += opId + ": " + debug(messages) + ", ";
-  }
-  // remove last comma
-  s.pop_back();
-
-  s += "}";
-  return s;
+// Helper to create typed message
+template <typename T>
+std::unique_ptr<Message<T>> create_message(timestamp_t time, T data) {
+  auto msg = std::make_unique<Message<T>>();
+  msg->time = time;
+  msg->data = std::move(data);
+  return msg;
 }
 
 }  // namespace rtbot

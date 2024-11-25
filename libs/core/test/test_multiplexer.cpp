@@ -1,294 +1,326 @@
 #include <catch2/catch.hpp>
-#include <iostream>
-#include <sstream>
 
-#include "rtbot/Input.h"
 #include "rtbot/Multiplexer.h"
-#include "rtbot/Output.h"
-#include "rtbot/std/Constant.h"
 
 using namespace rtbot;
-using namespace std;
 
-// Helper to capture stderr
-class CaptureStream {
- public:
-  CaptureStream(std::ostream& stream) : stream(stream) { old = stream.rdbuf(buffer.rdbuf()); }
-  ~CaptureStream() { stream.rdbuf(old); }
-  string get() const { return buffer.str(); }
+SCENARIO("Multiplexer routes messages based on control signals", "[multiplexer]") {
+  GIVEN("A multiplexer with two ports") {
+    auto mult = std::make_unique<Multiplexer<NumberData>>("mult", 2);
 
- private:
-  std::ostream& stream;
-  std::stringstream buffer;
-  std::streambuf* old;
-};
-
-TEST_CASE("Multiplexer") {
-  SECTION("Basic routing functionality") {
-    // Create a multiplexer with 2 inputs
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto zero = Constant<uint64_t, double>("zero", 0);
-    auto one = Constant<uint64_t, double>("one", 1);
-
-    // Create the control signals
-    one.connect(mult, "o1", "c1");
-    zero.connect(mult, "o1", "c2");
-
-    // Test routing from first input
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");  // value on first input
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");  // value on second input
-
-    // Send control signals to select first input
-    one.receiveData(Message<uint64_t, double>(1, 1.0));   // control signal for i1
-    zero.receiveData(Message<uint64_t, double>(1, 1.0));  // control signal for i2
-
-    auto output = one.executeData();
-    output = zero.executeData();
-
-    // Should route value from first input
-    REQUIRE(output.find("mult") != output.end());
-    REQUIRE(output.find("mult")->second.find("o1") != output.find("mult")->second.end());
-    REQUIRE(output.find("mult")->second.find("o1")->second.size() == 1);
-    REQUIRE(output.find("mult")->second.find("o1")->second.at(0).value == 10.0);
-    REQUIRE(output.find("mult")->second.find("o1")->second.at(0).time == 1);
-  }
-  SECTION("Switch inputs") {
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto zero = Constant<uint64_t, double>("zero", 0);
-    auto one = Constant<uint64_t, double>("one", 1);
-
-    one.connect(mult, "o1", "c2");   // Note: now selecting second input
-    zero.connect(mult, "o1", "c1");  // First input disabled
-
-    // Send data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-
-    // Send control signals
-    one.receiveData(Message<uint64_t, double>(1, 1.0));
-    zero.receiveData(Message<uint64_t, double>(1, 1.0));
-
-    auto output = one.executeData();
-    output = zero.executeData();
-
-    // Should route value from second input
-    REQUIRE(output.find("mult") != output.end());
-    REQUIRE(output.find("mult")->second.find("o1") != output.find("mult")->second.end());
-    REQUIRE(output.find("mult")->second.find("o1")->second.size() == 1);
-    REQUIRE(output.find("mult")->second.find("o1")->second.at(0).value == 20.0);
-    REQUIRE(output.find("mult")->second.find("o1")->second.at(0).time == 1);
-  }
-
-  SECTION("Should not produce output when control signals are invalid") {
-    CaptureStream capture(std::cerr);
-
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto one = Constant<uint64_t, double>("one", 1);
-
-    one.connect(mult, "o1", "c1");
-    one.connect(mult, "o1", "c2");
-
-    // Send data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-
-    // Invalid control signals (both 1)
-    one.receiveData(Message<uint64_t, double>(1, 1.0));
-    one.receiveData(Message<uint64_t, double>(1, 1.0));
-
-    auto output = one.executeData();
-    // Should not produce output when control signals are invalid
-    REQUIRE(output.find("mult") == output.end());
-  }
-
-  SECTION("Warning when timestamps don't match") {
-    CaptureStream capture(std::cerr);
-
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto zero = Constant<uint64_t, double>("zero", 0);
-    auto one = Constant<uint64_t, double>("one", 1);
-
-    one.connect(mult, "o1", "c1");
-    zero.connect(mult, "o1", "c2");
-
-    // Send data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-
-    // Control signals with different timestamps
-    one.receiveData(Message<uint64_t, double>(1, 1.0));
-    zero.receiveData(Message<uint64_t, double>(2, 1.0));
-
-    auto output = one.executeData();
-    output = zero.executeData();
-
-    // Should not produce output when timestamps don't match
-    REQUIRE(output.find("mult") == output.end());
-  }
-
-  SECTION("Warning when no control signal is active") {
-    CaptureStream capture(std::cerr);
-
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto zero = Constant<uint64_t, double>("zero", 0);
-
-    zero.connect(mult, "o1", "c1");
-    zero.connect(mult, "o1", "c2");
-
-    // Send data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-
-    // All control signals 0
-    zero.receiveData(Message<uint64_t, double>(1, 1.0));
-    zero.receiveData(Message<uint64_t, double>(1, 1.0));
-
-    auto output = zero.executeData();
-
-    // Should not produce output
-    REQUIRE(output.find("mult") == output.end());
-
-    // Should produce warning message
-    string warning = capture.get();
-    REQUIRE(warning.find("Warning: Multiplexer (mult): No control signal active") != string::npos);
-  }
-
-  SECTION("Warning with invalid control values") {
-    CaptureStream capture(std::cerr);
-
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto invalid = Constant<uint64_t, double>("invalid", 2);  // Invalid value
-    auto zero = Constant<uint64_t, double>("zero", 0);
-
-    invalid.connect(mult, "o1", "c1");
-    zero.connect(mult, "o1", "c2");
-
-    // Send data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-
-    // Invalid control value
-    invalid.receiveData(Message<uint64_t, double>(1, 1.0));
-    zero.receiveData(Message<uint64_t, double>(1, 1.0));
-
-    auto output = invalid.executeData();
-    output = zero.executeData();
-
-    // Should not produce output
-    REQUIRE(output.find("mult") == output.end());
-
-    // Should produce warning message
-    string warning = capture.get();
-    REQUIRE(warning.find("Warning: Multiplexer (mult): Invalid control value") != string::npos);
-  }
-
-  SECTION("Irregular timestamp patterns") {
-    auto mult = Multiplexer<uint64_t, double>("mult", 3);
-
-    // Control messages with irregular timestamps
-    // c1: early timestamps + big gap + late timestamps
-    mult.receiveControl(Message<uint64_t, double>(1, 0), "c1");
-    mult.receiveControl(Message<uint64_t, double>(2, 0), "c1");
-    mult.receiveControl(Message<uint64_t, double>(10, 0), "c1");
-    mult.receiveControl(Message<uint64_t, double>(20, 0), "c1");
-
-    // c2: sparse timestamps with selected port
-    mult.receiveControl(Message<uint64_t, double>(2, 0), "c2");
-    mult.receiveControl(Message<uint64_t, double>(5, 1), "c2");
-    mult.receiveControl(Message<uint64_t, double>(10, 1), "c2");
-    mult.receiveControl(Message<uint64_t, double>(15, 1), "c2");
-
-    // c3: dense timestamps in the middle
-    mult.receiveControl(Message<uint64_t, double>(5, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(6, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(7, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(8, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(9, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(10, 0), "c3");
-    mult.receiveControl(Message<uint64_t, double>(15, 0), "c3");
-
-    // Data messages with corresponding irregular patterns
-    // i1: sparse data
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(10, 11.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(20, 12.0), "i1");
-
-    // i2: more frequent data (selected input)
-    mult.receiveData(Message<uint64_t, double>(2, 20.0), "i2");
-    mult.receiveData(Message<uint64_t, double>(5, 21.0), "i2");
-    mult.receiveData(Message<uint64_t, double>(10, 22.0), "i2");
-    mult.receiveData(Message<uint64_t, double>(15, 23.0), "i2");
-
-    // i3: dense data in middle range
-    mult.receiveData(Message<uint64_t, double>(5, 30.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(6, 31.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(7, 32.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(8, 33.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(9, 34.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(10, 35.0), "i3");
-    mult.receiveData(Message<uint64_t, double>(15, 36.0), "i3");
-
-    auto output = mult.processData();
-
-    // At t=10
-    REQUIRE(output.find("o1") != output.end());
-    REQUIRE(output.find("o1")->second.at(0).time == 10);
-    REQUIRE(output.find("o1")->second.at(0).value == 22.0);
-  }
-
-  SECTION("Should emit multiple messages in sequence") {
-    auto mult = Multiplexer<uint64_t, double>("mult", 2);
-    auto zero = Constant<uint64_t, double>("zero", 0);
-    auto one = Constant<uint64_t, double>("one", 1);
-
-    // Connect control signals
-    one.connect(mult, "o1", "c1");
-    zero.connect(mult, "o1", "c2");
-
-    cout << "Should emit multiple messages in sequence" << endl;
-    cout << "----------------------------------------" << endl;
-    // Send multiple data messages to both inputs
-    mult.receiveData(Message<uint64_t, double>(1, 10.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(2, 11.0), "i1");
-    mult.receiveData(Message<uint64_t, double>(3, 12.0), "i1");
-
-    mult.receiveData(Message<uint64_t, double>(1, 20.0), "i2");
-    mult.receiveData(Message<uint64_t, double>(2, 21.0), "i2");
-    mult.receiveData(Message<uint64_t, double>(3, 22.0), "i2");
-
-    // Send control signals for all timestamps
-    for (uint64_t t = 1; t <= 3; t++) {
-      cout << "Send one control signal for timestamp " << t << endl;
-      one.receiveData(Message<uint64_t, double>(t, 1.0));  // Select first input
-      cout << "Send zero control signal for timestamp " << t << endl;
-      zero.receiveData(Message<uint64_t, double>(t, 1.0));  // Disable second input
+    WHEN("Receiving a control message on a data port") {
+      REQUIRE_THROWS_AS(mult->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
     }
 
-    // Process all messages
-    auto output = one.executeData();
-    output = zero.executeData();
+    WHEN("Receiving a data message on a control port") {
+      REQUIRE_THROWS_AS(mult->receive_control(create_message<NumberData>(1, NumberData{42.0}), 0), std::runtime_error);
+    }
 
-    // print output pretty
-    for (const auto& pair : output) {
-      cout << pair.first << ": ";
-      for (const auto& msg : pair.second.find("o1")->second) {
-        cout << "(" << msg.time << ", " << msg.value << ") ";
+    WHEN("Receiving valid control and data messages") {
+      // Send control messages: select first port
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{true}),
+                            0  // first control port
+      );
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{false}),
+                            1  // second control port
+      );
+
+      // Send data messages
+      mult->receive_data(create_message<NumberData>(1, NumberData{42.0}),
+                         0  // first data port
+      );
+      mult->receive_data(create_message<NumberData>(1, NumberData{24.0}),
+                         1  // second data port
+      );
+
+      THEN("It forwards data from the selected port") {
+        mult->execute();
+
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
+        REQUIRE(msg != nullptr);
+        REQUIRE(msg->time == 1);
+        REQUIRE(msg->data.value == 42.0);
       }
-      cout << endl;
     }
 
-    // Verify output contains all messages from the selected input
-    REQUIRE(output.find("mult") != output.end());
-    REQUIRE(output.find("mult")->second.find("o1")->second.size() == 3);
+    WHEN("Receiving multiple messages in sequence") {
+      // First time step: select first port
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{true}), 0);
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 1);
+      mult->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+      mult->receive_data(create_message<NumberData>(1, NumberData{24.0}), 1);
 
-    // Check each message
-    auto& messages = output.find("mult")->second.find("o1")->second;
-    REQUIRE(messages[0].time == 1);
-    REQUIRE(messages[0].value == 10.0);
-    REQUIRE(messages[1].time == 2);
-    REQUIRE(messages[1].value == 11.0);
-    REQUIRE(messages[2].time == 3);
-    REQUIRE(messages[2].value == 12.0);
+      // Second time step: select second port
+      mult->receive_control(create_message<BooleanData>(2, BooleanData{false}), 0);
+      mult->receive_control(create_message<BooleanData>(2, BooleanData{true}), 1);
+      mult->receive_data(create_message<NumberData>(2, NumberData{84.0}), 0);
+      mult->receive_data(create_message<NumberData>(2, NumberData{48.0}), 1);
+      mult->execute();
+
+      THEN("It forwards data from the correct ports in sequence") {
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1 != nullptr);
+        REQUIRE(msg1->time == 1);
+        REQUIRE(msg1->data.value == 42.0);
+
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2 != nullptr);
+        REQUIRE(msg2->time == 2);
+        REQUIRE(msg2->data.value == 48.0);
+      }
+    }
+
+    WHEN("Receiving control signals with no active port") {
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 0);
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 1);
+      mult->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+
+      THEN("It doesn't produce output") {
+        mult->execute();
+
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.empty());
+      }
+    }
+
+    WHEN("Receiving control signals with multiple active ports") {
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{true}), 0);
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{true}), 1);
+      mult->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+
+      THEN("It doesn't produce output") {
+        mult->execute();
+
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.empty());
+      }
+    }
   }
-  * /
+}
+
+SCENARIO("Multiplexer state serialization", "[multiplexer]") {
+  GIVEN("A multiplexer with active state") {
+    auto mult = std::make_unique<Multiplexer<NumberData>>("mult", 2);
+
+    // Setup some state
+    mult->receive_control(create_message<BooleanData>(1, BooleanData{true}), 0);
+    mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 1);
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = mult->collect();
+
+      // Create new multiplexer
+      auto restored = std::make_unique<Multiplexer<NumberData>>("mult", 2);
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("Behavior is preserved") {
+        // Send same data to both multiplexers
+        auto send_data = [](auto& m) {
+          m->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+          m->execute();
+        };
+
+        send_data(mult);
+        send_data(restored);
+
+        // Compare outputs
+        const auto& orig_output = mult->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+        if (!orig_output.empty()) {
+          auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output.front().get());
+          auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output.front().get());
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+  }
+}
+
+SCENARIO("Multiplexer handles different throughput scenarios", "[multiplexer]") {
+  GIVEN("A multiplexer with two ports") {
+    auto mult = std::make_unique<Multiplexer<NumberData>>("mult", 2);
+
+    WHEN("There are gaps in the data stream") {
+      // Set control states for t=1,2,3
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{true}), 0);
+      mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 1);
+      mult->receive_control(create_message<BooleanData>(2, BooleanData{true}), 0);
+      mult->receive_control(create_message<BooleanData>(2, BooleanData{false}), 1);
+      mult->receive_control(create_message<BooleanData>(3, BooleanData{true}), 0);
+      mult->receive_control(create_message<BooleanData>(3, BooleanData{false}), 1);
+
+      // Send data with a gap at t=2
+      mult->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+      mult->receive_data(create_message<NumberData>(1, NumberData{20.0}), 1);
+      // Missing data for t=2
+      mult->receive_data(create_message<NumberData>(3, NumberData{30.0}), 0);
+      mult->receive_data(create_message<NumberData>(3, NumberData{40.0}), 1);
+
+      mult->execute();
+
+      THEN("Only messages with matching control and data are output") {
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 1);
+        REQUIRE(msg1->data.value == 10.0);
+
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 3);
+        REQUIRE(msg2->data.value == 30.0);
+      }
+    }
+  }
+}
+
+SCENARIO("Multiplexer handles irregular message patterns", "[multiplexer]") {
+  GIVEN("A multiplexer with three ports") {
+    const size_t NUM_PORTS = 3;
+    auto multiplexer = Multiplexer<NumberData>("test_multiplexer", NUM_PORTS);
+
+    WHEN("Messages arrive with gaps and all controls present") {
+      // First set: t=100
+      // Data arrives first
+      multiplexer.receive_data(create_message(100, NumberData{1.0}), 0);
+      multiplexer.receive_data(create_message(100, NumberData{10.0}), 1);
+      multiplexer.receive_data(create_message(100, NumberData{100.0}), 2);
+
+      // Then all controls arrive but multiple are active
+      multiplexer.receive_control(create_message(100, BooleanData{true}), 0);
+      multiplexer.receive_control(create_message(100, BooleanData{true}), 1);
+      multiplexer.receive_control(create_message(100, BooleanData{false}), 2);
+
+      // Second set: t=200
+      // Data arrives
+      multiplexer.receive_data(create_message(200, NumberData{2.0}), 0);
+      multiplexer.receive_data(create_message(200, NumberData{20.0}), 1);
+      multiplexer.receive_data(create_message(200, NumberData{200.0}), 2);
+
+      // Controls arrive but none are active
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 0);
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 1);
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 2);
+
+      // Third set: t=300
+      // All data arrives
+      multiplexer.receive_data(create_message(300, NumberData{3.0}), 0);
+      multiplexer.receive_data(create_message(300, NumberData{30.0}), 1);
+      multiplexer.receive_data(create_message(300, NumberData{300.0}), 2);
+
+      // All controls arrive with exactly one active
+      multiplexer.receive_control(create_message(300, BooleanData{false}), 0);
+      multiplexer.receive_control(create_message(300, BooleanData{true}), 1);
+      multiplexer.receive_control(create_message(300, BooleanData{false}), 2);
+      multiplexer.execute();
+
+      THEN("Only messages with complete controls and single selection should be emitted") {
+        auto& output_queue = multiplexer.get_output_queue(0);
+        REQUIRE(output_queue.size() == 1);
+
+        AND_THEN("Message should be from port 1 at t=300") {
+          auto msg = dynamic_cast<const Message<NumberData>*>(output_queue[0].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->time == 300);
+          REQUIRE(msg->data.value == 30.0);
+        }
+      }
+    }
+    WHEN("Messages arrive sparsely but with complete control sets") {
+      // First set: t=100 (missing data on port 2)
+      multiplexer.receive_data(create_message(100, NumberData{1.0}), 0);
+      multiplexer.receive_data(create_message(100, NumberData{10.0}), 1);
+      multiplexer.receive_control(create_message(100, BooleanData{false}), 0);
+      multiplexer.receive_control(create_message(100, BooleanData{false}), 1);
+      multiplexer.receive_control(create_message(100, BooleanData{true}), 2);
+
+      // Second set: t=200 (complete set, one control active)
+      multiplexer.receive_data(create_message(200, NumberData{2.0}), 0);
+      multiplexer.receive_data(create_message(200, NumberData{20.0}), 1);
+      multiplexer.receive_data(create_message(200, NumberData{200.0}), 2);
+
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 0);
+      multiplexer.receive_control(create_message(200, BooleanData{true}), 1);
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 2);
+
+      // Third set: t=300 (missing data on port 1)
+      multiplexer.receive_data(create_message(300, NumberData{3.0}), 0);
+      multiplexer.receive_data(create_message(300, NumberData{300.0}), 2);
+      multiplexer.receive_control(create_message(300, BooleanData{true}), 0);
+      multiplexer.receive_control(create_message(300, BooleanData{false}), 1);
+      multiplexer.receive_control(create_message(300, BooleanData{false}), 2);
+      multiplexer.execute();
+
+      THEN("Only messages with complete data and single control selection should be emitted") {
+        auto& output_queue = multiplexer.get_output_queue(0);
+        REQUIRE(output_queue.size() == 2);
+
+        AND_THEN("First message should be from port 1 at t=200") {
+          auto msg = dynamic_cast<const Message<NumberData>*>(output_queue[0].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->time == 200);
+          REQUIRE(msg->data.value == 20.0);
+        }
+
+        AND_THEN("Second message should be from port 0 at t=300") {
+          auto msg = dynamic_cast<const Message<NumberData>*>(output_queue[1].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->time == 300);
+          REQUIRE(msg->data.value == 3.0);
+        }
+      }
+    }
+
+    WHEN("Controls arrive before data") {
+      // First set: t=100 (controls arrive first)
+      multiplexer.receive_control(create_message(100, BooleanData{false}), 0);
+      multiplexer.receive_control(create_message(100, BooleanData{true}), 1);
+      multiplexer.receive_control(create_message(100, BooleanData{false}), 2);
+
+      multiplexer.receive_data(create_message(100, NumberData{1.0}), 0);
+      multiplexer.receive_data(create_message(100, NumberData{10.0}), 1);
+      multiplexer.receive_data(create_message(100, NumberData{100.0}), 2);
+
+      // Second set: t=200 (controls and data interleaved)
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 0);
+      multiplexer.receive_data(create_message(200, NumberData{2.0}), 0);
+      multiplexer.receive_control(create_message(200, BooleanData{false}), 1);
+      multiplexer.receive_data(create_message(200, NumberData{20.0}), 1);
+      multiplexer.receive_control(create_message(200, BooleanData{true}), 2);
+      multiplexer.receive_data(create_message(200, NumberData{200.0}), 2);
+      multiplexer.execute();
+
+      THEN("Messages should be emitted when both data and controls are complete") {
+        auto& output_queue = multiplexer.get_output_queue(0);
+        REQUIRE(output_queue.size() == 2);
+
+        AND_THEN("First message should be from port 1 at t=100") {
+          auto msg = dynamic_cast<const Message<NumberData>*>(output_queue[0].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->time == 100);
+          REQUIRE(msg->data.value == 10.0);
+        }
+
+        AND_THEN("Second message should be from port 2 at t=200") {
+          auto msg = dynamic_cast<const Message<NumberData>*>(output_queue[1].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->time == 200);
+          REQUIRE(msg->data.value == 200.0);
+        }
+      }
+    }
+  }
 }
