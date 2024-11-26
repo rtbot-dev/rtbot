@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "StateSerializer.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"
@@ -41,60 +42,49 @@ class Input : public Operator {
 
   // State serialization
   Bytes collect() override {
-    Bytes bytes;
+    // First collect base state
+    Bytes bytes = Operator::collect();
 
-    // Store number of ports
-    const size_t num_ports = num_data_ports();
+    // Serialize last sent times
+    size_t num_ports = last_sent_times_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
                  reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
 
-    // Store last sent times
     for (const auto& time : last_sent_times_) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
                    reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
     }
 
-    // Store port types for validation
-    for (const auto& type : port_type_names_) {
-      size_t type_length = type.length();
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&type_length),
-                   reinterpret_cast<const uint8_t*>(&type_length) + sizeof(type_length));
-      bytes.insert(bytes.end(), type.begin(), type.end());
-    }
+    // Serialize port type names
+    StateSerializer::serialize_string_vector(bytes, port_type_names_);
 
     return bytes;
   }
 
   void restore(Bytes::const_iterator& it) override {
-    // Read number of ports
-    const size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
+    // First restore base state
+    Operator::restore(it);
+
+    // Restore last sent times
+    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
 
-    // Validate port count
-    if (num_ports != num_data_ports()) {
-      throw std::runtime_error("Port count mismatch in restore");
-    }
+    StateSerializer::validate_port_count(num_ports, num_data_ports(), "Data");
 
-    // Read last sent times
     last_sent_times_.clear();
     last_sent_times_.reserve(num_ports);
     for (size_t i = 0; i < num_ports; ++i) {
-      auto time = *reinterpret_cast<const timestamp_t*>(&(*it));
+      timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
       it += sizeof(timestamp_t);
       last_sent_times_.push_back(time);
     }
 
-    // Validate port types
-    for (size_t i = 0; i < num_ports; ++i) {
-      // Read port type string
-      size_t type_length = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
-      std::string stored_type(it, it + type_length);
-      it += type_length;
+    // Restore port type names
+    StateSerializer::deserialize_string_vector(it, port_type_names_);
 
-      if (stored_type != port_type_names_[i]) {
-        throw std::runtime_error("Port type mismatch during restore for port " + std::to_string(i));
-      }
+    // Validate port types match
+    if (port_type_names_.size() != num_data_ports()) {
+      throw std::runtime_error("Port type count mismatch during restore");
     }
   }
 

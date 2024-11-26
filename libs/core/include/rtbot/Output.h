@@ -10,6 +10,10 @@ namespace rtbot {
 class Output : public Operator {
  public:
   Output(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
+    if (port_types.empty()) {
+      throw std::runtime_error("Output operator must have at least one port type");
+    }
+
     // Create corresponding input and output ports
     for (const auto& type : port_types) {
       if (!PortType::is_valid_port_type(type)) {

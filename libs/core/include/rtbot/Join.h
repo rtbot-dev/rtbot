@@ -49,66 +49,47 @@ class Join : public Operator {
   // Get port configuration
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
-  void restore(Bytes::const_iterator& it) override {
-    // Clear current state
-    data_time_tracker_.clear();
-
-    // Read number of ports
-    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    if (num_ports != num_data_ports()) {
-      throw std::runtime_error("Port count mismatch in restore");
-    }
-
-    // Restore time tracker for each port
-    for (size_t port = 0; port < num_ports; ++port) {
-      size_t num_times = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
-
-      std::set<timestamp_t>& times = data_time_tracker_[port];
-      for (size_t i = 0; i < num_times; ++i) {
-        timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
-        it += sizeof(timestamp_t);
-        times.insert(time);
-      }
-    }
-  }
-
   Bytes collect() override {
-    Bytes bytes;
+    // First collect base state
+    Bytes bytes = Operator::collect();
 
-    // Save number of ports
-    size_t num_ports = num_data_ports();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
-                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
+    // Serialize data time tracker
+    StateSerializer::serialize_port_timestamp_set_map(bytes, data_time_tracker_);
 
-    // Save time tracker for each port
-    for (const auto& [port, times] : data_time_tracker_) {
-      size_t num_times = times.size();
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_times),
-                   reinterpret_cast<const uint8_t*>(&num_times) + sizeof(num_times));
-
-      for (const auto& time : times) {
-        bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
-                     reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
-      }
-    }
+    // Serialize port type names
+    StateSerializer::serialize_string_vector(bytes, port_type_names_);
 
     return bytes;
   }
 
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
-    if (port_index >= num_data_ports()) {
-      throw std::runtime_error("Invalid data port index");
+  void restore(Bytes::const_iterator& it) override {
+    // First restore base state
+    Operator::restore(it);
+
+    // Clear current state
+    data_time_tracker_.clear();
+
+    // Restore data time tracker
+    StateSerializer::deserialize_port_timestamp_set_map(it, data_time_tracker_);
+
+    // Validate port count
+    StateSerializer::validate_port_count(data_time_tracker_.size(), num_data_ports(), "Data");
+
+    // Restore port type names
+    StateSerializer::deserialize_string_vector(it, port_type_names_);
+
+    // Validate port types match
+    if (port_type_names_.size() != num_data_ports()) {
+      throw std::runtime_error("Port type count mismatch during restore");
     }
+  }
+
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+    auto time = msg->time;
+    Operator::receive_data(std::move(msg), port_index);
 
     // Track timestamp
-    data_time_tracker_[port_index].insert(msg->time);
-
-    // Add message to queue
-    get_data_queue(port_index).push_back(std::move(msg));
-    data_ports_with_new_data_.insert(port_index);
+    data_time_tracker_[port_index].insert(time);
   }
 
  protected:

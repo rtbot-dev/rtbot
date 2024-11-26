@@ -1,6 +1,7 @@
 #ifndef DEMULTIPLEXER_H
 #define DEMULTIPLEXER_H
 
+#include "StateSerializer.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"
@@ -32,92 +33,41 @@ class Demultiplexer : public Operator {
     }
   }
 
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();  // First collect base state
+
+    // Serialize data time tracker
+    StateSerializer::serialize_timestamp_set(bytes, data_time_tracker_);
+
+    // Serialize control time tracker
+    StateSerializer::serialize_port_control_map(bytes, control_time_tracker_);
+
+    return bytes;
+  }
+
   void restore(Bytes::const_iterator& it) override {
+    // First restore base state
+    Operator::restore(it);
+
     // Clear current state
     data_time_tracker_.clear();
     control_time_tracker_.clear();
 
     // Restore data time tracker
-    size_t data_times_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    for (size_t i = 0; i < data_times_size; ++i) {
-      timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
-      it += sizeof(timestamp_t);
-      data_time_tracker_.insert(time);
-    }
+    StateSerializer::deserialize_timestamp_set(it, data_time_tracker_);
 
     // Restore control time tracker
-    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
+    StateSerializer::deserialize_port_control_map(it, control_time_tracker_);
 
-    for (size_t i = 0; i < num_ports; ++i) {
-      size_t times_size = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
-
-      auto& port_times = control_time_tracker_[i];
-      for (size_t j = 0; j < times_size; ++j) {
-        timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
-        it += sizeof(timestamp_t);
-
-        bool value = *reinterpret_cast<const bool*>(&(*it));
-        it += sizeof(bool);
-
-        port_times[time] = value;
-      }
-    }
-  }
-
-  Bytes collect() override {
-    Bytes bytes;
-
-    // Save data time tracker
-    size_t data_times_size = data_time_tracker_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&data_times_size),
-                 reinterpret_cast<const uint8_t*>(&data_times_size) + sizeof(data_times_size));
-
-    for (const auto& time : data_time_tracker_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
-                   reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
-    }
-
-    // Save control time tracker
-    size_t num_ports = control_time_tracker_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
-                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
-
-    for (const auto& [port, times] : control_time_tracker_) {
-      size_t times_size = times.size();
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&times_size),
-                   reinterpret_cast<const uint8_t*>(&times_size) + sizeof(times_size));
-
-      for (const auto& [time, value] : times) {
-        bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
-                     reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
-        bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&value),
-                     reinterpret_cast<const uint8_t*>(&value) + sizeof(value));
-      }
-    }
-
-    return bytes;
+    // Validate control port count
+    StateSerializer::validate_port_count(control_time_tracker_.size(), num_control_ports(), "Control");
   }
 
   void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
-    if (port_index >= num_data_ports()) {
-      throw std::runtime_error("Invalid data port index");
-    }
+    auto time = msg->time;
+    Operator::receive_data(std::move(msg), port_index);
 
-    auto* data_msg = dynamic_cast<const Message<T>*>(msg.get());
-    if (!data_msg) {
-      throw std::runtime_error("Invalid data message type");
-    }
-
-    // Add timestamp to tracker
-    data_time_tracker_.insert(data_msg->time);
-
-    // Add message to queue
-    get_data_queue(port_index).push_back(std::move(msg));
-    data_ports_with_new_data_.insert(port_index);
+    data_time_tracker_.insert(time);
   }
 
   void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
