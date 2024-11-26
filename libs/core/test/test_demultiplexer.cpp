@@ -1,58 +1,166 @@
 #include <catch2/catch.hpp>
+#include <iostream>
 
 #include "rtbot/Demultiplexer.h"
-#include "rtbot/Input.h"
-#include "rtbot/Join.h"
-#include "rtbot/Output.h"
-#include "rtbot/std/Constant.h"
-#include "rtbot/std/Count.h"
-#include "rtbot/std/EqualTo.h"
-#include "rtbot/std/GreaterThan.h"
-#include "rtbot/std/LessThan.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("Demultiplexer") {
-  auto in1 = Input<uint64_t, double>("in1");
-  auto count = Count<uint64_t, double>("count");
-  auto demult = Demultiplexer<uint64_t, double>("demult", 2);
-  auto less = LessThan<uint64_t, double>("less", 20);
-  auto greater = GreaterThan<uint64_t, double>("greater", 20);
-  auto equal = EqualTo<uint64_t, double>("equal", 20);
-  auto constLt20Zero = Constant<uint64_t, double>("cLt20Zero", 0);
-  auto constLt20One = Constant<uint64_t, double>("cLt20One", 1);
-  auto constEt20Zero = Constant<uint64_t, double>("cEt20Zero", 0);
-  auto constEt20One = Constant<uint64_t, double>("cEt20One", 1);
-  auto constGt20Zero = Constant<uint64_t, double>("cGt20Zero", 0);
-  auto constGt20One = Constant<uint64_t, double>("cGt20One", 1);
+SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplexer]") {
+  GIVEN("A demultiplexer with two output ports") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
 
-  in1.connect(demult, "o1", "i1");
-  in1.connect(count)->connect(less)->connect(constLt20One, "o1", "i1")->connect(demult, "o1", "c1");
-  less.connect(constLt20Zero, "o1", "i1")->connect(demult, "o1", "c2");
-  count.connect(equal)->connect(constEt20One, "o1", "i1")->connect(demult, "o1", "c2");
-  equal.connect(constEt20Zero)->connect(demult, "o1", "c1");
-  count.connect(greater)->connect(constGt20One, "o1", "i1")->connect(demult, "o1", "c2");
-  greater.connect(constGt20Zero)->connect(demult, "o1", "c1");
+    WHEN("Control messages arrive before data message") {
+      // Set controls for t=100: route to first port
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
 
-  // process the data
-  SECTION("Emit for the right port") {
-    for (int i = 1; i <= 100; i++) {
-      in1.receiveData(Message<uint64_t, double>(i, (i < 20) ? 1 : 2));
-      auto output = in1.executeData();
+      // Send data
+      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+      demux->execute();
 
-      if (i < 20) {
-        REQUIRE(output.find("demult")->second.find("o1")->second.size() == 1);
-        REQUIRE(output.find("demult")->second.find("o1")->second.at(0).value == 1);
-        REQUIRE(output.find("demult")->second.find("o1")->second.at(0).time == i);
+      THEN("Message is routed to first port") {
+        const auto& first_output = demux->get_output_queue(0);
+        const auto& second_output = demux->get_output_queue(1);
 
-        REQUIRE(output.find("demult")->second.count("o2") == 0);
-      } else if (i >= 20) {
-        REQUIRE(output.find("demult")->second.find("o2")->second.size() == 1);
-        REQUIRE(output.find("demult")->second.find("o2")->second.at(0).value == 2);
-        REQUIRE(output.find("demult")->second.find("o2")->second.at(0).time == i);
+        REQUIRE(first_output.size() == 1);
+        REQUIRE(second_output.empty());
 
-        REQUIRE(output.find("demult")->second.count("o1") == 0);
+        auto* msg = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        REQUIRE(msg->time == 100);
+        REQUIRE(msg->data.value == 42.0);
+      }
+    }
+
+    WHEN("Multiple messages arrive in sequence") {
+      // t=100: route to first port
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
+      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+
+      // t=200: route to second port
+      demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 0);
+      demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 1);
+      demux->receive_data(create_message<NumberData>(200, NumberData{84.0}), 0);
+
+      demux->execute();
+
+      THEN("Messages are routed to correct ports") {
+        const auto& first_output = demux->get_output_queue(0);
+        const auto& second_output = demux->get_output_queue(1);
+
+        REQUIRE(first_output.size() == 1);
+        REQUIRE(second_output.size() == 1);
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        REQUIRE(msg1->time == 100);
+        REQUIRE(msg1->data.value == 42.0);
+
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
+        REQUIRE(msg2->time == 200);
+        REQUIRE(msg2->data.value == 84.0);
+      }
+    }
+
+    WHEN("Data message arrives before control messages") {
+      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
+
+      demux->execute();
+
+      THEN("Message is still routed correctly") {
+        const auto& first_output = demux->get_output_queue(0);
+        REQUIRE(first_output.size() == 1);
+
+        auto* msg = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        REQUIRE(msg->time == 100);
+        REQUIRE(msg->data.value == 42.0);
+      }
+    }
+
+    WHEN("Data arrives without matching control messages") {
+      demux->receive_data(create_message<NumberData>(50, NumberData{42.0}), 0);
+
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
+
+      demux->execute();
+
+      THEN("Old data message is cleaned up") {
+        const auto& first_output = demux->get_output_queue(0);
+        const auto& second_output = demux->get_output_queue(1);
+
+        REQUIRE(first_output.empty());
+        REQUIRE(second_output.empty());
+      }
+    }
+
+    WHEN("Multiple control ports are active") {
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 1);
+      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+
+      THEN("Runtime exception is thrown") {
+        REQUIRE_THROWS_AS(demux->execute(), std::runtime_error);
+        REQUIRE_THROWS_WITH(demux->execute(), "Multiple control ports active at the same time");
+      }
+    }
+  }
+}
+
+SCENARIO("Demultiplexer handles complex message patterns", "[demultiplexer]") {
+  GIVEN("A demultiplexer with three output ports") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 3);
+
+    WHEN("Messages arrive in an irregular pattern") {
+      THEN("First batch is processed correctly") {
+        demux->receive_data(create_message<NumberData>(100, NumberData{1.0}), 0);
+        demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+        demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
+        demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 2);
+
+        demux->execute();
+
+        const auto& out0 = demux->get_output_queue(0);
+        REQUIRE(out0.size() == 1);
+        auto* msg = dynamic_cast<const Message<NumberData>*>(out0[0].get());
+        REQUIRE(msg->time == 100);
+        REQUIRE(msg->data.value == 1.0);
+      }
+
+      AND_THEN("Second batch routes to different port") {
+        demux->receive_data(create_message<NumberData>(150, NumberData{1.5}), 0);
+        demux->receive_control(create_message<BooleanData>(150, BooleanData{false}), 0);
+        demux->receive_control(create_message<BooleanData>(150, BooleanData{true}), 1);
+        demux->receive_control(create_message<BooleanData>(150, BooleanData{false}), 2);
+
+        demux->execute();
+
+        const auto& out1 = demux->get_output_queue(1);
+        REQUIRE(out1.size() == 1);
+        auto* msg = dynamic_cast<const Message<NumberData>*>(out1[0].get());
+        REQUIRE(msg->time == 150);
+        REQUIRE(msg->data.value == 1.5);
+      }
+
+      AND_THEN("Third batch waits for all controls") {
+        demux->receive_data(create_message<NumberData>(200, NumberData{2.0}), 0);
+        demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 0);
+        demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 1);
+
+        demux->execute();
+
+        const auto& out2 = demux->get_output_queue(2);
+        REQUIRE(out2.empty());
+
+        demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 2);
+        demux->execute();
+
+        REQUIRE(out2.size() == 1);
+        auto* msg = dynamic_cast<const Message<NumberData>*>(out2[0].get());
+        REQUIRE(msg->time == 200);
+        REQUIRE(msg->data.value == 2.0);
       }
     }
   }

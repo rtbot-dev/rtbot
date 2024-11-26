@@ -146,7 +146,7 @@ class Multiplexer : public Operator {
 
     // Add message to queue
     get_data_queue(port_index).push_back(std::move(msg));
-    ports_with_new_data_.insert(port_index);
+    data_ports_with_new_data_.insert(port_index);
   }
 
   void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
@@ -164,7 +164,7 @@ class Multiplexer : public Operator {
 
     // Add message to queue
     get_control_queue(port_index).push_back(std::move(msg));
-    ports_with_new_data_.insert(port_index);
+    data_ports_with_new_data_.insert(port_index);
   }
 
  protected:

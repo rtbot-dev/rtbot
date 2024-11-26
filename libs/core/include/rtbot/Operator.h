@@ -65,7 +65,7 @@ class Operator {
     }
 
     data_ports_[port_index].queue.push_back(std::move(msg));
-    ports_with_new_data_.insert(port_index);
+    data_ports_with_new_data_.insert(port_index);
   }
 
   // Runtime port access for control messages with type checking
@@ -83,7 +83,7 @@ class Operator {
   }
 
   void execute() {
-    if (ports_with_new_data_.empty()) {
+    if (data_ports_with_new_data_.empty() && control_ports_with_new_data_.empty()) {
       return;
     }
 
@@ -100,7 +100,7 @@ class Operator {
 
     // Then process data
     process_data();
-    ports_with_new_data_.clear();
+    data_ports_with_new_data_.clear();
 
     propagate_outputs();
   }
@@ -190,7 +190,7 @@ class Operator {
   std::vector<PortInfo> control_ports_;
   std::vector<PortInfo> output_ports_;
   std::vector<Connection> connections_;
-  std::set<size_t> ports_with_new_data_;
+  std::set<size_t> data_ports_with_new_data_;
   std::set<size_t> control_ports_with_new_data_;
 };
 

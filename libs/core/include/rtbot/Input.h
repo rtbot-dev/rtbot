@@ -110,7 +110,7 @@ class Input : public Operator {
  protected:
   void process_data() override {
     // Process each port that has new data
-    for (const auto& port_index : ports_with_new_data_) {
+    for (const auto& port_index : data_ports_with_new_data_) {
       const auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
 
