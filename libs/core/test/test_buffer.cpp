@@ -39,8 +39,9 @@ class TestBuffer : public Buffer<NumberData, Features> {
   std::string type_name() const override { return "TestBuffer"; }
 
  protected:
-  bool process_message(const Message<NumberData>* msg) override {
-    return true;  // Always process messages for testing
+  std::unique_ptr<Message<NumberData>> process_message(const Message<NumberData>* msg) override {
+    // Always forward messages for testing
+    return create_message<NumberData>(msg->time, msg->data);
   }
 };
 
