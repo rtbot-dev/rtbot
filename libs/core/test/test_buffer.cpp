@@ -36,6 +36,8 @@ class TestBuffer : public Buffer<NumberData, Features> {
  public:
   TestBuffer(std::string id, size_t window_size) : Buffer<NumberData, Features>(id, window_size) {}
 
+  std::string type_name() const override { return "TestBuffer"; }
+
  protected:
   bool process_message(const Message<NumberData>* msg) override {
     return true;  // Always process messages for testing

@@ -46,6 +46,8 @@ class Join : public Operator {
     }
   }
 
+  std::string type_name() const override { return "Join"; }
+
   // Get port configuration
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 

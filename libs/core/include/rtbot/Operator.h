@@ -33,6 +33,8 @@ class Operator {
   Operator(std::string id) : id_(std::move(id)) {}
   virtual ~Operator() = default;
 
+  virtual std::string type_name() const = 0;
+
   // Default implementations for core operator state
   virtual Bytes collect() {
     Bytes bytes;

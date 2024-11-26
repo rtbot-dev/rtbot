@@ -37,6 +37,8 @@ class Multiplexer : public Operator {
     add_output_port<T>();
   }
 
+  std::string type_name() const override { return "Multiplexer"; }
+
   // State serialization
   Bytes collect() override {
     // First collect base state

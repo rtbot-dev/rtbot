@@ -33,6 +33,8 @@ class Demultiplexer : public Operator {
     }
   }
 
+  std::string type_name() const override { return "Demultiplexer"; }
+
   Bytes collect() override {
     Bytes bytes = Operator::collect();  // First collect base state
 
