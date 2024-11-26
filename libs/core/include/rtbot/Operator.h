@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <deque>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <set>
 #include <string>
@@ -13,6 +14,7 @@
 #include <vector>
 
 #include "rtbot/Message.h"
+#include "rtbot/StateSerializer.h"
 
 namespace rtbot {
 
@@ -31,36 +33,90 @@ class Operator {
   Operator(std::string id) : id_(std::move(id)) {}
   virtual ~Operator() = default;
 
-  virtual void restore(Bytes::const_iterator& it) {
-    // Read number of ports
-    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    // Validate port counts
-    if (num_ports != num_data_ports() || num_ports != num_control_ports() || num_ports != num_output_ports()) {
-      throw std::runtime_error("Port count mismatch in restore");
-    }
-
-    // Restore port-specific state
-    restore_port_state(it, data_ports_);
-    restore_port_state(it, control_ports_);
-    restore_port_state(it, output_ports_);
-  }
-
+  // Default implementations for core operator state
   virtual Bytes collect() {
     Bytes bytes;
 
-    // Save number of ports
-    size_t num_ports = num_data_ports();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
-                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
+    // Serialize port counts
+    size_t data_ports_count = data_ports_.size();
+    size_t control_ports_count = control_ports_.size();
+    size_t output_ports_count = output_ports_.size();
 
-    // Save port-specific state
-    collect_port_state(bytes, data_ports_);
-    collect_port_state(bytes, control_ports_);
-    collect_port_state(bytes, output_ports_);
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&data_ports_count),
+                 reinterpret_cast<const uint8_t*>(&data_ports_count) + sizeof(data_ports_count));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&control_ports_count),
+                 reinterpret_cast<const uint8_t*>(&control_ports_count) + sizeof(control_ports_count));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&output_ports_count),
+                 reinterpret_cast<const uint8_t*>(&output_ports_count) + sizeof(output_ports_count));
+
+    // Serialize port types
+    for (const auto& port : data_ports_) {
+      StateSerializer::serialize_type_index(bytes, port.type);
+    }
+    for (const auto& port : control_ports_) {
+      StateSerializer::serialize_type_index(bytes, port.type);
+    }
+    for (const auto& port : output_ports_) {
+      StateSerializer::serialize_type_index(bytes, port.type);
+    }
+
+    // Serialize message queues
+    for (const auto& port : data_ports_) {
+      StateSerializer::serialize_message_queue(bytes, port.queue);
+    }
+    for (const auto& port : control_ports_) {
+      StateSerializer::serialize_message_queue(bytes, port.queue);
+    }
+    for (const auto& port : output_ports_) {
+      StateSerializer::serialize_message_queue(bytes, port.queue);
+    }
+
+    // Serialize ports with new data sets
+    StateSerializer::serialize_index_set(bytes, data_ports_with_new_data_);
+    StateSerializer::serialize_index_set(bytes, control_ports_with_new_data_);
 
     return bytes;
+  }
+
+  virtual void restore(Bytes::const_iterator& it) {
+    // Read port counts
+    size_t data_ports_count = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
+    size_t control_ports_count = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
+    size_t output_ports_count = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
+
+    // Validate port counts match current configuration
+    StateSerializer::validate_port_count(data_ports_count, data_ports_.size(), "Data");
+    StateSerializer::validate_port_count(control_ports_count, control_ports_.size(), "Control");
+    StateSerializer::validate_port_count(output_ports_count, output_ports_.size(), "Output");
+
+    // Validate and restore port types
+    for (auto& port : data_ports_) {
+      StateSerializer::validate_and_restore_type(it, port.type);
+    }
+    for (auto& port : control_ports_) {
+      StateSerializer::validate_and_restore_type(it, port.type);
+    }
+    for (auto& port : output_ports_) {
+      StateSerializer::validate_and_restore_type(it, port.type);
+    }
+
+    // Restore message queues
+    for (auto& port : data_ports_) {
+      StateSerializer::deserialize_message_queue(it, port.queue);
+    }
+    for (auto& port : control_ports_) {
+      StateSerializer::deserialize_message_queue(it, port.queue);
+    }
+    for (auto& port : output_ports_) {
+      StateSerializer::deserialize_message_queue(it, port.queue);
+    }
+
+    // Restore ports with new data sets
+    StateSerializer::deserialize_index_set(it, data_ports_with_new_data_);
+    StateSerializer::deserialize_index_set(it, control_ports_with_new_data_);
   }
 
   // Dynamic port management with type information
@@ -221,31 +277,6 @@ class Operator {
   std::vector<Connection> connections_;
   std::set<size_t> data_ports_with_new_data_;
   std::set<size_t> control_ports_with_new_data_;
-
- private:
-  template <typename PortType>
-  void restore_port_state(Bytes::const_iterator& it, std::vector<PortType>& ports) {
-    for (size_t port = 0; port < ports.size(); ++port) {
-      restore_port_data(it, ports[port]);
-    }
-  }
-
-  template <typename PortType>
-  void restore_port_data(Bytes::const_iterator& it, PortType& port) {
-    // Derived classes should implement this
-  }
-
-  template <typename PortType>
-  void collect_port_state(Bytes& bytes, const std::vector<PortType>& ports) {
-    for (const auto& port : ports) {
-      collect_port_data(bytes, port);
-    }
-  }
-
-  template <typename PortType>
-  void collect_port_data(Bytes& bytes, const PortType& port) {
-    // Derived classes should implement this
-  }
 };
 
 }  // namespace rtbot
