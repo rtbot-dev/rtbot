@@ -1,48 +1,54 @@
-#ifndef BINARYJOIN_H
-#define BINARYJOIN_H
-
-#include <functional>
-#include <optional>
+#ifndef BINARY_JOIN_H
+#define BINARY_JOIN_H
 
 #include "rtbot/Join.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
+template <typename T>
+class BinaryJoin : public Join {
+ public:
+  explicit BinaryJoin(std::string id)
+      : Join(std::move(id), std::vector<std::string>{PortType::get_port_type<T>(), PortType::get_port_type<T>()}) {}
 
-template <class T, class V>
-struct BinaryJoin : public Join<T, V> {
-  BinaryJoin() = default;
-  BinaryJoin(string const& id, function<optional<V>(V, V)> operation) : Join<T, V>(id) {
-    this->operation = operation;
-    int numPorts = 2;
-    for (int i = 1; i <= numPorts; i++) {
-      string inputPort = string("i") + to_string(i);
-      this->addDataInput(inputPort, 0);
+  // Pure virtual function to make the class abstract
+  virtual std::optional<T> combine(const T& a, const T& b) const = 0;
+
+ protected:
+  void process_data() override {
+    // First let Join handle synchronization
+    Join::process_data();
+
+    // Check if synchronization produced any output
+    const auto& output0 = get_output_queue(0);
+    const auto& output1 = get_output_queue(1);
+
+    if (!output0.empty() && !output1.empty()) {
+      // Get synchronized messages
+      const auto* msg1 = dynamic_cast<const Message<T>*>(output0.front().get());
+      const auto* msg2 = dynamic_cast<const Message<T>*>(output1.front().get());
+
+      if (!msg1 || !msg2) {
+        throw std::runtime_error("Invalid message type in BinaryJoin");
+      }
+
+      // Apply the binary operation
+      auto result = combine(msg1->data, msg2->data);
+
+      // Clear both output queues
+      get_output_queue(0).clear();
+      get_output_queue(1).clear();
+
+      if (result) {
+        // Create new output message on port 0
+        auto out_msg = create_message<T>(msg1->time, *result);
+        get_output_queue(0).push_back(std::move(out_msg));
+      }
     }
-    this->addOutput("o1");
   }
-
-  OperatorMessage<T, V> processData() override {
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> m1 = this->getDataInputMessage("i2", 0);
-    Message<T, V> m0 = this->getDataInputMessage("i1", 0);
-    Message<T, V> out;
-    out.time = m0.time;
-    optional<V> result = operation(m0.value, m1.value);
-    if (!result.has_value()) return {};
-    out.value = result.value();
-
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-
-    return outputMsgs;
-  }
-
- private:
-  function<optional<V>(V, V)> operation;
 };
+
 }  // namespace rtbot
 
-#endif  // BINARYJOIN_H
+#endif  // BINARY_JOIN_H

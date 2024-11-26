@@ -1,11 +1,10 @@
 #ifndef DEMULTIPLEXER_H
 #define DEMULTIPLEXER_H
 
-#include <iostream>
-#include <map>
-
-#include "Operator.h"
-#include "TimestampTracker.h"
+#include "rtbot/Message.h"
+#include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
+#include "rtbot/TimestampTracker.h"
 
 namespace rtbot {
 
@@ -17,17 +16,17 @@ class Demultiplexer : public Operator {
       throw std::runtime_error("Number of output ports must be at least 1");
     }
 
-    // Add single data input port
+    // Add single data input port with type T
     add_data_port<T>();
     data_time_tracker_ = std::set<timestamp_t>();
 
-    // Add corresponding control ports
+    // Add corresponding control ports (always boolean)
     for (size_t i = 0; i < num_ports; ++i) {
       add_control_port<BooleanData>();
       control_time_tracker_[i] = std::map<timestamp_t, bool>();
     }
 
-    // Add output ports
+    // Add output ports (same type as input)
     for (size_t i = 0; i < num_ports; ++i) {
       add_output_port<T>();
     }
@@ -218,6 +217,25 @@ class Demultiplexer : public Operator {
   std::set<timestamp_t> data_time_tracker_;
   std::map<size_t, std::map<timestamp_t, bool>> control_time_tracker_;
 };
+
+// Factory functions for common configurations using PortType
+inline std::unique_ptr<Demultiplexer<NumberData>> make_number_demultiplexer(std::string id, size_t num_ports) {
+  return std::make_unique<Demultiplexer<NumberData>>(std::move(id), num_ports);
+}
+
+inline std::unique_ptr<Demultiplexer<BooleanData>> make_boolean_demultiplexer(std::string id, size_t num_ports) {
+  return std::make_unique<Demultiplexer<BooleanData>>(std::move(id), num_ports);
+}
+
+inline std::unique_ptr<Demultiplexer<VectorNumberData>> make_vector_number_demultiplexer(std::string id,
+                                                                                         size_t num_ports) {
+  return std::make_unique<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
+}
+
+inline std::unique_ptr<Demultiplexer<VectorBooleanData>> make_vector_boolean_demultiplexer(std::string id,
+                                                                                           size_t num_ports) {
+  return std::make_unique<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
+}
 
 }  // namespace rtbot
 

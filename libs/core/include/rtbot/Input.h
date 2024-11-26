@@ -7,31 +7,20 @@
 
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
 class Input : public Operator {
  public:
-  // Static port type string constants
-  static constexpr const char* NUMBER_PORT = "number";
-  static constexpr const char* BOOLEAN_PORT = "boolean";
-  static constexpr const char* VECTOR_NUMBER_PORT = "vector_number";
-  static constexpr const char* VECTOR_BOOLEAN_PORT = "vector_boolean";
-
   // Constructor takes a vector of port type strings
   Input(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
     for (const auto& type : port_types) {
-      if (type == NUMBER_PORT) {
-        add_number_port();
-      } else if (type == BOOLEAN_PORT) {
-        add_boolean_port();
-      } else if (type == VECTOR_NUMBER_PORT) {
-        add_vector_number_port();
-      } else if (type == VECTOR_BOOLEAN_PORT) {
-        add_vector_boolean_port();
-      } else {
+      if (!PortType::is_valid_port_type(type)) {
         throw std::runtime_error("Unknown port type: " + type);
       }
+      PortType::add_port(*this, type, true, true);
+      last_sent_times_.push_back(0);
       port_type_names_.push_back(type);
     }
   }
@@ -65,18 +54,18 @@ class Input : public Operator {
                    reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
     }
 
-    // Store type information for validation
-    for (size_t i = 0; i < num_ports; ++i) {
-      const auto& type = get_data_port_type(i);
-      const auto& type_hash = type.hash_code();
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&type_hash),
-                   reinterpret_cast<const uint8_t*>(&type_hash) + sizeof(type_hash));
+    // Store port types for validation
+    for (const auto& type : port_type_names_) {
+      size_t type_length = type.length();
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&type_length),
+                   reinterpret_cast<const uint8_t*>(&type_length) + sizeof(type_length));
+      bytes.insert(bytes.end(), type.begin(), type.end());
     }
 
     return bytes;
   }
 
-  void restore(std::vector<uint8_t>::const_iterator& it) override {
+  void restore(Bytes::const_iterator& it) override {
     // Read number of ports
     const size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
@@ -95,14 +84,16 @@ class Input : public Operator {
       last_sent_times_.push_back(time);
     }
 
-    // Validate type information
+    // Validate port types
     for (size_t i = 0; i < num_ports; ++i) {
-      const auto stored_type_hash = *reinterpret_cast<const size_t*>(&(*it));
+      // Read port type string
+      size_t type_length = *reinterpret_cast<const size_t*>(&(*it));
       it += sizeof(size_t);
+      std::string stored_type(it, it + type_length);
+      it += type_length;
 
-      const auto& current_type = get_data_port_type(i);
-      if (stored_type_hash != current_type.hash_code()) {
-        throw std::runtime_error("Type mismatch during restore for port " + std::to_string(i));
+      if (stored_type != port_type_names_[i]) {
+        throw std::runtime_error("Port type mismatch during restore for port " + std::to_string(i));
       }
     }
   }
@@ -133,30 +124,6 @@ class Input : public Operator {
   void process_control() override {}  // No control processing needed
 
  private:
-  void add_number_port() {
-    add_data_port<NumberData>();
-    add_output_port<NumberData>();
-    last_sent_times_.push_back(0);
-  }
-
-  void add_boolean_port() {
-    add_data_port<BooleanData>();
-    add_output_port<BooleanData>();
-    last_sent_times_.push_back(0);
-  }
-
-  void add_vector_number_port() {
-    add_data_port<VectorNumberData>();
-    add_output_port<VectorNumberData>();
-    last_sent_times_.push_back(0);
-  }
-
-  void add_vector_boolean_port() {
-    add_data_port<VectorBooleanData>();
-    add_output_port<VectorBooleanData>();
-    last_sent_times_.push_back(0);
-  }
-
   void validate_port_index(size_t port_index) const {
     if (port_index >= num_data_ports()) {
       throw std::runtime_error("Invalid port index: " + std::to_string(port_index));
@@ -164,24 +131,24 @@ class Input : public Operator {
   }
 
   std::vector<timestamp_t> last_sent_times_;
-  std::vector<std::string> port_type_names_;  // Store port type names for serialization
+  std::vector<std::string> port_type_names_;
 };
 
 // Factory functions for common configurations
 inline std::unique_ptr<Input> make_number_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{Input::NUMBER_PORT});
+  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::NUMBER});
 }
 
 inline std::unique_ptr<Input> make_boolean_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{Input::BOOLEAN_PORT});
+  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
 }
 
 inline std::unique_ptr<Input> make_vector_number_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{Input::VECTOR_NUMBER_PORT});
+  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
 }
 
 inline std::unique_ptr<Input> make_vector_boolean_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{Input::VECTOR_BOOLEAN_PORT});
+  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
 }
 
 }  // namespace rtbot

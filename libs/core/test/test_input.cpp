@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 #include "rtbot/Input.h"
+#include "rtbot/PortType.h"
 
 using namespace rtbot;
 
@@ -45,7 +46,7 @@ SCENARIO("Input operator handles single number port", "[input]") {
 SCENARIO("Input operator handles multiple types", "[input]") {
   GIVEN("An input operator with different types of ports") {
     auto input = std::make_unique<Input>(
-        "mixed_input", std::vector<std::string>{Input::NUMBER_PORT, Input::BOOLEAN_PORT, Input::VECTOR_NUMBER_PORT});
+        "mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN, PortType::VECTOR_NUMBER});
 
     WHEN("Receiving different types of messages") {
       input->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
@@ -91,9 +92,9 @@ SCENARIO("Input operator handles multiple types", "[input]") {
       THEN("Port type names are preserved") {
         const auto& types = input->get_port_types();
         REQUIRE(types.size() == 3);
-        REQUIRE(types[0] == Input::NUMBER_PORT);
-        REQUIRE(types[1] == Input::BOOLEAN_PORT);
-        REQUIRE(types[2] == Input::VECTOR_NUMBER_PORT);
+        REQUIRE(types[0] == PortType::NUMBER);
+        REQUIRE(types[1] == PortType::BOOLEAN);
+        REQUIRE(types[2] == PortType::VECTOR_NUMBER);
       }
     }
 
@@ -117,28 +118,27 @@ SCENARIO("Input operator factory functions work correctly", "[input]") {
     auto input = make_number_input("num_input");
     REQUIRE(input->num_data_ports() == 1);
     REQUIRE(input->get_data_port_type(0) == std::type_index(typeid(NumberData)));
-    REQUIRE(input->get_port_types()[0] == Input::NUMBER_PORT);
+    REQUIRE(input->get_port_types()[0] == PortType::NUMBER);
   }
 
   SECTION("Boolean input factory") {
     auto input = make_boolean_input("bool_input");
     REQUIRE(input->num_data_ports() == 1);
     REQUIRE(input->get_data_port_type(0) == std::type_index(typeid(BooleanData)));
-    REQUIRE(input->get_port_types()[0] == Input::BOOLEAN_PORT);
+    REQUIRE(input->get_port_types()[0] == PortType::BOOLEAN);
   }
 
   SECTION("Vector number input factory") {
     auto input = make_vector_number_input("vec_num_input");
     REQUIRE(input->num_data_ports() == 1);
     REQUIRE(input->get_data_port_type(0) == std::type_index(typeid(VectorNumberData)));
-    REQUIRE(input->get_port_types()[0] == Input::VECTOR_NUMBER_PORT);
+    REQUIRE(input->get_port_types()[0] == PortType::VECTOR_NUMBER);
   }
 }
 
 SCENARIO("Input operator handles state serialization", "[input]") {
   GIVEN("An input operator with multiple types and processed messages") {
-    auto input =
-        std::make_unique<Input>("mixed_input", std::vector<std::string>{Input::NUMBER_PORT, Input::BOOLEAN_PORT});
+    auto input = std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
 
     input->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
     input->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
@@ -150,7 +150,7 @@ SCENARIO("Input operator handles state serialization", "[input]") {
 
       // Create new operator with same configuration
       auto restored =
-          std::make_unique<Input>("mixed_input", std::vector<std::string>{Input::NUMBER_PORT, Input::BOOLEAN_PORT});
+          std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
 
       // Restore state
       auto it = state.cbegin();
@@ -182,7 +182,7 @@ SCENARIO("Input operator handles state serialization", "[input]") {
 
       // Create new operator with different configuration
       auto mismatched = std::make_unique<Input>(
-          "mixed_input", std::vector<std::string>{Input::BOOLEAN_PORT, Input::NUMBER_PORT});  // Wrong order
+          "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});  // Wrong order
 
       THEN("Type mismatch is detected") {
         auto it = state.cbegin();
@@ -195,14 +195,14 @@ SCENARIO("Input operator handles state serialization", "[input]") {
 SCENARIO("Input operator port configuration is accessible", "[input]") {
   GIVEN("An input operator with multiple ports") {
     auto input = std::make_unique<Input>(
-        "config_test", std::vector<std::string>{Input::NUMBER_PORT, Input::BOOLEAN_PORT, Input::VECTOR_NUMBER_PORT});
+        "config_test", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN, PortType::VECTOR_NUMBER});
 
     THEN("Port configuration can be retrieved") {
       const auto& config = input->get_port_types();
       REQUIRE(config.size() == 3);
-      REQUIRE(config[0] == Input::NUMBER_PORT);
-      REQUIRE(config[1] == Input::BOOLEAN_PORT);
-      REQUIRE(config[2] == Input::VECTOR_NUMBER_PORT);
+      REQUIRE(config[0] == PortType::NUMBER);
+      REQUIRE(config[1] == PortType::BOOLEAN);
+      REQUIRE(config[2] == PortType::VECTOR_NUMBER);
     }
 
     THEN("Port configuration matches actual port types") {
@@ -210,10 +210,10 @@ SCENARIO("Input operator port configuration is accessible", "[input]") {
       REQUIRE(config.size() == input->num_data_ports());
 
       std::vector<std::pair<std::string, const std::type_info*>> expected_types = {
-          {Input::NUMBER_PORT, &typeid(NumberData)},
-          {Input::BOOLEAN_PORT, &typeid(BooleanData)},
-          {Input::VECTOR_NUMBER_PORT, &typeid(VectorNumberData)},
-          {Input::VECTOR_BOOLEAN_PORT, &typeid(VectorBooleanData)}};
+          {PortType::NUMBER, &typeid(NumberData)},
+          {PortType::BOOLEAN, &typeid(BooleanData)},
+          {PortType::VECTOR_NUMBER, &typeid(VectorNumberData)},
+          {PortType::VECTOR_BOOLEAN, &typeid(VectorBooleanData)}};
 
       for (size_t i = 0; i < config.size(); i++) {
         auto it = std::find_if(expected_types.begin(), expected_types.end(),

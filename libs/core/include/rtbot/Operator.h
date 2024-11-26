@@ -31,8 +31,37 @@ class Operator {
   Operator(std::string id) : id_(std::move(id)) {}
   virtual ~Operator() = default;
 
-  virtual void restore(Bytes::const_iterator& it) = 0;
-  virtual Bytes collect() = 0;
+  virtual void restore(Bytes::const_iterator& it) {
+    // Read number of ports
+    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
+
+    // Validate port counts
+    if (num_ports != num_data_ports() || num_ports != num_control_ports() || num_ports != num_output_ports()) {
+      throw std::runtime_error("Port count mismatch in restore");
+    }
+
+    // Restore port-specific state
+    restore_port_state(it, data_ports_);
+    restore_port_state(it, control_ports_);
+    restore_port_state(it, output_ports_);
+  }
+
+  virtual Bytes collect() {
+    Bytes bytes;
+
+    // Save number of ports
+    size_t num_ports = num_data_ports();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
+                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
+
+    // Save port-specific state
+    collect_port_state(bytes, data_ports_);
+    collect_port_state(bytes, control_ports_);
+    collect_port_state(bytes, output_ports_);
+
+    return bytes;
+  }
 
   // Dynamic port management with type information
   template <typename T>
@@ -192,6 +221,31 @@ class Operator {
   std::vector<Connection> connections_;
   std::set<size_t> data_ports_with_new_data_;
   std::set<size_t> control_ports_with_new_data_;
+
+ private:
+  template <typename PortType>
+  void restore_port_state(Bytes::const_iterator& it, std::vector<PortType>& ports) {
+    for (size_t port = 0; port < ports.size(); ++port) {
+      restore_port_data(it, ports[port]);
+    }
+  }
+
+  template <typename PortType>
+  void restore_port_data(Bytes::const_iterator& it, PortType& port) {
+    // Derived classes should implement this
+  }
+
+  template <typename PortType>
+  void collect_port_state(Bytes& bytes, const std::vector<PortType>& ports) {
+    for (const auto& port : ports) {
+      collect_port_data(bytes, port);
+    }
+  }
+
+  template <typename PortType>
+  void collect_port_data(Bytes& bytes, const PortType& port) {
+    // Derived classes should implement this
+  }
 };
 
 }  // namespace rtbot
