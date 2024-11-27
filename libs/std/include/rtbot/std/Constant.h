@@ -1,43 +1,56 @@
-#ifndef CONST_H
-#define CONST_H
+#ifndef CONSTANT_H
+#define CONSTANT_H
 
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Constant : public Operator<T, V> {
-  Constant() = default;
-  Constant(string const &id, V value) : Operator<T, V>(id) {
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
-    this->value = value;
-  }
-  string typeName() const override { return "Constant"; }
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    out.value = this->value;
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
+template <typename T>
+class Constant : public Operator {
+ public:
+  Constant(std::string id, const T& value) : Operator(std::move(id)), value_(value) {
+    // Add single data input port and output port
+    add_data_port<T>();
+    add_output_port<T>();
   }
 
-  V getValue() const { return this->value; }
+  std::string type_name() const override { return "Constant"; }
+
+  // Accessor for the constant value
+  const T& get_value() const { return value_; }
+
+ protected:
+  void process_data() override {
+    auto& input_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
+
+    while (!input_queue.empty()) {
+      const auto* msg = dynamic_cast<const Message<T>*>(input_queue.front().get());
+      if (!msg) {
+        throw std::runtime_error("Invalid message type in Constant");
+      }
+
+      // Create output message with same timestamp but constant value
+      output_queue.push_back(create_message<T>(msg->time, value_));
+      input_queue.pop_front();
+    }
+  }
 
  private:
-  V value;
+  T value_;  // The constant value to emit
 };
+
+// Factory functions for common configurations
+inline std::unique_ptr<Constant<NumberData>> make_number_constant(std::string id, double value) {
+  return std::make_unique<Constant<NumberData>>(std::move(id), NumberData{value});
+}
+
+inline std::unique_ptr<Constant<BooleanData>> make_boolean_constant(std::string id, bool value) {
+  return std::make_unique<Constant<BooleanData>>(std::move(id), BooleanData{value});
+}
 
 }  // namespace rtbot
 
-#endif  // CONST_H
+#endif  // CONSTANT_H

@@ -32,7 +32,7 @@ struct FullStats {
 
 // Test implementation of Buffer
 template <typename Features = BufferFeatures>
-class TestBuffer : public Buffer<NumberData, Features> {
+class TestBuffer : public Buffer<Message<NumberData>, Features> {
  public:
   TestBuffer(std::string id, size_t window_size) : Buffer<NumberData, Features>(id, window_size) {}
 

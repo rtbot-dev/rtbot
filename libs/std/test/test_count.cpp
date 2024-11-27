@@ -1,48 +1,58 @@
 #include <catch2/catch.hpp>
-#include <iostream>
 
 #include "rtbot/std/Count.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("Count") {
-  auto c = Count<uint64_t, double>("c");
+SCENARIO("Count operator handles basic counting", "[Count]") {
+  GIVEN("A Count operator") {
+    auto counter = std::make_unique<Count<NumberData>>("counter");
 
-  SECTION("emits count") {
-    ProgramMessage<uint64_t, double> emitted;
-    for (int i = 1; i <= 50; i++) {
-      c.receiveData(Message<uint64_t, double>(i, i));
-      emitted = c.executeData();
-      REQUIRE(emitted.find("c")->second.find("o1")->second.at(0).value == i);
+    WHEN("Receiving messages of different types") {
+      counter->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+      counter->receive_data(create_message<NumberData>(2, NumberData{37}), 0);
+      counter->receive_data(create_message<NumberData>(3, NumberData{-2.2}), 0);
+      counter->execute();
+
+      THEN("Counts messages regardless of type") {
+        const auto& output = counter->get_output_queue(0);
+        REQUIRE(output.size() == 3);
+
+        for (size_t i = 0; i < output.size(); i++) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
+          REQUIRE(msg->time == i + 1);
+          REQUIRE(msg->data.value == i + 1);
+        }
+      }
     }
   }
+}
 
-  SECTION("can be collected and restored") {
-    auto c2 = Count<uint64_t, double>("c2");
-    for (int i = 0; i < 50; i++) {
-      c2.receiveData(Message<uint64_t, double>(i, i), "i1");
-      // notice that we have to call this before collecting the state
-      // if we want to observe any state change
-      c2.executeData();
+SCENARIO("Count operator handles state serialization", "[Count][State]") {
+  GIVEN("A Count operator with some history") {
+    auto counter = std::make_unique<Count<BooleanData>>("counter");
+
+    // Process initial messages
+    counter->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    counter->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    counter->execute();
+
+    WHEN("State is serialized and restored") {
+      Bytes state = counter->collect();
+      auto restored = std::make_unique<Count<BooleanData>>("counter");
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("Continues counting from previous state") {
+        restored->receive_data(create_message<BooleanData>(3, BooleanData{true}), 0);
+        restored->execute();
+
+        const auto& output = restored->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 3);
+        REQUIRE(msg->data.value == 3.0);
+      }
     }
-
-    Bytes bytes = c2.collect();
-
-    auto c3 = Count<uint64_t, double>("c3");
-    Bytes::const_iterator it = bytes.begin();
-    c3.restore(it);
-
-    // now add a new message to both operators and check that the values
-    // emitted by the two operators are the same
-
-    c2.receiveData(Message<uint64_t, double>(50, 510), "i1");
-    c3.receiveData(Message<uint64_t, double>(50, 510), "i1");
-
-    ProgramMessage<uint64_t, double> emitted2 = c2.executeData();
-    ProgramMessage<uint64_t, double> emitted3 = c3.executeData();
-
-    REQUIRE(emitted2.find("c2")->second.find("o1")->second.at(0).value == 51);
-    REQUIRE(emitted3.find("c3")->second.find("o1")->second.at(0).value == 51);
   }
 }

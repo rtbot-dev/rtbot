@@ -75,8 +75,10 @@
 
 #include <cmath>
 #include <deque>
+#include <iostream>
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -116,7 +118,8 @@ class Buffer : public Operator {
   }
 
   // Access buffered data
-  const std::deque<T>& buffer() const { return buffer_; }
+  const std::deque<std::unique_ptr<Message<T>>>& buffer() const { return buffer_; }
+
   size_t buffer_size() const { return buffer_.size(); }
   bool buffer_full() const { return buffer_.size() == window_size_; }
 
@@ -157,9 +160,12 @@ class Buffer : public Operator {
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&buffer_size),
                  reinterpret_cast<const uint8_t*>(&buffer_size) + sizeof(buffer_size));
 
-    for (const auto& value : buffer_) {
-      Bytes value_bytes = value.serialize();
-      bytes.insert(bytes.end(), value_bytes.begin(), value_bytes.end());
+    for (const auto& msg : buffer_) {
+      Bytes msg_bytes = msg->serialize();
+      size_t msg_size = msg_bytes.size();
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&msg_size),
+                   reinterpret_cast<const uint8_t*>(&msg_size) + sizeof(msg_size));
+      bytes.insert(bytes.end(), msg_bytes.begin(), msg_bytes.end());
     }
 
     // Serialize statistical accumulators and compensation terms
@@ -193,8 +199,13 @@ class Buffer : public Operator {
 
     buffer_.clear();
     for (size_t i = 0; i < buffer_size; ++i) {
-      T value = T::deserialize(it);
-      buffer_.push_back(value);
+      size_t msg_size = *reinterpret_cast<const size_t*>(&(*it));
+      it += sizeof(size_t);
+
+      Bytes msg_bytes(it, it + msg_size);
+      buffer_.push_back(
+          std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(BaseMessage::deserialize(msg_bytes).release())));
+      it += msg_size;
     }
 
     // Restore statistical accumulators and compensation terms
@@ -223,22 +234,24 @@ class Buffer : public Operator {
         throw std::runtime_error("Invalid message type in Buffer");
       }
 
-      // Update buffer
-      buffer_.push_back(msg->data);
+      // Update buffer with properly cast clone
+      buffer_.push_back(std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(input_queue.front()->clone().release())));
 
       // Update statistics with new value using Kahan summation
       add_value(msg->data.value);
 
       // Remove oldest value if buffer is full
       if (buffer_.size() > window_size_) {
-        remove_value(buffer_.front().value);
+        remove_value(buffer_.front()->data.value);
         buffer_.pop_front();
       }
 
       // Process message and forward to output if needed
-      auto output_msg = process_message(msg);
-      if (output_msg) {
-        get_output_queue(0).push_back(std::move(output_msg));
+      auto output_msgs = process_message(msg);
+      if (output_msgs.size() > 0) {
+        for (auto& output_msg : output_msgs) {
+          get_output_queue(0).push_back(std::move(output_msg));
+        }
       }
 
       input_queue.pop_front();
@@ -246,7 +259,7 @@ class Buffer : public Operator {
   }
 
   // Virtual method to be implemented by derived classes
-  virtual std::unique_ptr<Message<T>> process_message(const Message<T>* msg) = 0;
+  virtual std::vector<std::unique_ptr<Message<T>>> process_message(const Message<T>* msg) = 0;
 
  private:
   void add_value(double value) {
@@ -284,7 +297,7 @@ class Buffer : public Operator {
   }
 
   size_t window_size_;
-  std::deque<T> buffer_;
+  std::deque<std::unique_ptr<Message<T>>> buffer_;
 
   // Statistical accumulators with compensation terms for numerical stability
   double sum_{0.0};

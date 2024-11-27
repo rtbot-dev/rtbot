@@ -3,29 +3,101 @@
 #include "rtbot/std/And.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("And join") {
-  ProgramMessage<uint64_t, double> emitted;
-  auto andL = And<uint64_t, double>("and");
+SCENARIO("And operator performs logical conjunction of synchronized boolean inputs", "[And]") {
+  GIVEN("An And operator") {
+    auto op = std::make_unique<And>("and1");
 
-  andL.receiveData(Message<uint64_t, double>(1, 1), "i1");
-  andL.receiveData(Message<uint64_t, double>(2, 1), "i1");
-  andL.receiveData(Message<uint64_t, double>(3, 0), "i1");
-  andL.receiveData(Message<uint64_t, double>(4, 1), "i1");
+    WHEN("Receiving synchronized true inputs") {
+      op->receive_data(create_message<BooleanData>(37, BooleanData{true}), 0);
+      op->receive_data(create_message<BooleanData>(37, BooleanData{true}), 1);
+      op->execute();
 
-  andL.receiveData(Message<uint64_t, double>(2, 1), "i2");
-  emitted = andL.executeData();
+      THEN("Output is true") {
+        const auto& output = op->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[0].get());
+        REQUIRE(msg->time == 37);
+        REQUIRE(msg->data.value == true);
+      }
+    }
 
-  REQUIRE(emitted.find("and")->second.find("o1")->second.at(0).value == 1);
+    WHEN("Receiving mixed synchronized inputs") {
+      op->receive_data(create_message<BooleanData>(42, BooleanData{true}), 0);
+      op->receive_data(create_message<BooleanData>(42, BooleanData{false}), 1);
+      op->execute();
 
-  andL.receiveData(Message<uint64_t, double>(4, 0), "i2");
-  emitted = andL.executeData();
+      THEN("Output is false") {
+        const auto& output = op->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[0].get());
+        REQUIRE(msg->time == 42);
+        REQUIRE(msg->data.value == false);
+      }
+    }
 
-  REQUIRE(emitted.find("and")->second.find("o1")->second.at(0).value == 0);
+    WHEN("Processing streams with different throughput and time gaps") {
+      // First stream has regular intervals
+      op->receive_data(create_message<BooleanData>(100, BooleanData{true}), 0);
+      op->receive_data(create_message<BooleanData>(200, BooleanData{true}), 0);
+      op->receive_data(create_message<BooleanData>(300, BooleanData{false}), 0);
+      op->receive_data(create_message<BooleanData>(400, BooleanData{true}), 0);
+      op->execute();
 
-  andL.receiveData(Message<uint64_t, double>(3, 1), "i2");
-  emitted = andL.executeData();
+      // Second stream has irregular intervals and gaps
+      op->receive_data(create_message<BooleanData>(100, BooleanData{false}), 1);
+      op->receive_data(create_message<BooleanData>(300, BooleanData{true}), 1);
+      op->receive_data(create_message<BooleanData>(400, BooleanData{true}), 1);
+      op->execute();
 
-  REQUIRE(emitted.empty());
+      THEN("Only synchronized messages produce output") {
+        const auto& output = op->get_output_queue(0);
+        REQUIRE(output.size() == 3);
+
+        // t=100: true && false = false
+        {
+          const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[0].get());
+          REQUIRE(msg->time == 100);
+          REQUIRE(msg->data.value == false);
+        }
+
+        // t=300: false && true = false
+        {
+          const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[1].get());
+          REQUIRE(msg->time == 300);
+          REQUIRE(msg->data.value == false);
+        }
+
+        // t=400: true && true = true
+        {
+          const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[2].get());
+          REQUIRE(msg->time == 400);
+          REQUIRE(msg->data.value == true);
+        }
+      }
+
+      THEN("Messages at t=200 are properly buffered and discarded") {
+        const auto& output = op->get_output_queue(0);
+        for (const auto& msg : output) {
+          REQUIRE(msg->time != 200);
+        }
+      }
+    }
+
+    WHEN("Processing messages with large time gaps") {
+      op->receive_data(create_message<BooleanData>(1000, BooleanData{true}), 0);
+      op->receive_data(create_message<BooleanData>(5000, BooleanData{false}), 0);
+      op->receive_data(create_message<BooleanData>(1000, BooleanData{true}), 1);
+      op->execute();
+
+      THEN("Synchronization works across large time intervals") {
+        const auto& output = op->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[0].get());
+        REQUIRE(msg->time == 1000);
+        REQUIRE(msg->data.value == true);
+      }
+    }
+  }
 }

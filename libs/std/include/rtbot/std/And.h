@@ -5,20 +5,16 @@
 
 namespace rtbot {
 
-using namespace std;
+class And : public BinaryJoin<BooleanData> {
+ public:
+  explicit And(std::string id) : BinaryJoin(std::move(id)) {}
 
-template <class T, class V>
-struct And : public BinaryJoin<T, V> {
-  And() = default;
-  And(string const &id)
-      : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> {
-          bool left = (a < 0.5) ? false : true;
-          bool right = (b >= 0.5) ? true : false;
-          bool result = left && right;
-          return (result) ? 1 : 0;
-        }) {}
+  std::string type_name() const override { return "And"; }
 
-  string typeName() const override { return "And"; }
+ protected:
+  std::optional<BooleanData> combine(const BooleanData& a, const BooleanData& b) const override {
+    return BooleanData{a.value && b.value};
+  }
 };
 
 }  // namespace rtbot

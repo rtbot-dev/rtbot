@@ -1,6 +1,8 @@
 #ifndef BINARY_JOIN_H
 #define BINARY_JOIN_H
 
+#include <iostream>
+
 #include "rtbot/Join.h"
 #include "rtbot/PortType.h"
 
@@ -20,14 +22,15 @@ class BinaryJoin : public Join {
     // First let Join handle synchronization
     Join::process_data();
 
-    // Check if synchronization produced any output
-    const auto& output0 = get_output_queue(0);
-    const auto& output1 = get_output_queue(1);
+    // Get references to output queues
+    auto& output0 = get_output_queue(0);
+    auto& output1 = get_output_queue(1);
 
-    if (!output0.empty() && !output1.empty()) {
-      // Get synchronized messages
-      const auto* msg1 = dynamic_cast<const Message<T>*>(output0.front().get());
-      const auto* msg2 = dynamic_cast<const Message<T>*>(output1.front().get());
+    // Process all synchronized pairs
+    size_t write_index = 0;
+    while (write_index < output0.size()) {
+      const auto* msg1 = dynamic_cast<const Message<T>*>(output0[write_index].get());
+      const auto* msg2 = dynamic_cast<const Message<T>*>(output1[write_index].get());
 
       if (!msg1 || !msg2) {
         throw std::runtime_error("Invalid message type in BinaryJoin");
@@ -36,16 +39,15 @@ class BinaryJoin : public Join {
       // Apply the binary operation
       auto result = combine(msg1->data, msg2->data);
 
-      // Clear both output queues
-      get_output_queue(0).clear();
-      get_output_queue(1).clear();
-
-      if (result) {
-        // Create new output message on port 0
-        auto out_msg = create_message<T>(msg1->time, *result);
-        get_output_queue(0).push_back(std::move(out_msg));
+      if (result.has_value()) {
+        // Replace the message in output0 with our combined result
+        output0[write_index] = create_message<T>(msg1->time, *result);
       }
+      write_index++;
     }
+
+    // Clear output1 as we're done with it
+    output1.clear();
   }
 };
 

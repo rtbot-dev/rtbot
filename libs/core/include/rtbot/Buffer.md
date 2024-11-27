@@ -143,16 +143,25 @@ The operator will throw exceptions for:
 Creating a moving average operator using Buffer:
 
 ```cpp
-class MovingAverage : public Buffer<NumberData> {
-public:
-    MovingAverage(std::string id, size_t window)
+struct MovingAverageFeatures {
+  static constexpr bool TRACK_SUM = true;
+  static constexpr bool TRACK_MEAN = true;
+  static constexpr bool TRACK_VARIANCE = false;
+};
+
+class MovingAverage : public Buffer<Message<NumberData>, MovingAverageFeatures> {
+ public:
+   MovingAverage(std::string id, size_t window)
         : Buffer<NumberData>(id, window) {}
 
-protected:
-    bool process_message(const Message<NumberData>* msg) override {
-        // Only emit when buffer is full
-        return buffer_full();
-    }
+ protected:
+   std::unique_ptr<Message<NumberData>> process_message(const Message<NumberData>* msg) override {
+      if (!this->buffer_full()) {
+         return nullptr;
+      }
+
+    return create_message<Message<NumberData>>(msg->time, Message<NumberData>(msg->time, NumberData{this->mean()}));
+  }
 };
 ```
 

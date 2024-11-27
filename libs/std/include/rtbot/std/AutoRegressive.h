@@ -1,73 +1,54 @@
 #ifndef AUTOREGRESSIVE_H
 #define AUTOREGRESSIVE_H
 
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 
 namespace rtbot {
 
-using namespace std;
+struct AutoRegressiveFeatures {
+  static constexpr bool TRACK_SUM = false;
+  static constexpr bool TRACK_MEAN = false;
+  static constexpr bool TRACK_VARIANCE = false;
+};
 
-template <class T, class V>
-struct AutoRegressive : public Operator<T, V> {
-  vector<V> coeff;
-
-  AutoRegressive() = default;
-
-  AutoRegressive(string const& id, vector<V> const& coeff) : Operator<T, V>(id) {
-    this->coeff = coeff;
-    this->addDataInput("i1", this->coeff.size());
-    this->addOutput("o1");
+class AutoRegressive : public Buffer<NumberData, AutoRegressiveFeatures> {
+ public:
+  AutoRegressive(std::string id, const std::vector<double>& coefficients)
+      : Buffer<NumberData, AutoRegressiveFeatures>(std::move(id), coefficients.size()), coefficients_(coefficients) {
+    if (coefficients.empty()) {
+      throw std::runtime_error("AutoRegressive requires at least one coefficient");
+    }
   }
 
-  string typeName() const override { return "AutoRegressive"; }
+  const std::vector<double>& get_coefficients() const { return coefficients_; }
+  std::string type_name() const override { return "AutoRegressive"; }
 
-  virtual void receiveData(Message<T, V> msg, string inputPort = "") override {
-    if (inputPort.empty()) {
-      auto in = this->getDataInputs();
-      if (in.size() == 1) inputPort = in.at(0);
+ protected:
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
+    if (!this->buffer_full()) {
+      return {};
     }
 
-    if (this->dataInputs.count(inputPort) > 0) {
-      size_t n = this->getDataInputMaxSize(inputPort);
-      while (this->getDataInputSize(inputPort) < n)
-        this->dataInputs.find(inputPort)->second.push_back(Message<T, V>(0, 0));  // boundary conditions=0
-      // n + 1 added, so that processData can get the last one as a recipient
-      this->dataInputs.find(inputPort)->second.push_back(msg);
-    } else
-      throw runtime_error(typeName() + ": " + inputPort + " refers to a non existing input port");
+    double value = 0.0;
+    const auto& buf = this->buffer();
+    for (size_t i = 0; i < coefficients_.size(); ++i) {
+      value += coefficients_[i] * buf[coefficients_.size() - 1 - i]->data.value;
+    }
+
+    std::vector<std::unique_ptr<Message<NumberData>>> v;
+    v.push_back(create_message<NumberData>(msg->time, NumberData{value}));
+    return v;
   }
 
-  virtual ProgramMessage<T, V> executeData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    auto toEmit = processData();
-    this->dataInputs.find(inputPort)->second.pop_front();
-    this->dataInputs.find(inputPort)->second.pop_back();
-    this->dataInputs.find(inputPort)->second.push_back(toEmit.find("o1")->second.at(0));
-    return this->emit(toEmit);
-  }
-
-  virtual OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    size_t n = this->getDataInputMaxSize(inputPort);
-    Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    for (auto i = 0; i < n; i++) out.value += this->coeff[i] * this->getDataInputMessage(inputPort, i).value;
-    OperatorMessage<T, V> toEmit;
-    PortMessage<T, V> v;
-    v.push_back(out);
-    toEmit.emplace("o1", v);
-    return toEmit;
-  }
+ private:
+  std::vector<double> coefficients_;
 };
+
+inline std::unique_ptr<AutoRegressive> make_auto_regressive(std::string id, const std::vector<double>& coefficients) {
+  return std::make_unique<AutoRegressive>(std::move(id), coefficients);
+}
 
 }  // namespace rtbot
 

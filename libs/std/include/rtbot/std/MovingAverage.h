@@ -1,6 +1,8 @@
 #ifndef MOVING_AVERAGE_H
 #define MOVING_AVERAGE_H
 
+#include <vector>
+
 #include "rtbot/Buffer.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -23,17 +25,23 @@ class MovingAverage : public Buffer<NumberData, MovingAverageFeatures> {
   std::string type_name() const override { return "MovingAverage"; }
 
  protected:
-  std::unique_ptr<Message<NumberData>> process_message(const Message<NumberData>* msg) override {
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
     // Only emit messages when the buffer is full to ensure
     // we have enough data for a proper moving average
     if (!this->buffer_full()) {
-      return nullptr;
+      return {};
     }
 
     // Create output message with same timestamp but mean value
-    return create_message<NumberData>(msg->time, NumberData{this->mean()});
+    std::vector<std::unique_ptr<Message<NumberData>>> v;
+    v.push_back(create_message<NumberData>(msg->time, NumberData{this->mean()}));
+    return v;
   }
 };
+
+inline std::unique_ptr<MovingAverage> make_moving_average(std::string id, size_t window_size) {
+  return std::make_unique<MovingAverage>(std::move(id), window_size);
+}
 
 }  // namespace rtbot
 
