@@ -42,8 +42,11 @@ class BinaryJoin : public Join {
       if (result.has_value()) {
         // Replace the message in output0 with our combined result
         output0[write_index] = create_message<T>(msg1->time, *result);
+        write_index++;
+      } else {
+        // If the operation failed, remove the message from output0
+        output0.erase(output0.begin() + write_index);
       }
-      write_index++;
     }
 
     // Clear output1 as we're done with it

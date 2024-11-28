@@ -1,24 +1,28 @@
 #ifndef DIVISION_H
 #define DIVISION_H
 
+#include <iostream>
+
 #include "rtbot/BinaryJoin.h"
+#include "rtbot/Message.h"
 
 namespace rtbot {
 
-using namespace std;
+class Division : public BinaryJoin<NumberData> {
+ public:
+  Division(std::string id) : BinaryJoin<NumberData>(std::move(id)) {}
 
-template <class T, class V>
-struct Division : public BinaryJoin<T, V> {
-  Division() = default;
-  Division(string const &id)
-      : BinaryJoin<T, V>(id, [](V a, V b) -> optional<V> {
-          if (b != 0) return a / b;
-          return nullopt;
-        }) {}
+  std::string type_name() const override { return "Division"; }
 
-  string typeName() const override { return "Division"; }
+ protected:
+  std::optional<NumberData> combine(const NumberData& a, const NumberData& b) const override {
+    if (b.value == 0.0) {
+      return std::nullopt;
+    }
+    return NumberData{a.value / b.value};
+  }
 };
 
 }  // namespace rtbot
 
-#endif  // DIVIDE_H
+#endif  // DIVISION_H

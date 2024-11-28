@@ -1,55 +1,64 @@
-#ifndef FINITEIMPULSERESPONSE_H
-#define FINITEIMPULSERESPONSE_H
+#ifndef FINITE_IMPULSE_RESPONSE_H
+#define FINITE_IMPULSE_RESPONSE_H
 
-#include "rtbot/Operator.h"
+#include <cmath>
+#include <vector>
+
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 
 namespace rtbot {
 
-using namespace std;
+// Custom feature set - we only need sum tracking
+struct FIRFeatures {
+  static constexpr bool TRACK_SUM = true;
+  static constexpr bool TRACK_MEAN = false;
+  static constexpr bool TRACK_VARIANCE = false;
+};
 
-template <class T, class V>
-struct FiniteImpulseResponse : public Operator<T, V> {
-  FiniteImpulseResponse() = default;
-
-  FiniteImpulseResponse(string const& id, vector<V> coeff) : Operator<T, V>(id) {
-    this->addDataInput("i1", coeff.size());
-    this->addOutput("o1");
-    this->coeff = coeff;
+class FiniteImpulseResponse : public Buffer<NumberData, FIRFeatures> {
+ public:
+  FiniteImpulseResponse(std::string id, const std::vector<double>& coeffs)
+      : Buffer<NumberData, FIRFeatures>(std::move(id), coeffs.size()), coeffs_(coeffs) {
+    if (coeffs.empty()) {
+      throw std::runtime_error("FIR coefficients vector cannot be empty");
+    }
   }
 
-  string typeName() const override { return "FiniteImpulseResponse"; }
+  std::string type_name() const override { return "FiniteImpulseResponse"; }
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    PortMessage<T, V> toEmit;
-    Message<T, V> out;
+  const std::vector<double>& get_coefficients() const { return coeffs_; }
 
-    out.time = this->getDataInputLastMessage(inputPort).time;
-    out.value = 0;
+ protected:
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
+    std::vector<std::unique_ptr<Message<NumberData>>> output;
 
-    size_t size = this->dataInputs.find(inputPort)->second.size();
-
-    for (int i = 0; i < size; i++) {
-      out.value = out.value + this->dataInputs.find(inputPort)->second.at((size - 1) - i).value * this->coeff.at(i);
+    // Only emit when buffer is full to ensure proper FIR calculation
+    if (!buffer_full()) {
+      return output;
     }
 
-    toEmit.push_back(out);
-    outputMsgs.emplace("o1", toEmit);
-    return outputMsgs;
+    // Calculate FIR output
+    double result = 0.0;
+    const auto& buf = buffer();
+
+    for (size_t i = 0; i < coeffs_.size(); ++i) {
+      result += coeffs_[i] * buf[buf.size() - 1 - i]->data.value;
+    }
+
+    output.push_back(create_message<NumberData>(msg->time, NumberData{result}));
+    return output;
   }
 
-  vector<V> getCoefficients() const { return this->coeff; }
-
  private:
-  vector<V> coeff;
+  std::vector<double> coeffs_;
 };
+
+// Factory function
+inline std::unique_ptr<FiniteImpulseResponse> make_fir(std::string id, const std::vector<double>& coeffs) {
+  return std::make_unique<FiniteImpulseResponse>(std::move(id), coeffs);
+}
 
 }  // namespace rtbot
 
-#endif  // FINITEIMPULSERESPONSE_H
+#endif  // FINITE_IMPULSE_RESPONSE_H

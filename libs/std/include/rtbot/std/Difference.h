@@ -1,48 +1,47 @@
 #ifndef DIFFERENCE_H
 #define DIFFERENCE_H
 
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 
 namespace rtbot {
 
-using namespace std;
+// Difference only needs the buffer, no statistics tracking
+struct DifferenceFeatures {
+  static constexpr bool TRACK_SUM = false;
+  static constexpr bool TRACK_MEAN = false;
+  static constexpr bool TRACK_VARIANCE = false;
+};
 
-template <class T, class V>
-struct Difference : public Operator<T, V> {
-  Difference() = default;
+class Difference : public Buffer<NumberData, DifferenceFeatures> {
+ public:
+  Difference(std::string id, bool use_oldest_time = true)
+      : Buffer<NumberData, DifferenceFeatures>(std::move(id), 2), use_oldest_time_(use_oldest_time) {}
 
-  Difference(string const &id, bool useOldestTime = true) : Operator<T, V>(id) {
-    this->useOldestTime = useOldestTime;
-    this->addDataInput("i1", Difference<T, V>::size);
-    this->addOutput("o1");
+  std::string type_name() const override { return "Difference"; }
+
+  bool get_use_oldest_time() const { return use_oldest_time_; }
+
+ protected:
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
+    std::vector<std::unique_ptr<Message<NumberData>>> output;
+
+    // Need 2 points to compute difference
+    if (!buffer_full()) {
+      return output;
+    }
+
+    const auto& points = buffer();
+    double diff_value = points[1]->data.value - points[0]->data.value;
+    timestamp_t output_time = use_oldest_time_ ? points[1]->time : points[0]->time;
+
+    output.push_back(create_message<NumberData>(output_time, NumberData{diff_value}));
+    return output;
   }
-
-  string typeName() const override { return "Difference"; }
-
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> m1 = this->getDataInputMessage(inputPort, 1);
-    Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
-    Message<T, V> out;
-    out.value = m1.value - m0.value;
-    out.time = (this->useOldestTime) ? m1.time : m0.value;
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
-  }
-
-  bool getUseOldestTime() const { return this->useOldestTime; }
 
  private:
-  static const int size = 2;
-  bool useOldestTime;
+  bool use_oldest_time_;
 };
 
 }  // namespace rtbot
