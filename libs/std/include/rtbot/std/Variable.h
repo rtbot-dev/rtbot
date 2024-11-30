@@ -1,148 +1,118 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
+#include <map>
+#include <memory>
+#include <optional>
+#include <stdexcept>
+#include <string>
+
 #include "rtbot/Operator.h"
+#include "rtbot/StateSerializer.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-class Variable : public Operator<T, V> {
+class Variable : public Operator {
  public:
-  Variable() = default;
-
-  Variable(string const &id, V value = 0) : Operator<T, V>(id) {
-    this->value = value;
-    this->initialized = false;
-    this->addDataInput("i1");
-    this->addControlInput("c1", 1);
-    this->addOutput("o1");
+  Variable(std::string id, double default_value = 0.0)
+      : Operator(std::move(id)), default_value_(default_value), initialized_(false) {
+    // Single data port for value updates
+    add_data_port<NumberData>();
+    // Single control port for queries
+    add_control_port<NumberData>();
+    // Single output port for query responses
+    add_output_port<NumberData>();
   }
 
-  virtual ~Variable() = default;
+  std::string type_name() const override { return "Variable"; }
 
-  virtual Bytes collect() {
-    Bytes bytes = Operator<T, V>::collect();
+  // State serialization
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();
 
-    // Serialize value
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&value),
-                 reinterpret_cast<const unsigned char *>(&value) + sizeof(value));
-
-    // Serialize initialized
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&initialized),
-                 reinterpret_cast<const unsigned char *>(&initialized) + sizeof(initialized));
+    // Serialize default value and initialization flag
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&default_value_),
+                 reinterpret_cast<const uint8_t*>(&default_value_) + sizeof(default_value_));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&initialized_),
+                 reinterpret_cast<const uint8_t*>(&initialized_) + sizeof(initialized_));
 
     return bytes;
   }
 
-  virtual void restore(Bytes::const_iterator &it) {
-    Operator<T, V>::restore(it);
+  void restore(Bytes::const_iterator& it) override {
+    Operator::restore(it);
 
-    // Deserialize value
-    value = *reinterpret_cast<const V *>(&(*it));
-    it += sizeof(value);
-
-    // Deserialize initialized
-    initialized = *reinterpret_cast<const bool *>(&(*it));
-    it += sizeof(initialized);
+    // Restore default value and initialization flag
+    default_value_ = *reinterpret_cast<const double*>(&(*it));
+    it += sizeof(double);
+    initialized_ = *reinterpret_cast<const bool*>(&(*it));
+    it += sizeof(bool);
   }
 
-  virtual string typeName() const override { return "Variable"; }
-
-  V getValue() const { return this->value; }
-
-  ProgramMessage<T, V> executeData() override {
-    auto toEmit = this->processData();
-    if (!toEmit.empty()) return this->emit(toEmit);
-    return {};
+ protected:
+  void process_data() override {
+    initialized_ = true;
+    // All data messages are already queued by the base class
   }
 
-  virtual OperatorMessage<T, V> processData() { return query(); }
+  void process_control() override {
+    auto& control_queue = get_control_queue(0);
+    auto& data_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
 
-  virtual OperatorMessage<T, V> processControl() { return query(); }
+    while (!control_queue.empty()) {
+      const auto* query = dynamic_cast<const Message<NumberData>*>(control_queue.front().get());
+      if (!query) {
+        throw std::runtime_error("Invalid control message type in Variable");
+      }
+
+      timestamp_t query_time = query->time;
+
+      // If not initialized, return default value
+      if (!initialized_ || data_queue.empty()) {
+        output_queue.push_back(create_message<NumberData>(query_time, NumberData{default_value_}));
+        control_queue.pop_front();
+        continue;
+      }
+
+      // Find the last data point before or at query time
+      double value = default_value_;
+      bool found = false;
+
+      for (const auto& msg_ptr : data_queue) {
+        const auto* data_msg = dynamic_cast<const Message<NumberData>*>(msg_ptr.get());
+        if (!data_msg) {
+          throw std::runtime_error("Invalid data message type in Variable");
+        }
+
+        if (data_msg->time > query_time) {
+          break;
+        }
+
+        value = data_msg->data.value;
+        found = true;
+      }
+
+      if (found) {
+        output_queue.push_back(create_message<NumberData>(query_time, NumberData{value}));
+      } else {
+        output_queue.push_back(create_message<NumberData>(query_time, NumberData{default_value_}));
+      }
+
+      control_queue.pop_front();
+    }
+  }
 
  private:
-  V value;
-  bool initialized;
-
-  OperatorMessage<T, V> query() {
-    OperatorMessage<T, V> outputMsgs;
-
-    vector<string> in = this->getDataInputs();
-    vector<string> cn = this->getControlInputs();
-
-    string inputPort;
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw std::runtime_error(typeName() + ": " + "should have 1 input port, no more no less");
-
-    string controlPort;
-    if (cn.size() == 1)
-      controlPort = cn.at(0);
-    else
-      throw std::runtime_error(typeName() + ": " + "should have 1 control port, no more no less");
-
-    if (this->dataInputs.find(inputPort)->second.empty()) return {};
-    if (this->controlInputs.find(controlPort)->second.empty()) return {};
-
-    T queryTime = this->getControlInputMessage(controlPort, 0).time;
-
-    if (queryTime < this->getDataInputMessage(inputPort, 0).time && !this->initialized) {
-      Message<T, V> out;
-      out.time = queryTime;
-      out.value = this->value;
-      PortMessage<T, V> v;
-      v.push_back(out);
-      outputMsgs.emplace("o1", v);
-      this->controlInputs.find(controlPort)->second.pop_front();
-      return outputMsgs;
-    } else if (queryTime >= this->getDataInputMessage(inputPort, 0).time) {
-      initialized = true;
-      if (queryTime == this->getDataInputMessage(inputPort, 0).time) {
-        Message<T, V> out;
-        out.time = queryTime;
-        out.value = this->getDataInputMessage(inputPort, 0).value;
-        PortMessage<T, V> v;
-        v.push_back(out);
-        outputMsgs.emplace("o1", v);
-        this->controlInputs.find(controlPort)->second.pop_front();
-        return outputMsgs;
-      }
-      size_t index = 0;
-      while (index < this->dataInputs.find(inputPort)->second.size() - 1) {
-        if (queryTime > this->getDataInputMessage(inputPort, index).time &&
-            queryTime < this->getDataInputMessage(inputPort, index + 1).time) {
-          Message<T, V> out;
-          out.time = queryTime;
-          out.value = this->getDataInputMessage(inputPort, index).value;
-          PortMessage<T, V> v;
-          v.push_back(out);
-          outputMsgs.emplace("o1", v);
-          this->controlInputs.find(controlPort)->second.pop_front();
-          return outputMsgs;
-        } else if (queryTime == this->getDataInputMessage(inputPort, index + 1).time) {
-          Message<T, V> out;
-          out.time = queryTime;
-          out.value = this->getDataInputMessage(inputPort, index + 1).value;
-          PortMessage<T, V> v;
-          v.push_back(out);
-          outputMsgs.emplace("o1", v);
-          this->controlInputs.find(controlPort)->second.pop_front();
-          this->dataInputs.find(inputPort)->second.pop_front();
-          return outputMsgs;
-        } else {
-          this->dataInputs.find(inputPort)->second.pop_front();
-        }
-      }
-    } else if (queryTime < this->getDataInputMessage(inputPort, 0).time && this->initialized)
-      throw std::runtime_error(typeName() + ": " + "PortMessage out of order detected");
-
-    return {};
-  }
+  double default_value_;
+  bool initialized_;
 };
 
-}  // end namespace rtbot
+// Factory function
+inline std::unique_ptr<Variable> make_variable(std::string id, double default_value = 0.0) {
+  return std::make_unique<Variable>(std::move(id), default_value);
+}
+
+}  // namespace rtbot
 
 #endif  // VARIABLE_H

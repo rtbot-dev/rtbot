@@ -6,36 +6,69 @@ view:
   shape: circle
   latex:
     template: |
-      {{value}}\Delta t
+      t {{shift}}
 jsonschema:
   type: object
   properties:
     id:
       type: string
       description: The id of the operator
-    dt:
+    shift:
       type: integer
-      default: 1
-      minimum: 1
-      examples:
-        - -1
-      description: The constant that defines the time grid.
-    times:
-      type: integer
-      default: 1
-      examples:
-        - 2
-      description: The multiplier to apppy.
-  required: ["id"]
+      description: The amount to shift message timestamps (positive or negative)
+      examples: [5, -3]
+  required: ["id", "shift"]
 ---
 
 # TimeShift
 
-Inputs: `i1`  
-Outputs: `o1`
+The TimeShift operator modifies the timestamps of incoming messages by a fixed amount while preserving their values.
 
-Adds a specified constant (dt * times) to each message time it receives on `i1` regardless the value field of the message.
+## Ports
 
-The `Add` operator does not hold a message buffer on `i1`, so it emits a modified version of the message through `o1` right after it receives a message on `i1`.
+- Input Port (0): Accepts messages of type NumberData
+- Output Port (0): Emits messages of type NumberData with shifted timestamps
 
-$$y(t_n)= x(t_n) + n \times \Delta t$$
+## Behavior
+
+- Each incoming message's timestamp is shifted by the configured amount
+- Messages that would result in negative timestamps are dropped
+- Message values remain unchanged
+- No buffering - messages are processed immediately
+- Maintains time ordering of messages
+
+## Examples
+
+Given a TimeShift operator with shift = 5:
+
+```
+Time  Input    Output
+1     10.0     ->  6: 10.0
+3     20.0     ->  8: 20.0
+6     30.0     -> 11: 30.0
+7     40.0     -> 12: 40.0
+10    50.0     -> 15: 50.0
+```
+
+Given a TimeShift operator with shift = -3:
+
+```
+Time  Input    Output
+1     10.0     [dropped]
+2     20.0     [dropped]
+5     30.0     ->  2: 30.0
+7     40.0     ->  4: 40.0
+10    50.0     ->  7: 50.0
+```
+
+## Error Handling
+
+- Throws if receiving incorrect message types
+- Silently drops messages that would result in negative timestamps
+- No other error conditions
+
+## Performance Characteristics
+
+- O(1) processing per message
+- Constant memory usage
+- No buffering or state maintenance

@@ -3,163 +3,112 @@
 
 #include <algorithm>
 #include <cmath>
-#include <stdexcept>
-#include <string>
-#include <utility>
 #include <vector>
 
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 
 namespace rtbot {
 
-template <class T, class V>
-struct Function : public Operator<T, V> {
-  enum class InterpolationType { LINEAR, HERMITE };
+enum class InterpolationType { LINEAR, HERMITE };
 
-  Function() = default;
-
-  Function(string const& id, vector<pair<V, V>> points, string type = "linear") : Operator<T, V>(id) {
+class Function : public Operator {
+ public:
+  Function(std::string id, std::vector<std::pair<double, double>> points,
+           InterpolationType type = InterpolationType::LINEAR)
+      : Operator(std::move(id)) {
     if (points.size() < 2) {
-      throw runtime_error(typeName() + ": at least 2 points are required for interpolation");
+      throw std::runtime_error("At least 2 points are required for interpolation");
     }
 
-    sort(points.begin(), points.end());
-    this->points = points;
+    std::sort(points.begin(), points.end());
+    points_ = std::move(points);
+    type_ = type;
 
-    if (type == "linear") {
-      this->type = InterpolationType::LINEAR;
-    } else if (type == "hermite") {
-      this->type = InterpolationType::HERMITE;
-    } else {
-      throw runtime_error(typeName() + ": invalid interpolation type. Use 'linear' or 'hermite'");
-    }
-
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+    add_data_port<NumberData>();
+    add_output_port<NumberData>();
   }
 
-  virtual Bytes collect() override {
-    Bytes bytes = Operator<T, V>::collect();
+  std::string type_name() const override { return "Function"; }
 
-    // Serialize points
-    size_t pointsSize = points.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&pointsSize),
-                 reinterpret_cast<const unsigned char*>(&pointsSize) + sizeof(pointsSize));
+  const std::vector<std::pair<double, double>>& get_points() const { return points_; }
+  InterpolationType get_interpolation_type() const { return type_; }
 
-    for (const auto& point : points) {
-      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&point.first),
-                   reinterpret_cast<const unsigned char*>(&point.first) + sizeof(point.first));
-      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&point.second),
-                   reinterpret_cast<const unsigned char*>(&point.second) + sizeof(point.second));
+ protected:
+  void process_data() override {
+    auto& input_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
+
+    while (!input_queue.empty()) {
+      const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+      if (!msg) {
+        throw std::runtime_error("Invalid message type in Function");
+      }
+
+      double x = msg->data.value;
+      double y = interpolate(x);
+
+      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{y}));
+      input_queue.pop_front();
     }
-
-    // Serialize interpolation type
-    auto typeVal = static_cast<int>(type);
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char*>(&typeVal),
-                 reinterpret_cast<const unsigned char*>(&typeVal) + sizeof(typeVal));
-
-    return bytes;
   }
 
-  virtual void restore(Bytes::const_iterator& it) override {
-    Operator<T, V>::restore(it);
-
-    // Deserialize points
-    size_t pointsSize = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(pointsSize);
-
-    points.clear();
-    for (size_t i = 0; i < pointsSize; i++) {
-      V x = *reinterpret_cast<const V*>(&(*it));
-      it += sizeof(V);
-      V y = *reinterpret_cast<const V*>(&(*it));
-      it += sizeof(V);
-      points.push_back({x, y});
-    }
-
-    // Deserialize interpolation type
-    int typeVal = *reinterpret_cast<const int*>(&(*it));
-    it += sizeof(typeVal);
-    type = static_cast<InterpolationType>(typeVal);
-  }
-
-  string typeName() const override { return "Function"; }
-
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> msg = this->getDataInputLastMessage(inputPort);
-    V x = msg.value;
-
+ private:
+  double interpolate(double x) const {
     size_t i = 0;
-    while (i < points.size() - 1 && points[i + 1].first <= x) {
+    while (i < points_.size() - 1 && points_[i + 1].first <= x) {
       i++;
     }
 
-    if (type == InterpolationType::LINEAR) {
-      if (i == 0 && x < points[0].first) {
-        msg.value = linearInterpolate(points[0].first, points[0].second, points[1].first, points[1].second, x);
-      } else if (i == points.size() - 1) {
-        msg.value = linearInterpolate(points[i - 1].first, points[i - 1].second, points[i].first, points[i].second, x);
-      } else {
-        msg.value = linearInterpolate(points[i].first, points[i].second, points[i + 1].first, points[i + 1].second, x);
+    if (type_ == InterpolationType::LINEAR) {
+      if (i == 0 && x < points_[0].first) {
+        return linear_interpolate(points_[0].first, points_[0].second, points_[1].first, points_[1].second, x);
+      } else if (i == points_.size() - 1) {
+        return linear_interpolate(points_[i - 1].first, points_[i - 1].second, points_[i].first, points_[i].second, x);
       }
+      return linear_interpolate(points_[i].first, points_[i].second, points_[i + 1].first, points_[i + 1].second, x);
     } else {
-      if (i == 0 && x < points[0].first) {
-        msg.value = hermiteInterpolate(points[0].second, points[1].second, getTangent(0), getTangent(1),
-                                       (x - points[0].first) / (points[1].first - points[0].first));
-      } else if (i >= points.size() - 2) {
-        size_t last = points.size() - 1;
-        msg.value =
-            hermiteInterpolate(points[last - 1].second, points[last].second, getTangent(last - 1), getTangent(last),
-                               (x - points[last - 1].first) / (points[last].first - points[last - 1].first));
-      } else {
-        msg.value = hermiteInterpolate(points[i].second, points[i + 1].second, getTangent(i), getTangent(i + 1),
-                                       (x - points[i].first) / (points[i + 1].first - points[i].first));
+      if (i == 0 && x < points_[0].first) {
+        return hermite_interpolate(points_[0].second, points_[1].second, get_tangent(0), get_tangent(1),
+                                   (x - points_[0].first) / (points_[1].first - points_[0].first));
+      } else if (i >= points_.size() - 2) {
+        size_t last = points_.size() - 1;
+        return hermite_interpolate(points_[last - 1].second, points_[last].second, get_tangent(last - 1),
+                                   get_tangent(last),
+                                   (x - points_[last - 1].first) / (points_[last].first - points_[last - 1].first));
       }
+      return hermite_interpolate(points_[i].second, points_[i + 1].second, get_tangent(i), get_tangent(i + 1),
+                                 (x - points_[i].first) / (points_[i + 1].first - points_[i].first));
     }
-
-    PortMessage<T, V> v;
-    v.push_back(msg);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
   }
 
-  vector<pair<V, V>> getPoints() const { return points; }
-  string getInterpolationType() const { return type == InterpolationType::LINEAR ? "linear" : "hermite"; }
+  static double linear_interpolate(double x1, double y1, double x2, double y2, double x) {
+    return y1 + (y2 - y1) * (x - x1) / (x2 - x1);
+  }
 
- private:
-  vector<pair<V, V>> points;
-  InterpolationType type;
-
-  static V linearInterpolate(V x1, V y1, V x2, V y2, V x) { return y1 + (y2 - y1) * (x - x1) / (x2 - x1); }
-
-  static V hermiteInterpolate(V y0, V y1, V m0, V m1, V mu) {
-    V mu2 = mu * mu;
-    V mu3 = mu2 * mu;
-    V h00 = 2 * mu3 - 3 * mu2 + 1;
-    V h10 = mu3 - 2 * mu2 + mu;
-    V h01 = -2 * mu3 + 3 * mu2;
-    V h11 = mu3 - mu2;
+  static double hermite_interpolate(double y0, double y1, double m0, double m1, double mu) {
+    double mu2 = mu * mu;
+    double mu3 = mu2 * mu;
+    double h00 = 2 * mu3 - 3 * mu2 + 1;
+    double h10 = mu3 - 2 * mu2 + mu;
+    double h01 = -2 * mu3 + 3 * mu2;
+    double h11 = mu3 - mu2;
 
     return h00 * y0 + h10 * m0 + h01 * y1 + h11 * m1;
   }
 
-  V getTangent(size_t i) const {
+  double get_tangent(size_t i) const {
     if (i == 0) {
-      return (points[1].second - points[0].second) / (points[1].first - points[0].first);
-    } else if (i == points.size() - 1) {
-      return (points[i].second - points[i - 1].second) / (points[i].first - points[i - 1].first);
-    } else {
-      return (points[i + 1].second - points[i - 1].second) / (points[i + 1].first - points[i - 1].first);
+      return (points_[1].second - points_[0].second) / (points_[1].first - points_[0].first);
+    } else if (i == points_.size() - 1) {
+      return (points_[i].second - points_[i - 1].second) / (points_[i].first - points_[i - 1].first);
     }
+    return (points_[i + 1].second - points_[i - 1].second) / (points_[i + 1].first - points_[i - 1].first);
   }
+
+  std::vector<std::pair<double, double>> points_;
+  InterpolationType type_;
 };
 
 }  // namespace rtbot
