@@ -1,6 +1,7 @@
 #ifndef JOIN_H
 #define JOIN_H
 
+#include <iostream>
 #include <map>
 #include <string>
 #include <vector>
@@ -147,16 +148,16 @@ class Join : public Operator {
 
 // Factory functions for common configurations
 template <typename T>
-inline std::unique_ptr<Join> make_binary_join(std::string id) {
-  return std::make_unique<Join>(std::move(id), 2);
+inline std::shared_ptr<Join> make_binary_join(std::string id) {
+  return std::make_shared<Join>(std::move(id), 2);
 }
 
-inline std::unique_ptr<Join> make_number_join(std::string id, size_t num_ports) {
-  return std::make_unique<Join>(std::move(id), std::vector<std::string>(num_ports, PortType::NUMBER));
+inline std::shared_ptr<Join> make_number_join(std::string id, size_t num_ports) {
+  return std::make_shared<Join>(std::move(id), std::vector<std::string>(num_ports, PortType::NUMBER));
 }
 
-inline std::unique_ptr<Join> make_boolean_join(std::string id, size_t num_ports) {
-  return std::make_unique<Join>(std::move(id), std::vector<std::string>(num_ports, PortType::BOOLEAN));
+inline std::shared_ptr<Join> make_boolean_join(std::string id, size_t num_ports) {
+  return std::make_shared<Join>(std::move(id), std::vector<std::string>(num_ports, PortType::BOOLEAN));
 }
 
 }  // namespace rtbot

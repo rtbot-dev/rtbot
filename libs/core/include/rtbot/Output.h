@@ -1,6 +1,8 @@
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
+#include <iostream>
+
 #include "Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"
@@ -53,20 +55,20 @@ class Output : public Operator {
 };
 
 // Factory functions for common configurations
-inline std::unique_ptr<Output> make_number_output(std::string id) {
-  return std::make_unique<Output>(std::move(id), std::vector<std::string>{PortType::NUMBER});
+inline std::shared_ptr<Output> make_number_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::NUMBER});
 }
 
-inline std::unique_ptr<Output> make_boolean_output(std::string id) {
-  return std::make_unique<Output>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
+inline std::shared_ptr<Output> make_boolean_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
 }
 
-inline std::unique_ptr<Output> make_vector_number_output(std::string id) {
-  return std::make_unique<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
+inline std::shared_ptr<Output> make_vector_number_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
 }
 
-inline std::unique_ptr<Output> make_vector_boolean_output(std::string id) {
-  return std::make_unique<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
+inline std::shared_ptr<Output> make_vector_boolean_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
 }
 
 }  // namespace rtbot

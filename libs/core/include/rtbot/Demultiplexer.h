@@ -171,22 +171,22 @@ class Demultiplexer : public Operator {
 };
 
 // Factory functions for common configurations using PortType
-inline std::unique_ptr<Demultiplexer<NumberData>> make_number_demultiplexer(std::string id, size_t num_ports) {
-  return std::make_unique<Demultiplexer<NumberData>>(std::move(id), num_ports);
+inline std::shared_ptr<Demultiplexer<NumberData>> make_number_demultiplexer(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports);
 }
 
-inline std::unique_ptr<Demultiplexer<BooleanData>> make_boolean_demultiplexer(std::string id, size_t num_ports) {
-  return std::make_unique<Demultiplexer<BooleanData>>(std::move(id), num_ports);
+inline std::shared_ptr<Demultiplexer<BooleanData>> make_boolean_demultiplexer(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports);
 }
 
-inline std::unique_ptr<Demultiplexer<VectorNumberData>> make_vector_number_demultiplexer(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_vector_number_demultiplexer(std::string id,
                                                                                          size_t num_ports) {
-  return std::make_unique<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
+  return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
 }
 
-inline std::unique_ptr<Demultiplexer<VectorBooleanData>> make_vector_boolean_demultiplexer(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_vector_boolean_demultiplexer(std::string id,
                                                                                            size_t num_ports) {
-  return std::make_unique<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
+  return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
 }
 
 }  // namespace rtbot

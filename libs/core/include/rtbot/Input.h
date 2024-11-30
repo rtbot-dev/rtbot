@@ -127,20 +127,20 @@ class Input : public Operator {
 };
 
 // Factory functions for common configurations
-inline std::unique_ptr<Input> make_number_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::NUMBER});
+inline std::shared_ptr<Input> make_number_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::NUMBER});
 }
 
-inline std::unique_ptr<Input> make_boolean_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
+inline std::shared_ptr<Input> make_boolean_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
 }
 
-inline std::unique_ptr<Input> make_vector_number_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
+inline std::shared_ptr<Input> make_vector_number_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
 }
 
-inline std::unique_ptr<Input> make_vector_boolean_input(std::string id) {
-  return std::make_unique<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
+inline std::shared_ptr<Input> make_vector_boolean_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
 }
 
 }  // namespace rtbot
