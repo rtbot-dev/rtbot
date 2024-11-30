@@ -3,6 +3,7 @@
 
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <typeindex>
@@ -142,6 +143,7 @@ class BaseMessage {
   timestamp_t time;
   virtual std::type_index type() const = 0;
   virtual std::unique_ptr<BaseMessage> clone() const = 0;
+  virtual std::string to_string() const = 0;
 
   virtual Bytes serialize() const {
     Bytes bytes;
@@ -175,6 +177,34 @@ class Message : public BaseMessage {
   std::type_index type() const override { return typeid(T); }
 
   std::unique_ptr<BaseMessage> clone() const override { return std::make_unique<Message<T>>(time, data); }
+
+  std::string to_string() const override {
+    std::ostringstream ss;
+    ss << "(" << time << ", ";
+
+    if constexpr (std::is_same_v<T, NumberData>) {
+      ss << data.value;
+    } else if constexpr (std::is_same_v<T, BooleanData>) {
+      ss << (data.value ? "true" : "false");
+    } else if constexpr (std::is_same_v<T, VectorNumberData>) {
+      ss << "[";
+      for (size_t i = 0; i < data.values.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << data.values[i];
+      }
+      ss << "]";
+    } else if constexpr (std::is_same_v<T, VectorBooleanData>) {
+      ss << "[";
+      for (size_t i = 0; i < data.values.size(); ++i) {
+        if (i > 0) ss << ", ";
+        ss << (data.values[i] ? "true" : "false");
+      }
+      ss << "]";
+    }
+
+    ss << ")";
+    return ss.str();
+  }
 
   Bytes serialize() const override {
     // First serialize base message data
