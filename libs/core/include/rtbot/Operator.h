@@ -1,6 +1,7 @@
 #ifndef OPERATOR_H
 #define OPERATOR_H
 
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iostream>
@@ -15,6 +16,7 @@
 
 #include "rtbot/Message.h"
 #include "rtbot/StateSerializer.h"
+#include "rtbot/telemetry/OpenTelemetry.h"
 
 namespace rtbot {
 
@@ -72,6 +74,11 @@ class Operator {
     for (const auto& port : output_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
     }
+    // Serialize connection stateful data
+    for (const auto& conn : connections_) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&conn.last_propagated_index),
+                   reinterpret_cast<const uint8_t*>(&conn.last_propagated_index) + sizeof(conn.last_propagated_index));
+    }
 
     // Serialize ports with new data sets
     StateSerializer::serialize_index_set(bytes, data_ports_with_new_data_);
@@ -116,6 +123,12 @@ class Operator {
       StateSerializer::deserialize_message_queue(it, port.queue);
     }
 
+    // Restore connections (excluding child pointers)
+    for (size_t i = 0; i < connections_.size(); ++i) {
+      connections_[i].last_propagated_index = *reinterpret_cast<const size_t*>(&(*it));
+      it += sizeof(size_t);
+    }
+
     // Restore ports with new data sets
     StateSerializer::deserialize_index_set(it, data_ports_with_new_data_);
     StateSerializer::deserialize_index_set(it, control_ports_with_new_data_);
@@ -151,8 +164,54 @@ class Operator {
       throw std::runtime_error("Type mismatch on data port");
     }
 
+#ifdef RTBOT_INSTRUMENTATION
+    RTBOT_RECORD_MESSAGE(id_, type_name(), msg->clone());
+#endif
+
     data_ports_[port_index].queue.push_back(std::move(msg));
     data_ports_with_new_data_.insert(port_index);
+  }
+
+  // This should be called by the runtime to clear all output ports before executing
+  // the operator again
+  void clear_all_output_ports() {
+    for (auto& port : output_ports_) {
+      port.queue.clear();
+    }
+    // also clear all connections
+    for (auto& conn : connections_) {
+      conn.last_propagated_index = 0;
+    }
+  }
+
+  void execute() {
+    SpanScope span_scope{"operator_execute"};
+    RTBOT_ADD_ATTRIBUTE("operator.id", id_);
+
+    if (data_ports_with_new_data_.empty() && control_ports_with_new_data_.empty()) {
+      return;
+    }
+
+    // Process control messages first
+    if (!control_ports_with_new_data_.empty()) {
+      SpanScope control_scope{"process_control"};
+      process_control();
+      control_ports_with_new_data_.clear();
+    }
+
+    // Then process data
+    process_data();
+    data_ports_with_new_data_.clear();
+
+#ifdef RTBOT_INSTRUMENTATION
+    for (size_t i = 0; i < output_ports_.size(); i++) {
+      for (const auto& msg : output_ports_[i].queue) {
+        RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), i, msg->clone());
+      }
+    }
+#endif
+
+    propagate_outputs();
   }
 
   // Runtime port access for control messages with type checking
@@ -169,30 +228,8 @@ class Operator {
     control_ports_with_new_data_.insert(port_index);
   }
 
-  void execute() {
-    if (data_ports_with_new_data_.empty() && control_ports_with_new_data_.empty()) {
-      return;
-    }
-
-    // Clear previous outputs
-    for (auto& port : output_ports_) {
-      port.queue.clear();
-    }
-
-    // Process control messages first
-    if (!control_ports_with_new_data_.empty()) {
-      process_control();
-      control_ports_with_new_data_.clear();
-    }
-
-    // Then process data
-    process_data();
-    data_ports_with_new_data_.clear();
-
-    propagate_outputs();
-  }
-
-  void connect(Operator* child, size_t output_port = 0, size_t child_input_port = 0) {
+  std::shared_ptr<Operator> connect(std::shared_ptr<Operator> child, size_t output_port = 0,
+                                    size_t child_input_port = 0) {
     if (output_port >= output_ports_.size()) {
       throw std::runtime_error("Invalid output port index");
     }
@@ -202,7 +239,8 @@ class Operator {
       throw std::runtime_error("Type mismatch in operator connection");
     }
 
-    connections_.push_back({child, output_port, child_input_port});
+    connections_.push_back({child, output_port, child_input_port, 0});
+    return child;
   }
 
   // Get port type
@@ -251,25 +289,45 @@ class Operator {
     return output_ports_[port_index].queue;
   }
 
+  const MessageQueue& get_output_queue(size_t port_index) const {
+    if (port_index >= output_ports_.size()) {
+      throw std::runtime_error("Invalid output port index");
+    }
+    return output_ports_[port_index].queue;
+  }
+
  protected:
   virtual void process_data() = 0;
   virtual void process_control() {}
 
   void propagate_outputs() {
-    for (const auto& conn : connections_) {
-      const auto& output_queue = output_ports_[conn.output_port].queue;
-      for (const auto& msg : output_queue) {
-        auto msg_copy = msg->clone();
+    for (auto& conn : connections_) {
+      auto& output_queue = output_ports_[conn.output_port].queue;
+      size_t last_propagated_index = conn.last_propagated_index;
+
+      if (output_queue.empty()) {
+        continue;
+      }
+
+      for (size_t i = last_propagated_index; i < output_queue.size(); i++) {
+        auto msg_copy = output_queue[i]->clone();
+#ifdef RTBOT_INSTRUMENTATION
+        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), conn.child->id(), conn.child->type_name(),
+                                  output_port.queue[i]->clone());
+#endif
         conn.child->receive_data(std::move(msg_copy), conn.child_input_port);
       }
+
+      conn.last_propagated_index = output_queue.size();
       conn.child->execute();
     }
   }
 
   struct Connection {
-    Operator* child;
+    std::shared_ptr<Operator> child;
     size_t output_port;
     size_t child_input_port;
+    size_t last_propagated_index{0};  // Track last propagated message per connection
   };
 
   std::string id_;
