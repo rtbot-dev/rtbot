@@ -32,16 +32,18 @@ struct FullStats {
 
 // Test implementation of Buffer
 template <typename Features = BufferFeatures>
-class TestBuffer : public Buffer<Message<NumberData>, Features> {
+class TestBuffer : public Buffer<NumberData, Features> {
  public:
   TestBuffer(std::string id, size_t window_size) : Buffer<NumberData, Features>(id, window_size) {}
 
   std::string type_name() const override { return "TestBuffer"; }
 
  protected:
-  std::unique_ptr<Message<NumberData>> process_message(const Message<NumberData>* msg) override {
-    // Always forward messages for testing
-    return create_message<NumberData>(msg->time, msg->data);
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
+    // Create output message with same timestamp but mean value
+    std::vector<std::unique_ptr<Message<NumberData>>> v;
+    v.push_back(create_message<NumberData>(msg->time, msg->data));
+    return v;
   }
 };
 
@@ -83,8 +85,8 @@ SCENARIO("Buffer operator handles basic operations", "[Buffer]") {
 
       THEN("Oldest message is removed") {
         REQUIRE(buffer.buffer_size() == 3);
-        REQUIRE(buffer.buffer().front().value == 2.0);
-        REQUIRE(buffer.buffer().back().value == 4.0);
+        REQUIRE(buffer.buffer().front()->data.value == 2.0);
+        REQUIRE(buffer.buffer().back()->data.value == 4.0);
       }
     }
   }
@@ -185,8 +187,8 @@ SCENARIO("Buffer operator handles state serialization and restoration", "[Buffer
         REQUIRE(restored_buffer.variance() == buffer.variance());
 
         AND_THEN("Buffer contents match") {
-          REQUIRE(restored_buffer.buffer().front().value == buffer.buffer().front().value);
-          REQUIRE(restored_buffer.buffer().back().value == buffer.buffer().back().value);
+          REQUIRE(restored_buffer.buffer().front()->data.value == buffer.buffer().front()->data.value);
+          REQUIRE(restored_buffer.buffer().back()->data.value == buffer.buffer().back()->data.value);
         }
       }
     }
