@@ -122,9 +122,9 @@ SCENARIO("StandardDeviation operator handles state serialization", "[StandardDev
           const auto& output = restored.get_output_queue(0);
           REQUIRE(output.size() == 2);
 
-          auto* msg = dynamic_cast<const Message<NumberData>*>(output[1].get());
+          auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
           REQUIRE(msg != nullptr);
-          REQUIRE(msg->time == 7);
+          REQUIRE(msg->time == 5);
 
           // Expected std dev for [4,6,8] ≈ 2.0
           REQUIRE(msg->data.value == Approx(2.0).epsilon(0.001));

@@ -38,6 +38,7 @@
 #include <cstddef>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <vector>
 
 #include "rtbot/Message.h"
@@ -103,7 +104,6 @@ class Buffer : public Operator {
   Bytes collect() override {
     Bytes bytes = Operator::collect();
 
-    // Serialize window size and buffer
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&window_size_),
                  reinterpret_cast<const uint8_t*>(&window_size_) + sizeof(window_size_));
 
@@ -119,7 +119,6 @@ class Buffer : public Operator {
       bytes.insert(bytes.end(), msg_bytes.begin(), msg_bytes.end());
     }
 
-    // Serialize statistical accumulators and compensation terms
     if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
                    reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
@@ -140,11 +139,9 @@ class Buffer : public Operator {
   void restore(Bytes::const_iterator& it) override {
     Operator::restore(it);
 
-    // Restore window size
     window_size_ = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
 
-    // Restore buffer
     size_t buffer_size = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
 
@@ -159,7 +156,6 @@ class Buffer : public Operator {
       it += msg_size;
     }
 
-    // Restore statistical accumulators and compensation terms
     if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
       sum_ = *reinterpret_cast<const double*>(&(*it));
       it += sizeof(double);
@@ -185,14 +181,17 @@ class Buffer : public Operator {
         throw std::runtime_error("Invalid message type in Buffer");
       }
 
-      buffer_.push_back(std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(input_queue.front()->clone().release())));
-
-      update_statistics(msg->data.value, true);
-
-      if (buffer_.size() > window_size_) {
-        update_statistics(buffer_.front()->data.value, false);
+      std::optional<double> removed_value;
+      if (buffer_.size() == window_size_) {
+        removed_value = buffer_.front()->data.value;
         buffer_.pop_front();
       }
+
+      // Add new message to buffer
+      buffer_.push_back(std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(input_queue.front()->clone().release())));
+
+      // Update statistics with added and removed values
+      update_statistics(msg->data.value, removed_value);
 
       auto output_msgs = process_message(msg);
       if (!output_msgs.empty()) {
@@ -215,26 +214,27 @@ class Buffer : public Operator {
     sum = t;
   }
 
-  void update_statistics(double value, bool adding) {
+  void update_statistics(double added_value, std::optional<double> removed_value) {
     if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
-      if (adding) {
-        // For adding a value
-        double oldMean = buffer_.size() > 1 ? (sum_ / (buffer_.size() - 1)) : 0;
-        kahan_add(sum_, sum_compensation_, value);
-        double newMean = sum_ / buffer_.size();
+      if (removed_value) {
+        // First remove old value if it exists
+        double old_mean = sum_ / buffer_.size();
+        kahan_add(sum_, sum_compensation_, -(*removed_value));
 
         if constexpr (Features::TRACK_VARIANCE) {
-          double delta = value - oldMean;
-          kahan_add(M2_, M2_compensation_, delta * (value - newMean));
+          double delta = *removed_value - old_mean;
+          kahan_add(M2_, M2_compensation_, -delta * (*removed_value - old_mean));
         }
-      } else {
-        // For removing a value
-        double oldMean = sum_ / buffer_.size();
-        if constexpr (Features::TRACK_VARIANCE) {
-          double delta = value - oldMean;
-          kahan_add(M2_, M2_compensation_, -delta * (value - oldMean));
-        }
-        kahan_add(sum_, sum_compensation_, -value);
+      }
+
+      // Then add new value
+      double old_mean = buffer_.size() > 1 ? (sum_ / (buffer_.size() - 1)) : 0;
+      kahan_add(sum_, sum_compensation_, added_value);
+      double new_mean = sum_ / buffer_.size();
+
+      if constexpr (Features::TRACK_VARIANCE) {
+        double delta = added_value - old_mean;
+        kahan_add(M2_, M2_compensation_, delta * (added_value - new_mean));
       }
     }
   }

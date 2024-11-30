@@ -1,11 +1,11 @@
-exports_files(["tools.h"])
-
 load("@rules_cc//cc:defs.bzl", "cc_test")
+
+exports_files(["tools.h"])
 
 cc_test(
     name = "test",
     srcs = glob([
-         "**/*.cpp",
+        "**/*.cpp",
         "**/*.h",
     ]),
     data = glob([
@@ -16,8 +16,10 @@ cc_test(
     ],
     #defines = ["CATCH_CONFIG_MAIN"],
     deps = [
-        "//libs/core:rtbot",
         "//libs/std:rtbot-std",
         "@catch2",
+        "@io_opentelemetry_cpp//api",
+        #"@io_opentelemetry_cpp//exporters/otlp:otlp_exporter",
+        "@io_opentelemetry_cpp//sdk/src/trace",
     ],
 )

@@ -1,8 +1,6 @@
 #ifndef BINARY_JOIN_H
 #define BINARY_JOIN_H
 
-#include <iostream>
-
 #include "rtbot/Join.h"
 #include "rtbot/PortType.h"
 
@@ -14,21 +12,24 @@ class BinaryJoin : public Join {
   explicit BinaryJoin(std::string id)
       : Join(std::move(id), std::vector<std::string>{PortType::get_port_type<T>(), PortType::get_port_type<T>()}) {}
 
-  // Pure virtual function to make the class abstract
+  virtual ~BinaryJoin() = default;
+
+  // Pure virtual function to define the binary operation
   virtual std::optional<T> combine(const T& a, const T& b) const = 0;
 
  protected:
   void process_data() override {
-    // First let Join handle synchronization
-    Join::process_data();
+    Join::process_data();  // Let base class handle synchronization
 
-    // Get references to output queues
+    if (get_output_queue(0).empty() || get_output_queue(1).empty()) {
+      return;  // No synchronized messages to process
+    }
+
     auto& output0 = get_output_queue(0);
     auto& output1 = get_output_queue(1);
 
-    // Process all synchronized pairs
     size_t write_index = 0;
-    while (write_index < output0.size()) {
+    while (write_index < output0.size() && write_index < output1.size()) {
       const auto* msg1 = dynamic_cast<const Message<T>*>(output0[write_index].get());
       const auto* msg2 = dynamic_cast<const Message<T>*>(output1[write_index].get());
 
@@ -44,12 +45,16 @@ class BinaryJoin : public Join {
         output0[write_index] = create_message<T>(msg1->time, *result);
         write_index++;
       } else {
-        // If the operation failed, remove the message from output0
         output0.erase(output0.begin() + write_index);
       }
     }
 
-    // Clear output1 as we're done with it
+    // Truncate output0 to match what we processed
+    if (write_index < output0.size()) {
+      output0.resize(write_index);
+    }
+
+    // Clear second output as we're done with it
     output1.clear();
   }
 };
