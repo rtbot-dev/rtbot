@@ -26,4 +26,7 @@ cc_library(
     copts = ["-O3"],
     includes = ["include"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core:rtbot",
+    ],
 )

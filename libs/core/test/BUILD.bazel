@@ -10,5 +10,8 @@ cc_test(
     deps = [
         "//libs/core:rtbot",
         "@catch2",
+        "@io_opentelemetry_cpp//api",
+        "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",
+        "@io_opentelemetry_cpp//sdk/src/trace",
     ],
 )

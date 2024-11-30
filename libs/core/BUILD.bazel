@@ -24,10 +24,15 @@ cc_library(
     srcs = glob([
         "src/**/*.cpp",
     ]),
+    hdrs = glob(["include/**/*.h"]),
     copts = [
         "-O3",
     ],
-    hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
     visibility = ["//visibility:public"],
+    deps = [
+        "@io_opentelemetry_cpp//api",
+        "@io_opentelemetry_cpp//exporters/otlp:otlp_http_exporter",
+        "@io_opentelemetry_cpp//sdk/src/trace",
+    ],
 )

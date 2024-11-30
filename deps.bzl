@@ -181,3 +181,10 @@ def deps():
         url = "https://github.com/bufbuild/protovalidate/archive/refs/tags/v0.8.2.zip",
         strip_prefix = "protovalidate-0.8.2",
     )
+
+    http_archive(
+        name = "io_opentelemetry_cpp",
+        sha256 = "b149109d5983cf8290d614654a878899a68b0c8902b64c934d06f47cd50ffe2e",
+        strip_prefix = "opentelemetry-cpp-1.18.0",
+        url = "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.18.0.tar.gz",
+    )
