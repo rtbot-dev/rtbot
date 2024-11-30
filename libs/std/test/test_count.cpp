@@ -44,6 +44,7 @@ SCENARIO("Count operator handles state serialization", "[Count][State]") {
       restored->restore(it);
 
       THEN("Continues counting from previous state") {
+        restored->clear_all_output_ports();
         restored->receive_data(create_message<BooleanData>(3, BooleanData{true}), 0);
         restored->execute();
 

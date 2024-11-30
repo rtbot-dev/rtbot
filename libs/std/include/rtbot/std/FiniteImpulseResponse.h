@@ -55,8 +55,8 @@ class FiniteImpulseResponse : public Buffer<NumberData, FIRFeatures> {
 };
 
 // Factory function
-inline std::unique_ptr<FiniteImpulseResponse> make_fir(std::string id, const std::vector<double>& coeffs) {
-  return std::make_unique<FiniteImpulseResponse>(std::move(id), coeffs);
+inline std::shared_ptr<FiniteImpulseResponse> make_fir(std::string id, const std::vector<double>& coeffs) {
+  return std::make_shared<FiniteImpulseResponse>(std::move(id), coeffs);
 }
 
 }  // namespace rtbot

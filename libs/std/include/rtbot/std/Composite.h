@@ -1,6 +1,8 @@
 #ifndef COMPOSITE_H
 #define COMPOSITE_H
 
+// TODO: migrate to new Operator
+/*
 #include <algorithm>
 #include <memory>
 
@@ -359,3 +361,5 @@ struct Composite : public Operator<T, V>  // TODO: improve from chain to graph
 }  // namespace rtbot
 
 #endif  // COMPOSITE_H
+
+*/

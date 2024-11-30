@@ -126,9 +126,9 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
   std::vector<std::unique_ptr<Message<NumberData>>> pending_emissions_;  // Queue of pending emissions
 };
 
-inline std::unique_ptr<ResamplerHermite> make_resampler_hermite(std::string id, timestamp_t interval,
+inline std::shared_ptr<ResamplerHermite> make_resampler_hermite(std::string id, timestamp_t interval,
                                                                 std::optional<timestamp_t> t0 = std::nullopt) {
-  return std::make_unique<ResamplerHermite>(std::move(id), interval, t0);
+  return std::make_shared<ResamplerHermite>(std::move(id), interval, t0);
 }
 
 }  // namespace rtbot

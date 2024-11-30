@@ -85,6 +85,7 @@ SCENARIO("Difference operator handles state serialization", "[Difference][State]
       }
 
       AND_WHEN("New message is received") {
+        restored->clear_all_output_ports();
         restored->receive_data(create_message<NumberData>(3, NumberData{12.0}), 0);
         restored->execute();
 

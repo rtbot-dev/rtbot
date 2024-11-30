@@ -52,6 +52,7 @@ SCENARIO("MovingAverage operator handles basic calculations", "[moving_average]"
       }
 
       AND_WHEN("New value arrives") {
+        ma.clear_all_output_ports();
         ma.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
         ma.execute();
 

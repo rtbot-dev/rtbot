@@ -43,12 +43,12 @@ class Constant : public Operator {
 };
 
 // Factory functions for common configurations
-inline std::unique_ptr<Constant<NumberData>> make_number_constant(std::string id, double value) {
-  return std::make_unique<Constant<NumberData>>(std::move(id), NumberData{value});
+inline std::shared_ptr<Constant<NumberData>> make_number_constant(std::string id, double value) {
+  return std::make_shared<Constant<NumberData>>(std::move(id), NumberData{value});
 }
 
-inline std::unique_ptr<Constant<BooleanData>> make_boolean_constant(std::string id, bool value) {
-  return std::make_unique<Constant<BooleanData>>(std::move(id), BooleanData{value});
+inline std::shared_ptr<Constant<BooleanData>> make_boolean_constant(std::string id, bool value) {
+  return std::make_shared<Constant<BooleanData>>(std::move(id), BooleanData{value});
 }
 
 }  // namespace rtbot

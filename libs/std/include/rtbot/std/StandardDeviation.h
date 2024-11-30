@@ -1,56 +1,41 @@
-#ifndef STANDARDDEVIATION_H
-#define STANDARDDEVIATION_H
+#ifndef STANDARD_DEVIATION_H
+#define STANDARD_DEVIATION_H
 
-#include <cmath>
-#include <cstdint>
-#include <vector>
-
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 
 namespace rtbot {
 
-using namespace std;
+// StandardDeviation needs mean and variance tracking
+struct StandardDeviationFeatures {
+  static constexpr bool TRACK_SUM = false;      // Not needed directly
+  static constexpr bool TRACK_MEAN = true;      // Required for variance
+  static constexpr bool TRACK_VARIANCE = true;  // Required for std dev
+};
 
-template <class T, class V>
-struct StandardDeviation : public Operator<T, V> {
-  StandardDeviation() = default;
+class StandardDeviation : public Buffer<NumberData, StandardDeviationFeatures> {
+ public:
+  StandardDeviation(std::string id, size_t window_size)
+      : Buffer<NumberData, StandardDeviationFeatures>(std::move(id), window_size) {}
 
-  StandardDeviation(string const &id, size_t n) : Operator<T, V>(id) {
-    this->addDataInput("i1", n);
-    this->addOutput("o1");
-  }
+  std::string type_name() const override { return "StandardDeviation"; }
 
-  string typeName() const override { return "StandardDeviation"; }
-
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    PortMessage<T, V> toEmit;
-    Message<T, V> out;
-    size_t size = this->getDataInputSize(inputPort);
-
-    V average = this->getDataInputSum(inputPort) / size;
-    V std = 0;
-
-    for (size_t j = 0; j < size; j++) {
-      std = std + pow(this->getDataInputMessage(inputPort, j).value - average, 2);
+ protected:
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
+    // Only emit messages when the buffer is full to ensure
+    // we have enough data for a proper standard deviation
+    if (!this->buffer_full()) {
+      return {};
     }
 
-    std = sqrt(std / (size - 1));
-
-    out.time = this->getDataInputLastMessage(inputPort).time;
-    out.value = std;
-    toEmit.push_back(out);
-    outputMsgs.emplace("o1", toEmit);
-    return outputMsgs;
+    // Create output message with same timestamp but standard deviation value
+    std::vector<std::unique_ptr<Message<NumberData>>> v;
+    v.push_back(create_message<NumberData>(msg->time, NumberData{this->standard_deviation()}));
+    return v;
   }
 };
 
 }  // namespace rtbot
 
-#endif  // STANDARDDEVIATION_H
+#endif  // STANDARD_DEVIATION_H

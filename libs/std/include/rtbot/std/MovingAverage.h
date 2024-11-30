@@ -39,8 +39,8 @@ class MovingAverage : public Buffer<NumberData, MovingAverageFeatures> {
   }
 };
 
-inline std::unique_ptr<MovingAverage> make_moving_average(std::string id, size_t window_size) {
-  return std::make_unique<MovingAverage>(std::move(id), window_size);
+inline std::shared_ptr<MovingAverage> make_moving_average(std::string id, size_t window_size) {
+  return std::make_shared<MovingAverage>(std::move(id), window_size);
 }
 
 }  // namespace rtbot

@@ -1,43 +1,69 @@
-#ifndef PEAKDETECTOR_H
-#define PEAKDETECTOR_H
+#ifndef PEAK_DETECTOR_H
+#define PEAK_DETECTOR_H
 
+#include <cstddef>
+
+#include "rtbot/Buffer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
+// PeakDetector only needs buffer functionality, no statistics
+struct PeakDetectorFeatures {
+  static constexpr bool TRACK_SUM = false;
+  static constexpr bool TRACK_MEAN = false;
+  static constexpr bool TRACK_VARIANCE = false;
+};
 
-template <class T, class V>
-struct PeakDetector : Operator<T, V> {
-  PeakDetector() = default;
-
-  PeakDetector(string const& id, size_t n) : Operator<T, V>(id) {
-    this->addDataInput("i1", n);
-    this->addOutput("o1");
+class PeakDetector : public Buffer<NumberData, PeakDetectorFeatures> {
+ public:
+  PeakDetector(std::string id, size_t window_size)
+      : Buffer<NumberData, PeakDetectorFeatures>(std::move(id), window_size) {
+    if (window_size < 3) {
+      throw std::runtime_error("PeakDetector window size must be at least 3");
+    }
+    if (window_size % 2 == 0) {
+      throw std::runtime_error("PeakDetector window size must be odd");
+    }
   }
 
-  string typeName() const override { return "PeakDetector"; }
+  std::string type_name() const override { return "PeakDetector"; }
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    PortMessage<T, V> toEmit;
-    size_t size = this->getDataInputSize(inputPort);
-    size_t pos = size / 2;  // expected position of the max
-    for (auto i = 0u; i < size; i++)
-      if (this->getDataInputMessage(inputPort, pos).value < this->getDataInputMessage(inputPort, i).value) return {};
+ protected:
+  std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
+    std::vector<std::unique_ptr<Message<NumberData>>> output;
 
-    toEmit.push_back(this->getDataInputMessage(inputPort, pos));
-    outputMsgs.emplace("o1", toEmit);
-    return outputMsgs;
+    // Only process when buffer is full
+    if (!buffer_full()) {
+      return output;
+    }
+
+    const auto& buf = buffer();
+    size_t window_size_ = window_size();
+    size_t center = window_size_ / 2;  // Integer division gives us the center position
+
+    // Check if center point is a local maximum
+    bool is_peak = true;
+    double center_value = buf[center]->data.value;
+
+    for (size_t i = 0; i < window_size_; i++) {
+      if (i != center && buf[i]->data.value >= center_value) {
+        is_peak = false;
+        break;
+      }
+    }
+
+    // If it's a peak, emit the center point
+    if (is_peak) {
+      output.push_back(create_message<NumberData>(buf[center]->time, buf[center]->data));
+    }
+
+    return output;
   }
 };
 
-}  // end namespace rtbot
+}  // namespace rtbot
 
-#endif  // PEAKDETECTOR_H
+#endif  // PEAK_DETECTOR_H

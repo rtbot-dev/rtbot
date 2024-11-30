@@ -6,35 +6,69 @@ view:
   shape: circle
   latex:
     template: |
-      \hat{Ex}_{[t_n, t_n+{{n}}\Delta t]}
+      Peak({{n}})
 jsonschema:
   type: object
   properties:
     id:
       type: string
       description: The id of the operator
-    n:
+    window_size:
       type: integer
-      examples:
-        - 3.0
-      description: The window size, in grid steps, to be used in the computation.
-  required: ["id", "n"]
+      description: The size of the sliding window for peak detection (must be odd and >= 3)
+      minimum: 3
+      examples: [3, 5, 7]
+  required: ["id", "window_size"]
 ---
 
 # PeakDetector
 
-Inputs: `i1`  
-Outputs: `o1`
+Inputs: Port 0  
+Outputs: Port 0
 
-Finds a local maximum (PEAK) within the time window specified by the provided integer (n).
+The PeakDetector operator identifies local maxima in a time series by examining values within a sliding window. A peak is detected when the center value in the window is strictly greater than all other values in the window.
 
-The `PeakDetector` operator holds a message buffer on `i1` with a size defined by the length of
-the provided integer (n). Once the message buffer on `i1` gets filled it calculates the PEAK
-and emits a message through `o1` right after the message buffer on `i1` gets filled. The value
-field of the emitted message is the calculated PEAK and the time field is the time of the
-newest message on the buffer.
+The operator maintains a fixed-size buffer of messages. When the buffer is full, it checks if the center point represents a local maximum. If a peak is detected, the center point is emitted through the output port.
 
-The implementation uses a robust local extreme definition: if the message in the middle of
-the time window has a value such that it is larger than any other message value then it is
-considered that it is a good local extreme. Typical job is to find the optimal time window
-size according to the application.
+## Configuration
+
+- Window size must be odd (to have a clear center point)
+- Window size must be at least 3
+- Larger windows provide more context for peak detection
+
+## Example
+
+Consider a window size of 3 and the following input sequence:
+
+```
+Time  Value  Output
+1     1.0    -
+2     2.0    -
+3     1.0    2.0 (emitted at t=3)
+4     0.5    -
+5     1.5    -
+6     0.8    1.5 (emitted at t=6)
+```
+
+## State Management
+
+The operator maintains:
+
+- Fixed-size buffer of input messages
+- Window size configuration
+
+All state can be serialized and restored for system persistence.
+
+## Error Handling
+
+Throws exceptions for:
+
+- Even window sizes
+- Window sizes less than 3
+- Invalid message types
+
+## Performance Considerations
+
+- O(1) memory usage (fixed buffer size)
+- O(window_size) computation per message
+- Peak detection only occurs when buffer is full
