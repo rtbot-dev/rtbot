@@ -204,6 +204,7 @@ SCENARIO("Join operator handles cleanup of old messages", "[join]") {
       join->execute();
 
       THEN("Old messages are cleaned up") {
+        join->clear_all_output_ports();
         // Add a new message and verify old ones are gone
         join->receive_data(create_message<NumberData>(4, NumberData{4.0}), 0);
         join->execute();

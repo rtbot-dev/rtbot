@@ -164,6 +164,7 @@ SCENARIO("Input operator handles state serialization", "[input]") {
       }
 
       AND_WHEN("New messages are received") {
+        restored->clear_all_output_ports();
         restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
         restored->execute();
 
