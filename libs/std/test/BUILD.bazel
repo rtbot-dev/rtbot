@@ -18,8 +18,12 @@ cc_test(
     deps = [
         "//libs/std:rtbot-std",
         "@catch2",
-        "@io_opentelemetry_cpp//api",
-        #"@io_opentelemetry_cpp//exporters/otlp:otlp_exporter",
-        "@io_opentelemetry_cpp//sdk/src/trace",
-    ],
+    ] + select({
+        "//:enable_telemetry": [
+            "@io_opentelemetry_cpp//api",
+            "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",
+            "@io_opentelemetry_cpp//sdk/src/trace",
+        ],
+        "//conditions:default": [],
+    }),
 )
