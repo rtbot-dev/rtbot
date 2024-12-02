@@ -44,6 +44,11 @@ class Difference : public Buffer<NumberData, DifferenceFeatures> {
   bool use_oldest_time_;
 };
 
+// Factory function for Difference
+inline std::shared_ptr<Operator> make_difference(const std::string& id, bool use_oldest_time = true) {
+  return std::make_shared<Difference>(id, use_oldest_time);
+}
+
 }  // namespace rtbot
 
 #endif  // DIFFERENCE_H

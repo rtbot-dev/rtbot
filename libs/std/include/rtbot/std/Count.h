@@ -50,6 +50,12 @@ class Count : public Operator {
   size_t count_{0};
 };
 
+// Factory function for Count
+template <typename T>
+inline std::shared_ptr<Operator> make_count(std::string id) {
+  return std::make_shared<Count<T>>(std::move(id));
+}
+
 }  // namespace rtbot
 
 #endif  // COUNT_H

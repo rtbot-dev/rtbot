@@ -26,6 +26,8 @@ class Variable : public Operator {
 
   std::string type_name() const override { return "Variable"; }
 
+  double get_default_value() const { return default_value_; }
+
   // State serialization
   Bytes collect() override {
     Bytes bytes = Operator::collect();

@@ -81,6 +81,11 @@ class ResamplerConstant : public Operator {
   T last_value_;                   // Last value for causal consistency
 };
 
+inline std::shared_ptr<Operator> make_resampler_constant(const std::string& id, timestamp_t interval,
+                                                         std::optional<timestamp_t> t0 = std::nullopt) {
+  return std::make_shared<ResamplerConstant<NumberData>>(id, interval, t0);
+}
+
 }  // namespace rtbot
 
 #endif  // RESAMPLER_CONSTANT_H

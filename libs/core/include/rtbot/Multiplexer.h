@@ -221,6 +221,11 @@ class Multiplexer : public Operator {
   std::map<size_t, std::map<timestamp_t, bool>> control_time_tracker_;
 };
 
+// Factory function for creating a Multiplexer operator
+inline std::shared_ptr<Multiplexer<NumberData>> make_number_multiplexer(std::string id, size_t num_ports) {
+  return std::make_shared<Multiplexer<NumberData>>(std::move(id), num_ports);
+}
+
 }  // namespace rtbot
 
 #endif  // MULTIPLEXER_H

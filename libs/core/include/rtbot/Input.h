@@ -127,6 +127,10 @@ class Input : public Operator {
 };
 
 // Factory functions for common configurations
+inline std::shared_ptr<Input> make_input(std::string id, const std::vector<std::string>& port_types) {
+  return std::make_shared<Input>(std::move(id), port_types);
+}
+
 inline std::shared_ptr<Input> make_number_input(std::string id) {
   return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::NUMBER});
 }

@@ -24,6 +24,9 @@ class InfiniteImpulseResponse : public Operator {
 
   std::string type_name() const override { return "InfiniteImpulseResponse"; }
 
+  std::vector<double> get_a_coeffs() const { return a_; }
+  std::vector<double> get_b_coeffs() const { return b_; }
+
   Bytes collect() override {
     Bytes bytes = Operator::collect();
 
@@ -126,6 +129,11 @@ class InfiniteImpulseResponse : public Operator {
   std::deque<double> x_;   // Input buffer
   std::deque<double> y_;   // Output buffer
 };
+
+inline std::shared_ptr<Operator> make_iir(const std::string& id, std::vector<double> b_coeffs,
+                                          std::vector<double> a_coeffs) {
+  return std::make_shared<InfiniteImpulseResponse>(id, b_coeffs, a_coeffs);
+}
 
 }  // namespace rtbot
 

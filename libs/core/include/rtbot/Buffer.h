@@ -78,7 +78,7 @@ class Buffer : public Operator {
   const std::deque<std::unique_ptr<Message<T>>>& buffer() const { return buffer_; }
   size_t buffer_size() const { return buffer_.size(); }
   bool buffer_full() const { return buffer_.size() == window_size_; }
-  size_t window_size() const { return window_size_; }
+  uint32_t window_size() const { return window_size_; }
 
   template <typename F = Features>
   std::enable_if_t<F::TRACK_SUM || F::TRACK_MEAN, double> sum() const {

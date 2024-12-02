@@ -58,6 +58,9 @@ class CumulativeSum : public Operator {
   double sum_;  // Running sum
 };
 
+// Factory function for CumulativeSum
+inline std::shared_ptr<Operator> make_cumulative_sum(std::string id) { return std::make_shared<CumulativeSum>(id); }
+
 }  // namespace rtbot
 
 #endif  // CUMULATIVE_SUM_H

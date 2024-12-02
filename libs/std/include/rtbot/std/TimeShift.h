@@ -14,6 +14,7 @@ class TimeShift : public Operator {
   }
 
   std::string type_name() const override { return "TimeShift"; }
+  timestamp_t get_shift() const { return shift_; }
 
  protected:
   void process_data() override {

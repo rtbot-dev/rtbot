@@ -55,6 +55,10 @@ class Output : public Operator {
 };
 
 // Factory functions for common configurations
+inline std::shared_ptr<Output> make_output(std::string id, const std::vector<std::string>& port_types) {
+  return std::make_shared<Output>(std::move(id), port_types);
+}
+
 inline std::shared_ptr<Output> make_number_output(std::string id) {
   return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::NUMBER});
 }

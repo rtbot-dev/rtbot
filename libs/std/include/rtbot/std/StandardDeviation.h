@@ -36,6 +36,10 @@ class StandardDeviation : public Buffer<NumberData, StandardDeviationFeatures> {
   }
 };
 
+inline std::shared_ptr<Operator> make_std_dev(const std::string &id, size_t window_size) {
+  return std::make_shared<StandardDeviation>(id, window_size);
+}
+
 }  // namespace rtbot
 
 #endif  // STANDARD_DEVIATION_H

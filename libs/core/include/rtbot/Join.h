@@ -147,6 +147,10 @@ class Join : public Operator {
 };
 
 // Factory functions for common configurations
+inline std::shared_ptr<Join> make_join(std::string id, const std::vector<std::string>& port_types) {
+  return std::make_shared<Join>(std::move(id), port_types);
+}
+
 template <typename T>
 inline std::shared_ptr<Join> make_binary_join(std::string id) {
   return std::make_shared<Join>(std::move(id), 2);

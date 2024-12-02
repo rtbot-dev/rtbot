@@ -111,6 +111,12 @@ class Function : public Operator {
   InterpolationType type_;
 };
 
+inline std::shared_ptr<Operator> make_function(const std::string& id,
+                                               const std::vector<std::pair<double, double>>& points,
+                                               InterpolationType type = InterpolationType::LINEAR) {
+  return std::make_shared<Function>(id, points, type);
+}
+
 }  // namespace rtbot
 
 #endif  // FUNCTION_H
