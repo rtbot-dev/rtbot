@@ -82,6 +82,21 @@ class EqualTo : public FilterScalarOp {
   double epsilon_;  // Tolerance for floating-point comparison
 };
 
+class NotEqualTo : public FilterScalarOp {
+ public:
+  NotEqualTo(std::string id, double value, double epsilon = 1e-10)
+      : FilterScalarOp(std::move(id)), value_(value), epsilon_(epsilon) {}
+
+  std::string type_name() const override { return "NotEqualTo"; }
+  bool evaluate(double x) const override { return std::abs(x - value_) > epsilon_; }
+  double get_value() const { return value_; }
+  double get_epsilon() const { return epsilon_; }
+
+ private:
+  double value_;
+  double epsilon_;  // Tolerance for floating-point comparison
+};
+
 // Factory functions
 inline std::shared_ptr<LessThan> make_less_than(std::string id, double threshold) {
   return std::make_shared<LessThan>(std::move(id), threshold);

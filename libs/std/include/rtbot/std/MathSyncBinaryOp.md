@@ -21,13 +21,47 @@ operators:
     latex:
       template: |
         ÷
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-  required: ["id"]
+jsonschemas:
+  - type: object
+    title: Addition
+    properties:
+      type:
+        type: string
+        enum: ["Addition"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Subtraction
+    properties:
+      type:
+        type: string
+        enum: ["Subtraction"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Multiplication
+    properties:
+      type:
+        type: string
+        enum: ["Multiplication"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Division
+    properties:
+      type:
+        type: string
+        enum: ["Division"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
 ---
 
 # Mathematical Synchronization Binary Operators

@@ -1,29 +1,91 @@
 ---
 behavior:
-  buffered: false
+  buffered: true
   throughput: variable
 view:
   shape: circle
-  latex:
-    template: |
-      = {{value}}±{{tolerance}}
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-      examples: ["eq1"]
-    value:
-      type: number
-      description: The reference value to compare against
-      examples: [42.0]
-    tolerance:
-      type: number
-      description: The allowed deviation from the reference value (absolute)
-      default: 0.0
-      examples: [0.1]
-  required: ["id", "value"]
+operators:
+  GreaterThan:
+    latex:
+      template: |
+        > {{value}}
+  LessThan:
+    latex:
+      template: |
+        < {{value}}
+  Equal:
+    latex:
+      template: |
+        = {{value}}±{{tolerance}}
+  NotEqual:
+    latex:
+      template: |
+        ≠ {{value}}±{{tolerance}}
+jsonschemas:
+  - type: object
+    title: GreaterThan
+    properties:
+      type:
+        type: string
+        enum: ["GreaterThan"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The threshold value to compare against
+        examples: [42.0]
+    required: ["id", "value"]
+  - type: object
+    title: LessThan
+    properties:
+      type:
+        type: string
+        enum: ["LessThan"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The threshold value to compare against
+        examples: [42.0]
+    required: ["id", "value"]
+  - type: object
+    title: Equal
+    properties:
+      type:
+        type: string
+        enum: ["Equal"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The reference value to compare against
+        examples: [42.0]
+      tolerance:
+        type: number
+        description: The allowed deviation from the reference value (absolute)
+        examples: [0.1]
+    required: ["id", "value", "tolerance"]
+  - type: object
+    title: NotEqual
+    properties:
+      type:
+        type: string
+        enum: ["NotEqual"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The reference value to compare against
+        examples: [42.0]
+      tolerance:
+        type: number
+        description: The allowed deviation from the reference value (absolute)
+        examples: [0.1]
+    required: ["id", "value", "tolerance"]
 ---
 
 # EqualTo

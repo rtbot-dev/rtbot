@@ -33,13 +33,77 @@ operators:
     latex:
       template: |
         \rightarrow
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-  required: ["id"]
+jsonschemas:
+  - type: object
+    title: LogicalAnd
+    properties:
+      type:
+        type: string
+        enum: ["LogicalAnd"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalOr
+    properties:
+      type:
+        type: string
+        enum: ["LogicalOr"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalXor
+    properties:
+      type:
+        type: string
+        enum: ["LogicalXor"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalNand
+    properties:
+      type:
+        type: string
+        enum: ["LogicalNand"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalNor
+    properties:
+      type:
+        type: string
+        enum: ["LogicalNor"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalXnor
+    properties:
+      type:
+        type: string
+        enum: ["LogicalXnor"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: LogicalImplication
+    properties:
+      type:
+        type: string
+        enum: ["LogicalImplication"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
 ---
 
 # Boolean Synchronization Binary Operators

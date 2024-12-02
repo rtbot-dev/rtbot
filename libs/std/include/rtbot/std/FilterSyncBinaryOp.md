@@ -4,16 +4,84 @@ behavior:
   throughput: variable
 view:
   shape: circle
-  latex:
-    template: |
-      Filter
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-  required: ["id"]
+operators:
+  SyncGreaterThan:
+    latex:
+      template: |
+        >
+  SyncLessThan:
+    latex:
+      template: |
+        <
+  SyncEqual:
+    latex:
+      template: |
+        =
+  SyncNotEqual:
+    latex:
+      template: |
+        ≠
+jsonschemas:
+  - type: object
+    title: SyncGreaterThan
+    properties:
+      type:
+        type: string
+        enum: ["SyncGreaterThan"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The threshold value to compare against
+    required: ["id", "value"]
+  - type: object
+    title: SyncLessThan
+    properties:
+      type:
+        type: string
+        enum: ["SyncLessThan"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The threshold value to compare against
+    required: ["id", "value"]
+  - type: object
+    title: SyncEqual
+    properties:
+      type:
+        type: string
+        enum: ["SyncEqual"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The value to compare for equality
+      epsilon:
+        type: number
+        description: The allowed deviation from the reference value (absolute)
+        default: 1e-10
+    required: ["id", "value"]
+  - type: object
+    title: SyncNotEqual
+    properties:
+      type:
+        type: string
+        enum: ["SyncNotEqual"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The value to compare for inequality
+      epsilon:
+        type: number
+        description: The allowed deviation from the reference value (absolute)
+        default: 1e-10
+    required: ["id", "value"]
 ---
 
 # FilterSyncBinaryOp

@@ -53,6 +53,27 @@ class SyncEqual : public FilterSyncBinaryOp<NumberData> {
   double epsilon_;
 };
 
+class SyncNotEqual : public FilterSyncBinaryOp<NumberData> {
+ public:
+  explicit SyncNotEqual(std::string id, double epsilon = 1e-10)
+      : FilterSyncBinaryOp<NumberData>(std::move(id)), epsilon_(epsilon) {
+    if (epsilon <= 0.0) {
+      throw std::runtime_error("Epsilon must be positive");
+    }
+  }
+
+  std::string type_name() const override { return "SyncNotEqual"; }
+
+  bool filter_condition(const NumberData& a, const NumberData& b) const override {
+    return std::abs(a.value - b.value) >= epsilon_;
+  }
+
+  double get_epsilon() const { return epsilon_; }
+
+ private:
+  double epsilon_;
+};
+
 }  // namespace rtbot
 
 #endif  // FILTER_SYNC_BINARY_OP_H

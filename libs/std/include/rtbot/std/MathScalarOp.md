@@ -1,21 +1,216 @@
 ---
 behavior:
-  buffered: false
-  throughput: constant
+  buffered: true
+  throughput: variable
 view:
   shape: circle
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-    type:
-      type: string
-      description: The type of mathematical operation to perform
-      enum:
-        ["Add", "Scale", "Power", "Sin", "Cos", "Tan", "Exp", "Log", "Log10", "Abs", "Sign", "Floor", "Ceil", "Round"]
-  required: ["id", "type"]
+operators:
+  Add:
+    latex:
+      template: |
+        x + {{value}}
+  Scale:
+    latex:
+      template: |
+        {{value}}x
+  Power:
+    latex:
+      template: |
+        x^{{value}}
+  Sin:
+    latex:
+      template: |
+        sin(x)
+  Cos:
+    latex:
+      template: |
+        cos(x)
+  Tan:
+    latex:
+      template: |
+        tan(x)
+  Exp:
+    latex:
+      template: |
+        e^x
+  Log:
+    latex:
+      template: |
+        ln(x)
+  Log10:
+    latex:
+      template: |
+        log₁₀(x)
+  Abs:
+    latex:
+      template: |
+        |x|
+  Sign:
+    latex:
+      template: |
+        sgn(x)
+  Floor:
+    latex:
+      template: |
+        ⌊x⌋
+  Ceil:
+    latex:
+      template: |
+        ⌈x⌉
+  Round:
+    latex:
+      template: |
+        round(x)
+jsonschemas:
+  - type: object
+    title: Add
+    properties:
+      type:
+        type: string
+        enum: ["Add"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The value to add to the input
+    required: ["id", "value"]
+  - type: object
+    title: Scale
+    properties:
+      type:
+        type: string
+        enum: ["Scale"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The value to multiply the input by
+    required: ["id", "value"]
+  - type: object
+    title: Power
+    properties:
+      type:
+        type: string
+        enum: ["Power"]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        description: The exponent value
+    required: ["id", "value"]
+  - type: object
+    title: Sin
+    properties:
+      type:
+        type: string
+        enum: ["Sin"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Cos
+    properties:
+      type:
+        type: string
+        enum: ["Cos"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Tan
+    properties:
+      type:
+        type: string
+        enum: ["Tan"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Exp
+    properties:
+      type:
+        type: string
+        enum: ["Exp"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Log
+    properties:
+      type:
+        type: string
+        enum: ["Log"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Log10
+    properties:
+      type:
+        type: string
+        enum: ["Log10"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Abs
+    properties:
+      type:
+        type: string
+        enum: ["Abs"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Sign
+    properties:
+      type:
+        type: string
+        enum: ["Sign"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Floor
+    properties:
+      type:
+        type: string
+        enum: ["Floor"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Ceil
+    properties:
+      type:
+        type: string
+        enum: ["Ceil"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
+  - type: object
+    title: Round
+    properties:
+      type:
+        type: string
+        enum: ["Round"]
+      id:
+        type: string
+        description: The id of the operator
+    required: ["id"]
 ---
 
 # MathScalarOp
