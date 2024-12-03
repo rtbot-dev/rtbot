@@ -7,23 +7,35 @@ view:
   latex:
     template: |
       \equiv {{value}}
-jsonschema:
-  type: object
-  properties:
-    id:
-      type: string
-      description: The id of the operator
-    value:
-      # one of the following types: boolean or number
-      oneOf:
-        - type: number
-        - type: boolean
-      examples:
-        - 3.14
-        - 2.718
-        - true
-      description: The constant value to emit for each input message
-  required: ["id", "value"]
+jsonschemas:
+  - type: object
+    properties:
+      type:
+        enum: [ConstantNumber]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        examples:
+          - 3.14
+          - 2.718
+        description: The constant value to emit for each input message
+    required: ["id", "value"]
+  - type: object
+    properties:
+      type:
+        enum: [ConstantBoolean]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: boolean
+        examples:
+          - true
+          - false
+        description: The constant value to emit for each input message
+    required: ["id", "value"]
 ---
 
 # Constant
