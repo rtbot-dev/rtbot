@@ -1,196 +1,217 @@
-#include "rtbot/bindings.h"
+#ifndef RTBOT_BINDINGS_H
+#define RTBOT_BINDINGS_H
 
-#include <algorithm>
-#include <chrono>
+#include <cstdint>
+#include <map>
 #include <memory>
 #include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <optional>
-#include <ostream>
+#include <string>
+#include <vector>
 
-#include "rtbot/FactoryOp.h"
-
-// notice that this file is generated
-// and bazel will guarantee it will be there
-// at build time
-
+#include "rtbot/Message.h"
+#include "rtbot/Program.h"
 #include "rtbot/jsonschema.hpp"
-
-rtbot::FactoryOp factory;
-
-using json = nlohmann::json;
-using nlohmann::json_schema::json_validator;
-/* using std::chrono::duration; */
-/* using std::chrono::duration_cast; */
-/* using std::chrono::high_resolution_clock; */
-/* using std::chrono::nanoseconds; */
 
 namespace rtbot {
 
-template <class T, class V>
-void to_json(json& j, const Message<T, V>& p) {
-  j = json{{"time", p.time}, {"value", p.value}};
+using json = nlohmann::json;
+
+void to_json(json& j, const ProgramMsgBatch& batch) {
+  j = json::object();
+  for (const auto& [op_id, op_batch] : batch) {
+    j[op_id] = json::object();
+    for (const auto& [port_name, msgs] : op_batch) {
+      j[op_id][port_name] = json::array();
+      for (const auto& msg : msgs) {
+        if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
+          j[op_id][port_name].push_back({{"time", num_msg->time}, {"value", num_msg->data.value}});
+        }
+        // Add other message type conversions as needed
+      }
+    }
+  }
 }
 
-template <class T, class V>
-void from_json(const json& j, Message<T, V>& p) {
-  j.at("time").get_to(p.time);
-  j.at("value").get_to(p.value);
+Bytes serialize_program(const std::string& program_id) {
+  return ProgramManager::instance().serialize_program(program_id);
+}
+
+void create_program_from_bytes(const std::string& program_id, const Bytes& bytes) {
+  ProgramManager::instance().create_program_from_bytes(program_id, bytes);
+}
+
+std::string validate_program(const std::string& json_program) {
+  nlohmann::json_schema::json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);
+
+  try {
+    validator.set_root_schema(rtbot_schema);
+  } catch (const std::exception& e) {
+    return json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  try {
+    validator.validate(json::parse(json_program));
+  } catch (const std::exception& e) {
+    return json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  return json({{"valid", true}}).dump();
+}
+
+std::string validate_operator(const std::string& type, const std::string& json_op) {
+  nlohmann::json_schema::json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);
+
+  try {
+    std::optional<json> schema;
+    for (const auto& it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
+      if (type == it["properties"]["type"]["enum"][0]) {
+        schema = std::optional{it};
+        break;
+      }
+    }
+
+    if (!schema) {
+      return json({{"valid", false}, {"error", "Unknown operator type: " + type}}).dump();
+    }
+
+    validator.set_root_schema(schema.value());
+  } catch (const std::exception& e) {
+    return json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  try {
+    validator.validate(json::parse(json_op));
+  } catch (const std::exception& e) {
+    return json({{"valid", false}, {"error", e.what()}}).dump();
+  }
+
+  return json({{"valid", true}}).dump();
+}
+
+std::string create_program(const std::string& program_id, const std::string& json_program) {
+  std::string validation = validate_program(json_program);
+  if (!json::parse(validation)["valid"]) {
+    return validation;
+  }
+  return ProgramManager::instance().create_program(program_id, json_program);
+}
+
+std::string delete_program(const std::string& program_id) {
+  return std::to_string(ProgramManager::instance().delete_program(program_id));
+}
+
+std::string add_to_message_buffer(const std::string& program_id, const std::string& port_id, uint64_t time,
+                                  double value) {
+  return std::to_string(ProgramManager::instance().add_to_message_buffer(program_id, port_id,
+                                                                         Message<NumberData>(time, NumberData{value})));
+}
+
+std::string process_message_buffer(const std::string& program_id) {
+  auto result = ProgramManager::instance().process_message_buffer(program_id);
+  return json(result).dump();
+}
+
+std::string process_message_buffer_debug(const std::string& program_id) {
+  auto result = ProgramManager::instance().process_message_buffer_debug(program_id);
+  return json(result).dump();
+}
+
+std::string get_program_entry_operator_id(const std::string& program_id) {
+  return ProgramManager::instance().get_program_entry_operator_id(program_id);
+}
+
+void add_batch_to_message_buffers(const std::string& program_id, const std::vector<uint64_t>& times,
+                                  const std::vector<double>& values, const std::vector<std::string>& ports) {
+  if (times.size() != values.size() || times.size() != ports.size()) {
+    throw std::runtime_error("Vectors passed to process_batch have different lengths");
+  }
+
+  for (size_t i = 0; i < times.size(); i++) {
+    ProgramManager::instance().add_to_message_buffer(program_id, ports[i],
+                                                     Message<NumberData>(times[i], NumberData{values[i]}));
+  }
+}
+
+std::string process_batch(const std::string& program_id, const std::vector<uint64_t>& times,
+                          const std::vector<double>& values, const std::vector<std::string>& ports) {
+  add_batch_to_message_buffers(program_id, times, values, ports);
+  auto result = ProgramManager::instance().process_message_buffer(program_id);
+  return json(result).dump();
+}
+
+std::string process_batch_debug(const std::string& program_id, const std::vector<uint64_t>& times,
+                                const std::vector<double>& values, const std::vector<std::string>& ports) {
+  add_batch_to_message_buffers(program_id, times, values, ports);
+  auto result = ProgramManager::instance().process_message_buffer_debug(program_id);
+  return json(result).dump();
+}
+
+std::string pretty_print(const std::string& json_output) {
+  const std::string RESET = "\033[0m";
+  const std::string BOLD = "\033[1m";
+  const std::string RED = "\033[31m";
+  const std::string GREEN = "\033[32m";
+  const std::string YELLOW = "\033[33m";
+  const std::string BLUE = "\033[34m";
+  const std::string MAGENTA = "\033[35m";
+
+  json output = json::parse(json_output);
+  std::stringstream ss;
+
+  ss << BOLD << BLUE << "=== Program Output ===" << RESET << "\n\n";
+
+  for (const auto& [op_id, op_data] : output.items()) {
+    ss << BOLD << MAGENTA << "Operator: " << op_id << RESET << "\n";
+
+    for (const auto& [port_name, messages] : op_data.items()) {
+      ss << YELLOW << "  Port: " << port_name << RESET << "\n";
+
+      for (const auto& msg : messages) {
+        ss << GREEN << "    Time: " << std::setw(10) << msg["time"].get<uint64_t>();
+        ss << RED << " | Value: " << std::setw(10) << std::fixed << std::setprecision(4) << msg["value"].get<double>()
+           << RESET << "\n";
+      }
+      ss << "\n";
+    }
+  }
+
+  return ss.str();
+}
+
+std::string pretty_print(const ProgramMsgBatch& batch) {
+  const std::string RESET = "\033[0m";
+  const std::string BOLD = "\033[1m";
+  const std::string RED = "\033[31m";
+  const std::string GREEN = "\033[32m";
+  const std::string YELLOW = "\033[33m";
+  const std::string BLUE = "\033[34m";
+  const std::string MAGENTA = "\033[35m";
+
+  std::stringstream ss;
+  ss << BOLD << BLUE << "=== Program Output ===" << RESET << "\n\n";
+
+  for (const auto& [op_id, op_batch] : batch) {
+    ss << BOLD << MAGENTA << "Operator: " << op_id << RESET << "\n";
+
+    for (const auto& [port_name, messages] : op_batch) {
+      ss << YELLOW << "  Port: " << port_name << RESET << "\n";
+
+      for (const auto& msg : messages) {
+        if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
+          ss << GREEN << "    Time: " << std::setw(10) << num_msg->time;
+          ss << RED << " | Value: " << std::setw(10) << std::fixed << std::setprecision(4) << num_msg->data.value
+             << RESET << "\n";
+        }
+      }
+      ss << "\n";
+    }
+  }
+
+  return ss.str();
 }
 
 }  // namespace rtbot
 
-Bytes serializeProgram(string const& programId) { return factory.serialize(programId); }
-
-void createProgram(string const& programId, Bytes const& bytes) { factory.createProgram(programId, bytes); }
-
-ProgramMessage<uint64_t, double> processMessageMapNative(string const& programId,
-                                                         const OperatorMessage<uint64_t, double>& messagesMap) {
-  return factory.processMessageMap(programId, messagesMap);
-}
-
-string validateOperator(string const& type, string const& json_op) {
-  json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
-
-  try {
-    // look for the schema for the give operator type
-    optional<nlohmann::json> schema = std::nullopt;
-    for (auto it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
-      if (type.compare(it["properties"]["type"]["enum"][0]) == 0) {
-        schema = std::optional{it};
-      }
-    }
-
-    if (schema)
-      validator.set_root_schema(schema.value());
-    else
-      return nlohmann::json({{"valid", false}, {"error", "Unknown operator type: " + type}}).dump();
-
-  } catch (const exception& e) {
-    cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
-    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
-  }
-
-  try {
-    validator.validate(
-        nlohmann::json::parse(json_op));  // validate the document - uses the default throwing error-handler
-  } catch (const exception& e) {
-    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
-  }
-
-  return nlohmann::json({{"valid", true}}).dump();
-}
-
-string validate(string const& json_program) {
-  json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);  // create validator
-
-  try {
-    validator.set_root_schema(rtbot_schema);  // insert root-schema
-  } catch (const std::exception& e) {
-    cout << "Unable to set the rtbot schema as root: " << e.what() << "\n";
-    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
-  }
-
-  try {
-    validator.validate(
-        nlohmann::json::parse(json_program));  // validate the document - uses the default throwing error-handler
-  } catch (const exception& e) {
-    return nlohmann::json({{"valid", false}, {"error", e.what()}}).dump();
-  }
-
-  return nlohmann::json({{"valid", true}}).dump();
-}
-
-string createProgram(string const& programId, string const& json_program) {
-  // first validate it
-  string validation = validate(json_program);
-
-  if (!nlohmann::json::parse(validation)["valid"])
-    return validation;
-  else
-    return factory.createProgram(programId, json_program);
-}
-
-string deleteProgram(string const& programId) { return to_string(factory.deleteProgram(programId)); }
-
-string addToMessageBuffer(const string& programId, const string& portId, unsigned long time, double value) {
-  return to_string(factory.addToMessageBuffer(programId, portId, Message<uint64_t, double>(time, value)));
-}
-
-string processMessageBuffer(const string& programId) {
-  auto result = factory.processMessageBuffer(programId);
-  return nlohmann::json(result).dump();
-}
-
-string processMessageBufferDebug(const string& programId) {
-  auto result = factory.processMessageBufferDebug(programId);
-  return nlohmann::json(result).dump();
-}
-
-string getProgramEntryOperatorId(const string& programId) {
-  auto result = factory.getProgramEntryOperatorId(programId);
-  return result;
-}
-
-string getProgramEntryPorts(const string& programId) {
-  auto result = factory.getProgramEntryPorts(programId);
-  return nlohmann::json(result).dump();
-}
-
-string getProgramOutputFilter(const string& programId) {
-  auto result = factory.getProgramOutputFilter(programId);
-  return nlohmann::json(result).dump();
-}
-
-string processMessageMap(const string& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
-  auto result = factory.processMessageMap(programId, messagesMap);
-  return nlohmann::json(result).dump();
-}
-
-string processMessageMapDebug(string const& programId, const OperatorMessage<uint64_t, double>& messagesMap) {
-  auto result = factory.processMessageMapDebug(programId, messagesMap);
-  return nlohmann::json(result).dump();
-}
-
-// helper function to load the batch into the input buffers
-void addBatchToMessageBuffers(string const& programId, vector<uint64_t> times, vector<double> values,
-                              vector<string> const& ports) {
-  if (times.size() != values.size() || times.size() != ports.size() || values.size() != ports.size())
-    throw std::runtime_error("vectors passed to processBatch are not of the same length");
-
-  // fill the message buffers
-  for (size_t i = 0; i < times.size(); i++) {
-    auto time = times[i];
-    auto value = values[i];
-    auto portId = ports[i];
-    factory.addToMessageBuffer(programId, portId, Message<uint64_t, double>(time, value));
-  }
-}
-
-string processBatch(string const& programId, vector<uint64_t> times, vector<double> values,
-                    vector<string> const& ports) {
-  /* auto t1 = high_resolution_clock::now(); */
-  addBatchToMessageBuffers(programId, times, values, ports);
-  /* auto t2 = high_resolution_clock::now(); */
-  /* auto dt1 = duration_cast<nanoseconds>(t2 - t1); */
-  /* cout << "[processBatch][" << dt1.count() << " ns] Added " << times.size() << " entries to message buffers" << endl;
-   */
-
-  auto result = factory.processMessageBuffer(programId);
-  /* auto t3 = high_resolution_clock::now(); */
-  /* auto dt2 = duration_cast<nanoseconds>(t3 - t2); */
-  /* cout << "[processBatch][" << dt2.count() << " ns] process messages in buffers" << endl; */
-  auto json = nlohmann::json(result).dump();
-  /* auto t4 = high_resolution_clock::now(); */
-  /* auto dt3 = duration_cast<nanoseconds>(t4 - t3); */
-  /* cout << "[processBatch][" << dt3.count() << " ns] convert result to json" << endl; */
-
-  return json;
-}
-
-string processBatchDebug(string const& programId, vector<uint64_t> times, vector<double> values,
-                         vector<string> const& ports) {
-  addBatchToMessageBuffers(programId, times, values, ports);
-  auto result = factory.processMessageBufferDebug(programId);
-  return nlohmann::json(result).dump();
-}
+#endif  // RTBOT_BINDINGS_H
