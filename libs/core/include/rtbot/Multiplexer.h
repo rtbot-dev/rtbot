@@ -1,6 +1,7 @@
 #ifndef MULTIPLEXER_H
 #define MULTIPLEXER_H
 
+#include <cstddef>
 #include <iostream>
 #include <limits>
 #include <map>
@@ -36,6 +37,8 @@ class Multiplexer : public Operator {
     // Single output port
     add_output_port<T>();
   }
+
+  size_t get_num_ports() const { return data_time_tracker_.size(); }
 
   std::string type_name() const override { return "Multiplexer"; }
 
@@ -222,8 +225,21 @@ class Multiplexer : public Operator {
 };
 
 // Factory function for creating a Multiplexer operator
-inline std::shared_ptr<Multiplexer<NumberData>> make_number_multiplexer(std::string id, size_t num_ports) {
+inline std::shared_ptr<Multiplexer<NumberData>> make_multiplexer_number(std::string id, size_t num_ports) {
   return std::make_shared<Multiplexer<NumberData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Multiplexer<BooleanData>> make_multiplexer_boolean(std::string id, size_t num_ports) {
+  return std::make_shared<Multiplexer<BooleanData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Multiplexer<VectorNumberData>> make_multiplexer_vector_number(std::string id, size_t num_ports) {
+  return std::make_shared<Multiplexer<VectorNumberData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Multiplexer<VectorBooleanData>> make_multiplexer_vector_boolean(std::string id,
+                                                                                       size_t num_ports) {
+  return std::make_shared<Multiplexer<VectorBooleanData>>(std::move(id), num_ports);
 }
 
 }  // namespace rtbot

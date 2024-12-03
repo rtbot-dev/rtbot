@@ -1,6 +1,8 @@
 #ifndef DEMULTIPLEXER_H
 #define DEMULTIPLEXER_H
 
+#include <cstddef>
+
 #include "StateSerializer.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -32,6 +34,8 @@ class Demultiplexer : public Operator {
       add_output_port<T>();
     }
   }
+
+  size_t get_num_ports() const { return control_time_tracker_.size(); }
 
   std::string type_name() const override { return "Demultiplexer"; }
 
@@ -171,20 +175,20 @@ class Demultiplexer : public Operator {
 };
 
 // Factory functions for common configurations using PortType
-inline std::shared_ptr<Demultiplexer<NumberData>> make_number_demultiplexer(std::string id, size_t num_ports) {
+inline std::shared_ptr<Demultiplexer<NumberData>> make_demultiplexer_number(std::string id, size_t num_ports) {
   return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<BooleanData>> make_boolean_demultiplexer(std::string id, size_t num_ports) {
+inline std::shared_ptr<Demultiplexer<BooleanData>> make_demultiplexer_boolean(std::string id, size_t num_ports) {
   return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_vector_number_demultiplexer(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_demultiplexer_vector_number(std::string id,
                                                                                          size_t num_ports) {
   return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_vector_boolean_demultiplexer(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_demultiplexer_vector_boolean(std::string id,
                                                                                            size_t num_ports) {
   return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
 }

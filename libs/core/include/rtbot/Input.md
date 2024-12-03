@@ -17,7 +17,7 @@ jsonschema:
       type: array
       examples:
         - ["number", "boolean"]
-      description: List of port types to create. Valid types are "number", "boolean", "vector_number", "vector_boolean"
+      description: List of port types to create. Valid types are 'number', 'boolean', 'vector_number' and 'vector_boolean'
       items:
         type: string
         enum: ["number", "boolean", "vector_number", "vector_boolean"]

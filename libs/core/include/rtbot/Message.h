@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <string>
 #include <typeindex>
+#include <unordered_map>
 #include <vector>
 
 namespace rtbot {
@@ -272,6 +273,10 @@ template <typename T>
 std::unique_ptr<Message<T>> create_message(timestamp_t time, const T& data) {
   return std::make_unique<Message<T>>(time, data);
 }
+
+using PortMsgBatch = std::vector<std::unique_ptr<BaseMessage>>;
+using OperatorMsgBatch = std::unordered_map<std::string, PortMsgBatch>;
+using ProgramMsgBatch = std::unordered_map<std::string, OperatorMsgBatch>;
 
 }  // namespace rtbot
 
