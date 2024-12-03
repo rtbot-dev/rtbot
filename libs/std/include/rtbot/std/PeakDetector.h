@@ -64,6 +64,11 @@ class PeakDetector : public Buffer<NumberData, PeakDetectorFeatures> {
   }
 };
 
+// Factory function for creating PeakDetector instances
+inline std::shared_ptr<Operator> make_peak_detector(const std::string& id, size_t window_size) {
+  return std::make_shared<PeakDetector>(id, window_size);
+}
+
 }  // namespace rtbot
 
 #endif  // PEAK_DETECTOR_H

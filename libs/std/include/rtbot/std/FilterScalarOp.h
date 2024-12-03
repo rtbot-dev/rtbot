@@ -110,6 +110,10 @@ inline std::shared_ptr<EqualTo> make_equal_to(std::string id, double value, doub
   return std::make_shared<EqualTo>(std::move(id), value, epsilon);
 }
 
+inline std::shared_ptr<NotEqualTo> make_not_equal_to(std::string id, double value, double epsilon = 1e-10) {
+  return std::make_shared<NotEqualTo>(std::move(id), value, epsilon);
+}
+
 }  // namespace rtbot
 
 #endif  // FILTER_SCALAR_OP_H

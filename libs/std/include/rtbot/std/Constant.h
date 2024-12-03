@@ -42,13 +42,27 @@ class Constant : public Operator {
   T value_;  // The constant value to emit
 };
 
+class ConstantNumber : public Constant<NumberData> {
+ public:
+  ConstantNumber(std::string id, double value) : Constant<NumberData>(std::move(id), NumberData{value}) {}
+
+  std::string type_name() const override { return "ConstantNumber"; }
+};
+
+class ConstantBoolean : public Constant<BooleanData> {
+ public:
+  ConstantBoolean(std::string id, bool value) : Constant<BooleanData>(std::move(id), BooleanData{value}) {}
+
+  std::string type_name() const override { return "ConstantBoolean"; }
+};
+
 // Factory functions for common configurations
-inline std::shared_ptr<Constant<NumberData>> make_number_constant(std::string id, double value) {
-  return std::make_shared<Constant<NumberData>>(std::move(id), NumberData{value});
+inline std::shared_ptr<ConstantNumber> make_constant_number(std::string id, double value) {
+  return std::make_shared<ConstantNumber>(std::move(id), value);
 }
 
-inline std::shared_ptr<Constant<BooleanData>> make_boolean_constant(std::string id, bool value) {
-  return std::make_shared<Constant<BooleanData>>(std::move(id), BooleanData{value});
+inline std::shared_ptr<ConstantBoolean> make_constant_boolean(std::string id, bool value) {
+  return std::make_shared<ConstantBoolean>(std::move(id), value);
 }
 
 }  // namespace rtbot

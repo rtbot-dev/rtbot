@@ -50,10 +50,26 @@ class Count : public Operator {
   size_t count_{0};
 };
 
+class CountNumber : public Count<NumberData> {
+ public:
+  explicit CountNumber(std::string id) : Count<NumberData>(std::move(id)) {}
+  std::string type_name() const override { return "CountNumber"; }
+};
+
+class CountBoolean : public Count<BooleanData> {
+ public:
+  explicit CountBoolean(std::string id) : Count<BooleanData>(std::move(id)) {}
+  std::string type_name() const override { return "CountBoolean"; }
+};
+
 // Factory function for Count
 template <typename T>
 inline std::shared_ptr<Operator> make_count(std::string id) {
   return std::make_shared<Count<T>>(std::move(id));
+}
+
+inline std::shared_ptr<Operator> make_count_number(std::string id) {
+  return std::make_shared<CountNumber>(std::move(id));
 }
 
 }  // namespace rtbot

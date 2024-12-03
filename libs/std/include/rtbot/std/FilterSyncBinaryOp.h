@@ -74,6 +74,23 @@ class SyncNotEqual : public FilterSyncBinaryOp<NumberData> {
   double epsilon_;
 };
 
+// Factory functions
+inline std::shared_ptr<FilterSyncBinaryOp<NumberData>> make_sync_greater_than(std::string id) {
+  return std::make_shared<SyncGreaterThan>(std::move(id));
+}
+
+inline std::shared_ptr<FilterSyncBinaryOp<NumberData>> make_sync_less_than(std::string id) {
+  return std::make_shared<SyncLessThan>(std::move(id));
+}
+
+inline std::shared_ptr<FilterSyncBinaryOp<NumberData>> make_sync_equal(std::string id, double epsilon = 1e-10) {
+  return std::make_shared<SyncEqual>(std::move(id), epsilon);
+}
+
+inline std::shared_ptr<FilterSyncBinaryOp<NumberData>> make_sync_not_equal(std::string id, double epsilon = 1e-10) {
+  return std::make_shared<SyncNotEqual>(std::move(id), epsilon);
+}
+
 }  // namespace rtbot
 
 #endif  // FILTER_SYNC_BINARY_OP_H
