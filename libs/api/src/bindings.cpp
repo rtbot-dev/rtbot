@@ -212,6 +212,58 @@ std::string pretty_print(const ProgramMsgBatch& batch) {
   return ss.str();
 }
 
+std::string pretty_print_validation_error(const std::string& validation_result) {
+  try {
+    auto j = nlohmann::json::parse(validation_result);
+    std::ostringstream ss;
+
+    if (!j["valid"].get<bool>()) {
+      ss << "❌ Validation Failed\n";
+
+      if (j.contains("error")) {
+        ss << "Error: " << j["error"].get<std::string>() << "\n";
+      }
+
+      if (j.contains("details")) {
+        ss << "\nDetails:\n";
+        const auto& details = j["details"];
+
+        if (details.is_array()) {
+          for (const auto& detail : details) {
+            ss << "  • " << detail.get<std::string>() << "\n";
+          }
+        } else {
+          ss << "  • " << details.get<std::string>() << "\n";
+        }
+      }
+
+      if (j.contains("operator_errors")) {
+        ss << "\nOperator Errors:\n";
+        for (const auto& [op_id, error] : j["operator_errors"].items()) {
+          ss << "  " << op_id << ": " << error.get<std::string>() << "\n";
+        }
+      }
+
+      if (j.contains("connection_errors")) {
+        ss << "\nConnection Errors:\n";
+        for (const auto& error : j["connection_errors"]) {
+          ss << "  • From: " << error["from"].get<std::string>() << " To: " << error["to"].get<std::string>();
+          if (error.contains("message")) {
+            ss << " - " << error["message"].get<std::string>();
+          }
+          ss << "\n";
+        }
+      }
+    } else {
+      ss << "✓ Validation Passed\n";
+    }
+
+    return ss.str();
+  } catch (const nlohmann::json::exception& e) {
+    return "Error parsing validation result: " + std::string(e.what());
+  }
+}
+
 }  // namespace rtbot
 
 #endif  // RTBOT_BINDINGS_H

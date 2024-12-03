@@ -313,7 +313,7 @@ class Operator {
         auto msg_copy = output_queue[i]->clone();
 #ifdef RTBOT_INSTRUMENTATION
         RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), conn.child->id(), conn.child->type_name(),
-                                  output_port.queue[i]->clone());
+                                  output_queue[i]->clone());
 #endif
         conn.child->receive_data(std::move(msg_copy), conn.child_input_port);
       }

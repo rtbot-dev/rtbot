@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
 
 namespace rtbot {
@@ -97,14 +98,20 @@ class Program {
   map<string, vector<size_t>> output_mappings_;
 
   void init_from_json() {
+    RTBOT_LOG_DEBUG("Initializing program from JSON");
     auto j = json::parse(program_json_);
 
     for (const json& op_json : j["operators"]) {
       string id = op_json["id"];
+      RTBOT_LOG_DEBUG("Creating operator: ", op_json.dump());
       operators_[id] = OperatorJson::read_op(op_json.dump());
+      RTBOT_LOG_DEBUG("...created operator: ", id);
     }
 
+    RTBOT_LOG_DEBUG("All operators created, connecting them");
+
     for (const json& conn : j["connections"]) {
+      RTBOT_LOG_DEBUG("Connecting operators: ", conn.dump());
       string from_id = conn["from"];
       string to_id = conn["to"];
 
@@ -120,11 +127,13 @@ class Program {
     }
 
     entry_operator_id_ = j["entryOperator"];
+    RTBOT_LOG_DEBUG("Entry operator: ", entry_operator_id_);
     if (!operators_[entry_operator_id_]) {
       throw runtime_error("Entry operator not found: " + entry_operator_id_);
     }
 
     for (const json& mapping : j["outputs"]) {
+      RTBOT_LOG_DEBUG("Output mapping: ", mapping.dump());
       string op_id = mapping["operatorId"];
       vector<size_t> ports;
       for (const auto& port : mapping["ports"]) {
@@ -132,6 +141,7 @@ class Program {
       }
       output_mappings_[op_id] = ports;
     }
+    RTBOT_LOG_DEBUG("Program initialized");
   }
 
   size_t port_name_to_index(const string& port_name) {

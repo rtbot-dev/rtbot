@@ -3,15 +3,18 @@
 
 #include <chrono>
 #include <cstddef>
+#include <iomanip>
+#include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #ifdef RTBOT_INSTRUMENTATION
-#include <opentelemetry/metrics/meter.h>
-#include <opentelemetry/metrics/provider.h>
-#include <opentelemetry/nostd/shared_ptr.h>
-#include <opentelemetry/trace/provider.h>
-#include <opentelemetry/trace/span.h>
+// #include <opentelemetry/metrics/meter.h>
+// #include <opentelemetry/metrics/provider.h>
+// #include <opentelemetry/nostd/shared_ptr.h>
+// #include <opentelemetry/trace/provider.h>
+// #include <opentelemetry/trace/span.h>
 #endif
 
 namespace rtbot {
@@ -19,27 +22,43 @@ namespace rtbot {
 class OpenTelemetry {
  public:
   static void initialize(const std::string& service_name) {
-    std::cout << "Initializing telemetry for service: " << service_name << std::endl;
+    std::cout << "\033[1;35m[TELEMETRY]\033[0m Initializing service: " << service_name << std::endl;
   }
 
   static void record_message(const std::string& op_id, const std::string& type_name, std::unique_ptr<BaseMessage> msg) {
-    std::cout << "    " << msg->to_string() << " -> " << type_name << "(" << op_id << ")" << std::endl;
+    std::cout << "\033[90m" << get_timestamp() << "\033[0m "
+              << "\033[1;36m[MSG]\033[0m "
+              << "\033[97m" << msg->to_string() << "\033[0m "
+              << "\033[90m→\033[0m "
+              << "\033[1;33m" << type_name << "(" << op_id << ")\033[0m" << std::endl;
   }
 
   static void record_message_sent(const std::string& from_id, const std::string& from_type_name,
                                   const std::string& to_id, const std::string& to_type_name,
                                   std::unique_ptr<BaseMessage> msg) {
-    std::cout << " . " << from_type_name << "(" << from_id << ") -> " << to_type_name << "(" << to_id
-              << "): " << msg->to_string() << std::endl;
+    std::cout << "\033[90m" << get_timestamp() << "\033[0m "
+              << "\033[1;32m[FLOW]\033[0m "
+              << "\033[1;33m" << from_type_name << "(" << from_id << ")\033[0m "
+              << "\033[1;36m──►\033[0m "
+              << "\033[1;33m" << to_type_name << "(" << to_id << ")\033[0m "
+              << "\033[90m|\033[0m "
+              << "\033[97m" << msg->to_string() << "\033[0m" << std::endl;
   }
 
   static void record_operator_output(const std::string& op_id, const std::string& type_name, size_t port,
                                      std::unique_ptr<BaseMessage> msg) {
-    std::cout << "      " << type_name << "(" << op_id << "):" << port << " -> " << msg->to_string() << std::endl;
+    std::cout << "\033[90m" << get_timestamp() << "\033[0m "
+              << "\033[1;34m[OUT]\033[0m "
+              << "\033[1;33m" << type_name << "(" << op_id << ")\033[0m"
+              << "\033[36m:" << port << "\033[0m "
+              << "\033[90m►\033[0m "
+              << "\033[97m" << msg->to_string() << "\033[0m" << std::endl;
   }
 
   static void record_queue_size(uint64_t size) {
-    std::cout << "Queue size: " << size << " at: " << get_timestamp() << std::endl;
+    std::cout << "\033[90m" << get_timestamp() << "\033[0m "
+              << "\033[1;35m[QUEUE]\033[0m Size: "
+              << "\033[1;37m" << size << "\033[0m" << std::endl;
   }
 
   static void start_span(const std::string& name) {
@@ -57,8 +76,10 @@ class OpenTelemetry {
  private:
   static std::string get_timestamp() {
     auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
-    return std::to_string(ms);
+    auto time = std::chrono::system_clock::to_time_t(now);
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time), "%H:%M:%S");
+    return ss.str();
   }
 };
 

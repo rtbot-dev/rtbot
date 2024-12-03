@@ -50,7 +50,7 @@ std::string process_batch_debug(const std::string& program_id, const std::vector
 // Pretty printing
 std::string pretty_print(const std::string& json_output);
 std::string pretty_print(const ProgramMsgBatch& batch);
-
+std::string pretty_print_validation_error(const std::string& validation_result);
 }  // namespace rtbot
 
 #endif  // RTBOT_BINDINGS_H
