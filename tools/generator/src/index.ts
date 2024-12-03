@@ -35,27 +35,43 @@ program
   )
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
-    console.log(
-      `${chalk.cyan("Generating schemas, scanning c++ input files:\n  - ")}${chalk.yellow(sources.join("\n  - "))}`
-    );
+    console.log(`${chalk.cyan("[schemas] scanning c++ input files: ")}${chalk.yellow(sources.length)}`);
     let schemas = await Promise.all(
       sources.map(async (f: string) => {
         try {
           const fileContent = await fs.readFileSync(f).toString();
           if (fileContent.indexOf("---") > -1) {
-            const schemaStr = fileContent.split("---")[1];
-            const schema = parse(schemaStr).jsonschema;
-            const type = path.basename(f).replace(".md", "");
-            schema.properties.type = { enum: [type] };
-            schema.required = ["type", ...schema.required];
-            return schema;
+            const headerStr = fileContent.split("---")[1];
+            const header = parse(headerStr);
+            const schema = header.jsonschema;
+            if (schema) {
+              const type = path.basename(f).replace(".md", "");
+              schema.properties.type = { enum: [type] };
+              schema.required = ["type", ...schema.required];
+              return schema;
+            }
+            const schemas = header.jsonschemas;
+            if (schemas) {
+              return schemas.map((s: any) => ({
+                ...s,
+                required: ["type", ...s.required],
+              }));
+            }
           }
         } catch (e) {
           console.log(chalk.red(`Error: ${e.message}, file ${f}`));
         }
       })
     );
-    schemas = schemas.filter((s) => s);
+    schemas = schemas
+      .filter((s) => s)
+      // flatten the array of schemas
+      .reduce((acc, s) => acc.concat(s), []);
+    console.log(
+      `${chalk.cyan("[schemas] found operators:\n  - ")}${chalk.yellow(
+        schemas.map((s) => s.properties.type.enum[0]).reduce((acc, s) => `${acc}\n  - ${s}`)
+      )}`
+    );
 
     const programJsonschema = JSON.parse(jsonschemaTemplate({ schemas: schemas.map((s) => JSON.stringify(s)) }));
     const jsonschemaContent = JSON.stringify(programJsonschema, null, 2);
