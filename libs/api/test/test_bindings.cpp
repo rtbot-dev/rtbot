@@ -13,7 +13,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
                 {"type": "Output", "id": "output1", "port_types": ["number"]}
             ],
             "connections": [
-                {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+                {"from": "input1", "to": "output1"}
             ],
             "entryOperator": "input1",
             "outputs": [

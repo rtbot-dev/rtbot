@@ -107,8 +107,10 @@ class Program {
     for (const json& conn : j["connections"]) {
       string from_id = conn["from"];
       string to_id = conn["to"];
-      size_t from_port = port_name_to_index(conn["fromPort"]);
-      size_t to_port = port_name_to_index(conn["toPort"]);
+
+      // Default to "o1" and "i1" if ports not specified
+      size_t from_port = conn.contains("fromPort") ? port_name_to_index(conn["fromPort"]) : 0;
+      size_t to_port = conn.contains("toPort") ? port_name_to_index(conn["toPort"]) : 0;
 
       if (!operators_[from_id] || !operators_[to_id]) {
         throw runtime_error("Invalid operator reference in connection");
