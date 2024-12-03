@@ -9,8 +9,8 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
   GIVEN("A simple program JSON") {
     std::string program_json = R"({
             "operators": [
-                {"type": "Input", "id": "input1", "port_types": ["number"]},
-                {"type": "Output", "id": "output1", "port_types": ["number"]}
+                {"type": "Input", "id": "input1", "portTypes": ["number"]},
+                {"type": "Output", "id": "output1", "portTypes": ["number"]}
             ],
             "connections": [
                 {"from": "input1", "to": "output1"}
@@ -45,9 +45,9 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
   GIVEN("A program with state") {
     std::string program_json = R"({
             "operators": [
-                {"type": "Input", "id": "input1", "port_types": ["number"]},
+                {"type": "Input", "id": "input1", "portTypes": ["number"]},
                 {"type": "MovingAverage", "id": "ma1", "window_size": 3},
-                {"type": "Output", "id": "output1", "port_types": ["number"]}
+                {"type": "Output", "id": "output1", "portTypes": ["number"]}
             ],
             "connections": [
                 {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
@@ -88,9 +88,9 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
   GIVEN("Debug mode") {
     std::string program_json = R"({
             "operators": [
-                {"type": "Input", "id": "input1", "port_types": ["number"]},
+                {"type": "Input", "id": "input1", "portTypes": ["number"]},
                 {"type": "MovingAverage", "id": "ma1", "window_size": 3},
-                {"type": "Output", "id": "output1", "port_types": ["number"]}
+                {"type": "Output", "id": "output1", "portTypes": ["number"]}
             ],
             "connections": [
                 {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
@@ -128,8 +128,8 @@ SCENARIO("Program and operator validation", "[bindings]") {
     // Valid program JSON
     std::string valid_program = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
@@ -143,8 +143,8 @@ SCENARIO("Program and operator validation", "[bindings]") {
     // Invalid program - missing entry operator
     std::string invalid_program_missing_entry = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
@@ -157,8 +157,8 @@ SCENARIO("Program and operator validation", "[bindings]") {
     // Invalid program - mismatched port types
     std::string invalid_program_type_mismatch = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
-        {"type": "Output", "id": "output1", "port_types": ["boolean"]}
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"type": "Output", "id": "output1", "portTypes": ["boolean"]}
       ],
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
@@ -217,14 +217,14 @@ SCENARIO("Program and operator validation", "[bindings]") {
     std::string valid_input = R"({
       "type": "Input",
       "id": "input1",
-      "port_types": ["number"]
+      "portTypes": ["number"]
     })";
 
     // Invalid input - unknown port type
     std::string invalid_input = R"({
       "type": "Input",
       "id": "input1",
-      "port_types": ["unknown_type"]
+      "portTypes": ["unknown_type"]
     })";
 
     WHEN("Validating a valid MovingAverage operator") {
@@ -259,7 +259,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
 
       THEN("Validation fails with appropriate error") {
         REQUIRE_FALSE(result["valid"].get<bool>());
-        REQUIRE(result["error"].get<std::string>().find("port_types") != std::string::npos);
+        REQUIRE(result["error"].get<std::string>().find("portTypes") != std::string::npos);
       }
     }
 
@@ -277,10 +277,10 @@ SCENARIO("Program and operator validation", "[bindings]") {
     // Program with multiple connected operators
     std::string complex_program = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
         {"type": "MovingAverage", "id": "ma1", "window_size": 3},
         {"type": "StandardDeviation", "id": "std1", "window_size": 5},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},

@@ -13,7 +13,7 @@ jsonschema:
     id:
       type: string
       description: The id of the operator
-    port_types:
+    portTypes:
       type: array
       examples:
         - ["number", "boolean"]
@@ -22,7 +22,7 @@ jsonschema:
         type: string
         enum: ["number", "boolean", "vector_number", "vector_boolean"]
       minItems: 1
-  required: ["id", "port_types"]
+  required: ["id", "portTypes"]
 ---
 
 # Input
@@ -52,7 +52,7 @@ Example usage:
 ```json
 {
   "id": "multi_input",
-  "port_types": ["number", "boolean", "vector_number"]
+  "portTypes": ["number", "boolean", "vector_number"]
 }
 ```
 

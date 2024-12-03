@@ -13,14 +13,14 @@ jsonschema:
     id:
       type: string
       description: The id of the operator
-    port_types:
+    portTypes:
       type: array
       description: An array of port types that define the input and output ports
       minItems: 1
       items:
         type: string
         enum: ["number", "boolean", "vector_number", "vector_boolean"]
-  required: ["id", "port_types"]
+  required: ["id", "portTypes"]
 ---
 
 # Output
@@ -45,13 +45,13 @@ The number and types of ports are specified at construction and cannot be modifi
 operators:
   - id: "out1"
     type: Output
-    port_types: ["number"]
+    portTypes: ["number"]
 
 # Multi-port mixed type output
 operators:
   - id: "out2"
     type: Output
-    port_types:
+    portTypes:
       - "number"          # Temperature
       - "boolean"         # Status flag
       - "vector_number"   # Acceleration vector

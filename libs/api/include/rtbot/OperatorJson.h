@@ -48,9 +48,9 @@ class OperatorJson {
     auto id = parsed["id"].get<std::string>();
 
     if (type == "Input") {
-      return make_input(id, parsed["port_types"].get<std::vector<std::string>>());
+      return make_input(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "Output") {
-      return make_output(id, parsed["port_types"].get<std::vector<std::string>>());
+      return make_output(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "MovingAverage") {
       return make_moving_average(id, parsed["window_size"].get<size_t>());
     } else if (type == "StandardDeviation") {
@@ -58,7 +58,7 @@ class OperatorJson {
     } else if (type == "FiniteImpulseResponse") {
       return make_fir(id, parsed["coeff"].get<std::vector<double>>());
     } else if (type == "Join") {
-      return make_join(id, parsed["port_types"].get<std::vector<std::string>>());
+      return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "PeakDetector") {
       return make_peak_detector(id, parsed["window_size"].get<size_t>());
     } else if (type == "Subtraction") {
@@ -71,6 +71,12 @@ class OperatorJson {
       return make_sync_greater_than(id);
     } else if (type == "SyncLessThan") {
       return make_sync_less_than(id);
+    } else if (type == "Scale") {
+      return make_scale(id, parsed["value"].get<double>());
+    } else if (type == "Power") {
+      return make_power(id, parsed["value"].get<double>());
+    } else if (type == "Add") {
+      return make_add(id, parsed["value"].get<double>());
     } else if (type == "Division") {
       return make_division(id);
     } else if (type == "Multiplication") {
@@ -127,6 +133,10 @@ class OperatorJson {
       return make_demultiplexer_number(id, parsed.value("numPorts", 1));
     } else if (type == "Multiplexer") {
       return make_multiplexer_number(id, parsed.value("numPorts", 2));
+    } else if (type == "ResamplerConstant") {
+      return make_resampler_constant(id, parsed["interval"].get<int>());
+    } else if (type == "ResamplerHermite") {
+      return make_resampler_hermite(id, parsed["interval"].get<int>());
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
@@ -139,9 +149,9 @@ class OperatorJson {
     j["id"] = op->id();
 
     if (type == "Input") {
-      j["port_types"] = std::dynamic_pointer_cast<Input>(op)->get_port_types();
+      j["portTypes"] = std::dynamic_pointer_cast<Input>(op)->get_port_types();
     } else if (type == "Output") {
-      j["port_types"] = std::dynamic_pointer_cast<Output>(op)->get_port_types();
+      j["portTypes"] = std::dynamic_pointer_cast<Output>(op)->get_port_types();
     } else if (type == "MovingAverage") {
       j["window_size"] = std::dynamic_pointer_cast<MovingAverage>(op)->window_size();
     } else if (type == "StandardDeviation") {
@@ -149,7 +159,7 @@ class OperatorJson {
     } else if (type == "FiniteImpulseResponse") {
       j["coeff"] = std::dynamic_pointer_cast<FiniteImpulseResponse>(op)->get_coefficients();
     } else if (type == "Join") {
-      j["port_types"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
+      j["portTypes"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
     } else if (type == "PeakDetector") {
       j["window_size"] = std::dynamic_pointer_cast<PeakDetector>(op)->window_size();
     } else if (type == "GreaterThan") {
@@ -180,7 +190,17 @@ class OperatorJson {
       j["default_value"] = std::dynamic_pointer_cast<Variable>(op)->get_default_value();
     } else if (type == "TimeShift") {
       j["shift"] = std::dynamic_pointer_cast<TimeShift>(op)->get_shift();
-    } else {
+    } else if (type == "Demultiplexer") {
+      j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
+    } else if (type == "Multiplexer") {
+      j["numPorts"] = std::dynamic_pointer_cast<Multiplexer<NumberData>>(op)->get_num_ports();
+    } else if (type == "ResamplerConstant") {
+      j["interval"] = std::dynamic_pointer_cast<ResamplerConstant<NumberData>>(op)->get_interval();
+    } else if (type == "ResamplerHermite") {
+      j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
+    }
+
+    else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
   }

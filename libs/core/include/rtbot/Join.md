@@ -13,14 +13,14 @@ jsonschema:
     id:
       type: string
       description: The id of the operator
-    port_types:
+    portTypes:
       type: array
       description: An array of port types that define the input and output ports
       minItems: 2
       items:
         type: string
         enum: ["number", "boolean", "vector_number", "vector_boolean"]
-  required: ["id", "port_types"]
+  required: ["id", "portTypes"]
 ---
 
 # Join

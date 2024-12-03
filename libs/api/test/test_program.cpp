@@ -9,8 +9,8 @@ SCENARIO("Program handles basic operator configurations", "[program]") {
   GIVEN("A simple program with one input and one output") {
     std::string program_json = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
@@ -46,9 +46,9 @@ SCENARIO("Program handles basic operator configurations", "[program]") {
   GIVEN("A program with multiple operators") {
     std::string program_json = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
         {"type": "MovingAverage", "id": "ma1", "window_size": 3},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
@@ -87,9 +87,9 @@ SCENARIO("Program handles serialization and deserialization", "[program]") {
   GIVEN("A program with state") {
     std::string program_json = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
         {"type": "MovingAverage", "id": "ma1", "window_size": 3},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
@@ -133,8 +133,8 @@ SCENARIO("Program Manager handles multiple programs", "[program_manager]") {
 
     std::string program1_json = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
@@ -176,9 +176,9 @@ SCENARIO("Program handles debug mode", "[program]") {
   GIVEN("A program with multiple operators") {
     std::string program_json = R"({
       "operators": [
-        {"type": "Input", "id": "input1", "port_types": ["number"]},
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
         {"type": "MovingAverage", "id": "ma1", "window_size": 3},
-        {"type": "Output", "id": "output1", "port_types": ["number"]}
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
       ],
       "connections": [
         {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
