@@ -1,0 +1,26 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+cc_library(
+    name = "rtbot-cli-lib",
+    srcs = glob([
+        "src/**/*.cpp",
+    ]),
+    hdrs = glob([
+        "include/**/*.h",
+    ]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/api:rtbot-api",
+        "//libs/core:rtbot",
+        "@ftxui//:lib",
+    ],
+)
+
+cc_binary(
+    name = "rtbot",
+    srcs = ["src/main.cpp"],
+    deps = [
+        ":rtbot-cli-lib",
+    ],
+)

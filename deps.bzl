@@ -188,3 +188,11 @@ def deps():
         strip_prefix = "opentelemetry-cpp-1.18.0",
         url = "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.18.0.tar.gz",
     )
+
+    http_archive(
+        name = "ftxui",
+        strip_prefix = "FTXUI-5.0.0",
+        sha256 = "a2991cb222c944aee14397965d9f6b050245da849d8c5da7c72d112de2786b5b",
+        build_file = "@rtbot//tools/external:ftxui.BUILD",
+        url = "https://github.com/ArthurSonzogni/FTXUI/archive/refs/tags/v5.0.0.tar.gz",
+    )
