@@ -43,6 +43,9 @@ struct AppState {
   bool program_initialized{false};
   CSVData current_data;
   CLIArguments args;
+  std::deque<double> graph_values;
+  std::deque<std::string> graph_labels;
+  static const size_t MAX_GRAPH_POINTS = 1000;
 };
 
 }  // namespace rtbot_cli

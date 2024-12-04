@@ -17,6 +17,7 @@ class UIComponents {
   static Component create_message_log(const AppState& state);
   static Component create_output_log(const AppState& state);
   static Component create_main_layout(AppState& state);
+  static Component create_graph(const AppState& state);
 
  private:
   static void process_next_n_messages(AppState& state, size_t n);

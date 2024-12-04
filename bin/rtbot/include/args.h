@@ -10,6 +10,7 @@ struct CLIArguments {
   std::string csv_dir = ".";
   double scale_t = 1.0;
   double scale_y = 1.0;
+  bool disable_chart = false;
 
   static CLIArguments parse(int argc, char* argv[]);
   static void print_usage();

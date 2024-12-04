@@ -38,6 +38,8 @@ CLIArguments CLIArguments::parse(int argc, char* argv[]) {
         print_usage();
         exit(1);
       }
+    } else if (arg == "--no-ts-chart") {  // Add this block
+      args.disable_chart = true;
     } else if (arg == "--help" || arg == "-h") {
       print_usage();
       exit(0);
@@ -54,6 +56,7 @@ void CLIArguments::print_usage() {
             << "  --csv-dir DIR        Directory containing CSV data files (default: .)\n"
             << "  --scale-t VALUE      Scale time values by VALUE (default: 1.0)\n"
             << "  --scale-y VALUE      Scale y-axis values by VALUE (default: 1.0)\n"
+            << "  --no-ts-chart        Disable time series chart display\n"  // Add this line
             << "  -h, --help           Print this help message\n";
 }
 
