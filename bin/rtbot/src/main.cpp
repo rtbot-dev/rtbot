@@ -1,16 +1,27 @@
 #include <yaml-cpp/yaml.h>
 
+#include <atomic>
+#include <chrono>
 #include <fstream>
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <thread>
 
 #include "args.h"
 #include "data_loader.h"
 #include "repl.h"
 #include "rtbot/bindings.h"
 #include "ui_components.h"
+
+struct BatchProgress {
+  std::atomic<size_t> processed_records{0};
+  std::atomic<bool> finished{false};
+  std::atomic<bool> error{false};
+  std::string error_message;
+  std::mutex error_mutex;
+};
 
 using namespace rtbot_cli;
 using namespace ftxui;
@@ -61,6 +72,84 @@ void handle_repl_mode(const CLIArguments& args) {
   repl.run();
 }
 
+void write_batch_output(std::ostream& out, const json& batch_json, const std::vector<uint64_t>& times,
+                        const std::vector<double>& values, OutputFormat format, bool is_first_batch) {
+  for (size_t j = 0; j < times.size(); ++j) {
+    if (!is_first_batch || j > 0) {
+      out << ",\n";
+    }
+
+    json pair;
+    pair["in"] = {{"time", times[j]}, {"value", values[j]}};
+    pair["out"] = batch_json;
+
+    if (format == OutputFormat::JSON) {
+      out << pair.dump(2);
+    } else {
+      YAML::Node yaml = YAML::Load(pair.dump());
+      out << YAML::Dump(yaml);
+    }
+  }
+}
+
+void show_progress_bar(const BatchProgress& progress, size_t total_records) {
+  const int bar_width = 50;
+  while (!progress.finished && !progress.error) {
+    float percentage = static_cast<float>(progress.processed_records) / total_records;
+    int pos = static_cast<int>(bar_width * percentage);
+
+    std::cout << "\r[";
+    for (int i = 0; i < bar_width; ++i) {
+      if (i < pos)
+        std::cout << "=";
+      else if (i == pos)
+        std::cout << ">";
+      else
+        std::cout << " ";
+    }
+    std::cout << "] " << int(percentage * 100.0) << "% " << progress.processed_records << "/" << total_records;
+    std::cout.flush();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  std::cout << std::endl;
+}
+
+void process_data(std::ostream& out, const CSVData& data, const std::string& program_id, const std::string& entry_id,
+                  const CLIArguments& args, BatchProgress& progress) {
+  try {
+    const size_t BATCH_SIZE = 1000;
+    std::vector<std::string> ports(data.times.size(), entry_id);
+    bool is_first_batch = true;
+
+    out << "[\n";
+
+    for (size_t i = 0; i < data.times.size(); i += BATCH_SIZE) {
+      size_t batch_end = std::min(i + BATCH_SIZE, data.times.size());
+      std::vector<uint64_t> batch_times(data.times.begin() + i, data.times.begin() + batch_end);
+      std::vector<double> batch_values(data.values.begin() + i, data.values.begin() + batch_end);
+      std::vector<std::string> batch_ports(ports.begin() + i, ports.begin() + batch_end);
+
+      std::string batch_result = args.debug
+                                     ? rtbot::process_batch_debug(program_id, batch_times, batch_values, batch_ports)
+                                     : rtbot::process_batch(program_id, batch_times, batch_values, batch_ports);
+
+      write_batch_output(out, json::parse(batch_result), batch_times, batch_values, args.format, is_first_batch);
+
+      is_first_batch = false;
+      progress.processed_records += batch_end - i;
+    }
+
+    out << "\n]" << std::endl;
+    progress.finished = true;
+
+  } catch (const std::exception& e) {
+    std::lock_guard<std::mutex> lock(progress.error_mutex);
+    progress.error = true;
+    progress.error_message = e.what();
+  }
+}
+
 void handle_batch_mode(const CLIArguments& args) {
   // Read program file
   std::ifstream program_file(args.program_file);
@@ -80,50 +169,25 @@ void handle_batch_mode(const CLIArguments& args) {
   // Load and process data
   auto data = DataLoader::load_csv(args.data_file, args);
   auto entry_id = rtbot::get_program_entry_operator_id(program_id);
-  std::vector<std::string> ports(data.times.size(), entry_id);
 
-  json output_array = json::array();
+  std::ofstream output_file;
+  std::ostream& out = args.output_file.empty() ? std::cout : (output_file.open(args.output_file), output_file);
 
-  // Process in batches to avoid memory issues
-  const size_t BATCH_SIZE = 1000;
-  for (size_t i = 0; i < data.times.size(); i += BATCH_SIZE) {
-    size_t batch_end = std::min(i + BATCH_SIZE, data.times.size());
-    std::vector<uint64_t> batch_times(data.times.begin() + i, data.times.begin() + batch_end);
-    std::vector<double> batch_values(data.values.begin() + i, data.values.begin() + batch_end);
-    std::vector<std::string> batch_ports(ports.begin() + i, ports.begin() + batch_end);
+  BatchProgress progress;
 
-    std::string batch_result;
-    if (args.debug) {
-      batch_result = rtbot::process_batch_debug(program_id, batch_times, batch_values, batch_ports);
-    } else {
-      batch_result = rtbot::process_batch(program_id, batch_times, batch_values, batch_ports);
-    }
+  // Start processing thread
+  std::thread process_thread(process_data, std::ref(out), std::ref(data), program_id, entry_id, std::ref(args),
+                             std::ref(progress));
 
-    // Create input-output pairs
-    json batch_json = json::parse(batch_result);
-    for (size_t j = 0; j < batch_times.size(); ++j) {
-      json pair;
-      pair["in"] = {{"time", batch_times[j]}, {"value", batch_values[j]}};
-      pair["out"] = batch_json;
-      output_array.push_back(pair);
-    }
-  }
+  // Show progress bar in main thread
+  show_progress_bar(progress, data.times.size());
 
-  // Write output
-  std::string output_str;
-  if (args.format == OutputFormat::JSON) {
-    output_str = output_array.dump(2);
-  } else {
-    YAML::Node yaml;
-    yaml = YAML::Load(output_array.dump());
-    output_str = YAML::Dump(yaml);
-  }
+  // Wait for processing to complete
+  process_thread.join();
 
-  if (!args.output_file.empty()) {
-    std::ofstream output_file(args.output_file);
-    output_file << output_str;
-  } else {
-    std::cout << output_str << std::endl;
+  if (progress.error) {
+    std::lock_guard<std::mutex> lock(progress.error_mutex);
+    throw std::runtime_error("Processing error: " + progress.error_message);
   }
 }
 

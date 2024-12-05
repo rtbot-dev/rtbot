@@ -206,8 +206,7 @@ def deps():
 
     http_archive(
         name = "linenoise",
-        strip_prefix = "linenoise-master",
-        sha256 = "9c695a41d5bc9f451de8ca78df9550de860b430d6e9320b4eef99f457a98d977",
+        strip_prefix = "cpp-linenoise-master",
         build_file = "@rtbot//tools/external:linenoise.BUILD",
-        url = "https://github.com/antirez/linenoise/archive/refs/heads/master.zip",
+        url = "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip",
     )

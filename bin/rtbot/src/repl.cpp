@@ -8,10 +8,8 @@
 #include <sstream>
 #include <vector>
 
+#include "linenoise.hpp"
 #include "rtbot/bindings.h"
-extern "C" {
-#include "linenoise.h"
-}
 
 namespace rtbot_cli {
 
@@ -26,11 +24,22 @@ const std::string COLOR_RESET = "\033[0m";
 REPL::REPL(const std::string& program_id, const CLIArguments& args) : program_id_(program_id), args_(args) {
   entry_operator_ = rtbot::get_program_entry_operator_id(program_id);
 
-  linenoiseHistorySetMaxLen(1000);
-  linenoiseHistoryLoad(".rtbot_history");
+  linenoise::SetHistoryMaxLen(1000);
+  linenoise::LoadHistory(".rtbot_history");
+
+  if (args_.scale_t != 1.0 || args_.scale_y != 1.0) {
+    std::cout << "\033[1;33mWarning: Scaling is active\033[0m\n";
+    if (args_.scale_t != 1.0) {
+      std::cout << "Time values will be multiplied by: " << args_.scale_t << "\n";
+    }
+    if (args_.scale_y != 1.0) {
+      std::cout << "Data values will be multiplied by: " << args_.scale_y << "\n";
+    }
+    std::cout << std::endl;
+  }
 }
 
-REPL::~REPL() { linenoiseHistorySave(".rtbot_history"); }
+REPL::~REPL() { linenoise::SaveHistory(".rtbot_history"); }
 
 std::string REPL::colorize_json(const nlohmann::json& j, int indent = 0) const {
   std::string result;
@@ -195,16 +204,25 @@ void REPL::run() {
             << "Type \033[0;32m.help\033[0m for available commands\n"
             << std::endl;
 
-  char* line;
-  while ((line = linenoise("\033[0;32mrtbot>\033[0m")) != nullptr) {
+  while (true) {
+    std::string line;
+#ifdef _WIN32
+    auto quit = linenoise::Readline("rtbot>", line);
+#else
+    auto quit = linenoise::Readline("\033[0;32mrtbot>\033[0m", line);
+#endif
+
+    if (quit) {
+      break;
+    }
+
     std::string input(line);
 
     if (!input.empty()) {
-      linenoiseHistoryAdd(line);
+      linenoise::AddHistory(line.c_str());
 
       if (input[0] == '.') {
         if (!process_command(input)) {
-          free(line);
           break;
         }
       } else if (input.find(',') != std::string::npos) {
@@ -218,8 +236,6 @@ void REPL::run() {
         }
       }
     }
-
-    free(line);
   }
 }
 
