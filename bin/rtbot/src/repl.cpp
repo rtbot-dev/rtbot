@@ -8,6 +8,7 @@
 #include <sstream>
 #include <vector>
 
+#include "data_loader.h"
 #include "linenoise.hpp"
 #include "rtbot/bindings.h"
 
@@ -22,21 +23,36 @@ const std::string JSON_BRACKETS = "\033[0;36m";
 const std::string COLOR_RESET = "\033[0m";
 
 REPL::REPL(const std::string& program_id, const CLIArguments& args) : program_id_(program_id), args_(args) {
-  entry_operator_ = rtbot::get_program_entry_operator_id(program_id);
+  args_.debug = true;                 // Debug true by default
+  args_.format = OutputFormat::YAML;  // YAML default format
 
   linenoise::SetHistoryMaxLen(1000);
   linenoise::LoadHistory(".rtbot_history");
 
+  show_scale_warning();
+}
+
+void REPL::show_scale_warning() {
   if (args_.scale_t != 1.0 || args_.scale_y != 1.0) {
-    std::cout << "\033[1;33mWarning: Scaling is active\033[0m\n";
-    if (args_.scale_t != 1.0) {
-      std::cout << "Time values will be multiplied by: " << args_.scale_t << "\n";
-    }
-    if (args_.scale_y != 1.0) {
-      std::cout << "Data values will be multiplied by: " << args_.scale_y << "\n";
-    }
-    std::cout << std::endl;
+    std::cout << "\033[1;33mScaling factors:\033[0m\n"
+              << "Time: × " << args_.scale_t << "\n"
+              << "Value: × " << args_.scale_y << "\n"
+              << std::endl;
   }
+}
+
+void REPL::print_help() const {
+  std::cout << "Available commands:\n"
+            << "  .help     - Show this help message\n"
+            << "  .quit     - Exit the REPL\n"
+            << "  .debug    - Toggle debug mode (current: " << (args_.debug ? "on" : "off") << ")\n"
+            << "  .format   - Toggle output format (current: " << (args_.format == OutputFormat::JSON ? "JSON" : "YAML")
+            << ")\n"
+            << "  .load_csv <path> - Load data from CSV file\n"
+            << "  .next [N] - Process next N messages (default: 1)\n"
+            << "  .scale_t <value> - Set time scale factor\n"
+            << "  .scale_y <value> - Set value scale factor\n"
+            << std::endl;
 }
 
 REPL::~REPL() { linenoise::SaveHistory(".rtbot_history"); }
@@ -122,8 +138,11 @@ void REPL::process_message(const nlohmann::json& msg) {
     uint64_t time = msg["time"];
     double value = msg["value"];
 
-    time = static_cast<uint64_t>(time * args_.scale_t);
-    value *= args_.scale_y;
+    // Only apply scaling for direct input, not for loaded CSV data
+    if (loaded_filename_.empty()) {
+      time = static_cast<uint64_t>(time * args_.scale_t);
+      value *= args_.scale_y;
+    }
 
     rtbot::add_to_message_buffer(program_id_, entry_operator_, time, value);
 
@@ -134,9 +153,9 @@ void REPL::process_message(const nlohmann::json& msg) {
       result = rtbot::process_message_buffer(program_id_);
     }
 
-    std::cout << std::endl;  // Add line break before output
+    std::cout << std::endl;
     print_result(result);
-    std::cout << std::endl;  // Add line break after output
+    std::cout << std::endl;
     std::cout.flush();
 
   } catch (const std::exception& e) {
@@ -145,22 +164,63 @@ void REPL::process_message(const nlohmann::json& msg) {
   }
 }
 
-void REPL::print_prompt() const { std::cout << "rtbot> "; }
-
-void REPL::print_help() const {
-  std::cout << "Available commands:\n"
-            << "  .help     - Show this help message\n"
-            << "  .quit     - Exit the REPL\n"
-            << "  .debug    - Toggle debug mode (current: " << (args_.debug ? "on" : "off") << ")\n"
-            << "  .format   - Toggle output format (current: " << (args_.format == OutputFormat::JSON ? "JSON" : "YAML")
-            << ")\n"
-            << "\n"
-            << "Or enter a JSON message in the format:\n"
-            << "  {\"time\": <timestamp>, \"value\": <number>}\n"
-            << std::endl;
+void REPL::print_prompt() const {
+  if (!loaded_filename_.empty()) {
+    std::cout << "\033[0;36m[" << loaded_filename_ << ":" << current_data_index_ << "/" << loaded_data_.times.size()
+              << "]\033[0m ";
+  }
+  std::cout << "rtbot> ";
 }
 
 bool REPL::process_command(const std::string& input) {
+  std::istringstream iss(input);
+  std::string cmd;
+  iss >> cmd;
+
+  if (cmd == ".scale_t" || cmd == ".scale_y") {
+    std::string value_str;
+    iss >> value_str;
+    try {
+      double value = std::stod(value_str);
+      if (cmd == ".scale_t") {
+        args_.scale_t = value;
+      } else {
+        args_.scale_y = value;
+      }
+      show_scale_warning();
+    } catch (...) {
+      std::cerr << "\033[0;31mInvalid scale value\033[0m" << std::endl;
+    }
+    return true;
+  }
+
+  if (cmd == ".load_csv") {
+    std::string path;
+    std::getline(iss >> std::ws, path);
+    if (path.empty()) {
+      std::cerr << "\033[0;31mUsage: .load_csv <path>\033[0m" << std::endl;
+    } else {
+      handle_load_csv(path);
+    }
+    return true;
+  }
+
+  if (cmd == ".next") {
+    std::string count_str;
+    iss >> count_str;
+    size_t count = 1;
+    if (!count_str.empty()) {
+      try {
+        count = std::stoull(count_str);
+      } catch (...) {
+        std::cerr << "\033[0;31mInvalid count value\033[0m" << std::endl;
+        return true;
+      }
+    }
+    process_n_messages(count);
+    return true;
+  }
+
   if (input == ".help") {
     print_help();
     return true;
@@ -199,6 +259,16 @@ void REPL::process_csv_input(const std::string& input) {
   }
 }
 
+std::string REPL::get_prompt() const {
+  std::stringstream prompt;
+  if (!loaded_filename_.empty()) {
+    prompt << "\033[0;36m[" << loaded_filename_ << ":" << current_data_index_ << "/" << loaded_data_.times.size()
+           << "]\033[0m ";
+  }
+  prompt << "rtbot> ";
+  return prompt.str();
+}
+
 void REPL::run() {
   std::cout << "\033[1;34mRTBot REPL Mode\033[0m\n"
             << "Type \033[0;32m.help\033[0m for available commands\n"
@@ -206,11 +276,7 @@ void REPL::run() {
 
   while (true) {
     std::string line;
-#ifdef _WIN32
-    auto quit = linenoise::Readline("rtbot>", line);
-#else
-    auto quit = linenoise::Readline("\033[0;32mrtbot>\033[0m", line);
-#endif
+    auto quit = linenoise::Readline(get_prompt().c_str(), line);
 
     if (quit) {
       break;
@@ -236,6 +302,41 @@ void REPL::run() {
         }
       }
     }
+  }
+}
+
+void REPL::handle_load_csv(const std::string& args) {
+  try {
+    loaded_data_ = DataLoader::load_csv(args, args_);
+    loaded_filename_ = args;
+    current_data_index_ = 0;
+
+    std::cout << "\033[0;32mLoaded " << loaded_data_.times.size() << " records from " << args << COLOR_RESET
+              << std::endl;
+  } catch (const std::exception& e) {
+    std::cerr << "\033[0;31mError loading CSV: " << e.what() << COLOR_RESET << std::endl;
+  }
+}
+
+void REPL::process_n_messages(size_t n) {
+  if (loaded_data_.times.empty()) {
+    std::cerr << "\033[0;31mNo data loaded. Use .load_csv to load a data file\033[0m" << std::endl;
+    return;
+  }
+
+  if (current_data_index_ >= loaded_data_.times.size()) {
+    std::cout << "\033[0;33mEnd of data reached\033[0m" << std::endl;
+    return;
+  }
+
+  size_t remaining = loaded_data_.times.size() - current_data_index_;
+  size_t to_process = std::min(n, remaining);
+
+  for (size_t i = 0; i < to_process; i++) {
+    nlohmann::json msg = {{"time", loaded_data_.times[current_data_index_]},
+                          {"value", loaded_data_.values[current_data_index_]}};
+    process_message(msg);
+    current_data_index_++;
   }
 }
 
