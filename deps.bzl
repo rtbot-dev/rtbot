@@ -196,3 +196,18 @@ def deps():
         build_file = "@rtbot//tools/external:ftxui.BUILD",
         url = "https://github.com/ArthurSonzogni/FTXUI/archive/refs/tags/v5.0.0.tar.gz",
     )
+
+    http_archive(
+        name = "cxxopts",
+        strip_prefix = "cxxopts-3.2.0",
+        build_file = "@rtbot//tools/external:cxxopts.BUILD",
+        url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz",
+    )
+
+    http_archive(
+        name = "linenoise",
+        strip_prefix = "linenoise-master",
+        sha256 = "9c695a41d5bc9f451de8ca78df9550de860b430d6e9320b4eef99f457a98d977",
+        build_file = "@rtbot//tools/external:linenoise.BUILD",
+        url = "https://github.com/antirez/linenoise/archive/refs/heads/master.zip",
+    )

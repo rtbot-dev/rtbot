@@ -28,6 +28,15 @@ struct ProcessedMessage {
   std::string output;
 };
 
+struct GraphDataPoint {
+  double timestamp;
+  std::unordered_map<std::string, double> values;  // operator_id -> value
+};
+struct OperatorInfo {
+  std::string type;
+  std::string id;
+  bool selected;
+};
 struct AppState {
   std::vector<ProgramInfo> programs;
   std::vector<std::string> csv_files;
@@ -43,9 +52,29 @@ struct AppState {
   bool program_initialized{false};
   CSVData current_data;
   CLIArguments args;
-  std::deque<double> graph_values;
-  std::deque<std::string> graph_labels;
+  std::deque<GraphDataPoint> graph_data{};
   static const size_t MAX_GRAPH_POINTS = 1000;
+  std::string entry_operator;
+
+  std::vector<OperatorInfo> operators;
+  std::vector<std::string> log_messages;
+
+  void log(const std::string& msg) {
+    log_messages.push_back(msg);
+    if (log_messages.size() > 100) {
+      log_messages.erase(log_messages.begin());
+    }
+  }
+
+  AppState() {
+    // Add initial sine wave data for testing
+    for (int i = 0; i < 10; ++i) {
+      double x = i * 0.1;
+      graph_data.push_back({x, {{"input", std::sin(x)}}});
+      // graph_values.push_back(std::sin(x));
+      // graph_labels.push_back(std::to_string(i));
+    }
+  }
 };
 
 }  // namespace rtbot_cli

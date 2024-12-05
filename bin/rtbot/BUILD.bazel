@@ -13,7 +13,9 @@ cc_library(
     deps = [
         "//libs/api:rtbot-api",
         "//libs/core:rtbot",
+        "@cxxopts//:lib",
         "@ftxui//:lib",
+        "@linenoise//:lib",
     ],
 )
 

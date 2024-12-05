@@ -1,63 +1,113 @@
 #include "args.h"
 
-#include <cmath>
+#include <filesystem>
 #include <iostream>
-#include <stdexcept>
 
 namespace rtbot_cli {
 
-CLIArguments CLIArguments::parse(int argc, char* argv[]) {
-  CLIArguments args;
+cxxopts::Options CLIArguments::create_options() {
+  cxxopts::Options options("rtbot", "RTBot Command Line Interface");
 
-  for (int i = 1; i < argc; i++) {
-    std::string arg = argv[i];
+  options.add_options()("h,help", "Print help")("program", "Program JSON file", cxxopts::value<std::string>())(
+      "data", "Input data CSV file", cxxopts::value<std::string>())("o,output", "Output file for batch processing",
+                                                                    cxxopts::value<std::string>())(
+      "st,scale-t", "Scale time values", cxxopts::value<double>()->default_value("1.0"))(
+      "sy,scale-y", "Scale y-axis values", cxxopts::value<double>()->default_value("1.0"))(
+      "f,format", "Output format (json/yaml)", cxxopts::value<std::string>()->default_value("json"))(
+      "d,debug", "Enable debug mode (show all operator outputs)", cxxopts::value<bool>()->default_value("false"))(
+      "no-chart", "Disable time series chart in interactive mode", cxxopts::value<bool>()->default_value("false"))(
+      "programs-dir", "Directory containing program JSON files", cxxopts::value<std::string>()->default_value("."))(
+      "csv-dir", "Directory containing CSV data files", cxxopts::value<std::string>()->default_value("."))(
+      "interactive", "Start in interactive mode");
 
-    if (arg == "--programs-dir" && i + 1 < argc) {
-      args.programs_dir = argv[++i];
-    } else if (arg == "--csv-dir" && i + 1 < argc) {
-      args.csv_dir = argv[++i];
-    } else if (arg == "--scale-t" && i + 1 < argc) {
-      try {
-        args.scale_t = std::stod(argv[++i]);
-        if (args.scale_t <= 0) {
-          throw std::runtime_error("Time scale must be positive");
-        }
-      } catch (const std::exception& e) {
-        std::cerr << "Error parsing scale-t: " << e.what() << std::endl;
-        print_usage();
-        exit(1);
-      }
-    } else if (arg == "--scale-y" && i + 1 < argc) {
-      try {
-        args.scale_y = std::stod(argv[++i]);
-        if (args.scale_y == 0) {
-          throw std::runtime_error("Y scale cannot be zero");
-        }
-      } catch (const std::exception& e) {
-        std::cerr << "Error parsing scale-y: " << e.what() << std::endl;
-        print_usage();
-        exit(1);
-      }
-    } else if (arg == "--no-ts-chart") {  // Add this block
-      args.disable_chart = true;
-    } else if (arg == "--help" || arg == "-h") {
-      print_usage();
-      exit(0);
-    }
+  options.positional_help("[program_file] [data_file]");
+  return options;
+}
+
+Mode CLIArguments::determine_mode(const cxxopts::ParseResult& result) {
+  if (result.count("interactive")) {
+    return Mode::INTERACTIVE;
   }
 
-  return args;
+  bool has_program = result.count("program");
+  bool has_data = result.count("data");
+
+  if (has_program && has_data) {
+    return Mode::BATCH;
+  } else if (has_program) {
+    return Mode::REPL;
+  }
+
+  return Mode::INTERACTIVE;
 }
 
-void CLIArguments::print_usage() {
-  std::cout << "Usage: rtbot-cli [OPTIONS]\n"
-            << "Options:\n"
-            << "  --programs-dir DIR   Directory containing program JSON files (default: .)\n"
-            << "  --csv-dir DIR        Directory containing CSV data files (default: .)\n"
-            << "  --scale-t VALUE      Scale time values by VALUE (default: 1.0)\n"
-            << "  --scale-y VALUE      Scale y-axis values by VALUE (default: 1.0)\n"
-            << "  --no-ts-chart        Disable time series chart display\n"  // Add this line
-            << "  -h, --help           Print this help message\n";
+CLIArguments CLIArguments::parse(int argc, char* argv[]) {
+  auto options = create_options();
+  options.parse_positional({"program", "data"});
+
+  try {
+    auto result = options.parse(argc, argv);
+
+    if (result.count("help")) {
+      std::cout << options.help() << std::endl;
+      exit(0);
+    }
+
+    CLIArguments args;
+    args.mode = determine_mode(result);
+
+    // Parse common options
+    args.scale_t = result["scale-t"].as<double>();
+    args.scale_y = result["scale-y"].as<double>();
+    args.debug = result["debug"].as<bool>();
+    args.disable_chart = result["no-chart"].as<bool>();
+    args.programs_dir = result["programs-dir"].as<std::string>();
+    args.csv_dir = result["csv-dir"].as<std::string>();
+
+    // Parse format
+    std::string format = result["format"].as<std::string>();
+    if (format == "json") {
+      args.format = OutputFormat::JSON;
+    } else if (format == "yaml") {
+      args.format = OutputFormat::YAML;
+    } else {
+      throw ArgumentException("Invalid format specified. Use 'json' or 'yaml'");
+    }
+
+    // Handle mode-specific requirements
+    if (args.mode != Mode::INTERACTIVE) {
+      if (!result.count("program")) {
+        throw ArgumentException("Program file is required");
+      }
+      args.program_file = result["program"].as<std::string>();
+
+      if (!std::filesystem::exists(args.program_file)) {
+        throw ArgumentException("Program file does not exist: " + args.program_file);
+      }
+    }
+
+    if (args.mode == Mode::BATCH) {
+      if (!result.count("data")) {
+        throw ArgumentException("Data file is required for batch mode");
+      }
+      args.data_file = result["data"].as<std::string>();
+
+      if (!std::filesystem::exists(args.data_file)) {
+        throw ArgumentException("Data file does not exist: " + args.data_file);
+      }
+    }
+
+    if (result.count("output")) {
+      args.output_file = result["output"].as<std::string>();
+    }
+
+    return args;
+
+  } catch (const cxxopts::exceptions::parsing& e) {
+    throw ArgumentException(std::string("Error parsing arguments: ") + e.what());
+  }
 }
+
+void CLIArguments::print_usage() { std::cout << create_options().help() << std::endl; }
 
 }  // namespace rtbot_cli
