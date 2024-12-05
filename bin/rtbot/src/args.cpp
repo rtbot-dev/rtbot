@@ -18,9 +18,9 @@ cxxopts::Options CLIArguments::create_options() {
       "no-chart", "Disable time series chart in interactive mode", cxxopts::value<bool>()->default_value("false"))(
       "programs-dir", "Directory containing program JSON files", cxxopts::value<std::string>()->default_value("."))(
       "csv-dir", "Directory containing CSV data files", cxxopts::value<std::string>()->default_value("."))(
-      "interactive", "Start in interactive mode");
+      "head", "Process only first N records", cxxopts::value<size_t>())(
+      "tail", "Process only last N records", cxxopts::value<size_t>())("interactive", "Start in interactive mode");
 
-  options.positional_help("[program_file] [data_file]");
   return options;
 }
 
@@ -63,7 +63,12 @@ CLIArguments CLIArguments::parse(int argc, char* argv[]) {
     args.disable_chart = result["no-chart"].as<bool>();
     args.programs_dir = result["programs-dir"].as<std::string>();
     args.csv_dir = result["csv-dir"].as<std::string>();
-
+    if (result.count("head")) {
+      args.head = result["head"].as<size_t>();
+    }
+    if (result.count("tail")) {
+      args.tail = result["tail"].as<size_t>();
+    }
     // Parse format
     std::string format = result["format"].as<std::string>();
     if (format == "json") {

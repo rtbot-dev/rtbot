@@ -24,6 +24,8 @@ struct CLIArguments {
   bool disable_chart = false;
   std::string programs_dir = ".";
   std::string csv_dir = ".";
+  std::optional<size_t> head;
+  std::optional<size_t> tail;
 
   static CLIArguments parse(int argc, char* argv[]);
   static void print_usage();

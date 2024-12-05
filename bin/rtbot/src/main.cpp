@@ -119,25 +119,66 @@ void process_data(std::ostream& out, const CSVData& data, const std::string& pro
                   const CLIArguments& args, BatchProgress& progress) {
   try {
     const size_t BATCH_SIZE = 1000;
-    std::vector<std::string> ports(data.times.size(), entry_id);
-    bool is_first_batch = true;
+    std::vector<std::string> ports(BATCH_SIZE, entry_id);
+    bool is_first_output = true;
 
     out << "[\n";
 
     for (size_t i = 0; i < data.times.size(); i += BATCH_SIZE) {
       size_t batch_end = std::min(i + BATCH_SIZE, data.times.size());
+      size_t current_batch_size = batch_end - i;
+
       std::vector<uint64_t> batch_times(data.times.begin() + i, data.times.begin() + batch_end);
       std::vector<double> batch_values(data.values.begin() + i, data.values.begin() + batch_end);
-      std::vector<std::string> batch_ports(ports.begin() + i, ports.begin() + batch_end);
+      std::vector<std::string> batch_ports(ports.begin(), ports.begin() + current_batch_size);
 
       std::string batch_result = args.debug
                                      ? rtbot::process_batch_debug(program_id, batch_times, batch_values, batch_ports)
                                      : rtbot::process_batch(program_id, batch_times, batch_values, batch_ports);
 
-      write_batch_output(out, json::parse(batch_result), batch_times, batch_values, args.format, is_first_batch);
+      auto result_json = nlohmann::json::parse(batch_result);
 
-      is_first_batch = false;
-      progress.processed_records += batch_end - i;
+      for (size_t j = 0; j < current_batch_size; j++) {
+        if (!is_first_output) {
+          out << ",\n";
+        }
+        is_first_output = false;
+
+        nlohmann::json message_output;
+        message_output["in"] = {{"time", batch_times[j]}, {"value", batch_values[j]}};
+
+        if (args.debug) {
+          nlohmann::json debug_outputs;
+          for (const auto& [op_id, op_data] : result_json.items()) {
+            nlohmann::json op_outputs;
+            bool has_outputs = false;
+
+            for (const auto& [port_id, messages] : op_data.items()) {
+              nlohmann::json port_messages = nlohmann::json::array();
+              for (const auto& msg : messages) {
+                if (msg["time"].get<uint64_t>() == batch_times[j]) {
+                  port_messages.push_back(msg);
+                  has_outputs = true;
+                }
+              }
+              if (!port_messages.empty()) {
+                op_outputs[port_id] = port_messages;
+              }
+            }
+
+            if (has_outputs) {
+              debug_outputs[op_id] = op_outputs;
+            }
+          }
+          message_output["out"] = debug_outputs;
+        } else {
+          message_output["out"] = result_json;
+        }
+
+        out << message_output.dump(2);
+      }
+
+      progress.processed_records += current_batch_size;
     }
 
     out << "\n]" << std::endl;

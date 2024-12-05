@@ -55,6 +55,7 @@ CSVData DataLoader::load_csv(const std::string& path, const CLIArguments& args) 
   std::ifstream file(path);
   std::string line;
 
+  // First pass to load all data
   while (std::getline(file, line)) {
     if (line.empty()) continue;
 
@@ -63,11 +64,9 @@ CSVData DataLoader::load_csv(const std::string& path, const CLIArguments& args) 
 
     if (std::getline(ss, time_str, ',') && std::getline(ss, value_str, ',')) {
       try {
-        // Parse base values
         double raw_time = std::stod(time_str);
         double raw_value = std::stod(value_str);
 
-        // Scale time to integer milliseconds
         uint64_t timestamp = static_cast<uint64_t>(raw_time * args.scale_t);
         double scaled_value = raw_value * args.scale_y;
 
@@ -77,6 +76,18 @@ CSVData DataLoader::load_csv(const std::string& path, const CLIArguments& args) 
         continue;
       }
     }
+  }
+
+  // Apply head/tail filters if specified
+  if (args.head.has_value() && args.head.value() < data.times.size()) {
+    data.times.resize(args.head.value());
+    data.values.resize(args.head.value());
+  } else if (args.tail.has_value() && args.tail.value() < data.times.size()) {
+    size_t start = data.times.size() - args.tail.value();
+    std::vector<uint64_t> new_times(data.times.begin() + start, data.times.end());
+    std::vector<double> new_values(data.values.begin() + start, data.values.end());
+    data.times = std::move(new_times);
+    data.values = std::move(new_values);
   }
 
   return data;
