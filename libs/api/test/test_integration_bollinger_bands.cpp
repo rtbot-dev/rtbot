@@ -55,16 +55,16 @@ TEST_CASE("Bollinger Bands Pipeline Test", "[program]") {
       if (rand() < (RAND_MAX / 2)) {
         times.push_back(i);
         values.push_back(i * i);
-        ports.push_back("input1");
+        ports.push_back("i1");
       }
     }
 
     times.push_back(end);
     values.push_back(end * end);
-    ports.push_back("input1");
+    ports.push_back("i1");
 
     // Process data in batches and verify outputs
-    auto result = json::parse(process_batch("test_prog", times, values, ports));
+    auto result = json::parse(process_batch_debug("test_prog", times, values, ports));
 
     if (result.contains("37")) {
       const auto& op_outputs = result["37"];
@@ -112,7 +112,7 @@ TEST_CASE("Bollinger Bands Pipeline Test", "[program]") {
     // Verify output consistency
     REQUIRE(output_count_up == output_count_down);
     REQUIRE(output_count_ma == output_count_down);
-    // REQUIRE(output_count_up > 0);
+    REQUIRE(output_count_up > 0);
     REQUIRE(first_up == first_down);
     REQUIRE(first_up == first_ma);
   }
