@@ -181,7 +181,7 @@ class Program {
           if (!queue.empty()) {
             PortMsgBatch port_msgs;
             for (const auto& msg : queue) {
-              port_msgs.push_back(msg->clone());
+              port_msgs.push_back(std::move(msg->clone()));
             }
             op_batch[port_name] = std::move(port_msgs);
           }
@@ -208,7 +208,7 @@ class Program {
         if (!queue.empty()) {
           PortMsgBatch port_msgs;
           for (const auto& msg : queue) {
-            port_msgs.push_back(msg->clone());
+            port_msgs.push_back(std::move(msg->clone()));
           }
           op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
           has_messages = true;
@@ -339,7 +339,7 @@ class ProgramManager {
         auto& target_port = target[op_id][port_name];
         target_port.reserve(target_port.size() + port_msgs.size());
         for (const auto& msg : port_msgs) {
-          target_port.push_back(msg->clone());
+          target_port.push_back(std::move(msg->clone()));
         }
       }
     }

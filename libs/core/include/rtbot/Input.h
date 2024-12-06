@@ -103,7 +103,7 @@ class Input : public Operator {
       for (const auto& msg : input_queue) {
         // Only forward if timestamp is increasing
         if (!has_sent(port_index) || msg->time > last_sent_times_[port_index]) {
-          output_queue.push_back(msg->clone());
+          output_queue.push_back(std::move(msg->clone()));
           last_sent_times_[port_index] = msg->time;
         }
       }

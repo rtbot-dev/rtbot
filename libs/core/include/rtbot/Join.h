@@ -117,7 +117,7 @@ class Join : public Operator {
             data_time_tracker_[port].erase(front_msg->time);
             queue.pop_front();
           } else if (front_msg->time == *common_time) {
-            get_output_queue(port).push_back(front_msg->clone());
+            get_output_queue(port).push_back(std::move(front_msg->clone()));
             data_time_tracker_[port].erase(front_msg->time);
             queue.pop_front();
             message_found = true;

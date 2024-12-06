@@ -165,7 +165,7 @@ class Operator {
     }
 
 #ifdef RTBOT_INSTRUMENTATION
-    RTBOT_RECORD_MESSAGE(id_, type_name(), msg->clone());
+    RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
 
     data_ports_[port_index].queue.push_back(std::move(msg));
@@ -206,7 +206,7 @@ class Operator {
 #ifdef RTBOT_INSTRUMENTATION
     for (size_t i = 0; i < output_ports_.size(); i++) {
       for (const auto& msg : output_ports_[i].queue) {
-        RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), i, msg->clone());
+        RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), i, std::move(msg->clone()));
       }
     }
 #endif
