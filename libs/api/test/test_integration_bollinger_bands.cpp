@@ -64,7 +64,7 @@ TEST_CASE("Bollinger Bands Pipeline Test", "[program]") {
     ports.push_back("i1");
 
     // Process data in batches and verify outputs
-    auto result = json::parse(process_batch_debug("test_prog", times, values, ports));
+    auto result = json::parse(process_batch("test_prog", times, values, ports));
 
     if (result.contains("37")) {
       const auto& op_outputs = result["37"];

@@ -132,11 +132,15 @@ class Program {
       throw runtime_error("Entry operator not found: " + entry_operator_id_);
     }
 
-    for (const json& mapping : j["outputs"]) {
-      RTBOT_LOG_DEBUG("Output mapping: ", mapping.dump());
-      string op_id = mapping["operatorId"];
+    // Parse output mappings
+    if (!j.contains("output")) {
+      throw runtime_error("Program JSON must contain 'output' field");
+    }
+
+    for (auto it = j["output"].begin(); it != j["output"].end(); ++it) {
+      string op_id = it.key();
       vector<size_t> ports;
-      for (const auto& port : mapping["ports"]) {
+      for (const auto& port : it.value()) {
         ports.push_back(port_name_to_index(port));
       }
       output_mappings_[op_id] = ports;
