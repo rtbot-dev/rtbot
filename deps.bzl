@@ -181,3 +181,32 @@ def deps():
         url = "https://github.com/bufbuild/protovalidate/archive/refs/tags/v0.8.2.zip",
         strip_prefix = "protovalidate-0.8.2",
     )
+
+    http_archive(
+        name = "io_opentelemetry_cpp",
+        sha256 = "b149109d5983cf8290d614654a878899a68b0c8902b64c934d06f47cd50ffe2e",
+        strip_prefix = "opentelemetry-cpp-1.18.0",
+        url = "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.18.0.tar.gz",
+    )
+
+    http_archive(
+        name = "ftxui",
+        strip_prefix = "FTXUI-5.0.0",
+        sha256 = "a2991cb222c944aee14397965d9f6b050245da849d8c5da7c72d112de2786b5b",
+        build_file = "@rtbot//tools/external:ftxui.BUILD",
+        url = "https://github.com/ArthurSonzogni/FTXUI/archive/refs/tags/v5.0.0.tar.gz",
+    )
+
+    http_archive(
+        name = "cxxopts",
+        strip_prefix = "cxxopts-3.2.0",
+        build_file = "@rtbot//tools/external:cxxopts.BUILD",
+        url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz",
+    )
+
+    http_archive(
+        name = "linenoise",
+        strip_prefix = "cpp-linenoise-master",
+        build_file = "@rtbot//tools/external:linenoise.BUILD",
+        url = "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip",
+    )
