@@ -1,0 +1,25 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob([
+        "include/**/*.h",
+        "src/**/*.cpp",
+    ]),
+)
+
+cc_library(
+    name = "rtbot-extension",
+    srcs = [":srcs"],
+    hdrs = glob(["include/**/*.h"]),
+    copts = ["-O3"],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core:rtbot",
+        "@lua//:lib",
+        "@sol2//:lib",
+    ],
+)

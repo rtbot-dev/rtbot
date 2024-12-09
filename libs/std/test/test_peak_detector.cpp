@@ -1,96 +1,185 @@
-#include <algorithm>
 #include <catch2/catch.hpp>
+#include <iostream>
+#include <memory>
 
-#include "rtbot/Collector.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
-#include "rtbot/std/Minus.h"
+#include "rtbot/std/MathSyncBinaryOp.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/telemetry/OpenTelemetryInit.h"
 #include "tools.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("simple peak detector") {
-  int nlag = 3;
+SCENARIO("PeakDetector handles basic peak detection", "[PeakDetector]") {
+  GIVEN("A PeakDetector with window size 3") {
+    auto detector = std::make_unique<PeakDetector>("test", 3);
 
-  SECTION("one peak") {
-    auto op = PeakDetector<uint64_t, double>("b1", nlag);
-    auto c1 = Collector<uint64_t, double>("c1", 2);
-    REQUIRE(op.connect(c1) != nullptr);
-    for (int i = 0; i < 10; i++) {
-      op.receiveData(Message<uint64_t, double>(i, 5 - fabs(1.0 * i - 5)));
-      op.executeData();
+    WHEN("Processing a simple peak") {
+      detector->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+      detector->execute();
+      detector->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
+      detector->execute();
+      detector->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
+      detector->execute();
+
+      THEN("Peak is detected") {
+        const auto& output = detector->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 2);
+        REQUIRE(msg->data.value == 2.0);
+      }
     }
-    REQUIRE(c1.getDataInputSize("i1") == 1);
-    REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(5, 5.0));
-  }
 
-  SECTION("two peaks") {
-    auto op = PeakDetector<uint64_t, double>("b1", nlag);
-    auto c1 = Collector<uint64_t, double>("c1", 2);
-    REQUIRE(op.connect(c1) != nullptr);
-    for (int i = 0; i < 14; i++) {
-      op.receiveData(Message<uint64_t, double>(i, i % 5));
-      op.executeData();
-    }
-    REQUIRE(c1.getDataInputSize("i1") == 2);
-    REQUIRE(c1.getDataInputMessage("i1", 0) == Message<uint64_t, double>(4, 4.0));
-    REQUIRE(c1.getDataInputMessage("i1", 1) == Message<uint64_t, double>(9, 4.0));
-  }
+    WHEN("Processing a non-peak") {
+      detector->receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
+      detector->execute();
+      detector->receive_data(create_message<NumberData>(2, NumberData{1.0}), 0);
+      detector->execute();
+      detector->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
+      detector->execute();
 
-  SECTION("only one peak") {
-    int t = 0;
-    int sign = 1;
-    double v = 0.0;
-
-    ProgramMessage<uint64_t, double> emitted;
-    auto pd = PeakDetector<uint64_t, double>("b2", nlag);
-    for (int i = 1; i <= 10; i++) {
-      t++;
-      v += sign * 0.1;
-      if (t % 5 == 0) sign = -sign;
-      pd.receiveData(Message<uint64_t, double>(i, v));
-      emitted = pd.executeData();
-      if (i < 6) {
-        REQUIRE(emitted.empty());
-      } else if (i == 6) {
-        REQUIRE(emitted.find("b2")->second.find("o1")->second.at(0).value == 0.5);
-        REQUIRE(emitted.find("b2")->second.find("o1")->second.at(0).time == 5);
-        REQUIRE(emitted.find("b2")->second.size() == 1);
-      } else if (i > 6) {
-        REQUIRE(emitted.empty());
+      THEN("No peak is detected") {
+        const auto& output = detector->get_output_queue(0);
+        REQUIRE(output.empty());
       }
     }
   }
 }
 
-TEST_CASE("ppg peak detector") {
-  auto s = SamplePPG("examples/data/ppg.csv");
-
-  auto i1 = Input<uint64_t, double>("i1");
-  auto ma1 = MovingAverage<uint64_t, double>("ma1", round(50 / s.dt()));
-  auto ma2 = MovingAverage<uint64_t, double>("ma2", round(2000 / s.dt()));
-  auto diff = Minus<uint64_t, double>("diff");
-  auto peak = PeakDetector<uint64_t, double>("b1", 2 * ma1.getDataInputMaxSize() + 1);
-  auto join = Join<uint64_t, double>("j1", 2);
-  auto o1 = Output<uint64_t, double>("o1");
-
-  // draw the pipeline
-
-  i1.connect(ma1)
-      ->connect(diff, "o1", "i1")
-      ->connect(peak, "o1", "i1")
-      ->connect(join, "o1", "i1")
-      ->connect(o1, "o1", "i1");
-  i1.connect(ma2)->connect(diff, "o1", "i2");
-  i1.connect(join, "o1", "i2");
-
-  // process the data
-  for (auto i = 0u; i < s.ti.size(); i++) {
-    i1.receiveData(Message<uint64_t, double>(s.ti[i], s.ppg[i]));
-    i1.executeData();
+SCENARIO("PeakDetector handles edge cases", "[PeakDetector]") {
+  SECTION("Invalid window sizes") {
+    REQUIRE_THROWS_AS(PeakDetector("test", 2), std::runtime_error);  // Even size
+    REQUIRE_THROWS_AS(PeakDetector("test", 1), std::runtime_error);  // Too small
   }
+
+  GIVEN("A PeakDetector with window size 5") {
+    auto detector = std::make_unique<PeakDetector>("test", 5);
+
+    WHEN("Processing a plateau") {
+      detector->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+      detector->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
+      detector->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
+      detector->receive_data(create_message<NumberData>(4, NumberData{2.0}), 0);
+      detector->receive_data(create_message<NumberData>(5, NumberData{1.0}), 0);
+      detector->execute();
+
+      THEN("No peak is detected") {
+        const auto& output = detector->get_output_queue(0);
+        REQUIRE(output.empty());
+      }
+    }
+  }
+}
+
+SCENARIO("PeakDetector handles state serialization", "[PeakDetector]") {
+  GIVEN("A PeakDetector with processed data") {
+    auto detector = std::make_unique<PeakDetector>("test", 3);
+
+    // Fill buffer with a peak pattern
+    detector->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    detector->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
+    detector->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
+    detector->execute();
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = detector->collect();
+
+      // Create new detector and restore state
+      auto restored = std::make_unique<PeakDetector>("test", 3);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("Buffer state is preserved") {
+        const auto& orig_buf = detector->buffer();
+        const auto& rest_buf = restored->buffer();
+
+        REQUIRE(orig_buf.size() == rest_buf.size());
+        for (size_t i = 0; i < orig_buf.size(); ++i) {
+          REQUIRE(orig_buf[i]->time == rest_buf[i]->time);
+          REQUIRE(orig_buf[i]->data.value == rest_buf[i]->data.value);
+        }
+      }
+
+      AND_WHEN("New data is processed") {
+        detector->receive_data(create_message<NumberData>(4, NumberData{0.5}), 0);
+        restored->receive_data(create_message<NumberData>(4, NumberData{0.5}), 0);
+
+        detector->execute();
+        restored->execute();
+
+        THEN("Both instances produce identical output") {
+          const auto& orig_out = detector->get_output_queue(0);
+          const auto& rest_out = restored->get_output_queue(0);
+
+          REQUIRE(orig_out.size() == rest_out.size());
+          if (!orig_out.empty()) {
+            const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_out[0].get());
+            const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_out[0].get());
+            REQUIRE(orig_msg->time == rest_msg->time);
+            REQUIRE(orig_msg->data.value == rest_msg->data.value);
+          }
+        }
+      }
+    }
+  }
+}
+
+auto s = SamplePPG("examples/data/ppg.csv");
+
+SCENARIO("PeakDetector works in a PPG analysis pipeline", "[PeakDetector][Integration]") {
+#ifdef RTBOT_INSTRUMENTATION
+  init_telemetry();
+#endif
+  auto input = std::make_unique<Input>("i1", std::vector<std::string>{PortType::NUMBER});
+
+  std::cout << "Loaded -> " << s.ti.size() << " samples from PPG data, dt " << s.dt() << std::endl;
+
+  const double dt = s.dt();
+  const int short_window = static_cast<int>(std::round(50 / dt));
+  const int long_window = static_cast<int>(std::round(2000 / dt));
+
+  auto ma_short = std::make_shared<MovingAverage>("ma1", short_window);
+  auto ma_long = std::make_shared<MovingAverage>("ma2", long_window);
+  auto minus = std::make_shared<Subtraction>("diff");
+  auto peak = std::make_shared<PeakDetector>("peak", 2 * short_window + 1);
+  auto join = std::make_shared<Join>("join", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+  auto output = std::make_shared<Output>("o1", std::vector<std::string>{PortType::NUMBER});
+
+  // Connect pipeline:
+  // input -> ma_short -> minus -> peak -> join -> output
+  //      \-> ma_long /                   /
+  //      \----------------------------->/
+
+  input->connect(ma_short)->connect(minus, 0, 0)->connect(peak)->connect(join, 0, 0)->connect(output);
+  input->connect(ma_long)->connect(minus, 0, 1);
+  input->connect(join, 0, 1);
+
+  // create a vector to store the peak timestamps
+  std::vector<double> peak_timestamps;
+  for (size_t i = 0; i < s.ti.size(); i++) {
+    input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
+    // std::cout << "Processing PPG data at " << s.ti[i] << std::endl;
+    input->execute();
+    const auto& output_queue = join->get_output_queue(0);
+
+    for (const auto& msg : output_queue) {
+      const auto* data = dynamic_cast<const Message<NumberData>*>(msg.get());
+      // std::cout << "\nPeak detected at " << data->time << std::endl;
+      peak_timestamps.push_back(data->time);
+    }
+    // clear all output queues
+    input->clear_all_output_ports();
+    ma_short->clear_all_output_ports();
+    ma_long->clear_all_output_ports();
+    minus->clear_all_output_ports();
+    peak->clear_all_output_ports();
+    join->clear_all_output_ports();
+    output->clear_all_output_ports();
+  }
+  GIVEN("A configured PPG processing pipeline") { REQUIRE(peak_timestamps.size() == 95); }
 }
