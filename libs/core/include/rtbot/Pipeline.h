@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "Logger.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"
@@ -15,6 +16,13 @@ namespace rtbot {
 
 class Pipeline : public Operator {
  public:
+  struct PipelineConnection {
+    std::string from_id;
+    std::string to_id;
+    size_t from_port{0};
+    size_t to_port{0};
+  };
+
   Pipeline(std::string id, const std::vector<std::string>& input_port_types,
            const std::vector<std::string>& output_port_types)
       : Operator(std::move(id)) {
@@ -41,6 +49,13 @@ class Pipeline : public Operator {
 
   // Get port configurations
   const std::vector<std::string>& get_input_port_types() const { return input_port_types_; }
+  const std::vector<std::string>& get_output_port_types() const { return output_port_types_; }
+  const std::map<std::string, std::shared_ptr<Operator>>& get_operators() const { return operators_; }
+  const std::vector<PipelineConnection>& get_pipeline_connections() const { return pipeline_connections_; }
+  const std::string& get_entry_operator_id() const { return entry_operator_->id(); }
+  const std::map<std::string, std::vector<std::pair<size_t, size_t>>>& get_output_mappings() const {
+    return output_mappings_;
+  }
 
   // API for configuring the pipeline
   void register_operator(const std::string& id, std::shared_ptr<Operator> op) { operators_[id] = std::move(op); }
@@ -52,6 +67,17 @@ class Pipeline : public Operator {
     }
     entry_operator_ = it->second;
     entry_port_ = port;
+    RTBOT_LOG_DEBUG("Setting entry operator: ", op_id, " -> ", port);
+
+    // Ensure output mappings are setup for entry operator if none exist
+    if (output_mappings_.empty()) {
+      for (size_t i = 0; i < entry_operator_->num_output_ports(); i++) {
+        if (i < num_output_ports()) {
+          RTBOT_LOG_DEBUG("Adding default output mapping: ", op_id, " -> ", i);
+          output_mappings_[op_id].emplace_back(i, i);
+        }
+      }
+    }
   }
 
   void add_output_mapping(const std::string& op_id, size_t op_port, size_t pipeline_port) {
@@ -62,6 +88,7 @@ class Pipeline : public Operator {
     if (pipeline_port >= num_output_ports()) {
       throw std::runtime_error("Invalid pipeline output port: " + std::to_string(pipeline_port));
     }
+    RTBOT_LOG_DEBUG("Adding output mapping: ", op_id, " -> ", pipeline_port);
     output_mappings_[op_id].emplace_back(op_port, pipeline_port);
   }
 
@@ -73,7 +100,10 @@ class Pipeline : public Operator {
       throw std::runtime_error("Invalid operator reference in connection");
     }
 
+    RTBOT_LOG_DEBUG("Connecting operators: ", from_id, " -> ", to_id);
     from_it->second->connect(to_it->second, from_port, to_port);
+    // Add connection to pipeline
+    pipeline_connections_.push_back({from_id, to_id, from_port, to_port});
   }
 
   void reset() override {
@@ -117,29 +147,26 @@ class Pipeline : public Operator {
       throw std::runtime_error("Pipeline entry point not configured");
     }
 
-    // Forward messages from each input port
+    // Forward input messages to entry operator
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& input_queue = get_data_queue(i);
-
       while (!input_queue.empty()) {
-        const auto& msg = input_queue.front();
-
-        // Forward message maintaining its type
-        entry_operator_->receive_data(msg->clone(), entry_port_);
+        auto& msg = input_queue.front();
+        entry_operator_->receive_data(msg->clone(), i);
         entry_operator_->execute();
         input_queue.pop_front();
       }
     }
 
-    // Collect results from output mappings
+    // Process output mappings
     for (const auto& [op_id, mappings] : output_mappings_) {
       auto& op = operators_[op_id];
       for (const auto& [op_port, pipeline_port] : mappings) {
-        const auto& queue = op->get_output_queue(op_port);
-        if (!queue.empty()) {
-          for (const auto& msg : queue) {
-            get_output_queue(pipeline_port).push_back(msg->clone());
-          }
+        const auto& source_queue = op->get_output_queue(op_port);
+        auto& target_queue = get_output_queue(pipeline_port);
+
+        for (const auto& msg : source_queue) {
+          target_queue.push_back(msg->clone());
         }
       }
     }
@@ -148,6 +175,7 @@ class Pipeline : public Operator {
  private:
   std::vector<std::string> input_port_types_;
   std::vector<std::string> output_port_types_;
+  std::vector<PipelineConnection> pipeline_connections_;
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;
   size_t entry_port_;

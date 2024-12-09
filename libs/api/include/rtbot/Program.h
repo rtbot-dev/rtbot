@@ -6,9 +6,11 @@
 #include <map>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <queue>
 #include <string>
 #include <vector>
 
+#include "OperatorJson.h"
 #include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
 
@@ -18,6 +20,17 @@ using json = nlohmann::json;
 
 using namespace std;
 
+static void build_operator_tree(const std::map<std::string, std::shared_ptr<Operator>>& ops,
+                                std::vector<std::shared_ptr<Operator>>& tree) {
+  for (const auto& [_, op] : ops) {
+    tree.push_back(op);
+
+    if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
+      build_operator_tree(pipeline->get_operators(), tree);
+    }
+  }
+}
+
 class Program {
  public:
   // Constructor from JSON string
@@ -26,42 +39,54 @@ class Program {
   // Constructor from serialized bytes
   explicit Program(const Bytes& bytes) {
     auto it = bytes.begin();
+
+    // Deserialize program JSON
     size_t json_size = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
-
     program_json_ = string(it, it + json_size);
     it += json_size;
 
     init_from_json();
 
-    while (it < bytes.end()) {
-      size_t id_size = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
-      string id(it, it + id_size);
-      it += id_size;
+    // Read operator count
+    size_t op_count = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
 
-      auto op_it = operators_.find(id);
-      if (op_it != operators_.end()) {
-        op_it->second->restore(it);
-      }
+    // Build operator tree
+    std::vector<std::shared_ptr<Operator>> operator_tree;
+    build_operator_tree(operators_, operator_tree);
+
+    if (op_count != operator_tree.size()) {
+      throw std::runtime_error("Operator count mismatch in restore: stored=" + std::to_string(op_count) +
+                               ", actual=" + std::to_string(operator_tree.size()));
+    }
+
+    // Restore each operator's state
+    for (auto& op : operator_tree) {
+      op->restore(it);
     }
   }
 
-  // Serialization
   Bytes serialize() {
     Bytes bytes;
 
+    // Serialize program JSON
     size_t size = program_json_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
                  reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
     bytes.insert(bytes.end(), program_json_.begin(), program_json_.end());
 
-    for (const auto& [id, op] : operators_) {
-      size = id.size();
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
-                   reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
-      bytes.insert(bytes.end(), id.begin(), id.end());
+    // Build complete operator tree
+    std::vector<std::shared_ptr<Operator>> operator_tree;
+    build_operator_tree(operators_, operator_tree);
 
+    // Store operator count
+    size_t op_count = operator_tree.size();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&op_count),
+                 reinterpret_cast<const uint8_t*>(&op_count) + sizeof(op_count));
+
+    // Serialize each operator's state
+    for (const auto& op : operator_tree) {
       Bytes op_state = op->collect();
       bytes.insert(bytes.end(), op_state.begin(), op_state.end());
     }
@@ -116,8 +141,8 @@ class Program {
       string to_id = conn["to"];
 
       // Default to "o1" and "i1" if ports not specified
-      size_t from_port = conn.contains("fromPort") ? port_name_to_index(conn["fromPort"]) : 0;
-      size_t to_port = conn.contains("toPort") ? port_name_to_index(conn["toPort"]) : 0;
+      size_t from_port = conn.contains("fromPort") ? OperatorJson::port_name_to_index(conn["fromPort"]) : 0;
+      size_t to_port = conn.contains("toPort") ? OperatorJson::port_name_to_index(conn["toPort"]) : 0;
 
       if (!operators_[from_id] || !operators_[to_id]) {
         throw runtime_error("Invalid operator reference in connection");
@@ -141,29 +166,11 @@ class Program {
       string op_id = it.key();
       vector<size_t> ports;
       for (const auto& port : it.value()) {
-        ports.push_back(port_name_to_index(port));
+        ports.push_back(OperatorJson::port_name_to_index(port));
       }
       output_mappings_[op_id] = ports;
     }
     RTBOT_LOG_DEBUG("Program initialized");
-  }
-
-  size_t port_name_to_index(const string& port_name) {
-    if (port_name.empty()) return 0;
-
-    if (port_name[0] == 'i' || port_name[0] == 'o') {
-      try {
-        return stoul(port_name.substr(1)) - 1;
-      } catch (...) {
-        throw runtime_error("Invalid port name format: " + port_name);
-      }
-    }
-
-    try {
-      return stoul(port_name);
-    } catch (...) {
-      throw runtime_error("Invalid port specification: " + port_name);
-    }
   }
 
   void send_to_entry(const Message<NumberData>& msg) {
@@ -349,7 +356,6 @@ class ProgramManager {
     }
   }
 
-  // Rest of the class implementation remains the same
   map<string, Program> programs_;
   map<string, map<string, vector<Message<NumberData>>>> message_buffer_;
 };

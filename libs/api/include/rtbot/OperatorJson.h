@@ -15,6 +15,7 @@
 #include "rtbot/Multiplexer.h"
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
+#include "rtbot/Pipeline.h"
 #include "rtbot/std/BooleanSyncBinaryOp.h"
 #include "rtbot/std/Constant.h"
 #include "rtbot/std/Count.h"
@@ -42,6 +43,24 @@ namespace rtbot {
 
 class OperatorJson {
  public:
+  static size_t port_name_to_index(const std::string& port_name) {
+    if (port_name.empty()) return 0;
+
+    if (port_name[0] == 'i' || port_name[0] == 'o') {
+      try {
+        return stoul(port_name.substr(1)) - 1;
+      } catch (...) {
+        throw std::runtime_error("Invalid port name format: " + port_name);
+      }
+    }
+
+    try {
+      return stoul(port_name);
+    } catch (...) {
+      throw std::runtime_error("Invalid port specification: " + port_name);
+    }
+  }
+
   static std::shared_ptr<Operator> read_op(std::string const& json_string) {
     auto parsed = json::parse(json_string);
     auto type = parsed["type"].get<std::string>();
@@ -137,6 +156,73 @@ class OperatorJson {
       return make_resampler_constant(id, parsed["interval"].get<int>());
     } else if (type == "ResamplerHermite") {
       return make_resampler_hermite(id, parsed["interval"].get<int>());
+    } else if (type == "Pipeline") {
+      // Validate port types
+      auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
+      auto output_types = parsed["output_port_types"].get<std::vector<std::string>>();
+
+      for (const auto& t : input_types) {
+        if (t != "number" && t != "boolean" && t != "vector_number" && t != "vector_boolean") {
+          throw std::runtime_error("Invalid input port type: " + t);
+        }
+      }
+
+      for (const auto& t : output_types) {
+        if (t != "number" && t != "boolean" && t != "vector_number" && t != "vector_boolean") {
+          throw std::runtime_error("Invalid output port type: " + t);
+        }
+      }
+
+      if (input_types.empty() || output_types.empty()) {
+        throw std::runtime_error("Pipeline must have at least one input and output port");
+      }
+
+      if (input_types.empty() || output_types.empty()) {
+        throw std::runtime_error("Pipeline must have at least one input and output port");
+      }
+
+      if (!parsed.contains("operators") || !parsed["operators"].is_array() || parsed["operators"].size() < 2) {
+        throw std::runtime_error("Pipeline must contain at least two operators");
+      }
+
+      if (!parsed.contains("connections") || !parsed["connections"].is_array() || parsed["connections"].empty()) {
+        throw std::runtime_error("Pipeline must contain at least one connection between operators");
+      }
+
+      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types);
+
+      // Configure internal operators
+      for (const auto& op_json : parsed["operators"]) {
+        if (!op_json.contains("id") || !op_json.contains("type")) {
+          throw std::runtime_error("Pipeline operators must have id and type fields");
+        }
+        pipeline->register_operator(op_json["id"].get<std::string>(), read_op(op_json.dump()));
+      }
+
+      // Configure connections
+      for (const auto& conn : parsed["connections"]) {
+        if (!conn.contains("from") || !conn.contains("to")) {
+          throw std::runtime_error("Pipeline connections must specify from and to operators");
+        }
+        std::string from = conn["from"].get<std::string>();
+        std::string to = conn["to"].get<std::string>();
+        size_t from_port = conn.contains("fromPort") ? port_name_to_index(conn["fromPort"]) : 0;
+        size_t to_port = conn.contains("toPort") ? port_name_to_index(conn["toPort"]) : 0;
+        pipeline->connect(from, to, from_port, to_port);
+      }
+
+      // Set entry operator
+      std::string entry_id = parsed["entryOperator"].get<std::string>();
+      pipeline->set_entry(entry_id);
+
+      // Configure output mappings
+      for (const auto& [op_id, mappings] : parsed["outputMappings"].items()) {
+        for (const auto& [op_port, pipeline_port] : mappings.items()) {
+          pipeline->add_output_mapping(op_id, port_name_to_index(op_port), port_name_to_index(pipeline_port));
+        }
+      }
+
+      return pipeline;
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
@@ -198,9 +284,45 @@ class OperatorJson {
       j["interval"] = std::dynamic_pointer_cast<ResamplerConstant<NumberData>>(op)->get_interval();
     } else if (type == "ResamplerHermite") {
       j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
-    }
+    } else if (type == "Pipeline") {
+      auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
+      j["type"] = "Pipeline";
+      j["id"] = op->id();
+      j["input_port_types"] = pipeline->get_input_port_types();
+      j["output_port_types"] = pipeline->get_output_port_types();
 
-    else {
+      // Store operators
+      j["operators"] = json::array();
+      for (const auto& [op_id, internal_op] : pipeline->get_operators()) {
+        json op_json = json::parse(write_op(internal_op));
+        op_json["id"] = op_id;
+        j["operators"].push_back(op_json);
+      }
+
+      // Store connections
+      j["connections"] = json::array();
+      for (const auto& conn : pipeline->get_pipeline_connections()) {
+        json conn_json;
+        conn_json["from"] = conn.from_id;
+        conn_json["to"] = conn.to_id;
+        conn_json["fromPort"] = "o" + std::to_string(conn.from_port + 1);
+        conn_json["toPort"] = "i" + std::to_string(conn.to_port + 1);
+        j["connections"].push_back(conn_json);
+      }
+
+      // Store entry operator
+      j["entryOperator"] = pipeline->get_entry_operator_id();
+
+      // Store output mappings
+      j["outputMappings"] = json::object();
+      for (const auto& [op_id, mappings] : pipeline->get_output_mappings()) {
+        json mapping_json;
+        for (const auto& [op_port, pipeline_port] : mappings) {
+          mapping_json["o" + std::to_string(op_port + 1)] = "o" + std::to_string(pipeline_port + 1);
+        }
+        j["outputMappings"][op_id] = mapping_json;
+      }
+    } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
   }
