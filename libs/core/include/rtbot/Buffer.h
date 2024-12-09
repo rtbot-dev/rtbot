@@ -75,6 +75,15 @@ class Buffer : public Operator {
     }
   }
 
+  void reset() override {
+    Operator::reset();
+    buffer_.clear();  // Clear buffer contents
+    sum_ = 0.0;       // Reset statistical accumulators
+    M2_ = 0.0;
+    sum_compensation_ = 0.0;
+    M2_compensation_ = 0.0;
+  }
+
   const std::deque<std::unique_ptr<Message<T>>>& buffer() const { return buffer_; }
   size_t buffer_size() const { return buffer_.size(); }
   bool buffer_full() const { return buffer_.size() == window_size_; }

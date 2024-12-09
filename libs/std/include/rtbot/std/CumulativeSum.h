@@ -16,6 +16,11 @@ class CumulativeSum : public Operator {
     add_output_port<NumberData>();
   }
 
+  void reset() override {
+    Operator::reset();
+    sum_ = 0.0;  // Reset running sum
+  }
+
   std::string type_name() const override { return "CumulativeSum"; }
 
   // Access current sum

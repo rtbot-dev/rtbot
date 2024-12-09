@@ -22,6 +22,12 @@ class InfiniteImpulseResponse : public Operator {
     add_output_port<NumberData>();
   }
 
+  void reset() override {
+    Operator::reset();
+    x_.clear();  // Clear input buffer
+    y_.clear();  // Clear output buffer
+  }
+
   std::string type_name() const override { return "InfiniteImpulseResponse"; }
 
   std::vector<double> get_a_coeffs() const { return a_; }

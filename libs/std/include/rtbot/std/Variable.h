@@ -24,6 +24,11 @@ class Variable : public Operator {
     add_output_port<NumberData>();
   }
 
+  void reset() override {
+    Operator::reset();
+    initialized_ = false;  // Reset to uninitialized state
+  }
+
   std::string type_name() const override { return "Variable"; }
 
   double get_default_value() const { return default_value_; }

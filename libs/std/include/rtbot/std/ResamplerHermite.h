@@ -27,6 +27,13 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
     }
   }
 
+  void reset() override {
+    Buffer<NumberData, ResamplerFeatures>::reset();
+    initialized_ = false;
+    next_emit_ = 0;
+    pending_emissions_.clear();
+  }
+
   std::string type_name() const override { return "ResamplerHermite"; }
   Bytes collect() override {
     // First collect base state

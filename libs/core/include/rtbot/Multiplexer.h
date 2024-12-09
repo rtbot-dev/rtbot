@@ -38,6 +38,12 @@ class Multiplexer : public Operator {
     add_output_port<T>();
   }
 
+  void reset() override {
+    Operator::reset();
+    data_time_tracker_.clear();
+    control_time_tracker_.clear();
+  }
+
   size_t get_num_ports() const { return data_time_tracker_.size(); }
 
   std::string type_name() const override { return "Multiplexer"; }

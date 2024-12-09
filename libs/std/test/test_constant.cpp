@@ -6,7 +6,7 @@ using namespace rtbot;
 
 SCENARIO("Constant operator handles basic operations", "[constant]") {
   GIVEN("A constant number operator") {
-    auto constant = make_number_constant("const1", 42.0);
+    auto constant = make_constant_number("const1", 42.0);
 
     WHEN("Single message is received") {
       constant->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
@@ -46,7 +46,7 @@ SCENARIO("Constant operator handles basic operations", "[constant]") {
   }
 
   GIVEN("A constant boolean operator") {
-    auto constant = make_boolean_constant("const2", true);
+    auto constant = make_constant_boolean("const2", true);
 
     WHEN("Message is received") {
       constant->receive_data(create_message<BooleanData>(1, BooleanData{false}), 0);
@@ -65,7 +65,7 @@ SCENARIO("Constant operator handles basic operations", "[constant]") {
 
 SCENARIO("Constant operator handles error cases", "[constant]") {
   GIVEN("A constant operator") {
-    auto constant = make_number_constant("const1", 42.0);
+    auto constant = make_constant_number("const1", 42.0);
 
     WHEN("Wrong message type is received") {
       THEN("Type mismatch is detected") {

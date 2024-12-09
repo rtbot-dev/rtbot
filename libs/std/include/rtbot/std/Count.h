@@ -17,6 +17,11 @@ class Count : public Operator {
     add_output_port<NumberData>();  // Output count as number
   }
 
+  void reset() override {
+    Operator::reset();
+    count_ = 0;  // Reset counter
+  }
+
   std::string type_name() const override { return "Count"; }
 
   // Serialize count_ since it's our only state

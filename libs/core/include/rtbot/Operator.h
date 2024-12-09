@@ -172,9 +172,24 @@ class Operator {
     data_ports_with_new_data_.insert(port_index);
   }
 
+  virtual void reset() {
+    // Base reset implementation clears all queues
+    for (auto& port : data_ports_) {
+      port.queue.clear();
+    }
+    for (auto& port : control_ports_) {
+      port.queue.clear();
+    }
+    for (auto& port : output_ports_) {
+      port.queue.clear();
+    }
+    data_ports_with_new_data_.clear();
+    control_ports_with_new_data_.clear();
+  }
+
   // This should be called by the runtime to clear all output ports before executing
   // the operator again
-  void clear_all_output_ports() {
+  virtual void clear_all_output_ports() {
     for (auto& port : output_ports_) {
       port.queue.clear();
     }

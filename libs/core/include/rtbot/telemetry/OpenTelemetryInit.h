@@ -4,12 +4,12 @@
 #include <memory>
 #include <string>
 
+#ifdef RTBOT_INSTRUMENTATION
 #include "opentelemetry/exporters/otlp/otlp_http_exporter.h"
 #include "opentelemetry/sdk/resource/resource.h"
 #include "opentelemetry/sdk/trace/simple_processor.h"
 #include "opentelemetry/sdk/trace/tracer_provider.h"
 
-#ifdef RTBOT_INSTRUMENTATION
 void init_telemetry() {
   opentelemetry::exporter::otlp::OtlpHttpExporterOptions opts;
   opts.url = "http://localhost:4318/v1/traces";

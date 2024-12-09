@@ -20,6 +20,13 @@ class ResamplerConstant : public Operator {
     add_output_port<T>();
   }
 
+  void reset() override {
+    Operator::reset();
+    initialized_ = false;
+    next_emit_ = 0;
+    last_value_ = T{};  // Reset to default constructed value
+  }
+
   std::string type_name() const override { return "ResamplerConstant"; }
 
   timestamp_t get_interval() const { return dt_; }

@@ -35,6 +35,12 @@ class Demultiplexer : public Operator {
     }
   }
 
+  void reset() override {
+    Operator::reset();
+    data_time_tracker_.clear();
+    control_time_tracker_.clear();
+  }
+
   size_t get_num_ports() const { return control_time_tracker_.size(); }
 
   std::string type_name() const override { return "Demultiplexer"; }
