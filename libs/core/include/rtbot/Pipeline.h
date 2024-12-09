@@ -68,16 +68,6 @@ class Pipeline : public Operator {
     entry_operator_ = it->second;
     entry_port_ = port;
     RTBOT_LOG_DEBUG("Setting entry operator: ", op_id, " -> ", port);
-
-    // Ensure output mappings are setup for entry operator if none exist
-    if (output_mappings_.empty()) {
-      for (size_t i = 0; i < entry_operator_->num_output_ports(); i++) {
-        if (i < num_output_ports()) {
-          RTBOT_LOG_DEBUG("Adding default output mapping: ", op_id, " -> ", i);
-          output_mappings_[op_id].emplace_back(i, i);
-        }
-      }
-    }
   }
 
   void add_output_mapping(const std::string& op_id, size_t op_port, size_t pipeline_port) {
@@ -88,7 +78,7 @@ class Pipeline : public Operator {
     if (pipeline_port >= num_output_ports()) {
       throw std::runtime_error("Invalid pipeline output port: " + std::to_string(pipeline_port));
     }
-    RTBOT_LOG_DEBUG("Adding output mapping: ", op_id, " -> ", pipeline_port);
+    RTBOT_LOG_DEBUG("Adding output mapping: ", op_id, ":", op_port, " -> ", pipeline_port);
     output_mappings_[op_id].emplace_back(op_port, pipeline_port);
   }
 
@@ -160,13 +150,21 @@ class Pipeline : public Operator {
 
     // Process output mappings
     for (const auto& [op_id, mappings] : output_mappings_) {
-      auto& op = operators_[op_id];
-      for (const auto& [op_port, pipeline_port] : mappings) {
-        const auto& source_queue = op->get_output_queue(op_port);
-        auto& target_queue = get_output_queue(pipeline_port);
-
-        for (const auto& msg : source_queue) {
-          target_queue.push_back(msg->clone());
+      auto it = operators_.find(op_id);
+      if (it != operators_.end()) {
+        auto& op = it->second;
+        for (const auto& [operator_port, pipeline_port] : mappings) {
+          if (operator_port < op->num_output_ports() && pipeline_port < num_output_ports()) {
+            const auto& source_queue = op->get_output_queue(operator_port);
+            // Only forward if source operator has produced output on the mapped port
+            if (!source_queue.empty()) {
+              auto& target_queue = get_output_queue(pipeline_port);
+              for (const auto& msg : source_queue) {
+                RTBOT_LOG_DEBUG("Forwarding message ", msg->to_string(), " from ", op_id, " -> ", pipeline_port);
+                target_queue.push_back(msg->clone());
+              }
+            }
+          }
         }
       }
     }
