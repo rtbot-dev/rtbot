@@ -210,3 +210,19 @@ def deps():
         build_file = "@rtbot//tools/external:linenoise.BUILD",
         url = "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip",
     )
+
+    http_archive(
+        name = "lua",
+        build_file = "@rtbot//tools/external:lua.BUILD",
+        sha256 = "5c39111b3fc4c1c9e56671008955a1730f54a15b95e1f1bd0752b868b929d8e3",
+        strip_prefix = "lua-5.4.7",
+        urls = ["https://github.com/lua/lua/archive/refs/tags/v5.4.7.tar.gz"],
+    )
+
+    http_archive(
+        name = "sol2",
+        build_file = "@rtbot//tools/external:sol2.BUILD",
+        sha256 = "b82c5de030e18cb2bcbcefcd5f45afd526920c517a96413f0b59b4332d752a1e",
+        strip_prefix = "sol2-3.3.0",
+        urls = ["https://github.com/ThePhD/sol2/archive/v3.3.0.tar.gz"],
+    )
