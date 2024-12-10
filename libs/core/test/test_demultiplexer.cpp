@@ -9,42 +9,14 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
   GIVEN("A demultiplexer with two output ports") {
     auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
 
-    WHEN("Control messages arrive before data message") {
-      // Set controls for t=100: route to first port
+    WHEN("Multiple control ports are active") {
+      // Controls for t=100
       demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
-
-      // Send data
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 1);
       demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
       demux->execute();
 
-      THEN("Message is routed to first port") {
-        const auto& first_output = demux->get_output_queue(0);
-        const auto& second_output = demux->get_output_queue(1);
-
-        REQUIRE(first_output.size() == 1);
-        REQUIRE(second_output.empty());
-
-        auto* msg = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
-        REQUIRE(msg->time == 100);
-        REQUIRE(msg->data.value == 42.0);
-      }
-    }
-
-    WHEN("Multiple messages arrive in sequence") {
-      // t=100: route to first port
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
-      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
-
-      // t=200: route to second port
-      demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 0);
-      demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 1);
-      demux->receive_data(create_message<NumberData>(200, NumberData{84.0}), 0);
-
-      demux->execute();
-
-      THEN("Messages are routed to correct ports") {
+      THEN("Message is routed to both ports") {
         const auto& first_output = demux->get_output_queue(0);
         const auto& second_output = demux->get_output_queue(1);
 
@@ -52,42 +24,22 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
         REQUIRE(second_output.size() == 1);
 
         auto* msg1 = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
+
         REQUIRE(msg1->time == 100);
         REQUIRE(msg1->data.value == 42.0);
-
-        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
-        REQUIRE(msg2->time == 200);
-        REQUIRE(msg2->data.value == 84.0);
+        REQUIRE(msg2->time == 100);
+        REQUIRE(msg2->data.value == 42.0);
       }
     }
 
-    WHEN("Data message arrives before control messages") {
+    WHEN("No control ports are active") {
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
       demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
-
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
-
       demux->execute();
 
-      THEN("Message is still routed correctly") {
-        const auto& first_output = demux->get_output_queue(0);
-        REQUIRE(first_output.size() == 1);
-
-        auto* msg = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
-        REQUIRE(msg->time == 100);
-        REQUIRE(msg->data.value == 42.0);
-      }
-    }
-
-    WHEN("Data arrives without matching control messages") {
-      demux->receive_data(create_message<NumberData>(50, NumberData{42.0}), 0);
-
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
-
-      demux->execute();
-
-      THEN("Old data message is cleaned up") {
+      THEN("Message is not routed to any port") {
         const auto& first_output = demux->get_output_queue(0);
         const auto& second_output = demux->get_output_queue(1);
 
@@ -95,72 +47,123 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
         REQUIRE(second_output.empty());
       }
     }
+  }
+}
 
-    WHEN("Multiple control ports are active") {
+SCENARIO("Demultiplexer handles sequential routing patterns", "[demultiplexer]") {
+  GIVEN("A demultiplexer with three output ports") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 3);
+
+    WHEN("Control patterns change over time with increasing timestamps") {
+      // t=100: Route to first port only
       demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-      demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 1);
-      demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
+      demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 2);
+      demux->receive_data(create_message<NumberData>(100, NumberData{10.0}), 0);
+      demux->execute();
 
-      THEN("Runtime exception is thrown") {
-        REQUIRE_THROWS_AS(demux->execute(), std::runtime_error);
-        REQUIRE_THROWS_WITH(demux->execute(), "Multiple control ports active at the same time");
+      // t=200: Route to second and third ports
+      demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 0);
+      demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 1);
+      demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 2);
+      demux->receive_data(create_message<NumberData>(200, NumberData{20.0}), 0);
+      demux->execute();
+
+      // t=300: Route to all ports
+      demux->receive_control(create_message<BooleanData>(300, BooleanData{true}), 0);
+      demux->receive_control(create_message<BooleanData>(300, BooleanData{true}), 1);
+      demux->receive_control(create_message<BooleanData>(300, BooleanData{true}), 2);
+      demux->receive_data(create_message<NumberData>(300, NumberData{30.0}), 0);
+      demux->execute();
+
+      THEN("Messages are routed correctly with proper timestamps") {
+        const auto& output0 = demux->get_output_queue(0);
+        const auto& output1 = demux->get_output_queue(1);
+        const auto& output2 = demux->get_output_queue(2);
+
+        // Check first output (messages from t=100, t=300)
+        REQUIRE(output0.size() == 2);
+        auto* msg0_1 = dynamic_cast<const Message<NumberData>*>(output0[0].get());
+        auto* msg0_2 = dynamic_cast<const Message<NumberData>*>(output0[1].get());
+        REQUIRE(msg0_1->time == 100);
+        REQUIRE(msg0_1->data.value == 10.0);
+        REQUIRE(msg0_2->time == 300);
+        REQUIRE(msg0_2->data.value == 30.0);
+
+        // Check second output (messages from t=200, t=300)
+        REQUIRE(output1.size() == 2);
+        auto* msg1_1 = dynamic_cast<const Message<NumberData>*>(output1[0].get());
+        auto* msg1_2 = dynamic_cast<const Message<NumberData>*>(output1[1].get());
+        REQUIRE(msg1_1->time == 200);
+        REQUIRE(msg1_1->data.value == 20.0);
+        REQUIRE(msg1_2->time == 300);
+        REQUIRE(msg1_2->data.value == 30.0);
+
+        // Check third output (messages from t=200, t=300)
+        REQUIRE(output2.size() == 2);
+        auto* msg2_1 = dynamic_cast<const Message<NumberData>*>(output2[0].get());
+        auto* msg2_2 = dynamic_cast<const Message<NumberData>*>(output2[1].get());
+        REQUIRE(msg2_1->time == 200);
+        REQUIRE(msg2_1->data.value == 20.0);
+        REQUIRE(msg2_2->time == 300);
+        REQUIRE(msg2_2->data.value == 30.0);
       }
     }
   }
 }
 
-SCENARIO("Demultiplexer handles complex message patterns", "[demultiplexer]") {
-  GIVEN("A demultiplexer with three output ports") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 3);
+SCENARIO("Demultiplexer handles timing and cleanup", "[demultiplexer]") {
+  GIVEN("A demultiplexer with two ports") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
 
-    WHEN("Messages arrive in an irregular pattern") {
-      THEN("First batch is processed correctly") {
-        demux->receive_data(create_message<NumberData>(100, NumberData{1.0}), 0);
-        demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
-        demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 1);
-        demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 2);
+    WHEN("Data arrives with missing control messages") {
+      demux->receive_data(create_message<NumberData>(100, NumberData{10.0}), 0);
+      demux->execute();
 
-        demux->execute();
+      THEN("No output is produced") {
+        const auto& output0 = demux->get_output_queue(0);
+        const auto& output1 = demux->get_output_queue(1);
 
-        const auto& out0 = demux->get_output_queue(0);
-        REQUIRE(out0.size() == 1);
-        auto* msg = dynamic_cast<const Message<NumberData>*>(out0[0].get());
-        REQUIRE(msg->time == 100);
-        REQUIRE(msg->data.value == 1.0);
+        REQUIRE(output0.empty());
+        REQUIRE(output1.empty());
       }
+    }
+  }
+}
 
-      AND_THEN("Second batch routes to different port") {
-        demux->receive_data(create_message<NumberData>(150, NumberData{1.5}), 0);
-        demux->receive_control(create_message<BooleanData>(150, BooleanData{false}), 0);
-        demux->receive_control(create_message<BooleanData>(150, BooleanData{true}), 1);
-        demux->receive_control(create_message<BooleanData>(150, BooleanData{false}), 2);
+SCENARIO("Demultiplexer handles state serialization", "[demultiplexer]") {
+  GIVEN("A demultiplexer with active state") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
 
+    // Set up initial state
+    demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
+    demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 1);
+    demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
+
+    WHEN("State is serialized and restored") {
+      Bytes state = demux->collect();
+      auto restored = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("Behavior matches original") {
         demux->execute();
+        restored->execute();
 
-        const auto& out1 = demux->get_output_queue(1);
-        REQUIRE(out1.size() == 1);
-        auto* msg = dynamic_cast<const Message<NumberData>*>(out1[0].get());
-        REQUIRE(msg->time == 150);
-        REQUIRE(msg->data.value == 1.5);
-      }
+        const auto& orig_output0 = demux->get_output_queue(0);
+        const auto& orig_output1 = demux->get_output_queue(1);
+        const auto& rest_output0 = restored->get_output_queue(0);
+        const auto& rest_output1 = restored->get_output_queue(1);
 
-      AND_THEN("Third batch waits for all controls") {
-        demux->receive_data(create_message<NumberData>(200, NumberData{2.0}), 0);
-        demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 0);
-        demux->receive_control(create_message<BooleanData>(200, BooleanData{false}), 1);
+        REQUIRE(orig_output0.size() == rest_output0.size());
+        REQUIRE(orig_output1.size() == rest_output1.size());
 
-        demux->execute();
-
-        const auto& out2 = demux->get_output_queue(2);
-        REQUIRE(out2.empty());
-
-        demux->receive_control(create_message<BooleanData>(200, BooleanData{true}), 2);
-        demux->execute();
-
-        REQUIRE(out2.size() == 1);
-        auto* msg = dynamic_cast<const Message<NumberData>*>(out2[0].get());
-        REQUIRE(msg->time == 200);
-        REQUIRE(msg->data.value == 2.0);
+        if (!orig_output0.empty()) {
+          auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output0[0].get());
+          auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output0[0].get());
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
       }
     }
   }

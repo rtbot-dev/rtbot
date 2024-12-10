@@ -1,8 +1,6 @@
 #ifndef DEMULTIPLEXER_H
 #define DEMULTIPLEXER_H
 
-#include <cstddef>
-
 #include "StateSerializer.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -34,14 +32,6 @@ class Demultiplexer : public Operator {
       add_output_port<T>();
     }
   }
-
-  void reset() override {
-    Operator::reset();
-    data_time_tracker_.clear();
-    control_time_tracker_.clear();
-  }
-
-  size_t get_num_ports() const { return control_time_tracker_.size(); }
 
   std::string type_name() const override { return "Demultiplexer"; }
 
@@ -126,7 +116,7 @@ class Demultiplexer : public Operator {
       if (!data_queue.empty()) {
         auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
         if (msg && msg->time == *common_control_time) {
-          // Count active control ports
+          // Get active control ports
           std::vector<size_t> active_ports;
           for (size_t i = 0; i < num_control_ports(); ++i) {
             if (control_time_tracker_[i].at(*common_control_time)) {
@@ -134,13 +124,9 @@ class Demultiplexer : public Operator {
             }
           }
 
-          // Route message if exactly one control is active
-          if (active_ports.size() == 1) {
-            get_output_queue(active_ports[0]).push_back(data_queue.front()->clone());
-          } else if (active_ports.size() > 1) {
-            throw std::runtime_error("Multiple control ports active at the same time");
-          } else {
-            throw std::runtime_error("No control port active at the same time");
+          // Route message to all active ports
+          for (size_t port : active_ports) {
+            get_output_queue(port).push_back(data_queue.front()->clone());
           }
 
           data_time_tracker_.erase(msg->time);
@@ -181,20 +167,20 @@ class Demultiplexer : public Operator {
 };
 
 // Factory functions for common configurations using PortType
-inline std::shared_ptr<Demultiplexer<NumberData>> make_demultiplexer_number(std::string id, size_t num_ports) {
+inline std::shared_ptr<Demultiplexer<NumberData>> make_number_demultiplexer(std::string id, size_t num_ports) {
   return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<BooleanData>> make_demultiplexer_boolean(std::string id, size_t num_ports) {
+inline std::shared_ptr<Demultiplexer<BooleanData>> make_boolean_demultiplexer(std::string id, size_t num_ports) {
   return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_demultiplexer_vector_number(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_vector_number_demultiplexer(std::string id,
                                                                                          size_t num_ports) {
   return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_demultiplexer_vector_boolean(std::string id,
+inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_vector_boolean_demultiplexer(std::string id,
                                                                                            size_t num_ports) {
   return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
 }
