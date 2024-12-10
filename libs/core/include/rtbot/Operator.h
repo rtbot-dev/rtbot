@@ -29,6 +29,8 @@ struct PortInfo {
   std::type_index type;
 };
 
+enum class PortKind { DATA, CONTROL };
+
 // Base operator class
 class Operator {
  public:
@@ -157,11 +159,13 @@ class Operator {
   // Runtime port access for data with type checking
   virtual void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) {
     if (port_index >= data_ports_.size()) {
-      throw std::runtime_error("Invalid data port index");
+      throw std::runtime_error("Invalid data port index at " + type_name() + "(" + id_ + ")" + ":" +
+                               std::to_string(port_index));
     }
 
     if (msg->type() != data_ports_[port_index].type) {
-      throw std::runtime_error("Type mismatch on data port");
+      throw std::runtime_error("Type mismatch on data port at " + type_name() + "(" + id_ + ")" + ":" +
+                               std::to_string(port_index));
     }
 
 #ifdef RTBOT_INSTRUMENTATION
@@ -232,11 +236,13 @@ class Operator {
   // Runtime port access for control messages with type checking
   virtual void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) {
     if (port_index >= control_ports_.size()) {
-      throw std::runtime_error("Invalid control port index");
+      throw std::runtime_error("Invalid control port index at " + type_name() + "(" + id_ + ")" + ":" +
+                               std::to_string(port_index));
     }
 
     if (msg->type() != control_ports_[port_index].type) {
-      throw std::runtime_error("Type mismatch on control port");
+      throw std::runtime_error("Type mismatch on control port at " + type_name() + "(" + id_ + ")" + ":" +
+                               std::to_string(port_index));
     }
 
     control_ports_[port_index].queue.push_back(std::move(msg));
@@ -244,17 +250,33 @@ class Operator {
   }
 
   std::shared_ptr<Operator> connect(std::shared_ptr<Operator> child, size_t output_port = 0,
-                                    size_t child_input_port = 0) {
+                                    size_t child_port_index = 0, PortKind child_port_kind = PortKind::DATA) {
     if (output_port >= output_ports_.size()) {
       throw std::runtime_error("Invalid output port index");
     }
 
-    // Type check the connection
-    if (output_ports_[output_port].type != child->data_ports_[child_input_port].type) {
-      throw std::runtime_error("Type mismatch in operator connection " + id_ + " -> " + child->id_);
+    // Type check based on port kind
+    if (child_port_kind == PortKind::DATA) {
+      if (child_port_index >= child->data_ports_.size()) {
+        throw std::runtime_error("Invalid child data port index");
+      }
+      if (output_ports_[output_port].type != child->data_ports_[child_port_index].type) {
+        throw std::runtime_error("Input port type mismatch in operator connection " + id_ + ":" +
+                                 std::to_string(output_port) + " -> " + child->id_ + ":" +
+                                 std::to_string(child_port_index));
+      }
+    } else {
+      if (child_port_index >= child->control_ports_.size()) {
+        throw std::runtime_error("Invalid child control port index");
+      }
+      if (output_ports_[output_port].type != child->control_ports_[child_port_index].type) {
+        throw std::runtime_error("Control port type mismatch in operator connection " + id_ + ":" +
+                                 std::to_string(output_port) + " -> " + child->id_ + ":" +
+                                 std::to_string(child_port_index));
+      }
     }
 
-    connections_.push_back({child, output_port, child_input_port, 0});
+    connections_.push_back({child, output_port, child_port_index, 0, child_port_kind});
     return child;
   }
 
@@ -330,19 +352,24 @@ class Operator {
         RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), conn.child->id(), conn.child->type_name(),
                                   output_queue[i]->clone());
 #endif
-        conn.child->receive_data(std::move(msg_copy), conn.child_input_port);
+        // Route message based on connection port kind
+        if (conn.child_port_kind == PortKind::DATA) {
+          conn.child->receive_data(std::move(msg_copy), conn.child_input_port);
+        } else {
+          conn.child->receive_control(std::move(msg_copy), conn.child_input_port);
+        }
       }
 
       conn.last_propagated_index = output_queue.size();
       conn.child->execute();
     }
   }
-
   struct Connection {
     std::shared_ptr<Operator> child;
     size_t output_port;
     size_t child_input_port;
     size_t last_propagated_index{0};  // Track last propagated message per connection
+    PortKind child_port_kind{PortKind::DATA};
   };
 
   std::string id_;
