@@ -251,7 +251,7 @@ class Operator {
 
     // Type check the connection
     if (output_ports_[output_port].type != child->data_ports_[child_input_port].type) {
-      throw std::runtime_error("Type mismatch in operator connection");
+      throw std::runtime_error("Type mismatch in operator connection " + id_ + " -> " + child->id_);
     }
 
     connections_.push_back({child, output_port, child_input_port, 0});

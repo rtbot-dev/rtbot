@@ -7,19 +7,19 @@
 
 namespace rtbot {
 
-template <typename T>
+template <typename InputT, typename OutputT = InputT>
 class Constant : public Operator {
  public:
-  Constant(std::string id, const T& value) : Operator(std::move(id)), value_(value) {
-    // Add single data input port and output port
-    add_data_port<T>();
-    add_output_port<T>();
+  Constant(std::string id, const OutputT& value) : Operator(std::move(id)), value_(value) {
+    // Add input and output ports with potentially different types
+    add_data_port<InputT>();
+    add_output_port<OutputT>();
   }
 
   std::string type_name() const override { return "Constant"; }
 
   // Accessor for the constant value
-  const T& get_value() const { return value_; }
+  const OutputT& get_value() const { return value_; }
 
  protected:
   void process_data() override {
@@ -27,42 +27,84 @@ class Constant : public Operator {
     auto& output_queue = get_output_queue(0);
 
     while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<T>*>(input_queue.front().get());
+      const auto* msg = dynamic_cast<const Message<InputT>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in Constant");
       }
 
       // Create output message with same timestamp but constant value
-      output_queue.push_back(create_message<T>(msg->time, value_));
+      output_queue.push_back(create_message<OutputT>(msg->time, value_));
       input_queue.pop_front();
     }
   }
 
  private:
-  T value_;  // The constant value to emit
+  OutputT value_;  // The constant value to emit
 };
 
-class ConstantNumber : public Constant<NumberData> {
- public:
-  ConstantNumber(std::string id, double value) : Constant<NumberData>(std::move(id), NumberData{value}) {}
+// Type-specific aliases for common configurations
+using ConstantNumber = Constant<NumberData>;
+using ConstantBoolean = Constant<BooleanData>;
+using ConstantNumberToBoolean = Constant<NumberData, BooleanData>;
+using ConstantBooleanToNumber = Constant<BooleanData, NumberData>;
 
-  std::string type_name() const override { return "ConstantNumber"; }
-};
-
-class ConstantBoolean : public Constant<BooleanData> {
- public:
-  ConstantBoolean(std::string id, bool value) : Constant<BooleanData>(std::move(id), BooleanData{value}) {}
-
-  std::string type_name() const override { return "ConstantBoolean"; }
-};
-
-// Factory functions for common configurations
+// Factory functions for same-type constants
 inline std::shared_ptr<ConstantNumber> make_constant_number(std::string id, double value) {
-  return std::make_shared<ConstantNumber>(std::move(id), value);
+  return std::make_shared<ConstantNumber>(std::move(id), NumberData{value});
 }
 
 inline std::shared_ptr<ConstantBoolean> make_constant_boolean(std::string id, bool value) {
-  return std::make_shared<ConstantBoolean>(std::move(id), value);
+  return std::make_shared<ConstantBoolean>(std::move(id), BooleanData{value});
+}
+
+// Factory functions for type-converting constants
+inline std::shared_ptr<ConstantNumberToBoolean> make_constant_number_to_boolean(std::string id, bool value) {
+  return std::make_shared<ConstantNumberToBoolean>(std::move(id), BooleanData{value});
+}
+
+inline std::shared_ptr<ConstantBooleanToNumber> make_constant_boolean_to_number(std::string id, double value) {
+  return std::make_shared<ConstantBooleanToNumber>(std::move(id), NumberData{value});
+}
+
+// Vector constant types
+using ConstantVectorNumber = Constant<VectorNumberData>;
+using ConstantVectorBoolean = Constant<VectorBooleanData>;
+using ConstantNumberToVectorNumber = Constant<NumberData, VectorNumberData>;
+using ConstantBooleanToVectorBoolean = Constant<BooleanData, VectorBooleanData>;
+using ConstantVectorNumberToNumber = Constant<VectorNumberData, NumberData>;
+using ConstantVectorBooleanToBoolean = Constant<VectorBooleanData, BooleanData>;
+
+// Factory functions for vector constants
+inline std::shared_ptr<ConstantVectorNumber> make_constant_vector_number(std::string id,
+                                                                         const std::vector<double>& value) {
+  return std::make_shared<ConstantVectorNumber>(std::move(id), VectorNumberData{value});
+}
+
+inline std::shared_ptr<ConstantVectorBoolean> make_constant_vector_boolean(std::string id,
+                                                                           const std::vector<bool>& value) {
+  return std::make_shared<ConstantVectorBoolean>(std::move(id), VectorBooleanData{value});
+}
+
+// Factory functions for scalar-to-vector constants
+inline std::shared_ptr<ConstantNumberToVectorNumber> make_constant_number_to_vector_number(
+    std::string id, const std::vector<double>& value) {
+  return std::make_shared<ConstantNumberToVectorNumber>(std::move(id), VectorNumberData{value});
+}
+
+inline std::shared_ptr<ConstantBooleanToVectorBoolean> make_constant_boolean_to_vector_boolean(
+    std::string id, const std::vector<bool>& value) {
+  return std::make_shared<ConstantBooleanToVectorBoolean>(std::move(id), VectorBooleanData{value});
+}
+
+// Factory functions for vector-to-scalar constants
+inline std::shared_ptr<ConstantVectorNumberToNumber> make_constant_vector_number_to_number(std::string id,
+                                                                                           double value) {
+  return std::make_shared<ConstantVectorNumberToNumber>(std::move(id), NumberData{value});
+}
+
+inline std::shared_ptr<ConstantVectorBooleanToBoolean> make_constant_vector_boolean_to_boolean(std::string id,
+                                                                                               bool value) {
+  return std::make_shared<ConstantVectorBooleanToBoolean>(std::move(id), BooleanData{value});
 }
 
 }  // namespace rtbot
