@@ -17,6 +17,7 @@ class REPL {
 
  private:
   std::string program_id_;
+  std::string program_json_;
   CLIArguments args_;
   std::string entry_operator_;
 

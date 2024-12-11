@@ -8,7 +8,7 @@
 
 namespace rtbot_cli {
 
-enum class OutputFormat { JSON, YAML };
+enum class OutputFormat { JSON, YAML, RTBOT_DEBUG };
 
 enum class Mode { INTERACTIVE, REPL, BATCH };
 

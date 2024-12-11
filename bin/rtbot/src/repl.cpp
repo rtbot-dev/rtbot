@@ -9,7 +9,9 @@
 #include <vector>
 
 #include "data_loader.h"
+#include "debug_formatter.h"
 #include "linenoise.hpp"
+#include "program_viewer.h"
 #include "rtbot/bindings.h"
 
 namespace rtbot_cli {
@@ -23,8 +25,15 @@ const std::string JSON_BRACKETS = "\033[0;36m";
 const std::string COLOR_RESET = "\033[0m";
 
 REPL::REPL(const std::string& program_id, const CLIArguments& args) : program_id_(program_id), args_(args) {
-  args_.debug = true;                 // Debug true by default
-  args_.format = OutputFormat::YAML;  // YAML default format
+  args_.debug = true;                        // Debug true by default
+  args_.format = OutputFormat::RTBOT_DEBUG;  // RTBot debug format by default
+
+  std::ifstream program_file(args_.program_file);
+  if (program_file.is_open()) {
+    std::stringstream buffer;
+    buffer << program_file.rdbuf();
+    program_json_ = buffer.str();
+  }
 
   linenoise::SetHistoryMaxLen(1000);
   linenoise::LoadHistory(".rtbot_history");
@@ -46,8 +55,10 @@ void REPL::print_help() const {
             << "  .help     - Show this help message\n"
             << "  .quit     - Exit the REPL\n"
             << "  .debug    - Toggle debug mode (current: " << (args_.debug ? "on" : "off") << ")\n"
-            << "  .format   - Toggle output format (current: " << (args_.format == OutputFormat::JSON ? "JSON" : "YAML")
+            << "  .format   - Toggle output format (current: "
+            << (args_.format == OutputFormat::JSON ? "JSON" : (args_.format == OutputFormat::YAML ? "YAML" : "DEBUG"))
             << ")\n"
+            << "  .view     - Display program structure\n"
             << "  .load_csv <path> - Load data from CSV file\n"
             << "  .next [N] - Process next N messages (default: 1)\n"
             << "  .scale_t <value> - Set time scale factor\n"
@@ -94,42 +105,25 @@ std::string REPL::colorize_json(const nlohmann::json& j, int indent = 0) const {
 
 void REPL::print_result(const std::string& result) const {
   try {
-    // First parse as JSON to ensure consistent input
     auto parsed_json = nlohmann::json::parse(result);
 
-    if (args_.format == OutputFormat::YAML) {
-      // Convert JSON to YAML nodes recursively
-      std::function<YAML::Node(const nlohmann::json&)> to_yaml = [&](const nlohmann::json& j) {
-        YAML::Node node;
-        if (j.is_object()) {
-          for (auto it = j.begin(); it != j.end(); ++it) {
-            node[it.key()] = to_yaml(it.value());
-          }
-        } else if (j.is_array()) {
-          for (const auto& elem : j) {
-            node.push_back(to_yaml(elem));
-          }
-        } else if (j.is_string()) {
-          node = j.get<std::string>();
-        } else if (j.is_number()) {
-          node = j.get<double>();
-        } else if (j.is_boolean()) {
-          node = j.get<bool>();
-        } else if (j.is_null()) {
-          node = YAML::Node(YAML::NodeType::Null);
-        }
-        return node;
-      };
+    switch (args_.format) {
+      case OutputFormat::RTBOT_DEBUG:
+        std::cout << DebugFormatter::format_debug_output(parsed_json) << std::endl;
+        break;
 
-      YAML::Node yaml = to_yaml(parsed_json);
-      std::cout << "\033[0;36m" << YAML::Dump(yaml) << COLOR_RESET << std::endl;
-    } else {
-      std::cout << colorize_json(parsed_json) << std::endl;
+      case OutputFormat::YAML: {
+        YAML::Node yaml = YAML::Load(parsed_json.dump());
+        std::cout << "\033[0;36m" << YAML::Dump(yaml) << COLOR_RESET << std::endl;
+        break;
+      }
+
+      case OutputFormat::JSON:
+        std::cout << colorize_json(parsed_json) << std::endl;
+        break;
     }
-    std::cout.flush();
   } catch (const std::exception& e) {
     std::cerr << "\033[0;31mError formatting output: " << e.what() << COLOR_RESET << std::endl;
-    std::cerr.flush();
   }
 }
 
@@ -176,6 +170,16 @@ bool REPL::process_command(const std::string& input) {
   std::istringstream iss(input);
   std::string cmd;
   iss >> cmd;
+
+  if (cmd == ".view") {
+    try {
+      auto program_json = nlohmann::json::parse(program_json_);
+      std::cout << "\nProgram Structure:\n" << ProgramViewer::visualize_program(program_json) << std::endl;
+    } catch (const std::exception& e) {
+      std::cerr << "\033[0;31mError visualizing program: " << e.what() << COLOR_RESET << std::endl;
+    }
+    return true;
+  }
 
   if (cmd == ".scale_t" || cmd == ".scale_y") {
     std::string value_str;
@@ -234,10 +238,12 @@ bool REPL::process_command(const std::string& input) {
     std::cout.flush();
     return true;
   }
-  if (input == ".format") {
-    args_.format = (args_.format == OutputFormat::JSON) ? OutputFormat::YAML : OutputFormat::JSON;
-    std::cout << "Output format set to " << (args_.format == OutputFormat::JSON ? "JSON" : "YAML") << std::endl;
-    std::cout.flush();
+  if (cmd == ".format") {
+    args_.format = static_cast<OutputFormat>((static_cast<int>(args_.format) + 1) % 3);
+    std::cout << "Output format set to "
+              << (args_.format == OutputFormat::JSON ? "JSON"
+                                                     : (args_.format == OutputFormat::YAML ? "YAML" : "RTBOT_DEBUG"))
+              << std::endl;
     return true;
   }
   return true;

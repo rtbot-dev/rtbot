@@ -76,7 +76,7 @@ CLIArguments CLIArguments::parse(int argc, char* argv[]) {
     } else if (format == "yaml") {
       args.format = OutputFormat::YAML;
     } else {
-      throw ArgumentException("Invalid format specified. Use 'json' or 'yaml'");
+      args.format = OutputFormat::RTBOT_DEBUG;
     }
 
     // Handle mode-specific requirements
