@@ -162,9 +162,16 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
 
     WHEN("Processing a sequence of price data") {
       std::vector<std::pair<timestamp_t, double>> test_data = {
-          {1, 54.8},  {2, 56.8},   {3, 57.85},  {4, 59.85},  {5, 60.57},  {6, 61.1},  {7, 62.17},
-          {8, 60.6},  {9, 62.35},  {10, 62.15}, {11, 62.35}, {12, 61.45}, {13, 62.8}, {14, 61.37},
-          {15, 62.5}, {16, 62.57}, {17, 60.8},  {18, 59.37}, {19, 60.35}, {20, 62.35}};
+          {1, 54.8},   {2, 56.8},   {3, 57.85},  {4, 59.85},  {5, 60.57},  {6, 61.1},   {7, 62.17},  {8, 60.6},
+          {9, 62.35},  {10, 62.15}, {11, 62.35}, {12, 61.45}, {13, 62.8},  {14, 61.37}, {15, 62.5},  {16, 62.57},
+          {17, 60.8},  {18, 59.37}, {19, 60.35}, {20, 62.35}, {21, 62.17}, {22, 62.55}, {23, 64.55}, {24, 64.37},
+          {25, 65.3},  {26, 64.42}, {27, 62.9},  {28, 61.6},  {29, 62.05}, {30, 60.05}, {31, 59.7},  {32, 60.9},
+          {33, 60.25}, {34, 58.27}, {35, 58.7},  {36, 57.72}, {37, 58.1},  {38, 58.2}};
+
+      std::vector<double> expected_values = {74.21384, 74.33552, 65.87129, 59.93370, 62.43288, 66.96205,
+                                             66.18862, 67.05377, 71.22679, 70.36299, 72.23644, 67.86486,
+                                             60.99822, 55.79821, 57.15964, 49.81579, 48.63810, 52.76154,
+                                             50.40119, 43.95111, 45.57992, 42.54534, 44.09946, 44.52472};
 
       std::vector<std::pair<timestamp_t, double>> outputs;
 
@@ -192,11 +199,10 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
       }
 
       THEN("Output matches expected RSI behavior") {
-        // Check specific expected values
-        REQUIRE(outputs[0].second == Approx(74.21384).margin(0.00001));
-        REQUIRE(outputs[0].first == 15);
-        REQUIRE(outputs[1].second == Approx(74.33552).margin(0.00001));
-        REQUIRE(outputs[1].first == 16);
+        for (size_t i = 0; i < outputs.size(); ++i) {
+          REQUIRE(outputs[i].first == n + i + 1);  // 15, 16, 17, ...
+          REQUIRE(outputs[i].second == Approx(expected_values[i]).margin(0.00001));
+        }
       }
     }
   }
