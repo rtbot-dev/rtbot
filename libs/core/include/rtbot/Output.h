@@ -1,52 +1,80 @@
 #ifndef OUTPUT_H
 #define OUTPUT_H
 
-#include <functional>
 #include <iostream>
-#include <optional>
-#include <variant>
-#include <vector>
 
-#include "Operator.h"
+#include "Message.h"
+#include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
+class Output : public Operator {
+ public:
+  Output(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
+    if (port_types.empty()) {
+      throw std::runtime_error("Output operator must have at least one port type");
+    }
 
-template <class T, class V>
-struct Output : public Operator<T, V> {
-  Output() = default;
-  Output(string const& id, size_t numPorts = 1) : Operator<T, V>(id) {
-    for (int i = 1; i <= numPorts; i++) {
-      string inputPort = "i" + to_string(i);
-      string outputPort = "o" + to_string(i);
-      portsMap.emplace(inputPort, outputPort);
-      this->addDataInput(inputPort, 1);
-      this->addOutput(outputPort);
+    // Create corresponding input and output ports
+    for (const auto& type : port_types) {
+      if (!PortType::is_valid_port_type(type)) {
+        throw std::runtime_error("Invalid port type: " + type);
+      }
+
+      // Store port type
+      port_type_names_.push_back(type);
+
+      // Add input port and matching output port
+      PortType::add_port(*this, type, true, true);  // input port
     }
   }
 
-  size_t getNumPorts() const { return this->dataInputs.size(); }
+  std::string type_name() const override { return "Output"; }
 
-  string typeName() const override { return "Output"; }
+  // Get port configuration
+  const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
-  virtual OperatorMessage<T, V> processData() override {
-    OperatorMessage<T, V> outputMsgs;
-    while (!this->toProcess.empty()) {
-      string inputPort = *(this->toProcess.begin());
-      Message<T, V> out = this->getDataInputLastMessage(inputPort);
-      PortMessage<T, V> v;
-      v.push_back(out);
-      outputMsgs.emplace(portsMap.find(inputPort)->second, v);
-      this->toProcess.erase(inputPort);
+ protected:
+  void process_data() override {
+    // Forward all messages from inputs to corresponding outputs
+    for (size_t i = 0; i < num_data_ports(); ++i) {
+      auto& input_queue = get_data_queue(i);
+      auto& output_queue = get_output_queue(i);
+
+      // Forward all messages
+      while (!input_queue.empty()) {
+        output_queue.push_back(input_queue.front()->clone());
+        input_queue.pop_front();
+      }
     }
-    return outputMsgs;
   }
 
  private:
-  map<string, string> portsMap;
+  std::vector<std::string> port_type_names_;
 };
 
-}  // end namespace rtbot
+// Factory functions for common configurations
+inline std::shared_ptr<Output> make_output(std::string id, const std::vector<std::string>& port_types) {
+  return std::make_shared<Output>(std::move(id), port_types);
+}
+
+inline std::shared_ptr<Output> make_number_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::NUMBER});
+}
+
+inline std::shared_ptr<Output> make_boolean_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
+}
+
+inline std::shared_ptr<Output> make_vector_number_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
+}
+
+inline std::shared_ptr<Output> make_vector_boolean_output(std::string id) {
+  return std::make_shared<Output>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
+}
+
+}  // namespace rtbot
 
 #endif  // OUTPUT_H

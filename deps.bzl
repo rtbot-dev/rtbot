@@ -181,3 +181,48 @@ def deps():
         url = "https://github.com/bufbuild/protovalidate/archive/refs/tags/v0.8.2.zip",
         strip_prefix = "protovalidate-0.8.2",
     )
+
+    http_archive(
+        name = "io_opentelemetry_cpp",
+        sha256 = "b149109d5983cf8290d614654a878899a68b0c8902b64c934d06f47cd50ffe2e",
+        strip_prefix = "opentelemetry-cpp-1.18.0",
+        url = "https://github.com/open-telemetry/opentelemetry-cpp/archive/refs/tags/v1.18.0.tar.gz",
+    )
+
+    http_archive(
+        name = "ftxui",
+        strip_prefix = "FTXUI-5.0.0",
+        sha256 = "a2991cb222c944aee14397965d9f6b050245da849d8c5da7c72d112de2786b5b",
+        build_file = "@rtbot//tools/external:ftxui.BUILD",
+        url = "https://github.com/ArthurSonzogni/FTXUI/archive/refs/tags/v5.0.0.tar.gz",
+    )
+
+    http_archive(
+        name = "cxxopts",
+        strip_prefix = "cxxopts-3.2.0",
+        build_file = "@rtbot//tools/external:cxxopts.BUILD",
+        url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz",
+    )
+
+    http_archive(
+        name = "linenoise",
+        strip_prefix = "cpp-linenoise-master",
+        build_file = "@rtbot//tools/external:linenoise.BUILD",
+        url = "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip",
+    )
+
+    http_archive(
+        name = "lua",
+        build_file = "@rtbot//tools/external:lua.BUILD",
+        sha256 = "5c39111b3fc4c1c9e56671008955a1730f54a15b95e1f1bd0752b868b929d8e3",
+        strip_prefix = "lua-5.4.7",
+        urls = ["https://github.com/lua/lua/archive/refs/tags/v5.4.7.tar.gz"],
+    )
+
+    http_archive(
+        name = "sol2",
+        build_file = "@rtbot//tools/external:sol2.BUILD",
+        sha256 = "b82c5de030e18cb2bcbcefcd5f45afd526920c517a96413f0b59b4332d752a1e",
+        strip_prefix = "sol2-3.3.0",
+        urls = ["https://github.com/ThePhD/sol2/archive/v3.3.0.tar.gz"],
+    )
