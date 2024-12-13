@@ -16,21 +16,19 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
                 {"from": "input1", "to": "output1"}
             ],
             "entryOperator": "input1",
-            "outputs": [
-                {"operatorId": "output1", "ports": ["o1"]}
-            ]
+            "output": { "output1": ["o1"] }
         })";
 
     WHEN("Validating program") {
+      REQUIRE(create_program("test_prog_bindings", program_json).empty());
       auto result = json::parse(validate_program(program_json));
       THEN("Validation succeeds") { REQUIRE(result["valid"].get<bool>()); }
     }
 
     WHEN("Creating and processing messages") {
-      REQUIRE(create_program("test_prog", program_json).empty());
-      REQUIRE(add_to_message_buffer("test_prog", "input1", 1, 42.0) == "1");
+      REQUIRE(add_to_message_buffer("test_prog_bindings", "input1", 1, 42.0) == "1");
 
-      auto result = json::parse(process_message_buffer("test_prog"));
+      auto result = json::parse(process_message_buffer("test_prog_bindings"));
 
       THEN("Messages are processed correctly") {
         REQUIRE(result.contains("output1"));
@@ -54,9 +52,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
                 {"from": "ma1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input1",
-            "outputs": [
-                {"operatorId": "output1", "ports": ["o1"]}
-            ]
+            "output": { "output1": ["o1"] }
         })";
 
     WHEN("Testing serialization") {
@@ -97,9 +93,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
                 {"from": "ma1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input1",
-            "outputs": [
-                {"operatorId": "output1", "ports": ["o1"]}
-            ]
+            "output": { "output1": ["o1"] }
         })";
 
     WHEN("Processing in debug mode") {
@@ -135,9 +129,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
-      "outputs": [
-        {"operatorId": "output1", "ports": ["o1"]}
-      ]
+      "output": { "output1": ["o1"] }
     })";
 
     // Invalid program - missing entry operator
@@ -149,9 +141,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
       "connections": [
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
-      "outputs": [
-        {"operatorId": "output1", "ports": ["o1"]}
-      ]
+      "output": { "output1": ["o1"] }
     })";
 
     // Invalid program - mismatched port types
@@ -164,9 +154,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
         {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
-      "outputs": [
-        {"operatorId": "output1", "ports": ["o1"]}
-      ]
+      "output": { "output1": ["o1"] }
     })";
 
     WHEN("Validating a valid program") {
@@ -192,9 +180,9 @@ SCENARIO("Program and operator validation", "[bindings]") {
 
       THEN("Program validation passes but creation fails") {
         REQUIRE(result["valid"].get<bool>());
-        auto creation_result = create_program("test_prog", invalid_program_type_mismatch);
+        auto creation_result = create_program("test_prog_bad", invalid_program_type_mismatch);
         REQUIRE_FALSE(creation_result.empty());
-        REQUIRE(creation_result.find("Type mismatch") != std::string::npos);
+        REQUIRE(creation_result.find("type mismatch") != std::string::npos);
       }
     }
   }
@@ -288,9 +276,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
         {"from": "std1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
-      "outputs": [
-        {"operatorId": "output1", "ports": ["o1"]}
-      ]
+      "output": { "output1": ["o1"] }
     })";
 
     WHEN("Validating and creating a complex program") {

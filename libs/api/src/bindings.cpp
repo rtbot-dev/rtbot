@@ -63,6 +63,63 @@ std::string validate_program(const std::string& json_program) {
 std::string validate_operator(const std::string& type, const std::string& json_op) {
   nlohmann::json_schema::json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);
 
+  // This is a special case
+  if (type == "Pipeline") {
+    try {
+      auto j = json::parse(json_op);
+
+      // Validate required fields
+      std::vector<std::string> required = {"id",          "input_port_types", "output_port_types", "operators",
+                                           "connections", "entryOperator",    "outputMappings"};
+
+      for (const auto& field : required) {
+        if (!j.contains(field)) {
+          return R"({"valid":false,"error":"Missing required field: )" + field + "\"}";
+        }
+      }
+
+      // Validate port types
+      for (const auto& port_type : j["input_port_types"]) {
+        std::string type = port_type.get<std::string>();
+        if (type != "number" && type != "boolean" && type != "vector_number" && type != "vector_boolean") {
+          return R"({"valid":false,"error":"Invalid input port type: )" + type + "\"}";
+        }
+      }
+
+      for (const auto& port_type : j["output_port_types"]) {
+        std::string type = port_type.get<std::string>();
+        if (type != "number" && type != "boolean" && type != "vector_number" && type != "vector_boolean") {
+          return R"({"valid":false,"error":"Invalid output port type: )" + type + "\"}";
+        }
+      }
+
+      // Validate internal operators
+      for (const auto& op : j["operators"]) {
+        if (!op.contains("id") || !op.contains("type")) {
+          return R"({"valid":false,"error":"Pipeline operators must have id and type fields"})";
+        }
+
+        // Recursively validate each operator
+        auto validation = validate_operator(op["type"], op.dump());
+        auto validation_result = json::parse(validation);
+        if (!validation_result["valid"]) {
+          return validation;
+        }
+      }
+
+      // Validate connections
+      for (const auto& conn : j["connections"]) {
+        if (!conn.contains("from") || !conn.contains("to")) {
+          return R"({"valid":false,"error":"Pipeline connections must specify from and to operators"})";
+        }
+      }
+
+      return R"({"valid":true})";
+    } catch (const json::exception& e) {
+      return R"({"valid":false,"error":"Invalid JSON: )" + std::string(e.what()) + "\"}";
+    }
+  }
+
   try {
     std::optional<json> schema;
     for (const auto& it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
