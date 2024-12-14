@@ -27,6 +27,7 @@
 #include "rtbot/std/Function.h"
 #include "rtbot/std/Identity.h"
 #include "rtbot/std/InfiniteImpulseResponse.h"
+#include "rtbot/std/Linear.h"
 #include "rtbot/std/MathScalarOp.h"
 #include "rtbot/std/MathSyncBinaryOp.h"
 #include "rtbot/std/MovingAverage.h"
@@ -41,23 +42,22 @@ using json = nlohmann::json;
 
 namespace rtbot {
 
+struct ParsedPort {
+  size_t index;
+  PortKind kind;
+};
+
 class OperatorJson {
  public:
-  static size_t port_name_to_index(const std::string& port_name) {
-    if (port_name.empty()) return 0;
+  static ParsedPort parse_port_name(const std::string& port_name) {
+    if (port_name.empty()) return {0, PortKind::DATA};
 
-    if (port_name[0] == 'i' || port_name[0] == 'o') {
-      try {
-        return stoul(port_name.substr(1)) - 1;
-      } catch (...) {
-        throw std::runtime_error("Invalid port name format: " + port_name);
-      }
-    }
-
+    char type = port_name[0];
     try {
-      return stoul(port_name);
+      size_t index = stoul(port_name.substr(1)) - 1;
+      return {index, (type == 'c' ? PortKind::CONTROL : PortKind::DATA)};
     } catch (...) {
-      throw std::runtime_error("Invalid port specification: " + port_name);
+      throw std::runtime_error("Invalid port name format: " + port_name);
     }
   }
 
@@ -76,10 +76,16 @@ class OperatorJson {
       return make_std_dev(id, parsed["window_size"].get<size_t>());
     } else if (type == "FiniteImpulseResponse") {
       return make_fir(id, parsed["coeff"].get<std::vector<double>>());
+    } else if (type == "InfiniteImpulseResponse") {
+      return make_iir(id, parsed["b_coeffs"].get<std::vector<double>>(), parsed["a_coeffs"].get<std::vector<double>>());
     } else if (type == "Join") {
       return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
+    } else if (type == "Difference") {
+      return make_difference(id);
     } else if (type == "PeakDetector") {
       return make_peak_detector(id, parsed["window_size"].get<size_t>());
+    } else if (type == "Linear") {
+      return make_linear(id, parsed["coefficients"].get<std::vector<double>>());
     } else if (type == "Subtraction") {
       return make_subtraction(id);
     } else if (type == "LogicalAnd") {
@@ -108,12 +114,16 @@ class OperatorJson {
       return make_constant_number(id, parsed["value"].get<double>());
     } else if (type == "ConstantBoolean") {
       return make_constant_boolean(id, parsed["value"].get<bool>());
+    } else if (type == "ConstantNumberToBoolean") {
+      return make_constant_number_to_boolean(id, parsed["value"].get<bool>());
+    } else if (type == "ConstantBooleanToNumber") {
+      return make_constant_boolean_to_number(id, parsed["value"].get<double>());
     } else if (type == "LessThan") {
       return make_less_than(id, parsed["value"].get<double>());
     } else if (type == "EqualTo") {
-      return make_equal_to(id, parsed["value"].get<double>(), parsed["epsilon"].get<double>());
+      return make_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
     } else if (type == "NotEqualTo") {
-      return make_not_equal_to(id, parsed["value"].get<double>(), parsed["epsilon"].get<double>());
+      return make_not_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
     } else if (type == "SyncEqual") {
       return make_sync_equal(id, parsed.value("epsilon", 1e-10));
     } else if (type == "SyncNotEqual") {
@@ -206,8 +216,8 @@ class OperatorJson {
         }
         std::string from = conn["from"].get<std::string>();
         std::string to = conn["to"].get<std::string>();
-        size_t from_port = conn.contains("fromPort") ? port_name_to_index(conn["fromPort"]) : 0;
-        size_t to_port = conn.contains("toPort") ? port_name_to_index(conn["toPort"]) : 0;
+        size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
+        size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
         pipeline->connect(from, to, from_port, to_port);
       }
 
@@ -218,7 +228,7 @@ class OperatorJson {
       // Configure output mappings
       for (const auto& [op_id, mappings] : parsed["outputMappings"].items()) {
         for (const auto& [op_port, pipeline_port] : mappings.items()) {
-          pipeline->add_output_mapping(op_id, port_name_to_index(op_port), port_name_to_index(pipeline_port));
+          pipeline->add_output_mapping(op_id, parse_port_name(op_port).index, parse_port_name(pipeline_port).index);
         }
       }
 
@@ -244,15 +254,26 @@ class OperatorJson {
       j["window_size"] = std::dynamic_pointer_cast<StandardDeviation>(op)->window_size();
     } else if (type == "FiniteImpulseResponse") {
       j["coeff"] = std::dynamic_pointer_cast<FiniteImpulseResponse>(op)->get_coefficients();
+    } else if (type == "InfiniteImpulseResponse") {
+      j["b_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_b_coeffs();
+      j["a_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_a_coeffs();
     } else if (type == "Join") {
       j["portTypes"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
+    } else if (type == "Scale") {
+      j["value"] = std::dynamic_pointer_cast<Scale>(op)->get_value();
+    } else if (type == "Power") {
+      j["value"] = std::dynamic_pointer_cast<Power>(op)->get_value();
+    } else if (type == "Add") {
+      j["value"] = std::dynamic_pointer_cast<Add>(op)->get_value();
+    } else if (type == "Linear") {
+      j["coefficients"] = std::dynamic_pointer_cast<Linear>(op)->get_coefficients();
     } else if (type == "PeakDetector") {
       j["window_size"] = std::dynamic_pointer_cast<PeakDetector>(op)->window_size();
     } else if (type == "GreaterThan") {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
-    } else if (type == "ConstantNumber") {
+    } else if (type == "ConstantNumber" || type == "ConstantNumberToBoolean") {
       j["value"] = std::dynamic_pointer_cast<ConstantNumber>(op)->get_value().value;
-    } else if (type == "ConstantBoolean") {
+    } else if (type == "ConstantBoolean" || type == "ConstantBooleanToNumber") {
       j["value"] = std::dynamic_pointer_cast<ConstantBoolean>(op)->get_value().value;
     } else if (type == "LessThan") {
       j["value"] = std::dynamic_pointer_cast<LessThan>(op)->get_threshold();
