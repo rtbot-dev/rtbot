@@ -5,6 +5,7 @@
 #include <iostream>
 #include <map>
 #include <memory>
+#include <nlohmann/json-schema.hpp>
 #include <nlohmann/json.hpp>
 #include <queue>
 #include <string>
@@ -13,6 +14,7 @@
 #include "OperatorJson.h"
 #include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
+#include "rtbot/jsonschema.hpp"
 
 namespace rtbot {
 
@@ -34,7 +36,14 @@ static void build_operator_tree(const std::map<std::string, std::shared_ptr<Oper
 class Program {
  public:
   // Constructor from JSON string
-  explicit Program(const string& json_string) : program_json_(json_string) { init_from_json(); }
+  explicit Program(const string& json_string) : program_json_(json_string) {
+    nlohmann::json_schema::json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);
+    validator.set_root_schema(rtbot_schema);
+    // This will throw if the JSON is invalid
+    validator.validate(json::parse(program_json_));
+
+    init_from_json();
+  }
 
   // Constructor from serialized bytes
   explicit Program(const Bytes& bytes) {
@@ -141,14 +150,22 @@ class Program {
       string to_id = conn["to"];
 
       // Default to "o1" and "i1" if ports not specified
-      size_t from_port = conn.contains("fromPort") ? OperatorJson::port_name_to_index(conn["fromPort"]) : 0;
-      size_t to_port = conn.contains("toPort") ? OperatorJson::port_name_to_index(conn["toPort"]) : 0;
+      auto from_port = OperatorJson::parse_port_name(conn.value("fromPort", "o1"));
+      auto to_port = OperatorJson::parse_port_name(conn.value("toPort", "i1"));
+
+      if (conn.contains("toPortType")) {
+        to_port.kind = conn["toPortType"] == "control" ? PortKind::CONTROL : PortKind::DATA;
+      }
 
       if (!operators_[from_id] || !operators_[to_id]) {
         throw runtime_error("Invalid operator reference in connection");
       }
 
-      operators_[from_id]->connect(operators_[to_id], from_port, to_port);
+      if (!operators_[from_id] || !operators_[to_id]) {
+        throw runtime_error("Invalid operator reference in connection");
+      }
+
+      operators_[from_id]->connect(operators_[to_id], from_port.index, to_port.index, to_port.kind);
     }
 
     entry_operator_id_ = j["entryOperator"];
@@ -166,7 +183,7 @@ class Program {
       string op_id = it.key();
       vector<size_t> ports;
       for (const auto& port : it.value()) {
-        ports.push_back(OperatorJson::port_name_to_index(port));
+        ports.push_back(OperatorJson::parse_port_name(port).index);
       }
       output_mappings_[op_id] = ports;
     }
