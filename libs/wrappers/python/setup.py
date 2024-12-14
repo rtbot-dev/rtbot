@@ -1,4 +1,3 @@
-# setup.py
 import os
 import platform
 import subprocess
@@ -6,6 +5,7 @@ import sys
 import tempfile
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+from setuptools.command.egg_info import egg_info
 
 RTBOT_REPO = "https://github.com/rtbot-dev/rtbot.git"
 
@@ -22,6 +22,14 @@ def get_version():
 class BazelExtension(Extension):
     def __init__(self, name):
         super().__init__(name, sources=[])
+
+class CustomEggInfo(egg_info):
+    def run(self):
+        # Create the package directory before running egg_info
+        os.makedirs('rtbot', exist_ok=True)
+        with open(os.path.join('rtbot', '__init__.py'), 'a'):
+            pass
+        super().run()
 
 class BazelBuildExt(build_ext):
     def run(self):
@@ -67,7 +75,6 @@ class BazelBuildExt(build_ext):
             cwd=repo_dir
         )
         
-        # Copy built files to wheel directory
         wheel_dir = os.path.join(self.build_lib, 'rtbot')
         os.makedirs(wheel_dir, exist_ok=True)
         
@@ -88,6 +95,7 @@ setup(
     ext_modules=[BazelExtension('rtbot')],
     cmdclass={
         'build_ext': BazelBuildExt,
+        'egg_info': CustomEggInfo,
     },
     packages=['rtbot'],
     python_requires='>=3.10',
@@ -95,4 +103,3 @@ setup(
         'numpy>=1.19.0',
     ]
 )
-
