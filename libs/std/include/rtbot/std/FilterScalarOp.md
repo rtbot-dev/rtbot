@@ -51,11 +51,11 @@ jsonschemas:
         examples: [42.0]
     required: ["id", "value"]
   - type: object
-    title: Equal
+    title: EqualTo
     properties:
       type:
         type: string
-        enum: ["Equal"]
+        enum: ["EqualTo"]
       id:
         type: string
         description: The id of the operator
@@ -67,13 +67,13 @@ jsonschemas:
         type: number
         description: The allowed deviation from the reference value (absolute)
         examples: [0.1]
-    required: ["id", "value", "tolerance"]
+    required: ["id", "value"]
   - type: object
-    title: NotEqual
+    title: NotEqualTo
     properties:
       type:
         type: string
-        enum: ["NotEqual"]
+        enum: ["NotEqualTo"]
       id:
         type: string
         description: The id of the operator
@@ -85,7 +85,7 @@ jsonschemas:
         type: number
         description: The allowed deviation from the reference value (absolute)
         examples: [0.1]
-    required: ["id", "value", "tolerance"]
+    required: ["id", "value"]
 ---
 
 # EqualTo

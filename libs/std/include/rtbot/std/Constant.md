@@ -36,6 +36,34 @@ jsonschemas:
           - false
         description: The constant value to emit for each input message
     required: ["id", "value"]
+  - type: object
+    properties:
+      type:
+        enum: [ConstantNumberToBoolean]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: boolean
+        examples:
+          - true
+          - false
+        description: The constant value to emit for each input message
+    required: ["id", "value"]
+  - type: object
+    properties:
+      type:
+        enum: [ConstantBooleanToNumber]
+      id:
+        type: string
+        description: The id of the operator
+      value:
+        type: number
+        examples:
+          - 3.14
+          - 2.718
+        description: The constant value to emit for each input message
+    required: ["id", "value"]
 ---
 
 # Constant
