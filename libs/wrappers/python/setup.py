@@ -13,7 +13,7 @@ RTBOT_REPO = "https://github.com/rtbot-dev/rtbot.git"
 def get_version():
     try:
         output = subprocess.check_output(
-            ['bash', '-c', "grep '^VERSION ' bazel-out/stable-status.txt | cut -d' ' -f2"],
+            ['bash', '-c', "grep '^VERSION ' dist/out/stable-status.txt | cut -d' ' -f2"],
             stderr=subprocess.PIPE
         ).decode().strip()
         return output if output else "0.1.0"
@@ -76,29 +76,40 @@ class BazelBuildExt(build_ext):
         print("Cloning RTBot repository...")
         subprocess.check_call(['git', 'clone', '--depth', '1', RTBOT_REPO, tmp_dir])
 
+    def _get_bazel_bin(self, repo_dir):
+        bazel_cmd = 'bazelisk' if platform.system().lower() != 'windows' else 'bazelisk.exe'
+        try:
+            bazel_bin = subprocess.check_output(
+                [bazel_cmd, 'info', 'bazel-bin'],
+                cwd=repo_dir,
+                text=True
+            ).strip()
+            return bazel_bin
+        except subprocess.CalledProcessError:
+            return os.path.join(repo_dir, 'dist')  # Fallback to --symlink_prefix value
+
     def _build_rtbot(self, repo_dir):
         print("Building RTBot...")
         bazel_cmd = 'bazelisk' if platform.system().lower() != 'windows' else 'bazelisk.exe'
         
-        # Build both rtbotapi.so and generated files
         subprocess.check_call(
             [bazel_cmd, 'build', '//libs/wrappers/python:rtbotapi.so', '//libs/wrappers/python:copy'],
             cwd=repo_dir
         )
         
-        # Create package directory
+        bazel_bin = self._get_bazel_bin(repo_dir)
         package_dir = os.path.join(self.build_lib, 'rtbot')
         os.makedirs(package_dir, exist_ok=True)
 
-        # Copy files from dist
-        copy_dir = os.path.join(repo_dir, 'dist/libs/wrappers/python/rtbot')
+        # Copy files from bazel-bin
+        copy_dir = os.path.join(bazel_bin, 'libs/wrappers/python/rtbot')
         for item in ['MANIFEST.in', 'README.md', 'operators.py', 'setup.py']:
             src = os.path.join(copy_dir, item)
             if os.path.exists(src):
                 shutil.copy2(src, package_dir)
 
         # Copy the extension
-        ext_path = os.path.join(repo_dir, 'dist/libs/wrappers/python/rtbotapi.so')
+        ext_path = os.path.join(bazel_bin, 'libs/wrappers/python/rtbotapi.so')
         if platform.system().lower() == 'windows':
             ext_path = ext_path.replace('.so', '.pyd')
         
