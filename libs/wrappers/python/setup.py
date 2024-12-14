@@ -25,7 +25,6 @@ class BazelExtension(Extension):
 
 class CustomEggInfo(egg_info):
     def run(self):
-        # Create the package directory before running egg_info
         os.makedirs('rtbot', exist_ok=True)
         with open(os.path.join('rtbot', '__init__.py'), 'a'):
             pass
@@ -34,10 +33,22 @@ class CustomEggInfo(egg_info):
 class BazelBuildExt(build_ext):
     def run(self):
         self._install_bazelisk()
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            self._clone_repo(tmp_dir)
-            self._build_rtbot(tmp_dir)
+        repo_dir = self._get_repo_dir()
+        self._build_rtbot(repo_dir)
     
+    def _get_repo_dir(self):
+        # Check if we're in a subdirectory of the repo
+        current_dir = os.path.abspath(os.getcwd())
+        while current_dir != '/':
+            if os.path.exists(os.path.join(current_dir, 'WORKSPACE')):
+                return current_dir
+            current_dir = os.path.dirname(current_dir)
+            
+        # If not in repo, clone it
+        tmp_dir = tempfile.mkdtemp()
+        self._clone_repo(tmp_dir)
+        return tmp_dir
+
     def _install_bazelisk(self):
         try:
             subprocess.check_call(['bazelisk', '--version'])
@@ -99,7 +110,4 @@ setup(
     },
     packages=['rtbot'],
     python_requires='>=3.10',
-    install_requires=[
-        'numpy>=1.19.0',
-    ]
 )
