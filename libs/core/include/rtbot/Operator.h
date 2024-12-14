@@ -261,18 +261,20 @@ class Operator {
         throw std::runtime_error("Invalid child data port index");
       }
       if (output_ports_[output_port].type != child->data_ports_[child_port_index].type) {
-        throw std::runtime_error("Input port type mismatch in operator connection " + id_ + ":" +
-                                 std::to_string(output_port) + " -> " + child->id_ + ":" +
-                                 std::to_string(child_port_index));
+        throw std::runtime_error(
+            "Input port type mismatch in operator connection " + id_ + ":" + std::to_string(output_port) + " -> " +
+            child->id_ + ":" + std::to_string(child_port_index) + " expected " +
+            child->data_ports_[child_port_index].type.name() + " but got " + output_ports_[output_port].type.name());
       }
     } else {
       if (child_port_index >= child->control_ports_.size()) {
         throw std::runtime_error("Invalid child control port index");
       }
       if (output_ports_[output_port].type != child->control_ports_[child_port_index].type) {
-        throw std::runtime_error("Control port type mismatch in operator connection " + id_ + ":" +
-                                 std::to_string(output_port) + " -> " + child->id_ + ":" +
-                                 std::to_string(child_port_index));
+        throw std::runtime_error(
+            "Control port type mismatch in operator connection " + id_ + ":" + std::to_string(output_port) + " -> " +
+            child->id_ + ":" + std::to_string(child_port_index) + " expected " +
+            child->control_ports_[child_port_index].type.name() + " but got " + output_ports_[output_port].type.name());
       }
     }
 
