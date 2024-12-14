@@ -1,4 +1,3 @@
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 #include <cmath>
 #include <nlohmann/json.hpp>
@@ -171,6 +170,59 @@ SCENARIO("RSI calculation using Program JSON configuration", "[rsi][program]") {
         for (size_t i = 0; i < outputs.size(); ++i) {
           REQUIRE(outputs[i].first == n + i + 1);  // 15, 16, 17, ...
           REQUIRE(outputs[i].second == Approx(expected_values[i]).margin(0.00001));
+        }
+      }
+    }
+  }
+}
+
+SCENARIO("RSI program maintains state through serialization", "[rsi][program][serialization]") {
+  GIVEN("A Program initialized with RSI calculation JSON") {
+    const size_t n = 14;  // RSI period
+    auto json_program = create_rsi_program(n);
+    Program original_program(json_program);
+
+    std::vector<std::pair<timestamp_t, double>> inputs = {
+        {1, 54.8},  {2, 56.8},   {3, 57.85},  {4, 59.85},  {5, 60.57},  {6, 61.1},   {7, 62.17},  {8, 60.6},
+        {9, 62.35}, {10, 62.15}, {11, 62.35}, {12, 61.45}, {13, 62.8},  {14, 61.37}, {15, 62.5},  {16, 62.57},
+        {17, 60.8}, {18, 59.37}, {19, 60.35}, {20, 62.35}, {21, 62.17}, {22, 62.55}, {23, 64.55}, {24, 64.37}};
+
+    WHEN("Processing partial data, serializing, then processing remaining data") {
+      // Pick a random split point after initial period
+      const size_t split_idx = n + 5;  // Process first 19 points
+
+      // Process initial data with original program
+      for (size_t i = 0; i < split_idx; i++) {
+        original_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+      }
+
+      // Serialize and restore program
+      Bytes serialized = original_program.serialize();
+      Program restored_program(serialized);
+
+      // Process remaining data with both programs
+      std::vector<double> outputs_original;
+      std::vector<double> outputs_restored;
+
+      for (size_t i = split_idx; i < inputs.size(); i++) {
+        auto batch_orig = original_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+        auto batch_rest = restored_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+
+        if (!batch_orig.empty() && batch_orig.count("output") > 0 && !batch_orig["output"]["o1"].empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(batch_orig["output"]["o1"][0].get());
+          outputs_original.push_back(msg->data.value);
+        }
+
+        if (!batch_rest.empty() && batch_rest.count("output") > 0 && !batch_rest["output"]["o1"].empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(batch_rest["output"]["o1"][0].get());
+          outputs_restored.push_back(msg->data.value);
+        }
+      }
+
+      THEN("Both programs produce identical outputs") {
+        REQUIRE(outputs_original.size() == outputs_restored.size());
+        for (size_t i = 0; i < outputs_original.size(); ++i) {
+          REQUIRE(outputs_original[i] == Approx(outputs_restored[i]));
         }
       }
     }

@@ -20,6 +20,7 @@ copy_file(
 cc_library(
     name = "rtbot-api",
     srcs = glob([
+        "include/**/*.h",
         "src/**/*.cpp",
         "src/**/*.hpp",
     ]),
