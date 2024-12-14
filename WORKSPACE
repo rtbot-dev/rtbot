@@ -40,11 +40,13 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@pybind11_bazel//:python_configure.bzl", "python_configure")
+load("@rules_python//python:repositories.bzl", "py_repositories", "python_register_toolchains")
 
-python_configure(
-    name = "local_config_python",
-    python_version = "3",
+py_repositories()
+
+python_register_toolchains(
+    name = "python3_13",
+    python_version = "3.13",
 )
 
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")

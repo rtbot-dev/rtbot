@@ -53,25 +53,33 @@ def deps():
         urls = ["https://github.com/catchorg/Catch2/archive/v2.13.10.zip"],
     )
 
+    # needed by rules_python
+    http_archive(
+        name = "rules_cc",
+        urls = ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.17/rules_cc-0.0.17.tar.gz"],
+        sha256 = "abc605dd850f813bb37004b77db20106a19311a96b2da1c92b789da529d28fe1",
+        strip_prefix = "rules_cc-0.0.17",
+    )
+
     http_archive(
         name = "rules_python",
-        sha256 = "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        strip_prefix = "rules_python-0.24.0",
-        url = "https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz",
+        sha256 = "690e0141724abb568267e003c7b6d9a54925df40c275a870a4d934161dc9dd53",
+        strip_prefix = "rules_python-0.40.0",
+        url = "https://github.com/bazelbuild/rules_python/releases/download/0.40.0/rules_python-0.40.0.tar.gz",
     )
 
     http_archive(
         name = "pybind11_bazel",
-        sha256 = "a185aa68c93b9f62c80fcb3aadc3c83c763854750dc3f38be1dadcb7be223837",
-        strip_prefix = "pybind11_bazel-faf56fb3df11287f26dbc66fdedf60a2fc2c6631",
-        urls = ["https://github.com/pybind/pybind11_bazel/archive/faf56fb3df11287f26dbc66fdedf60a2fc2c6631.zip"],
+        strip_prefix = "pybind11_bazel-2.13.6",
+        urls = ["https://github.com/pybind/pybind11_bazel/archive/v2.13.6.zip"],
     )
 
+    # We still require the pybind library.
     http_archive(
         name = "pybind11",
-        build_file = "@pybind11_bazel//:pybind11.BUILD",
-        strip_prefix = "pybind11-2.10.2",
-        urls = ["https://github.com/pybind/pybind11/archive/v2.10.2.tar.gz"],
+        build_file = "@pybind11_bazel//:pybind11-BUILD.bazel",
+        strip_prefix = "pybind11-2.13.6",
+        urls = ["https://github.com/pybind/pybind11/archive/v2.13.6.zip"],
     )
 
     http_archive(
