@@ -3,6 +3,7 @@ import platform
 import subprocess
 import sys
 import tempfile
+import shutil
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 from setuptools.command.egg_info import egg_info
@@ -26,8 +27,8 @@ class BazelExtension(Extension):
 class CustomEggInfo(egg_info):
     def run(self):
         os.makedirs('rtbot', exist_ok=True)
-        with open(os.path.join('rtbot', '__init__.py'), 'a'):
-            pass
+        with open(os.path.join('rtbot', '__init__.py'), 'w') as f:
+            f.write('from .rtbotapi import *\n')
         super().run()
 
 class BazelBuildExt(build_ext):
@@ -37,14 +38,12 @@ class BazelBuildExt(build_ext):
         self._build_rtbot(repo_dir)
     
     def _get_repo_dir(self):
-        # Check if we're in a subdirectory of the repo
         current_dir = os.path.abspath(os.getcwd())
         while current_dir != '/':
             if os.path.exists(os.path.join(current_dir, 'WORKSPACE')):
                 return current_dir
             current_dir = os.path.dirname(current_dir)
             
-        # If not in repo, clone it
         tmp_dir = tempfile.mkdtemp()
         self._clone_repo(tmp_dir)
         return tmp_dir
@@ -81,21 +80,32 @@ class BazelBuildExt(build_ext):
         print("Building RTBot...")
         bazel_cmd = 'bazelisk' if platform.system().lower() != 'windows' else 'bazelisk.exe'
         
+        # Build both rtbotapi.so and generated files
         subprocess.check_call(
-            [bazel_cmd, 'build', '//libs/wrappers/python:rtbot_wheel'],
+            [bazel_cmd, 'build', '//libs/wrappers/python:rtbotapi.so', '//libs/wrappers/python:copy'],
             cwd=repo_dir
         )
         
-        wheel_dir = os.path.join(self.build_lib, 'rtbot')
-        os.makedirs(wheel_dir, exist_ok=True)
+        # Create package directory
+        package_dir = os.path.join(self.build_lib, 'rtbot')
+        os.makedirs(package_dir, exist_ok=True)
+
+        # Copy files from dist
+        copy_dir = os.path.join(repo_dir, 'dist/libs/wrappers/python/rtbot')
+        for item in ['MANIFEST.in', 'README.md', 'operators.py', 'setup.py']:
+            src = os.path.join(copy_dir, item)
+            if os.path.exists(src):
+                shutil.copy2(src, package_dir)
+
+        # Copy the extension
+        ext_path = os.path.join(repo_dir, 'dist/libs/wrappers/python/rtbotapi.so')
+        if platform.system().lower() == 'windows':
+            ext_path = ext_path.replace('.so', '.pyd')
         
-        bazel_bin = os.path.join(repo_dir, 'bazel-bin/libs/wrappers/python/rtbot')
-        for root, _, files in os.walk(bazel_bin):
-            for file in files:
-                src = os.path.join(root, file)
-                dst = os.path.join(wheel_dir, os.path.relpath(src, bazel_bin))
-                os.makedirs(os.path.dirname(dst), exist_ok=True)
-                self.copy_file(src, dst)
+        if os.path.exists(ext_path):
+            shutil.copy2(ext_path, package_dir)
+        else:
+            raise RuntimeError(f"Built extension not found at {ext_path}")
 
 setup(
     name='rtbot',
