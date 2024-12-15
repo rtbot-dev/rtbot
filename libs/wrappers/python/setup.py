@@ -27,8 +27,6 @@ class BazelExtension(Extension):
 class CustomEggInfo(egg_info):
     def run(self):
         os.makedirs('rtbot', exist_ok=True)
-        with open(os.path.join('rtbot', '__init__.py'), 'w') as f:
-            f.write('from .rtbotapi import *\n')
         super().run()
 
 class BazelBuildExt(build_ext):
@@ -103,7 +101,7 @@ class BazelBuildExt(build_ext):
 
         # Copy files from bazel-bin
         copy_dir = os.path.join(bazel_bin, 'libs/wrappers/python/rtbot')
-        for item in ['MANIFEST.in', 'README.md', 'operators.py', 'setup.py']:
+        for item in ['MANIFEST.in', 'README.md', 'operators.py', 'setup.py', '__init__.py']:
             src = os.path.join(copy_dir, item)
             if os.path.exists(src):
                 shutil.copy2(src, package_dir)
