@@ -12,7 +12,7 @@ class Operator(dict):
           raise Exception(validation["error"])
 
     def validate(self):
-        return json.loads(api.validateOperator(self["type"], json.dumps(self)))
+        return json.loads(api.validate_operator(self["type"], json.dumps(self)))
 
 {{#each operators}}
 
