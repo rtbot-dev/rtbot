@@ -29,6 +29,9 @@ PYBIND11_MODULE(rtbotapi, m) {
   m.def("process_batch_debug", &rtbot::process_batch_debug, "Process batch in debug mode", py::arg("program_id"),
         py::arg("times"), py::arg("values"), py::arg("ports"));
 
+  m.def("get_program_entry_operator_id", &rtbot::get_program_entry_operator_id, "Get program entry operator ID",
+        py::arg("program_id"));
+
   // Pretty printing
   m.def("pretty_print", py::overload_cast<const std::string&>(&rtbot::pretty_print), "Pretty print JSON output",
         py::arg("json_output"));
