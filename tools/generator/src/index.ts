@@ -96,6 +96,7 @@ program
               if (schema.properties[k].type === "integer") return 2;
               if (schema.properties[k].type === "numeric") return 2.0;
               if (schema.properties[k].type === "string") return "some";
+              if (schema.properties[k].type === "boolean") return true;
             };
             const exampleParameters = Object.keys(schema.properties).reduce(
               (acc, k) => ({ ...acc, [`${k}`]: getExampleParameter(k) }),
@@ -176,7 +177,10 @@ program
             .filter((p) => p !== "type")
             .map((k) => ({
               name: k,
-              init: s.required.indexOf(k) > -1 ? "" : ` = ${s.properties[k].default ?? "None"}`,
+              init:
+                s.required.indexOf(k) > -1
+                  ? ""
+                  : ` = ${s.properties[k].default ?? "None"}`.replace("true", "True").replace("false", "False"),
             })),
         })),
       });
