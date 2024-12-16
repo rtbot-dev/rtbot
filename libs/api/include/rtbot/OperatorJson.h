@@ -163,6 +163,9 @@ class OperatorJson {
     } else if (type == "Multiplexer") {
       return make_multiplexer_number(id, parsed.value("numPorts", 2));
     } else if (type == "ResamplerConstant") {
+      if (parsed.contains("t0")) {
+        return make_resampler_constant(id, parsed["interval"].get<int>(), parsed["t0"].get<double>());
+      }
       return make_resampler_constant(id, parsed["interval"].get<int>());
     } else if (type == "ResamplerHermite") {
       return make_resampler_hermite(id, parsed["interval"].get<int>());
@@ -302,7 +305,11 @@ class OperatorJson {
     } else if (type == "Multiplexer") {
       j["numPorts"] = std::dynamic_pointer_cast<Multiplexer<NumberData>>(op)->get_num_ports();
     } else if (type == "ResamplerConstant") {
-      j["interval"] = std::dynamic_pointer_cast<ResamplerConstant<NumberData>>(op)->get_interval();
+      auto resampler = std::dynamic_pointer_cast<ResamplerConstant<NumberData>>(op);
+      j["interval"] = resampler->get_interval();
+      if (resampler->get_t0().has_value()) {
+        j["t0"] = resampler->get_t0().value();
+      }
     } else if (type == "ResamplerHermite") {
       j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
     } else if (type == "Pipeline") {
