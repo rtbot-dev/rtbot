@@ -69,6 +69,12 @@ class Demultiplexer : public Operator {
     StateSerializer::validate_port_count(control_time_tracker_.size(), num_control_ports(), "Control");
   }
 
+  void reset() override {
+    Operator::reset();
+    data_time_tracker_.clear();
+    control_time_tracker_.clear();
+  }
+
   void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     auto time = msg->time;
     Operator::receive_data(std::move(msg), port_index);

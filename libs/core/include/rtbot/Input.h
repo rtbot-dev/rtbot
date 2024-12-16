@@ -90,9 +90,14 @@ class Input : public Operator {
     }
   }
 
+  void reset() override {
+    Operator::reset();
+    last_sent_times_.assign(last_sent_times_.size(), 0);
+  }
+
  protected:
   void process_data() override {
-    // Process each port that has new data
+    // Process each port independently to allow concurrent timestamps
     for (const auto& port_index : data_ports_with_new_data_) {
       const auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
@@ -101,7 +106,7 @@ class Input : public Operator {
 
       // Process all messages in input queue
       for (const auto& msg : input_queue) {
-        // Only forward if timestamp is increasing
+        // Only forward if timestamp is increasing for this specific port
         if (!has_sent(port_index) || msg->time > last_sent_times_[port_index]) {
           output_queue.push_back(std::move(msg->clone()));
           last_sent_times_[port_index] = msg->time;

@@ -258,7 +258,10 @@ class Operator {
     // Type check based on port kind
     if (child_port_kind == PortKind::DATA) {
       if (child_port_index >= child->data_ports_.size()) {
-        throw std::runtime_error("Invalid child data port index");
+        throw std::runtime_error("Invalid child data port index " + std::to_string(child_port_index) +
+                                 ", available data ports: " + std::to_string(child->data_ports_.size()) +
+                                 ", found while connecting " + id_ + ":" + std::to_string(output_port) + " -> " +
+                                 child->id_ + ":" + std::to_string(child_port_index));
       }
       if (output_ports_[output_port].type != child->data_ports_[child_port_index].type) {
         throw std::runtime_error(
@@ -268,7 +271,10 @@ class Operator {
       }
     } else {
       if (child_port_index >= child->control_ports_.size()) {
-        throw std::runtime_error("Invalid child control port index");
+        throw std::runtime_error("Invalid child control port index " + std::to_string(child_port_index) +
+                                 ", available control ports: " + std::to_string(child->control_ports_.size()) +
+                                 ", found while connecting " + id_ + ":" + std::to_string(output_port) + " -> " +
+                                 child->id_ + ":" + std::to_string(child_port_index));
       }
       if (output_ports_[output_port].type != child->control_ports_[child_port_index].type) {
         throw std::runtime_error(

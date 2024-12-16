@@ -158,11 +158,7 @@ class Program {
       }
 
       if (!operators_[from_id] || !operators_[to_id]) {
-        throw runtime_error("Invalid operator reference in connection");
-      }
-
-      if (!operators_[from_id] || !operators_[to_id]) {
-        throw runtime_error("Invalid operator reference in connection");
+        throw runtime_error("Program: invalid operator reference in connection from " + from_id + " to " + to_id);
       }
 
       operators_[from_id]->connect(operators_[to_id], from_port.index, to_port.index, to_port.kind);

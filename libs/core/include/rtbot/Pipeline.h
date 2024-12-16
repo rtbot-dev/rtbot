@@ -87,7 +87,7 @@ class Pipeline : public Operator {
     auto to_it = operators_.find(to_id);
 
     if (from_it == operators_.end() || to_it == operators_.end()) {
-      throw std::runtime_error("Invalid operator reference in connection");
+      throw std::runtime_error("Pipeline: invalid operator reference in connection from " + from_id + " to " + to_id);
     }
 
     RTBOT_LOG_DEBUG("Connecting operators: ", from_id, " -> ", to_id);

@@ -225,3 +225,61 @@ SCENARIO("Input operator port configuration is accessible", "[input]") {
     }
   }
 }
+
+SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
+  GIVEN("An input operator with multiple ports") {
+    auto input = std::make_unique<Input>(
+        "multi_input", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER, PortType::NUMBER});
+
+    WHEN("Receiving concurrent messages with same timestamp") {
+      // Send messages to different ports with same timestamp
+      input->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+      input->receive_data(create_message<NumberData>(1, NumberData{2.0}), 1);
+      input->receive_data(create_message<NumberData>(1, NumberData{3.0}), 2);
+      input->execute();
+
+      THEN("All messages are forwarded correctly") {
+        const auto& output0 = input->get_output_queue(0);
+        const auto& output1 = input->get_output_queue(1);
+        const auto& output2 = input->get_output_queue(2);
+
+        REQUIRE(output0.size() == 1);
+        REQUIRE(output1.size() == 1);
+        REQUIRE(output2.size() == 1);
+
+        const auto* msg0 = dynamic_cast<const Message<NumberData>*>(output0[0].get());
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output1[0].get());
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output2[0].get());
+
+        REQUIRE(msg0->time == 1);
+        REQUIRE(msg0->data.value == 1.0);
+        REQUIRE(msg1->time == 1);
+        REQUIRE(msg1->data.value == 2.0);
+        REQUIRE(msg2->time == 1);
+        REQUIRE(msg2->data.value == 3.0);
+
+        AND_WHEN("Receiving more messages with mixed timestamps") {
+          input->clear_all_output_ports();
+          input->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+          input->receive_data(create_message<NumberData>(2, NumberData{5.0}), 1);
+          input->receive_data(create_message<NumberData>(1, NumberData{6.0}), 2);  // Old timestamp
+          input->execute();
+
+          THEN("Only messages with increasing timestamps per port are forwarded") {
+            REQUIRE(output0.size() == 1);
+            REQUIRE(output1.size() == 1);
+            REQUIRE(output2.empty());  // Old timestamp message dropped
+
+            const auto* new_msg0 = dynamic_cast<const Message<NumberData>*>(output0[0].get());
+            const auto* new_msg1 = dynamic_cast<const Message<NumberData>*>(output1[0].get());
+
+            REQUIRE(new_msg0->time == 2);
+            REQUIRE(new_msg0->data.value == 4.0);
+            REQUIRE(new_msg1->time == 2);
+            REQUIRE(new_msg1->data.value == 5.0);
+          }
+        }
+      }
+    }
+  }
+}
