@@ -1,7 +1,7 @@
 from rtbot import rtbotapi as api
 import json
 import random
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Union
 
 class Run:
     def __init__(self, program, data):
@@ -11,34 +11,31 @@ class Run:
 
     def exec(self) -> Dict[str, Dict[str, List[Any]]]:
         result = api.create_program(self.program.id, self.program.to_json())
-        entry_id = api.get_program_entry_operator_id(self.program.id)
-
         if result != "":
             raise Exception(result)
 
+        entry_id = api.get_program_entry_operator_id(self.program.id)
         result = {}
+
         for row in self.data:
             api.add_to_message_buffer(self.program.id, entry_id, row[0], row[1])
-            response = json.loads(api.process_message_buffer_debug(self.program.id))
+            batch_result = json.loads(api.process_message_buffer(self.program.id))
             
-            for op_id, op in response.items():
-                for port_id, msgs in op.items():
-                    key = f"{op_id}:{port_id}"
-                    if key not in result:
-                        result[key] = {"time": [], "value": []}
-                    for msg in msgs:
-                        result[key]["time"].append(int(msg["time"]))
-                        result[key]["value"].append(float(msg["value"]))
+            # Process results according to output mapping
+            for op_id, ports in batch_result.items():
+                if op_id in self.program.output:
+                    mapped_ports = self.program.output[op_id]
+                    for port_id in mapped_ports:
+                        if port_id in ports:
+                            key = f"{op_id}:{port_id}"
+                            if key not in result:
+                                result[key] = {"time": [], "value": []}
+                            for msg in ports[port_id]:
+                                result[key]["time"].append(int(msg["time"]))
+                                result[key]["value"].append(float(msg["value"]))
 
         api.delete_program(self.program.id)
         return result
-
-def parse(payload: str) -> 'Program':
-    program = Program(**json.loads(payload))
-    validation = json.loads(api.validate_program(program.to_json()))
-    if not validation["valid"]:
-        raise Exception(validation["error"])
-    return program
 
 class Program:
     def __init__(
@@ -46,7 +43,7 @@ class Program:
         operators: Optional[List[Dict]] = None,
         connections: Optional[List[Dict]] = None,
         entryOperator: Optional[str] = None,
-        output: Optional[Dict[str, List[str]]] = None,
+        output: Optional[Dict[str, Union[List[str], Dict[str, str]]]] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
         apiVersion: Optional[str] = "v1",
@@ -104,6 +101,14 @@ class Program:
             raise Exception(f"Operator {to_op} not found in program")
 
         self.connections.append(Connection(from_op, to_op, from_port, to_port))
+        return self
+
+    def add_output(self, operator_id: str, ports: List[str]) -> 'Program':
+        ids = [op["id"] for op in self.operators]
+        if operator_id not in ids:
+            raise Exception(f"Operator {operator_id} not found in program")
+        
+        self.output[operator_id] = ports
         return self
 
 class Connection(dict):
