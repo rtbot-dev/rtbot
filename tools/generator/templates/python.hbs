@@ -6,7 +6,9 @@ import json
 class Operator(dict):
     def __init__(self, *args, **kwargs):
         type = args[1]
-        dict.__init__(self, type = type, **kwargs)
+        # Remove all None values from the dictionary
+        dict.__init__(self, type = type, **{k: v for k, v in kwargs.items() if v is not None})
+
         validation = self.validate()
         if not validation["valid"]:
           raise Exception(validation["error"])
