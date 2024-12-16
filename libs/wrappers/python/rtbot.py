@@ -6,72 +6,101 @@ import pandas as pd
 from typing import Optional, Dict, List, Any, Union
 
 class Run:
-    def __init__(self, program, data: pd.DataFrame, port_mappings: Optional[Dict[str, str]] = None):
-        """
-        Initialize a Run instance
-        
-        Args:
-            program: RTBot program instance
-            data: pandas DataFrame containing time and value columns
-            port_mappings: Dictionary mapping DataFrame column names to program port IDs
-        """
+    def __init__(self, program, data: pd.DataFrame, port_mappings: Optional[Dict[str, str]] = None, 
+                 debug: bool = False):
         program.validate()
         self.program = program
         self.data = data
-        self.port_mappings = port_mappings or {}
+        self.debug = debug
+        self.current_index = 0
+        self.program_initialized = False
         
-        # Verify time column exists
         if 'time' not in data.columns:
             raise ValueError("DataFrame must contain a 'time' column")
             
-        # Map columns to ports
         self.column_to_port = {}
-        value_columns = [col for col in data.columns if col != 'time']
-        
-        for col in value_columns:
-            if col in self.port_mappings:
-                self.column_to_port[col] = self.port_mappings[col]
-            else:
-                self.column_to_port[col] = col
-                warnings.warn(f"No port mapping provided for column '{col}', using column name as port ID")
+        if port_mappings:
+            for col, port in port_mappings.items():
+                if col in data.columns:
+                    self.column_to_port[col] = port
+                else:
+                    warnings.warn(f"Mapped column '{col}' not found in DataFrame")
+        else:
+            for col in data.columns:
+                if col != 'time':
+                    self.column_to_port[col] = col
+                    warnings.warn(f"No port mapping provided for column '{col}', using column name as port ID")
 
-    def exec(self) -> Dict[str, Dict[str, list]]:
-        """Execute the program with the provided data"""
-        result = api.create_program(self.program.id, self.program.to_json())
-        if result != "":
-            raise Exception(result)
-
-        try:
-            results = {}
-            
-            # Process each row
-            for _, row in self.data.iterrows():
-                # Send data for each value column
-                for col, port_id in self.column_to_port.items():
-                    value = row[col]
-                    if pd.notna(value):  # Only send non-null values
-                        api.add_to_message_buffer(self.program.id, port_id, int(row['time']), float(value))
-                
-                # Process messages and collect results
-                batch_result = json.loads(api.process_message_buffer(self.program.id))
-                
-                # Aggregate results according to output mapping
-                for op_id, ports in batch_result.items():
-                    if op_id in self.program.output:
-                        mapped_ports = self.program.output[op_id]
-                        for port_id in mapped_ports:
-                            if port_id in ports:
-                                key = f"{op_id}:{port_id}"
-                                if key not in results:
-                                    results[key] = {"time": [], "value": []}
-                                for msg in ports[port_id]:
-                                    results[key]["time"].append(int(msg["time"]))
-                                    results[key]["value"].append(float(msg["value"]))
-            
-            return results
-            
-        finally:
+    def __del__(self):
+        if self.program_initialized and not self.debug:
             api.delete_program(self.program.id)
+
+    def exec(self, output_mappings: Optional[Dict[str, str]] = None, next: int = None) -> pd.DataFrame:
+        if not self.program_initialized:
+            result = api.create_program(self.program.id, self.program.to_json())
+            if result != "":
+                raise Exception(result)
+            self.program_initialized = True
+
+        df_data = {'time': []}
+        
+        # Initialize columns for all ports regardless of mapping
+        if self.debug:
+            for operator in self.program.operators:
+                op_id = operator["id"]
+                num_ports = len(operator.get("portTypes", [1]))
+                for port_idx in range(num_ports):
+                    col_key = f"{op_id}:o{port_idx + 1}"
+                    df_data[col_key] = []
+
+        # Initialize output operator columns
+        for op_id, ports in self.program.output.items():
+            for port_id in ports:
+                key = f"{op_id}:{port_id}"
+                col_name = output_mappings.get(key, key) if output_mappings else key
+                if key not in df_data:
+                    df_data[key] = []
+
+        end_index = min(self.current_index + next, len(self.data)) if next else len(self.data)
+
+        # Process rows
+        for idx in range(self.current_index, end_index):
+            row = self.data.iloc[idx]
+            
+            # Add messages to buffer using port mappings
+            for col, port_id in self.column_to_port.items():
+                value = row[col]
+                if pd.notna(value):
+                    api.add_to_message_buffer(self.program.id, port_id, int(row['time']), float(value))
+            
+            # Process messages and collect results
+            batch_result = json.loads(api.process_message_buffer_debug(self.program.id) if self.debug 
+                                    else api.process_message_buffer(self.program.id))
+            
+            # Update dataframe with message values
+            time_val = int(row['time'])
+            df_data['time'].append(time_val)
+            
+            # Extend all columns to current length with None
+            for col in df_data:
+                if len(df_data[col]) < len(df_data['time']):
+                    df_data[col].append(None)
+            
+            # Update values from batch results
+            for op_id, ports in batch_result.items():
+                for port_id, messages in ports.items():
+                    col_key = f"{op_id}:{port_id}"
+                    if col_key in df_data and messages:
+                        # Use the last message value for the current timestamp
+                        df_data[col_key][-1] = float(messages[-1]["value"])
+
+        self.current_index = end_index
+
+        if not self.debug and self.current_index >= len(self.data):
+            api.delete_program(self.program.id)
+            self.program_initialized = False
+
+        return pd.DataFrame(df_data)
 
 class Program:
     def __init__(

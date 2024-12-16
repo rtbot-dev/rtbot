@@ -2,6 +2,7 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@rules_python//python:packaging.bzl", "py_package", "py_wheel")
 load("//tools/generator:generator.bzl", "rtbot_generate")
 load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
+load("@py_deps//:requirements.bzl", "requirement")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -91,5 +92,8 @@ py_test(
     srcs = ["rtbot_test.py"],
     data = [
         ":copy",
+    ],
+    deps = [
+        requirement("pandas"),
     ],
 )

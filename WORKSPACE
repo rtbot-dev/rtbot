@@ -49,6 +49,19 @@ python_register_toolchains(
     python_version = "3.13",
 )
 
+load("@rules_python//python:pip.bzl", "pip_parse")
+
+pip_parse(
+    name = "py_deps",
+    requirements_lock = "//:requirements-lock.txt",
+)
+
+# Load the starlark macro, which will define your dependencies.
+load("@py_deps//:requirements.bzl", "install_deps")
+
+# Call it to define repos for your requirements.
+install_deps()
+
 load("@aspect_rules_js//js:repositories.bzl", "rules_js_dependencies")
 
 rules_js_dependencies()
