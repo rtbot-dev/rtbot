@@ -1,41 +1,77 @@
 from rtbot import rtbotapi as api
 import json
 import random
+import warnings
+import pandas as pd
 from typing import Optional, Dict, List, Any, Union
 
 class Run:
-    def __init__(self, program, data):
+    def __init__(self, program, data: pd.DataFrame, port_mappings: Optional[Dict[str, str]] = None):
+        """
+        Initialize a Run instance
+        
+        Args:
+            program: RTBot program instance
+            data: pandas DataFrame containing time and value columns
+            port_mappings: Dictionary mapping DataFrame column names to program port IDs
+        """
         program.validate()
         self.program = program
         self.data = data
+        self.port_mappings = port_mappings or {}
+        
+        # Verify time column exists
+        if 'time' not in data.columns:
+            raise ValueError("DataFrame must contain a 'time' column")
+            
+        # Map columns to ports
+        self.column_to_port = {}
+        value_columns = [col for col in data.columns if col != 'time']
+        
+        for col in value_columns:
+            if col in self.port_mappings:
+                self.column_to_port[col] = self.port_mappings[col]
+            else:
+                self.column_to_port[col] = col
+                warnings.warn(f"No port mapping provided for column '{col}', using column name as port ID")
 
-    def exec(self) -> Dict[str, Dict[str, List[Any]]]:
+    def exec(self) -> Dict[str, Dict[str, list]]:
+        """Execute the program with the provided data"""
         result = api.create_program(self.program.id, self.program.to_json())
         if result != "":
             raise Exception(result)
 
-        entry_id = api.get_program_entry_operator_id(self.program.id)
-        result = {}
-
-        for row in self.data:
-            api.add_to_message_buffer(self.program.id, entry_id, row[0], row[1])
-            batch_result = json.loads(api.process_message_buffer(self.program.id))
+        try:
+            results = {}
             
-            # Process results according to output mapping
-            for op_id, ports in batch_result.items():
-                if op_id in self.program.output:
-                    mapped_ports = self.program.output[op_id]
-                    for port_id in mapped_ports:
-                        if port_id in ports:
-                            key = f"{op_id}:{port_id}"
-                            if key not in result:
-                                result[key] = {"time": [], "value": []}
-                            for msg in ports[port_id]:
-                                result[key]["time"].append(int(msg["time"]))
-                                result[key]["value"].append(float(msg["value"]))
-
-        api.delete_program(self.program.id)
-        return result
+            # Process each row
+            for _, row in self.data.iterrows():
+                # Send data for each value column
+                for col, port_id in self.column_to_port.items():
+                    value = row[col]
+                    if pd.notna(value):  # Only send non-null values
+                        api.add_to_message_buffer(self.program.id, port_id, int(row['time']), float(value))
+                
+                # Process messages and collect results
+                batch_result = json.loads(api.process_message_buffer(self.program.id))
+                
+                # Aggregate results according to output mapping
+                for op_id, ports in batch_result.items():
+                    if op_id in self.program.output:
+                        mapped_ports = self.program.output[op_id]
+                        for port_id in mapped_ports:
+                            if port_id in ports:
+                                key = f"{op_id}:{port_id}"
+                                if key not in results:
+                                    results[key] = {"time": [], "value": []}
+                                for msg in ports[port_id]:
+                                    results[key]["time"].append(int(msg["time"]))
+                                    results[key]["value"].append(float(msg["value"]))
+            
+            return results
+            
+        finally:
+            api.delete_program(self.program.id)
 
 class Program:
     def __init__(

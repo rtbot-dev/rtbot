@@ -128,5 +128,8 @@ setup(
         'egg_info': CustomEggInfo,
     },
     packages=['rtbot'],
+    install_requires=[
+        "pandas>=1.0.0"
+    ],
     python_requires='>=3.10',
 )
