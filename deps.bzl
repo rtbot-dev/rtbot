@@ -208,6 +208,7 @@ def deps():
     http_archive(
         name = "cxxopts",
         strip_prefix = "cxxopts-3.2.0",
+        sha256 = "9f43fa972532e5df6c5fd5ad0f5bac606cdec541ccaf1732463d8070bbb7f03b",
         build_file = "@rtbot//tools/external:cxxopts.BUILD",
         url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz",
     )
