@@ -106,14 +106,14 @@ class Program {
   // Message processing
   ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
     send_to_entry(msg, port_id);
-    ProgramMsgBatch result = collect_filtered_outputs();
+    ProgramMsgBatch result = collect_outputs(false);
     clear_all_outputs();
     return result;
   }
 
   ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
     send_to_entry(msg, port_id);
-    ProgramMsgBatch result = collect_all_outputs();
+    ProgramMsgBatch result = collect_outputs(true);
     clear_all_outputs();
     return result;
   }
@@ -221,28 +221,65 @@ class Program {
     return batch;
   }
 
-  ProgramMsgBatch collect_all_outputs() {
+  ProgramMsgBatch collect_outputs(bool debug_mode = false) {
     ProgramMsgBatch batch;
 
-    for (const auto& [op_id, op] : operators_) {
-      OperatorMsgBatch op_batch;
-      bool has_messages = false;
-
-      for (size_t i = 0; i < op->num_output_ports(); i++) {
-        const auto& queue = op->get_output_queue(i);
-        if (!queue.empty()) {
-          PortMsgBatch port_msgs;
-          for (const auto& msg : queue) {
-            port_msgs.push_back(std::move(msg->clone()));
+    std::function<void(const std::string&, const std::shared_ptr<Operator>&)> collect_operator_outputs =
+        [&](const std::string& op_id, const std::shared_ptr<Operator>& op) {
+          // Skip if not in debug mode and this operator is not in output_mappings_
+          if (!debug_mode && output_mappings_.find(op_id) == output_mappings_.end()) {
+            return;
           }
-          op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
-          has_messages = true;
-        }
-      }
 
-      if (has_messages) {
-        batch[op_id] = std::move(op_batch);
-      }
+          OperatorMsgBatch op_batch;
+          bool has_messages = false;
+
+          // In debug mode, collect all ports
+          if (debug_mode) {
+            for (size_t i = 0; i < op->num_output_ports(); i++) {
+              const auto& queue = op->get_output_queue(i);
+              if (!queue.empty()) {
+                PortMsgBatch port_msgs;
+                for (const auto& msg : queue) {
+                  port_msgs.push_back(msg->clone());
+                }
+                op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
+                has_messages = true;
+              }
+            }
+          }
+          // Otherwise only collect mapped ports
+          else {
+            const auto& port_indices = output_mappings_[op_id];
+            for (size_t port_idx : port_indices) {
+              const auto& queue = op->get_output_queue(port_idx);
+              if (!queue.empty()) {
+                PortMsgBatch port_msgs;
+                for (const auto& msg : queue) {
+                  port_msgs.push_back(msg->clone());
+                }
+                op_batch["o" + std::to_string(port_idx + 1)] = std::move(port_msgs);
+                has_messages = true;
+              }
+            }
+          }
+
+          if (has_messages) {
+            batch[op_id] = std::move(op_batch);
+          }
+
+          // Only traverse pipeline if in debug mode
+          if (debug_mode) {
+            if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
+              for (const auto& [internal_id, internal_op] : pipeline->get_operators()) {
+                collect_operator_outputs(internal_id, internal_op);
+              }
+            }
+          }
+        };
+
+    for (const auto& [op_id, op] : operators_) {
+      collect_operator_outputs(op_id, op);
     }
 
     return batch;

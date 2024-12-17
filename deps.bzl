@@ -71,6 +71,7 @@ def deps():
     http_archive(
         name = "pybind11_bazel",
         strip_prefix = "pybind11_bazel-2.13.6",
+        sha256 = "9df284330336958c837fb70dc34c0a6254dac52a5c983b3373a8c2bbb79ac35e",
         urls = ["https://github.com/pybind/pybind11_bazel/archive/v2.13.6.zip"],
     )
 
@@ -78,6 +79,7 @@ def deps():
     http_archive(
         name = "pybind11",
         build_file = "@pybind11_bazel//:pybind11-BUILD.bazel",
+        sha256 = "d0a116e91f64a4a2d8fb7590c34242df92258a61ec644b79127951e821b47be6",
         strip_prefix = "pybind11-2.13.6",
         urls = ["https://github.com/pybind/pybind11/archive/v2.13.6.zip"],
     )
