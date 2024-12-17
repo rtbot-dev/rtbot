@@ -149,7 +149,7 @@ SCENARIO("Program Manager handles multiple programs", "[program_manager]") {
 
     WHEN("Processing messages through multiple programs") {
       Message<NumberData> msg(1, NumberData{42.0});
-      REQUIRE(manager.add_to_message_buffer("prog1", "input1", msg));
+      REQUIRE(manager.add_to_message_buffer("prog1", "i1", msg));
 
       auto batch = manager.process_message_buffer("prog1");
 
@@ -166,7 +166,7 @@ SCENARIO("Program Manager handles multiple programs", "[program_manager]") {
     WHEN("Deleting a program") {
       REQUIRE(manager.delete_program("prog1"));
       THEN("Program cannot be accessed") {
-        REQUIRE_FALSE(manager.add_to_message_buffer("prog1", "input1", Message<NumberData>(1, NumberData{42.0})));
+        REQUIRE_FALSE(manager.add_to_message_buffer("prog1", "i1", Message<NumberData>(1, NumberData{42.0})));
       }
     }
   }

@@ -7,10 +7,6 @@ cc_test(
         "**/*.hpp",
         "**/*.h",
     ]),
-    copts = [
-        "-Iexternal/json-schema-validator/src",
-        "-fpermissive",
-    ],
     data = glob([
         "**/*.json",
         "**/*.csv",

@@ -49,7 +49,7 @@ TEST_CASE("Bollinger Bands Pipeline Test", "[program]") {
     // Generate input sequence
     times.push_back(start);
     values.push_back(start * start);
-    ports.push_back("input1");
+    ports.push_back("i1");
 
     for (uint64_t i = start + 1; i < end; i++) {
       if (rand() < (RAND_MAX / 2)) {

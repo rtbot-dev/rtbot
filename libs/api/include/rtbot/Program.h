@@ -104,15 +104,15 @@ class Program {
   }
 
   // Message processing
-  ProgramMsgBatch receive(const Message<NumberData>& msg) {
-    send_to_entry(msg);
+  ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
+    send_to_entry(msg, port_id);
     ProgramMsgBatch result = collect_filtered_outputs();
     clear_all_outputs();
     return result;
   }
 
-  ProgramMsgBatch receive_debug(const Message<NumberData>& msg) {
-    send_to_entry(msg);
+  ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
+    send_to_entry(msg, port_id);
     ProgramMsgBatch result = collect_all_outputs();
     clear_all_outputs();
     return result;
@@ -186,8 +186,9 @@ class Program {
     RTBOT_LOG_DEBUG("Program initialized");
   }
 
-  void send_to_entry(const Message<NumberData>& msg) {
-    operators_[entry_operator_id_]->receive_data(create_message<NumberData>(msg.time, msg.data), 0);
+  void send_to_entry(const Message<NumberData>& msg, const std::string& port_id) {
+    auto port_info = OperatorJson::parse_port_name(port_id);
+    operators_[entry_operator_id_]->receive_data(create_message<NumberData>(msg.time, msg.data), port_info.index);
     operators_[entry_operator_id_]->execute();
   }
 
@@ -306,7 +307,7 @@ class ProgramManager {
     if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
       for (const auto& [port_id, messages] : buffer_it->second) {
         for (const auto& msg : messages) {
-          auto batch = prog.receive(msg);
+          auto batch = prog.receive(msg, port_id);
           merge_batches(result, batch);
         }
       }
@@ -327,7 +328,7 @@ class ProgramManager {
     if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
       for (const auto& [port_id, messages] : buffer_it->second) {
         for (const auto& msg : messages) {
-          auto batch = prog.receive_debug(msg);
+          auto batch = prog.receive_debug(msg, port_id);
           merge_batches(result, batch);
         }
       }

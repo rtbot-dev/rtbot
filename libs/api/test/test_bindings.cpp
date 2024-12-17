@@ -26,7 +26,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
     }
 
     WHEN("Creating and processing messages") {
-      REQUIRE(add_to_message_buffer("test_prog_bindings", "input1", 1, 42.0) == "1");
+      REQUIRE(add_to_message_buffer("test_prog_bindings", "i1", 1, 42.0) == "1");
 
       auto result = json::parse(process_message_buffer("test_prog_bindings"));
 
@@ -60,7 +60,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
 
       std::vector<uint64_t> times = {1, 2};
       std::vector<double> values = {3.0, 6.0};
-      std::vector<std::string> ports = {"input1", "input1"};
+      std::vector<std::string> ports = {"i1", "i1"};
 
       process_batch("test_prog2", times, values, ports);
 
@@ -71,7 +71,7 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
       THEN("State is preserved") {
         std::vector<uint64_t> new_times = {3};
         std::vector<double> new_values = {9.0};
-        std::vector<std::string> new_ports = {"input1"};
+        std::vector<std::string> new_ports = {"i1"};
 
         auto result = json::parse(process_batch("test_prog2", new_times, new_values, new_ports));
 
@@ -99,9 +99,9 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
     WHEN("Processing in debug mode") {
       REQUIRE(create_program("test_prog3", program_json).empty());
 
-      process_batch_debug("test_prog3", {1, 2, 3, 4}, {3.0, 6.0, 9.0, 12.0}, {"input1", "input1", "input1", "input1"});
+      process_batch_debug("test_prog3", {1, 2, 3, 4}, {3.0, 6.0, 9.0, 12.0}, {"i1", "i1", "i1", "i1"});
 
-      auto batch = process_batch_debug("test_prog3", {5}, {20.0}, {"input1"});
+      auto batch = process_batch_debug("test_prog3", {5}, {20.0}, {"i1"});
 
       auto result = json::parse(batch);
 
@@ -290,7 +290,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
         AND_THEN("Program processes messages correctly") {
           std::vector<uint64_t> times = {1, 2, 3, 4, 5, 6, 7};
           std::vector<double> values = {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0};
-          std::vector<std::string> ports(7, "input1");
+          std::vector<std::string> ports(7, "i1");
 
           auto batch = process_batch("complex_prog", times, values, ports);
           std::cout << pretty_print(batch) << std::endl;
