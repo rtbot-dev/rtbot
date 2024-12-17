@@ -19,7 +19,8 @@ class REPL {
   std::string program_id_;
   std::string program_json_;
   CLIArguments args_;
-  std::string entry_operator_;
+  std::string default_port_{"i1"};  // Default port if none specified
+  nlohmann::json program_struct_;   // Store parsed program structure
 
   CSVData loaded_data_;
   size_t current_data_index_{0};

@@ -33,6 +33,8 @@ REPL::REPL(const std::string& program_id, const CLIArguments& args) : program_id
     std::stringstream buffer;
     buffer << program_file.rdbuf();
     program_json_ = buffer.str();
+    // Parse and store program structure
+    program_struct_ = nlohmann::json::parse(program_json_);
   }
 
   linenoise::SetHistoryMaxLen(1000);
@@ -63,6 +65,9 @@ void REPL::print_help() const {
             << "  .next [N] - Process next N messages (default: 1)\n"
             << "  .scale_t <value> - Set time scale factor\n"
             << "  .scale_y <value> - Set value scale factor\n"
+            << "\nInput formats:\n"
+            << "  CSV: time,value[,port]  (port defaults to 'i1')\n"
+            << "  JSON: {\"time\": value, \"value\": value, \"port\": \"port_name\"}\n"
             << std::endl;
 }
 
@@ -109,7 +114,7 @@ void REPL::print_result(const std::string& result) const {
 
     switch (args_.format) {
       case OutputFormat::RTBOT_DEBUG:
-        std::cout << DebugFormatter::format_debug_output(parsed_json) << std::endl;
+        std::cout << DebugFormatter::format_debug_output(parsed_json, program_struct_) << std::endl;
         break;
 
       case OutputFormat::YAML: {
@@ -131,6 +136,7 @@ void REPL::process_message(const nlohmann::json& msg) {
   try {
     uint64_t time = msg["time"];
     double value = msg["value"];
+    std::string port = msg.contains("port") ? msg["port"].get<std::string>() : default_port_;
 
     // Only apply scaling for direct input, not for loaded CSV data
     if (loaded_filename_.empty()) {
@@ -138,7 +144,7 @@ void REPL::process_message(const nlohmann::json& msg) {
       value *= args_.scale_y;
     }
 
-    rtbot::add_to_message_buffer(program_id_, entry_operator_, time, value);
+    rtbot::add_to_message_buffer(program_id_, port, time, value);
 
     std::string result;
     if (args_.debug) {
@@ -251,13 +257,21 @@ bool REPL::process_command(const std::string& input) {
 
 void REPL::process_csv_input(const std::string& input) {
   std::stringstream ss(input);
-  std::string time_str, value_str;
+  std::string time_str, value_str, port_str;
 
-  if (std::getline(ss, time_str, ',') && std::getline(ss, value_str)) {
+  // Parse comma-separated values
+  if (std::getline(ss, time_str, ',') && std::getline(ss, value_str, ',')) {
     try {
       uint64_t time = std::stoull(time_str);
       double value = std::stod(value_str);
-      nlohmann::json msg = {{"time", time}, {"value", value}};
+
+      // Check if port is specified as third value
+      std::string port = default_port_;
+      if (std::getline(ss, port_str)) {
+        port = port_str;
+      }
+
+      nlohmann::json msg = {{"time", time}, {"value", value}, {"port", port}};
       process_message(msg);
     } catch (const std::exception& e) {
       std::cerr << "\033[0;31mError parsing CSV input: " << e.what() << COLOR_RESET << std::endl;
@@ -340,7 +354,8 @@ void REPL::process_n_messages(size_t n) {
 
   for (size_t i = 0; i < to_process; i++) {
     nlohmann::json msg = {{"time", loaded_data_.times[current_data_index_]},
-                          {"value", loaded_data_.values[current_data_index_]}};
+                          {"value", loaded_data_.values[current_data_index_]},
+                          {"port", default_port_}};
     process_message(msg);
     current_data_index_++;
   }
