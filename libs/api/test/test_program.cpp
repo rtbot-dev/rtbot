@@ -556,3 +556,249 @@ SCENARIO("Pipeline reset and emission behavior", "[program][pipeline]") {
     }
   }
 }
+
+SCENARIO("Program handles prototypes", "[program][prototypes]") {
+  GIVEN("A program with a simple prototype") {
+    std::string program_json = R"({
+      "prototypes": {
+        "adjustableMA": {
+          "parameters": [
+            {"name": "window", "type": "number"},
+            {"name": "scale", "type": "number", "default": 1.0}
+          ],
+          "operators": [
+            {"type": "MovingAverage", "id": "ma", "window_size": "${window}"},
+            {"type": "Scale", "id": "scale", "value": "${scale}"}
+          ],
+          "connections": [
+            {"from": "ma", "to": "scale"}
+          ],
+          "entry": {"operator": "ma"},
+          "output": {"operator": "scale"}
+        }
+      },
+      "operators": [
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"id": "ma_instance", "prototype": "adjustableMA", "parameters": {"window": 3, "scale": 2.0}},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "input1", "to": "ma_instance"},
+        {"from": "ma_instance", "to": "output1"}
+      ],
+      "entryOperator": "input1",
+      "output": {
+        "output1": ["o1"]
+      }
+    })";
+
+    Program program(program_json);
+
+    WHEN("Processing messages") {
+      std::vector<Message<NumberData>> messages = {{1, NumberData{3.0}}, {2, NumberData{6.0}}, {3, NumberData{9.0}}};
+
+      ProgramMsgBatch final_batch;
+      for (const auto& msg : messages) {
+        final_batch = program.receive(msg);
+      }
+
+      THEN("Output reflects both MA and scaling") {
+        REQUIRE(final_batch.size() == 1);
+        const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output1"]["o1"].back().get());
+        REQUIRE(out_msg != nullptr);
+        REQUIRE(out_msg->data.value == Approx(12.0));  // MA(3,6,9)=6.0, then scaled by 2.0
+      }
+    }
+
+    WHEN("Serializing and deserializing") {
+      program.receive(Message<NumberData>(1, NumberData{3.0}));
+      program.receive(Message<NumberData>(2, NumberData{6.0}));
+
+      Bytes serialized = program.serialize();
+      Program restored(serialized);
+
+      auto original_batch = program.receive(Message<NumberData>(3, NumberData{9.0}));
+      auto restored_batch = restored.receive(Message<NumberData>(3, NumberData{9.0}));
+
+      THEN("State is preserved correctly") {
+        const auto* original_msg =
+            dynamic_cast<const Message<NumberData>*>(original_batch["output1"]["o1"].back().get());
+        const auto* restored_msg =
+            dynamic_cast<const Message<NumberData>*>(restored_batch["output1"]["o1"].back().get());
+        REQUIRE(original_msg->data.value == Approx(restored_msg->data.value));
+      }
+    }
+  }
+
+  GIVEN("Invalid prototype configurations") {
+    WHEN("Missing required parameter") {
+      std::string invalid_json = R"({
+        "prototypes": {
+          "adjustableMA": {
+            "parameters": [
+              {"name": "window", "type": "number"}
+            ],
+            "operators": [
+              {"type": "MovingAverage", "id": "ma", "window_size": "${window}"}
+            ],
+            "connections": [],
+            "entry": {"operator": "ma"},
+            "output": {"operator": "ma"}
+          }
+        },
+        "operators": [
+          {"type": "Input", "id": "input1", "portTypes": ["number"]},
+          {"id": "ma_instance", "prototype": "adjustableMA"},
+          {"type": "Output", "id": "output1", "portTypes": ["number"]}
+        ],
+        "connections": [
+          {"from": "input1", "to": "ma_instance"},
+          {"from": "ma_instance", "to": "output1"}
+        ],
+        "entryOperator": "input1",
+        "output": {"output1": ["o1"]}
+      })";
+
+      THEN("Program creation fails") {
+        REQUIRE_THROWS_WITH(Program(invalid_json), Catch::Contains("Missing required parameter 'window'"));
+      }
+    }
+
+    WHEN("Invalid parameter type") {
+      std::string invalid_json = R"({
+        "prototypes": {
+          "adjustableMA": {
+            "parameters": [
+              {"name": "window", "type": "number"}
+            ],
+            "operators": [
+              {"type": "MovingAverage", "id": "ma", "window_size": "${window}"}
+            ],
+            "connections": [],
+            "entry": {"operator": "ma"},
+            "output": {"operator": "ma"}
+          }
+        },
+        "operators": [
+          {"type": "Input", "id": "input1", "portTypes": ["number"]},
+          {"id": "ma_instance", "prototype": "adjustableMA", 
+           "parameters": {"window": "not_a_number"}},
+          {"type": "Output", "id": "output1", "portTypes": ["number"]}
+        ],
+        "connections": [
+          {"from": "input1", "to": "ma_instance"},
+          {"from": "ma_instance", "to": "output1"}
+        ],
+        "entryOperator": "input1",
+        "output": {"output1": ["o1"]}
+      })";
+
+      THEN("Program creation fails") {
+        REQUIRE_THROWS_WITH(Program(invalid_json), Catch::Contains("Parameter 'window' must be a number"));
+      }
+    }
+  }
+}
+
+SCENARIO("Program handles Pipeline prototypes", "[program][prototypes][pipeline]") {
+  GIVEN("A program with a prototype containing a Pipeline") {
+    std::string program_json = R"({
+      "prototypes": {
+        "complexProcessor": {
+          "parameters": [
+            {"name": "ma_window", "type": "number"},
+            {"name": "std_window", "type": "number", "default": 3}
+          ],
+          "operators": [
+            {
+              "type": "Pipeline",
+              "id": "pipeline",
+              "input_port_types": ["number"],
+              "output_port_types": ["number"],
+              "operators": [
+                {"type": "MovingAverage", "id": "ma", "window_size": "${ma_window}"},
+                {"type": "StandardDeviation", "id": "std", "window_size": "${std_window}"}
+              ],
+              "connections": [
+                {"from": "ma", "to": "std", "fromPort": "o1", "toPort": "i1"}
+              ],
+              "entryOperator": "ma",
+              "outputMappings": {
+                "std": {"o1": "o1"}
+              }
+            }
+          ],
+          "connections": [],
+          "entry": {"operator": "pipeline"},
+          "output": {"operator": "pipeline"}
+        }
+      },
+      "operators": [
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {
+          "id": "proc1",
+          "prototype": "complexProcessor",
+          "parameters": {"ma_window": 3}
+        },
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "input1", "to": "proc1"},
+        {"from": "proc1", "to": "output1"}
+      ],
+      "entryOperator": "input1",
+      "output": {
+        "output1": ["o1"]
+      }
+    })";
+
+    Program program(program_json);
+
+    WHEN("Processing messages") {
+      // Need 5 messages minimum:
+      // First 3 for MA to produce output
+      // Then 2 more for STD to produce output based on MA values
+      std::vector<Message<NumberData>> messages = {
+          {1, NumberData{3.0}},   // MA collecting
+          {2, NumberData{6.0}},   // MA collecting
+          {3, NumberData{9.0}},   // MA emits first value (6.0) -> STD collecting
+          {4, NumberData{12.0}},  // MA emits second value (9.0) -> STD collecting
+          {5, NumberData{15.0}}   // MA emits third value (12.0) -> STD emits first value
+      };
+
+      ProgramMsgBatch final_batch;
+      for (const auto& msg : messages) {
+        final_batch = program.receive(msg);
+      }
+
+      THEN("Pipeline inside prototype processes correctly") {
+        REQUIRE(final_batch.size() == 1);
+        REQUIRE(final_batch["output1"]["o1"].size() == 1);
+
+        const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output1"]["o1"].back().get());
+        REQUIRE(out_msg != nullptr);
+        REQUIRE(out_msg->time == 5);
+        // Standard deviation of [6.0, 9.0, 12.0] is 3.0
+        REQUIRE(out_msg->data.value == Approx(3.0));
+      }
+    }
+
+    WHEN("Serializing and deserializing") {
+      for (int i = 1; i <= 4; i++) {
+        program.receive(Message<NumberData>(i, NumberData{i * 3.0}));
+      }
+
+      Bytes serialized = program.serialize();
+      Program restored(serialized);
+
+      auto orig_batch = program.receive(Message<NumberData>(5, NumberData{15.0}));
+      auto rest_batch = restored.receive(Message<NumberData>(5, NumberData{15.0}));
+
+      THEN("State is preserved correctly") {
+        const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_batch["output1"]["o1"].back().get());
+        const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_batch["output1"]["o1"].back().get());
+        REQUIRE(orig_msg->data.value == Approx(rest_msg->data.value));
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "OperatorJson.h"
+#include "Prototype.h"
 #include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
 #include "rtbot/jsonschema.hpp"
@@ -36,11 +37,19 @@ static void build_operator_tree(const std::map<std::string, std::shared_ptr<Oper
 class Program {
  public:
   // Constructor from JSON string
-  explicit Program(const string& json_string) : program_json_(json_string) {
+  explicit Program(const std::string& json_string) : program_json_(json_string) {
+    auto j = json::parse(program_json_);
+
+    // Resolve prototypes before validation
+    PrototypeHandler::resolve_prototypes(j);
+
+    // Update program_json_ with resolved version
+    program_json_ = j.dump();
+
+    // Continue with existing validation and initialization
     nlohmann::json_schema::json_validator validator(nullptr, nlohmann::json_schema::default_string_format_check);
     validator.set_root_schema(rtbot_schema);
-    // This will throw if the JSON is invalid
-    validator.validate(json::parse(program_json_));
+    validator.validate(j);
 
     init_from_json();
   }
