@@ -5,7 +5,7 @@
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
-#include "rtbot/std/MathSyncBinaryOp.h"
+#include "rtbot/std/ArithmeticSync.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
 #include "rtbot/telemetry/OpenTelemetryInit.h"

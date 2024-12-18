@@ -1,5 +1,5 @@
-#ifndef MATH_SCALAR_OP_H
-#define MATH_SCALAR_OP_H
+#ifndef ARITHMETIC_SCALAR_OP_H
+#define ARITHMETIC_SCALAR_OP_H
 
 #include <cmath>
 #include <functional>
@@ -11,15 +11,15 @@
 
 namespace rtbot {
 
-class MathScalarOp : public Operator {
+class ArithmeticScalar : public Operator {
  public:
-  MathScalarOp(std::string id) : Operator(std::move(id)) {
+  ArithmeticScalar(std::string id) : Operator(std::move(id)) {
     // Add single input and output port for numeric data
     add_data_port<NumberData>();
     add_output_port<NumberData>();
   }
 
-  virtual ~MathScalarOp() = default;
+  virtual ~ArithmeticScalar() = default;
 
   // Pure virtual method that derived classes must implement
   virtual double apply(double value) const = 0;
@@ -32,7 +32,7 @@ class MathScalarOp : public Operator {
     while (!input_queue.empty()) {
       const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
-        throw std::runtime_error("Invalid message type in MathScalarOp");
+        throw std::runtime_error("Invalid message type in ArithmeticScalar");
       }
 
       // Apply the mathematical operation and create output message
@@ -43,9 +43,9 @@ class MathScalarOp : public Operator {
 };
 
 // Concrete implementations for various mathematical operations
-class Add : public MathScalarOp {
+class Add : public ArithmeticScalar {
  public:
-  Add(std::string id, double value) : MathScalarOp(std::move(id)), value_(value) {}
+  Add(std::string id, double value) : ArithmeticScalar(std::move(id)), value_(value) {}
   std::string type_name() const override { return "Add"; }
   double apply(double x) const override { return x + value_; }
   double get_value() const { return value_; }
@@ -54,9 +54,9 @@ class Add : public MathScalarOp {
   double value_;
 };
 
-class Scale : public MathScalarOp {
+class Scale : public ArithmeticScalar {
  public:
-  Scale(std::string id, double value) : MathScalarOp(std::move(id)), value_(value) {}
+  Scale(std::string id, double value) : ArithmeticScalar(std::move(id)), value_(value) {}
   std::string type_name() const override { return "Scale"; }
   double apply(double x) const override { return x * value_; }
   double get_value() const { return value_; }
@@ -65,9 +65,9 @@ class Scale : public MathScalarOp {
   double value_;
 };
 
-class Power : public MathScalarOp {
+class Power : public ArithmeticScalar {
  public:
-  Power(std::string id, double value) : MathScalarOp(std::move(id)), value_(value) {}
+  Power(std::string id, double value) : ArithmeticScalar(std::move(id)), value_(value) {}
   std::string type_name() const override { return "Power"; }
   double apply(double x) const override { return std::pow(x, value_); }
   double get_value() const { return value_; }
@@ -77,82 +77,82 @@ class Power : public MathScalarOp {
 };
 
 // Trigonometric functions
-class Sin : public MathScalarOp {
+class Sin : public ArithmeticScalar {
  public:
-  Sin(std::string id) : MathScalarOp(std::move(id)) {}
+  Sin(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Sin"; }
   double apply(double x) const override { return std::sin(x); }
 };
 
-class Cos : public MathScalarOp {
+class Cos : public ArithmeticScalar {
  public:
-  Cos(std::string id) : MathScalarOp(std::move(id)) {}
+  Cos(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Cos"; }
   double apply(double x) const override { return std::cos(x); }
 };
 
-class Tan : public MathScalarOp {
+class Tan : public ArithmeticScalar {
  public:
-  Tan(std::string id) : MathScalarOp(std::move(id)) {}
+  Tan(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Tan"; }
   double apply(double x) const override { return std::tan(x); }
 };
 
 // Exponential and logarithmic functions
-class Exp : public MathScalarOp {
+class Exp : public ArithmeticScalar {
  public:
-  Exp(std::string id) : MathScalarOp(std::move(id)) {}
+  Exp(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Exp"; }
   double apply(double x) const override { return std::exp(x); }
 };
 
-class Log : public MathScalarOp {
+class Log : public ArithmeticScalar {
  public:
-  Log(std::string id) : MathScalarOp(std::move(id)) {}
+  Log(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Log"; }
   double apply(double x) const override { return std::log(x); }
 };
 
-class Log10 : public MathScalarOp {
+class Log10 : public ArithmeticScalar {
  public:
-  Log10(std::string id) : MathScalarOp(std::move(id)) {}
+  Log10(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Log10"; }
   double apply(double x) const override { return std::log10(x); }
 };
 
 // Absolute value and sign functions
-class Abs : public MathScalarOp {
+class Abs : public ArithmeticScalar {
  public:
-  Abs(std::string id) : MathScalarOp(std::move(id)) {}
+  Abs(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Abs"; }
   double apply(double x) const override { return std::abs(x); }
 };
 
-class Sign : public MathScalarOp {
+class Sign : public ArithmeticScalar {
  public:
-  Sign(std::string id) : MathScalarOp(std::move(id)) {}
+  Sign(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Sign"; }
   double apply(double x) const override { return x > 0 ? 1.0 : (x < 0 ? -1.0 : 0.0); }
 };
 
 // Rounding functions
-class Floor : public MathScalarOp {
+class Floor : public ArithmeticScalar {
  public:
-  Floor(std::string id) : MathScalarOp(std::move(id)) {}
+  Floor(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Floor"; }
   double apply(double x) const override { return std::floor(x); }
 };
 
-class Ceil : public MathScalarOp {
+class Ceil : public ArithmeticScalar {
  public:
-  Ceil(std::string id) : MathScalarOp(std::move(id)) {}
+  Ceil(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Ceil"; }
   double apply(double x) const override { return std::ceil(x); }
 };
 
-class Round : public MathScalarOp {
+class Round : public ArithmeticScalar {
  public:
-  Round(std::string id) : MathScalarOp(std::move(id)) {}
+  Round(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Round"; }
   double apply(double x) const override { return std::round(x); }
 };
@@ -194,4 +194,4 @@ inline std::shared_ptr<Round> make_round(std::string id) { return std::make_shar
 
 }  // namespace rtbot
 
-#endif  // MATH_SCALAR_OP_H
+#endif  // ARITHMETIC_SCALAR_OP_H

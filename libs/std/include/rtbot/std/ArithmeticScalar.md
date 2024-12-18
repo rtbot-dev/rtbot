@@ -213,13 +213,13 @@ jsonschemas:
     required: ["id"]
 ---
 
-# MathScalarOp
+# ArithmeticScalar
 
-The MathScalarOp class serves as a base for operators that perform mathematical operations on a single numeric input stream. Each derived class implements a specific mathematical function that is applied to each input value.
+The ArithmeticScalar class serves as a base for operators that perform mathematical operations on a single numeric input stream. Each derived class implements a specific mathematical function that is applied to each input value.
 
 ## Basic Operation
 
-All MathScalarOp operators:
+All ArithmeticScalar operators:
 
 - Have one input port (port 0) for numeric data
 - Have one output port (port 0) for numeric results

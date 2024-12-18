@@ -1,10 +1,10 @@
 #include <catch2/catch.hpp>
 
-#include "rtbot/std/BooleanSyncBinaryOp.h"
+#include "rtbot/std/BooleanSync.h"
 
 using namespace rtbot;
 
-SCENARIO("BooleanSyncBinaryOp operators handle basic operations", "[boolean_sync_binary_op]") {
+SCENARIO("BooleanSync operators handle basic operations", "[boolean_sync_binary_op]") {
   GIVEN("Basic logical operators") {
     auto and_op = make_logical_and("and1");
     auto or_op = make_logical_or("or1");
@@ -60,12 +60,19 @@ SCENARIO("BooleanSyncBinaryOp operators handle basic operations", "[boolean_sync
             REQUIRE(msg->data.value == expected);
           };
 
+          INFO("Testing AND");
           check_output(and_op, test.and_result);
+          INFO("Testing OR");
           check_output(or_op, test.or_result);
+          INFO("Testing XOR");
           check_output(xor_op, test.xor_result);
+          INFO("Testing NAND");
           check_output(nand_op, test.nand_result);
+          INFO("Testing NOR");
           check_output(nor_op, test.nor_result);
+          INFO("Testing XNOR");
           check_output(xnor_op, test.xnor_result);
+          INFO("Testing IMPL");
           check_output(impl_op, test.impl_result);
         }
       }
@@ -73,7 +80,7 @@ SCENARIO("BooleanSyncBinaryOp operators handle basic operations", "[boolean_sync
   }
 }
 
-SCENARIO("BooleanSyncBinaryOp operators handle unsynchronized messages", "[boolean_sync_binary_op]") {
+SCENARIO("BooleanSync operators handle unsynchronized messages", "[boolean_sync_binary_op]") {
   GIVEN("A logical AND operator") {
     auto and_op = make_logical_and("and1");
 
@@ -87,7 +94,7 @@ SCENARIO("BooleanSyncBinaryOp operators handle unsynchronized messages", "[boole
   }
 }
 
-SCENARIO("BooleanSyncBinaryOp operators handle state serialization", "[boolean_sync_binary_op]") {
+SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_binary_op]") {
   GIVEN("An operator with buffered messages") {
     auto and_op = make_logical_and("and1");
 
@@ -130,7 +137,7 @@ SCENARIO("BooleanSyncBinaryOp operators handle state serialization", "[boolean_s
   }
 }
 
-SCENARIO("BooleanSyncBinaryOp operators handle empty and single message cases", "[boolean_sync_binary_op]") {
+SCENARIO("BooleanSync operators handle empty and single message cases", "[boolean_sync_binary_op]") {
   GIVEN("A logical AND operator") {
     auto and_op = make_logical_and("and1");
 

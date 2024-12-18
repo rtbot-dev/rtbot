@@ -1,5 +1,5 @@
-#ifndef FILTER_SCALAR_OP_H
-#define FILTER_SCALAR_OP_H
+#ifndef FILTER_SCALAR_H
+#define FILTER_SCALAR_H
 
 #include <functional>
 #include <memory>
@@ -10,15 +10,15 @@
 
 namespace rtbot {
 
-class FilterScalarOp : public Operator {
+class FilterScalar : public Operator {
  public:
-  FilterScalarOp(std::string id) : Operator(std::move(id)) {
+  FilterScalar(std::string id) : Operator(std::move(id)) {
     // Add single input and output port for numeric data
     add_data_port<NumberData>();
     add_output_port<NumberData>();
   }
 
-  virtual ~FilterScalarOp() = default;
+  virtual ~FilterScalar() = default;
 
   // Pure virtual method that derived classes must implement
   virtual bool evaluate(double value) const = 0;
@@ -31,7 +31,7 @@ class FilterScalarOp : public Operator {
     while (!input_queue.empty()) {
       const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
-        throw std::runtime_error("Invalid message type in FilterScalarOp");
+        throw std::runtime_error("Invalid message type in FilterScalar");
       }
 
       // Forward message only if condition evaluates to true
@@ -45,9 +45,9 @@ class FilterScalarOp : public Operator {
 };
 
 // Concrete implementations for various filter operations
-class LessThan : public FilterScalarOp {
+class LessThan : public FilterScalar {
  public:
-  LessThan(std::string id, double threshold) : FilterScalarOp(std::move(id)), threshold_(threshold) {}
+  LessThan(std::string id, double threshold) : FilterScalar(std::move(id)), threshold_(threshold) {}
   std::string type_name() const override { return "LessThan"; }
   bool evaluate(double x) const override { return x < threshold_; }
   double get_threshold() const { return threshold_; }
@@ -56,9 +56,9 @@ class LessThan : public FilterScalarOp {
   double threshold_;
 };
 
-class GreaterThan : public FilterScalarOp {
+class GreaterThan : public FilterScalar {
  public:
-  GreaterThan(std::string id, double threshold) : FilterScalarOp(std::move(id)), threshold_(threshold) {}
+  GreaterThan(std::string id, double threshold) : FilterScalar(std::move(id)), threshold_(threshold) {}
   std::string type_name() const override { return "GreaterThan"; }
   bool evaluate(double x) const override { return x > threshold_; }
   double get_threshold() const { return threshold_; }
@@ -67,10 +67,10 @@ class GreaterThan : public FilterScalarOp {
   double threshold_;
 };
 
-class EqualTo : public FilterScalarOp {
+class EqualTo : public FilterScalar {
  public:
   EqualTo(std::string id, double value, double epsilon = 1e-10)
-      : FilterScalarOp(std::move(id)), value_(value), epsilon_(epsilon) {}
+      : FilterScalar(std::move(id)), value_(value), epsilon_(epsilon) {}
 
   std::string type_name() const override { return "EqualTo"; }
   bool evaluate(double x) const override { return std::abs(x - value_) <= epsilon_; }
@@ -82,10 +82,10 @@ class EqualTo : public FilterScalarOp {
   double epsilon_;  // Tolerance for floating-point comparison
 };
 
-class NotEqualTo : public FilterScalarOp {
+class NotEqualTo : public FilterScalar {
  public:
   NotEqualTo(std::string id, double value, double epsilon = 1e-10)
-      : FilterScalarOp(std::move(id)), value_(value), epsilon_(epsilon) {}
+      : FilterScalar(std::move(id)), value_(value), epsilon_(epsilon) {}
 
   std::string type_name() const override { return "NotEqualTo"; }
   bool evaluate(double x) const override { return std::abs(x - value_) > epsilon_; }
@@ -116,4 +116,4 @@ inline std::shared_ptr<NotEqualTo> make_not_equal_to(std::string id, double valu
 
 }  // namespace rtbot
 
-#endif  // FILTER_SCALAR_OP_H
+#endif  // FILTER_SCALAR_H

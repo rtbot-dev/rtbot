@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "rtbot/std/FilterScalarOp.h"
+#include "rtbot/std/FilterScalar.h"
 
 using namespace rtbot;
 

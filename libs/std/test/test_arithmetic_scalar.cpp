@@ -3,11 +3,11 @@
 #include <memory>
 #include <vector>
 
-#include "rtbot/std/MathScalarOp.h"
+#include "rtbot/std/ArithmeticScalar.h"
 
 using namespace rtbot;
 
-SCENARIO("MathScalarOp derived classes handle basic operations", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scalar_op]") {
   SECTION("Add operator") {
     auto add = make_add("add1", 2.0);
 
@@ -95,7 +95,7 @@ SCENARIO("MathScalarOp derived classes handle basic operations", "[math_scalar_o
   }
 }
 
-SCENARIO("MathScalarOp handles trigonometric functions", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles trigonometric functions", "[math_scalar_op]") {
   SECTION("Sin operator") {
     auto sin = make_sin("sin1");
 
@@ -122,7 +122,7 @@ SCENARIO("MathScalarOp handles trigonometric functions", "[math_scalar_op]") {
   }
 }
 
-SCENARIO("MathScalarOp handles exponential and logarithmic functions", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles exponential and logarithmic functions", "[math_scalar_op]") {
   SECTION("Exp operator") {
     auto exp = make_exp("exp1");
 
@@ -150,7 +150,7 @@ SCENARIO("MathScalarOp handles exponential and logarithmic functions", "[math_sc
   // Similar tests for Log and Log10...
 }
 
-SCENARIO("MathScalarOp handles rounding functions", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles rounding functions", "[math_scalar_op]") {
   SECTION("Round operator") {
     auto round = make_round("round1");
 
@@ -178,7 +178,7 @@ SCENARIO("MathScalarOp handles rounding functions", "[math_scalar_op]") {
   // Similar tests for Floor and Ceil...
 }
 
-SCENARIO("MathScalarOp handles serialization", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles serialization", "[math_scalar_op]") {
   SECTION("Add operator serialization") {
     auto add = make_add("add1", 2.0);
 
@@ -216,7 +216,7 @@ SCENARIO("MathScalarOp handles serialization", "[math_scalar_op]") {
   // Similar tests for other operators...
 }
 
-SCENARIO("MathScalarOp handles error cases", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles error cases", "[math_scalar_op]") {
   SECTION("Invalid message type") {
     auto add = make_add("add1", 2.0);
 
