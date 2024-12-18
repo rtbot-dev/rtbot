@@ -112,27 +112,49 @@ class PrototypeHandler {
     return result;
   }
 
+  static void resolve_pipeline_operators(json& operators, const json& params) {
+    for (auto& op : operators) {
+      if (op["type"] == "Pipeline") {
+        // Recursively resolve parameters in nested Pipeline operators
+        if (op.contains("operators")) {
+          resolve_pipeline_operators(op["operators"], params);
+        }
+        // Handle outputMappings
+        if (op.contains("outputMappings")) {
+          resolve_parameter_references(op["outputMappings"], params);
+        }
+      }
+      // Always resolve parameters in the operator itself
+      resolve_parameter_references(op, params);
+    }
+  }
+
   static void expand_prototype_instance(const std::string& instance_id, const PrototypeDefinition& proto,
                                         const json& params, json& expanded_operators, json& expanded_connections,
                                         std::map<std::string, std::pair<std::string, std::string>>& instance_mappings) {
     json resolved_params = resolve_parameters(instance_id, params, proto.parameters);
 
-    // Expand operators
-    for (auto op : proto.operators) {
+    // Create a copy of operators for modification
+    json instance_operators = proto.operators;
+
+    // First resolve parameters in all operators, including nested Pipelines
+    resolve_pipeline_operators(instance_operators, resolved_params);
+
+    // Expand operators with scoped IDs
+    for (auto& op : instance_operators) {
       std::string local_id = op["id"];
       op["id"] = instance_id + "::" + local_id;
-      resolve_parameter_references(op, resolved_params);
       expanded_operators.push_back(op);
     }
 
-    // Expand internal connections
+    // Expand connections
     for (auto conn : proto.connections) {
       conn["from"] = instance_id + "::" + conn["from"].get<std::string>();
       conn["to"] = instance_id + "::" + conn["to"].get<std::string>();
       expanded_connections.push_back(conn);
     }
 
-    // Store mappings for external connections
+    // Store mappings
     instance_mappings[instance_id] =
         std::make_pair(instance_id + "::" + proto.entry.operator_id, instance_id + "::" + proto.output.operator_id);
   }

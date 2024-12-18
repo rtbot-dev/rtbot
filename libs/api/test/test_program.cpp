@@ -802,3 +802,237 @@ SCENARIO("Program handles Pipeline prototypes", "[program][prototypes][pipeline]
     }
   }
 }
+
+SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prototypes][pipeline]") {
+  GIVEN("A program with a prototype containing nested Pipelines") {
+    std::string program_json = R"({
+      "prototypes": {
+        "nestedProcessor": {
+          "parameters": [
+            {"name": "outer_window", "type": "number"},
+            {"name": "inner_window", "type": "number"},
+            {"name": "scale", "type": "number", "default": 1.0}
+          ],
+          "operators": [
+            {
+              "type": "Pipeline",
+              "id": "outer",
+              "input_port_types": ["number"],
+              "output_port_types": ["number"],
+              "operators": [
+                {
+                  "type": "Pipeline",
+                  "id": "inner",
+                  "input_port_types": ["number"],
+                  "output_port_types": ["number"],
+                  "operators": [
+                    {"type": "MovingAverage", "id": "ma", "window_size": "${inner_window}"},
+                    {"type": "Scale", "id": "scale", "value": "${scale}"}
+                  ],
+                  "connections": [
+                    {"from": "ma", "to": "scale", "fromPort": "o1", "toPort": "i1"}
+                  ],
+                  "entryOperator": "ma",
+                  "outputMappings": {
+                    "scale": {"o1": "o1"}
+                  }
+                },
+                {"type": "StandardDeviation", "id": "std", "window_size": "${outer_window}"}
+              ],
+              "connections": [
+                {"from": "inner", "to": "std", "fromPort": "o1", "toPort": "i1"}
+              ],
+              "entryOperator": "inner",
+              "outputMappings": {
+                "std": {"o1": "o1"}
+              }
+            }
+          ],
+          "connections": [],
+          "entry": {"operator": "outer"},
+          "output": {"operator": "outer"}
+        }
+      },
+      "operators": [
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {
+          "id": "proc1",
+          "prototype": "nestedProcessor",
+          "parameters": {
+            "outer_window": 3,
+            "inner_window": 2,
+            "scale": 2.0
+          }
+        },
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "input1", "to": "proc1", "fromPort": "o1", "toPort": "i1"},
+        {"from": "proc1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+      ],
+      "entryOperator": "input1",
+      "output": {
+        "output1": ["o1"]
+      }
+    })";
+
+    Program program(program_json);
+
+    WHEN("Processing messages") {
+      std::vector<Message<NumberData>> messages = {
+          {1, NumberData{10.0}},  // MA collecting
+          {2, NumberData{20.0}},  // MA emits avg(10,20)=15 * scale(2) = 30 -> STD collecting
+                                  // Inner pipeline resets
+          {3, NumberData{30.0}},  // MA collecting (fresh start)
+          {4, NumberData{40.0}},  // MA emits avg(30,40)=35 * scale(2) = 70 -> STD collecting
+                                  // Inner pipeline resets
+          {5, NumberData{50.0}},  // MA collecting (fresh start)
+          {6, NumberData{60.0}},  // MA emits avg(50,60)=55 * scale(2) = 110 -> STD collecting + emits
+                                  // STD now has [30,70,110] and emits
+          {7, NumberData{70.0}},  // MA collecting (fresh start)
+          {8, NumberData{80.0}},  // MA emits avg(70,80)=75 * scale(2) = 150 -> STD collecting
+                                  // Inner pipeline resets
+          {9, NumberData{90.0}}   // MA collecting (fresh start)
+      };
+
+      for (const auto& msg : messages) {
+        auto final_batch = program.receive_debug(msg);
+
+        if (msg.time == 6) {  // First STD output
+          THEN("STD produces expected output for first set of values") {
+            REQUIRE(final_batch.count("output1") == 1);
+            REQUIRE(final_batch["output1"].count("o1") == 1);
+
+            const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output1"]["o1"].back().get());
+            REQUIRE(out_msg != nullptr);
+            REQUIRE(out_msg->time == 6);
+
+            // STD of [30,70,110]
+            // mean = 70
+            double expected_std = std::sqrt(
+                ((30.0 - 70.0) * (30.0 - 70.0) + (70.0 - 70.0) * (70.0 - 70.0) + (110.0 - 70.0) * (110.0 - 70.0)) /
+                (3 - 1));
+            REQUIRE(out_msg->data.value == Approx(expected_std));
+          }
+        } else {
+          THEN("No output at time " + std::to_string(msg.time)) {
+            auto it = final_batch.find("output1");
+            if (it != final_batch.end()) {
+              REQUIRE(it->second["o1"].empty());
+            }
+          }
+        }
+      }
+    }
+
+    // WHEN("Serializing and deserializing") {
+    //   // Process first three messages
+    //   for (int i = 1; i <= 3; i++) {
+    //     program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
+    //   }
+
+    //   Bytes serialized = program.serialize();
+    //   Program restored(serialized);
+
+    //   // Send message that will produce first output
+    //   auto orig_batch4 = program.receive(Message<NumberData>(4, NumberData{40.0}));
+    //   auto rest_batch4 = restored.receive(Message<NumberData>(4, NumberData{40.0}));
+
+    //   // Both should emit at t=4
+    //   REQUIRE(!orig_batch4.empty());
+    //   REQUIRE(!rest_batch4.empty());
+
+    //   const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_batch4["output1"]["o1"].back().get());
+    //   const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_batch4["output1"]["o1"].back().get());
+
+    //   REQUIRE(orig_msg->data.value == Approx(rest_msg->data.value));
+
+    //   // Process next three messages after reset
+    //   for (int i = 5; i <= 7; i++) {
+    //     auto orig = program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
+    //     auto rest = restored.receive(Message<NumberData>(i, NumberData{i * 10.0}));
+    //     REQUIRE(orig.empty());
+    //     REQUIRE(rest.empty());
+    //   }
+
+    //   // Both should emit again at t=8
+    //   auto orig_batch8 = program.receive(Message<NumberData>(8, NumberData{80.0}));
+    //   auto rest_batch8 = restored.receive(Message<NumberData>(8, NumberData{80.0}));
+
+    //   REQUIRE(!orig_batch8.empty());
+    //   REQUIRE(!rest_batch8.empty());
+
+    //   const auto* orig_msg8 = dynamic_cast<const Message<NumberData>*>(orig_batch8["output1"]["o1"].back().get());
+    //   const auto* rest_msg8 = dynamic_cast<const Message<NumberData>*>(rest_batch8["output1"]["o1"].back().get());
+
+    //   REQUIRE(orig_msg8->data.value == Approx(rest_msg8->data.value));
+    // }
+  }
+
+  GIVEN("A program with invalid nested pipeline parameters") {
+    std::string invalid_json = R"({
+      "prototypes": {
+        "nestedProcessor": {
+          "parameters": [
+            {"name": "outer_window", "type": "number"}
+          ],
+          "operators": [
+            {
+              "type": "Pipeline",
+              "id": "outer",
+              "input_port_types": ["number"],
+              "output_port_types": ["number"],
+              "operators": [
+                {
+                  "type": "Pipeline",
+                  "id": "inner",
+                  "input_port_types": ["number"],
+                  "output_port_types": ["number"],
+                  "operators": [
+                    {"type": "MovingAverage", "id": "ma", "window_size": "${nonexistent_param}"}
+                  ],
+                  "connections": [],
+                  "entryOperator": "ma",
+                  "outputMappings": {
+                    "ma": {"o1": "o1"}
+                  }
+                }
+              ],
+              "connections": [],
+              "entryOperator": "inner",
+              "outputMappings": {
+                "inner": {"o1": "o1"}
+              }
+            }
+          ],
+          "connections": [],
+          "entry": {"operator": "outer"},
+          "output": {"operator": "outer"}
+        }
+      },
+      "operators": [
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {
+          "id": "proc1",
+          "prototype": "nestedProcessor",
+          "parameters": {
+            "outer_window": 3
+          }
+        },
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "input1", "to": "proc1"},
+        {"from": "proc1", "to": "output1"}
+      ],
+      "entryOperator": "input1",
+      "output": {
+        "output1": ["o1"]
+      }
+    })";
+
+    THEN("Program creation fails with appropriate error") {
+      REQUIRE_THROWS_WITH(Program(invalid_json), Catch::Contains("Unknown parameter reference '${nonexistent_param}'"));
+    }
+  }
+}
