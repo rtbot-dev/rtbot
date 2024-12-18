@@ -176,6 +176,43 @@ class Program:
         self.output[operator_id] = ports
         return self
 
+    def to_mermaid(self) -> str:
+        """Convert program structure to Mermaid.js flowchart representation."""
+        # Start with flowchart definition, left-to-right
+        lines = ["flowchart LR"]
+        
+        # Create nodes for each operator
+        for op in self.operators:
+            op_id = op["id"]
+            op_type = op["type"]
+            
+            # Special styling for entry operator
+            if op_id == self.entryOperator:
+                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]:::entry')
+            # Special styling for output operators
+            elif op_id in self.output:
+                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]:::output')
+            else:
+                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]')
+        
+        # Add connections
+        for conn in self.connections:
+            from_op = conn["from"]
+            to_op = conn["to"]
+            from_port = conn.get("fromPort", "o1")
+            to_port = conn.get("toPort", "i1")
+            
+            # Add port labels to connection
+            lines.append(f'    {from_op} -- "{from_port} → {to_port}" --> {to_op}')
+        
+        # Add class definitions
+        lines.extend([
+            "    classDef entry fill:#f96",
+            "    classDef output fill:#9cf"
+        ])
+        
+        return "\n".join(lines)
+
 class Connection(dict):
     def __init__(self, from_op: str, to_op: str, from_port: str, to_port: str):
         super().__init__()
