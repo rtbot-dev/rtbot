@@ -97,6 +97,7 @@ class Pipeline : public Operator {
   }
 
   void reset() override {
+    RTBOT_LOG_DEBUG("Resetting pipeline");
     // First reset our own state
     Operator::reset();
 
@@ -119,12 +120,11 @@ class Pipeline : public Operator {
     // If we produced output, reset the pipeline for next iteration
     if (has_output) {
       reset();
-    } else {
-      // Just clear outputs if no processing happened
-      Operator::clear_all_output_ports();
-      for (auto& [_, op] : operators_) {
-        op->clear_all_output_ports();
-      }
+    }
+
+    Operator::clear_all_output_ports();
+    for (auto& [_, op] : operators_) {
+      op->clear_all_output_ports();
     }
   }
 

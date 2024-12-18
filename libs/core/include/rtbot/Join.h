@@ -87,6 +87,13 @@ class Join : public Operator {
     }
   }
 
+  void reset() override {
+    Operator::reset();
+    for (auto& [_, tracker] : data_time_tracker_) {
+      tracker.clear();
+    }
+  }
+
   void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     auto time = msg->time;
     Operator::receive_data(std::move(msg), port_index);
