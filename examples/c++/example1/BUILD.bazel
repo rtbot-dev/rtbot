@@ -6,24 +6,8 @@ cc_binary(
         "**/*.cpp",
         "**/*.h",
     ]),
-    # optimize binary size
-    # see http://ptspts.blogspot.com/2013/12/how-to-make-smaller-c-and-c-binaries.html
-    copts = [
-        "-s",
-        "-Os",
-        "-fno-exceptions",
-        "-fno-rtti",
-        "-fno-stack-protector",
-        "-ffunction-sections",
-        "-fdata-sections",
-        "-fno-math-errno",
-        "-fmerge-all-constants",
-        "-fno-ident",
-        "-Wall",
-    ],
     visibility = ["//visibility:public"],
     deps = [
-        "//libs/core/lib:rtbot",
-        "//libs/core/api:rtbot-api",
+        "//libs/api:rtbot-api",
     ],
 )

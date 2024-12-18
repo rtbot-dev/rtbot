@@ -1,0 +1,38 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob(
+        [
+            "**/*.cpp",
+            "**/*.h",
+        ],
+        exclude = ["benchmark*"],
+    ),
+    copts = [
+        "-Iexternal/lua",
+    ],
+    deps = [
+        "//libs/extension:rtbot-extension",
+        "@catch2",
+    ] + select({
+        "//:enable_telemetry": [
+            "@io_opentelemetry_cpp//api",
+            "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",
+            "@io_opentelemetry_cpp//sdk/src/trace",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_binary(
+    name = "benchmark",
+    srcs = glob(["benchmark_*.cpp"]),
+    copts = [
+        "-Iexternal/lua",
+    ],
+    deps = [
+        "//libs/extension:rtbot-extension",
+        "//libs/std:rtbot-std",
+    ],
+)

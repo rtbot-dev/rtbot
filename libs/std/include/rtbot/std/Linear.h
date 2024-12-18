@@ -2,52 +2,69 @@
 #define LINEAR_H
 
 #include "rtbot/Join.h"
+#include "rtbot/Message.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Linear : public Join<T, V> {
-  Linear() = default;
-
-  Linear(string const& id, vector<V> const& coeff) : Join<T, V>(id) {
-    if (coeff.size() < 2) throw runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-    this->coeff = coeff;
-
-    for (size_t i = 1; i <= this->coeff.size(); i++) {
-      string inputPort = string("i") + to_string(i);
-      this->addDataInput(inputPort, 0);
+class Linear : public Join {
+ public:
+  Linear(std::string id, const std::vector<double>& coeffs)
+      : Join(std::move(id), std::vector<std::string>(coeffs.size(), PortType::NUMBER)), coeffs_(coeffs) {
+    if (coeffs.size() < 2) {
+      throw std::runtime_error("Linear operator requires at least 2 coefficients");
     }
-    this->addOutput("o1");
   }
 
-  string typeName() const override { return "Linear"; }
+  std::string type_name() const override { return "Linear"; }
+  const std::vector<double>& get_coefficients() const { return coeffs_; }
 
-  OperatorMessage<T, V> processData() override {
-    OperatorMessage<T, V> outputMsgs;
-    int i = 0;
-    Message<T, V> out;
-    out.value = 0;
-    out.time = 0;
-    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-      out.value = out.value + it->second.front().value * this->coeff.at(i);
-      out.time = it->second.front().time;
-      i++;
+ protected:
+  void process_data() override {
+    // Call Join's process_data to handle synchronization
+    Join::process_data();
+
+    // Get first output queue for reference
+    auto& output0 = get_output_queue(0);
+    if (output0.empty()) {
+      return;
     }
 
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
+    // Process all synchronized messages
+    for (size_t write_index = 0; write_index < output0.size(); write_index++) {
+      double result = 0.0;
+      timestamp_t time = output0[write_index]->time;
 
-    return outputMsgs;
+      // Calculate linear combination
+      for (size_t i = 0; i < coeffs_.size(); i++) {
+        auto& queue = get_output_queue(i);
+        if (write_index >= queue.size()) continue;
+
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(queue[write_index].get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in Linear");
+        }
+        result += coeffs_[i] * msg->data.value;
+      }
+
+      // Store result in first output queue
+      output0[write_index] = create_message<NumberData>(time, NumberData{result});
+    }
+
+    // Clear other output queues
+    for (size_t i = 1; i < coeffs_.size(); i++) {
+      get_output_queue(i).clear();
+    }
   }
-
-  vector<V> getCoefficients() const { return this->coeff; }
 
  private:
-  vector<V> coeff;
+  std::vector<double> coeffs_;
 };
+
+// Factory function
+inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs) {
+  return std::make_shared<Linear>(std::move(id), coeffs);
+}
 
 }  // namespace rtbot
 
