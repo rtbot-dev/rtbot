@@ -123,6 +123,11 @@ std::string validate_operator(const std::string& type, const std::string& json_o
   try {
     std::optional<json> schema;
     for (const auto& it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {
+      // If is a prototype, skip
+      if (it.contains("properties") && it["properties"].contains("prototype")) {
+        continue;
+      }
+
       if (type == it["properties"]["type"]["enum"][0]) {
         schema = std::optional{it};
         break;

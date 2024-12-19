@@ -171,18 +171,26 @@ program
     if (target === "python") {
       const opSchemas = programJsonschema.properties.operators.items.oneOf;
       const pythonContent = pythonTemplate({
-        operators: opSchemas.map((s: any) => ({
-          type: s.properties.type.enum[0],
-          parameters: Object.keys(s.properties)
-            .filter((p) => p !== "type")
-            .map((k) => ({
-              name: k,
-              init:
-                s.required.indexOf(k) > -1
-                  ? ""
-                  : ` = ${s.properties[k].default ?? "None"}`.replace("true", "True").replace("false", "False"),
-            })),
-        })),
+        operators: opSchemas
+          .map((s: any) => {
+            if (!s.properties.type?.enum) {
+              return;
+            }
+
+            return {
+              type: s.properties.type.enum[0],
+              parameters: Object.keys(s.properties)
+                .filter((p) => p !== "type")
+                .map((k) => ({
+                  name: k,
+                  init:
+                    s.required.indexOf(k) > -1
+                      ? ""
+                      : ` = ${s.properties[k].default ?? "None"}`.replace("true", "True").replace("false", "False"),
+                })),
+            };
+          })
+          .filter((s) => s),
       });
       fs.writeFileSync(`${output}/jsonschema.py`, pythonContent);
     }

@@ -109,6 +109,7 @@ class Program:
         connections: Optional[List[Dict]] = None,
         entryOperator: Optional[str] = None,
         output: Optional[Dict[str, Union[List[str], Dict[str, str]]]] = None,
+        prototypes: Optional[Dict[str, Dict]] = None,
         title: Optional[str] = None,
         description: Optional[str] = None,
         apiVersion: Optional[str] = "v1",
@@ -126,6 +127,7 @@ class Program:
         self.connections = connections or []
         self.entryOperator = entryOperator
         self.output = output or {}
+        self.prototypes = prototypes or {}
         self.id = f"{random.randrange(16**4):04x}"
 
     def to_json(self) -> str:
@@ -137,6 +139,9 @@ class Program:
             "output": self.output
         }
         
+        if self.prototypes:
+            obj["prototypes"] = self.prototypes
+
         for field in ["title", "author", "description", "license", "date"]:
             if getattr(self, field):
                 obj[field] = getattr(self, field)
@@ -174,6 +179,60 @@ class Program:
             raise Exception(f"Operator {operator_id} not found in program")
         
         self.output[operator_id] = ports
+        return self
+    def add_prototype(self, prototype_id: str, prototype_def: Dict) -> 'Program':
+        """Add a prototype definition to the program.
+        
+        Args:
+            prototype_id: Unique identifier for the prototype
+            prototype_def: Dictionary containing prototype definition including:
+                - parameters: List of parameter definitions
+                - operators: List of operator definitions
+                - connections: List of connections
+                - entry: Entry operator configuration
+                - output: Output operator configuration
+        """
+        required_keys = ["parameters", "operators", "connections", "entry", "output"]
+        missing_keys = [key for key in required_keys if key not in prototype_def]
+        if missing_keys:
+            raise ValueError(f"Prototype definition missing required keys: {missing_keys}")
+
+        self.prototypes[prototype_id] = prototype_def
+        return self
+
+    def instantiate_prototype(self, instance_id: str, prototype_id: str, parameters: Dict[str, Any] = None) -> 'Program':
+        """Create an instance of a prototype.
+        
+        Args:
+            instance_id: Unique identifier for the prototype instance
+            prototype_id: ID of the prototype to instantiate
+            parameters: Dictionary of parameter values for the prototype
+        """
+        if prototype_id not in self.prototypes:
+            raise ValueError(f"Prototype '{prototype_id}' not found")
+        
+        proto_def = self.prototypes[prototype_id]
+        params = parameters or {}
+
+        # Validate required parameters are provided
+        required_params = [p["name"] for p in proto_def["parameters"] if "default" not in p]
+        missing_params = [p for p in required_params if p not in params]
+        if missing_params:
+            raise ValueError(f"Missing required parameters for prototype '{prototype_id}': {missing_params}")
+
+        # Apply default values
+        for param in proto_def["parameters"]:
+            if param["name"] not in params and "default" in param:
+                params[param["name"]] = param["default"]
+
+        # Create operator instance with resolved parameters
+        instance = {
+            "id": instance_id,
+            "prototype": prototype_id,
+            "parameters": params
+        }
+        
+        self.operators.append(instance)
         return self
 
     def to_mermaid(self) -> str:

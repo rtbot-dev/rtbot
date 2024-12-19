@@ -230,5 +230,141 @@ class RtBotTest(unittest.TestCase):
         
         api.delete_program(program_id)
 
+    def test_prototype_support(self):
+        program_json = {
+            "title": "Prototype Test",
+            "apiVersion": "v1",
+            "prototypes": {
+                "moving_average": {
+                    "parameters": [
+                        {"name": "window_size", "type": "number", "default": 3},
+                        {"name": "scale", "type": "number"}
+                    ],
+                    "operators": [
+                        {"id": "ma", "type": "MovingAverage", "window_size": "${window_size}"},
+                        {"id": "scale", "type": "Scale", "value": "${scale}"}
+                    ],
+                    "connections": [
+                        {"from": "ma", "to": "scale"}
+                    ],
+                    "entry": {
+                        "operator": "ma",
+                        "port": "i1"
+                    },
+                    "output": {
+                        "operator": "scale", 
+                        "port": "o1"
+                    }
+                }
+            },
+            "operators": [
+                {"id": "input", "type": "Input", "portTypes": ["number"]},
+                {"id": "ma_instance1", "prototype": "moving_average", "parameters": {"scale": 2.0, "window_size": 5}},
+                {"id": "output", "type": "Output", "portTypes": ["number"]}
+            ],
+            "connections": [
+                {"from": "input", "to": "ma_instance1"},
+                {"from": "ma_instance1", "to": "output"}
+            ],
+            "entryOperator": "input",
+            "output": {"output": ["o1"]}
+        }
+        program_id = self.get_unique_program_id()
+        result = api.create_program(program_id, json.dumps(program_json))
+        self.assertEqual(result, "", "Program creation failed")
+        api.delete_program(program_id)
+
+    def test_prototype_parameter_validation(self):
+        """Test prototype parameter validation"""
+        program = rtbot.Program(
+            prototypes={
+                "test_proto": {
+                    "parameters": [
+                        {"name": "required_param", "type": "number"},
+                        {"name": "optional_param", "type": "number", "default": 1.0}
+                    ],
+                    "operators": [],
+                    "connections": [],
+                    "entry": {"operator": "dummy", "port": "i1"},
+                    "output": {"operator": "dummy", "port": "o1"}
+                }
+            }
+        )
+
+        # Test missing required parameter
+        with self.assertRaises(ValueError) as ctx:
+            program.instantiate_prototype("instance1", "test_proto", {})
+        self.assertIn("Missing required parameters", str(ctx.exception))
+
+        # Test with only required parameter
+        program.instantiate_prototype("instance2", "test_proto", {
+            "required_param": 42
+        })
+
+        # Test non-existent prototype
+        with self.assertRaises(ValueError) as ctx:
+            program.instantiate_prototype("instance3", "nonexistent", {})
+        self.assertIn("not found", str(ctx.exception))
+
+    def test_prototype_execution(self):
+        """Test execution of a program using prototypes"""
+        program_json = {
+            "apiVersion": "v1",
+            "prototypes": {
+                "ma_scale": {
+                    "parameters": [
+                        {"name": "window_size", "type": "number"},
+                        {"name": "scale", "type": "number"}
+                    ],
+                    "operators": [
+                        {"id": "ma", "type": "MovingAverage", "window_size": "${window_size}"},
+                        {"id": "scale", "type": "Scale", "value": "${scale}"}
+                    ],
+                    "connections": [
+                        {"from": "ma", "to": "scale"}
+                    ],
+                    "entry": {"operator": "ma"},
+                    "output": {"operator": "scale"}
+                }
+            },
+            "operators": [
+                {"id": "in1", "type": "Input", "portTypes": ["number"]},
+                {
+                    "id": "ma_instance",
+                    "prototype": "ma_scale",
+                    "parameters": {"window_size": 3, "scale": 2.0}
+                },
+                {"id": "out1", "type": "Output", "portTypes": ["number"]}
+            ],
+            "connections": [
+                {"from": "in1", "to": "ma_instance"},
+                {"from": "ma_instance", "to": "out1"}
+            ],
+            "entryOperator": "in1",
+            "output": {"out1": ["o1"]}
+        }
+
+        program_id = self.get_unique_program_id()
+        result = api.create_program(program_id, json.dumps(program_json))
+        self.assertEqual(result, "")
+
+        # Send test data 
+        test_values = [1.0, 2.0, 3.0, 4.0, 5.0]
+        for i, val in enumerate(test_values):
+            api.add_to_message_buffer(program_id, "i1", i+1, val)
+        
+        result = json.loads(api.process_message_buffer_debug(program_id))
+        
+        # Expected: First 3 values averaged then scaled by 2
+        # 2.0 = (1 + 2 + 3)/3 * 2
+        # 3.0 = (2 + 3 + 4)/3 * 2
+        # 4.0 = (3 + 4 + 5)/3 * 2
+        final_values = [msg["value"] for msg in result["out1"]["o1"]][-3:]
+        self.assertAlmostEqual(final_values[0], 4.0)  
+        self.assertAlmostEqual(final_values[1], 6.0)
+        self.assertAlmostEqual(final_values[2], 8.0)
+        
+        api.delete_program(program_id)
+
 if __name__ == "__main__":
     unittest.main()
