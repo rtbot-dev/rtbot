@@ -139,8 +139,8 @@ auto pipeline = std::make_shared<Pipeline>(
 auto ma = std::make_shared<MovingAverage>("ma1", 10);
 auto peak = std::make_shared<PeakDetector>("peak1", 5);
 
-pipeline->register_operator("ma1", ma);
-pipeline->register_operator("peak1", peak);
+pipeline->register_operator(ma);
+pipeline->register_operator(peak);
 
 // Set entry point
 pipeline->set_entry("ma1");

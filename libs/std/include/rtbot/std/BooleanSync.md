@@ -47,7 +47,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalOr
@@ -62,7 +62,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalXor
@@ -77,7 +77,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalNand
@@ -92,7 +92,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalNor
@@ -107,7 +107,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalXnor
@@ -122,7 +122,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
   - type: object
     title: LogicalImplication
@@ -137,7 +137,7 @@ jsonschemas:
         type: integer
         minimum: 2
         default: 2
-        description: Number of input ports (default: 2)
+        description: "Number of input ports (default: 2)"
     required: ["id"]
 ---
 

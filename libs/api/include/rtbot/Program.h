@@ -144,37 +144,17 @@ class Program {
     RTBOT_LOG_DEBUG("Initializing program from JSON");
     auto j = json::parse(program_json_);
 
+    // First pass: Create all operators
     for (const json& op_json : j["operators"]) {
-      string id = op_json["id"];
-      RTBOT_LOG_DEBUG("Creating operator: ", op_json.dump());
-      operators_[id] = OperatorJson::read_op(op_json.dump());
-      RTBOT_LOG_DEBUG("...created operator: ", id);
+      create_operator("", op_json);
     }
 
-    RTBOT_LOG_DEBUG("All operators created, connecting them");
-
+    // Second pass: Create connections
     for (const json& conn : j["connections"]) {
-      RTBOT_LOG_DEBUG("Connecting operators: ", conn.dump());
-      string from_id = conn["from"];
-      string to_id = conn["to"];
-
-      // Default to "o1" and "i1" if ports not specified
-      auto from_port = OperatorJson::parse_port_name(conn.value("fromPort", "o1"));
-      auto to_port = OperatorJson::parse_port_name(conn.value("toPort", "i1"));
-
-      if (conn.contains("toPortType")) {
-        to_port.kind = conn["toPortType"] == "control" ? PortKind::CONTROL : PortKind::DATA;
-      }
-
-      if (!operators_[from_id] || !operators_[to_id]) {
-        throw runtime_error("Program: invalid operator reference in connection from " + from_id + " to " + to_id);
-      }
-
-      operators_[from_id]->connect(operators_[to_id], from_port.index, to_port.index, to_port.kind);
+      create_connection(conn);
     }
 
     entry_operator_id_ = j["entryOperator"];
-    RTBOT_LOG_DEBUG("Entry operator: ", entry_operator_id_);
     if (!operators_[entry_operator_id_]) {
       throw runtime_error("Entry operator not found: " + entry_operator_id_);
     }
@@ -185,14 +165,68 @@ class Program {
     }
 
     for (auto it = j["output"].begin(); it != j["output"].end(); ++it) {
-      string op_id = it.key();
+      string op_id = resolve_operator_id(it.key());  // Use resolve_operator_id here
       vector<size_t> ports;
       for (const auto& port : it.value()) {
         ports.push_back(OperatorJson::parse_port_name(port).index);
       }
       output_mappings_[op_id] = ports;
     }
-    RTBOT_LOG_DEBUG("Program initialized");
+  }
+
+  void create_operator(const std::string& parent_prefix, const json& op_json) {
+    string local_id = op_json["id"];
+    string qualified_id = parent_prefix.empty() ? local_id : parent_prefix + "::" + local_id;
+
+    auto op = OperatorJson::read_op(op_json.dump());
+    operators_[qualified_id] = op;
+
+    // If this is a Pipeline, recursively create its internal operators
+    if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
+      auto pipeline_json = json::parse(op_json.dump());
+      if (pipeline_json.contains("operators")) {
+        for (const auto& internal_op : pipeline_json["operators"]) {
+          create_operator(qualified_id, internal_op);
+        }
+      }
+    }
+  }
+
+  void create_connection(const json& conn) {
+    string from_qual_id = resolve_operator_id(conn["from"]);
+    string to_qual_id = resolve_operator_id(conn["to"]);
+
+    auto from_port = OperatorJson::parse_port_name(conn.value("fromPort", "o1"));
+    auto to_port = OperatorJson::parse_port_name(conn.value("toPort", "i1"));
+
+    if (conn.contains("toPortType")) {
+      to_port.kind = conn["toPortType"] == "control" ? PortKind::CONTROL : PortKind::DATA;
+    }
+
+    if (!operators_[from_qual_id] || !operators_[to_qual_id]) {
+      throw runtime_error("Invalid operator reference in connection from " + from_qual_id + " to " + to_qual_id);
+    }
+
+    operators_[from_qual_id]->connect(operators_[to_qual_id], from_port.index, to_port.index, to_port.kind);
+  }
+
+  string resolve_operator_id(const string& id) {
+    // First check if it's already a qualified ID
+    if (operators_.find(id) != operators_.end()) {
+      return id;
+    }
+
+    // Search through all qualified IDs for a match
+    string suffix = "::" + id;
+    for (const auto& [qual_id, _] : operators_) {
+      if ((qual_id.length() >= suffix.length() &&
+           qual_id.compare(qual_id.length() - suffix.length(), suffix.length(), suffix) == 0) ||
+          qual_id == id) {
+        return qual_id;
+      }
+    }
+
+    throw runtime_error("Could not resolve operator ID: " + id);
   }
 
   void send_to_entry(const Message<NumberData>& msg, const std::string& port_id) {
@@ -201,94 +235,91 @@ class Program {
     operators_[entry_operator_id_]->execute();
   }
 
-  ProgramMsgBatch collect_filtered_outputs() {
-    ProgramMsgBatch batch;
-
-    for (const auto& [op_id, port_indices] : output_mappings_) {
-      if (operators_.find(op_id) != operators_.end()) {
-        OperatorMsgBatch op_batch;
-
-        for (size_t port_idx : port_indices) {
-          string port_name = "o" + to_string(port_idx + 1);
-          const auto& queue = operators_[op_id]->get_output_queue(port_idx);
-
-          if (!queue.empty()) {
-            PortMsgBatch port_msgs;
-            for (const auto& msg : queue) {
-              port_msgs.push_back(std::move(msg->clone()));
-            }
-            op_batch[port_name] = std::move(port_msgs);
-          }
-        }
-
-        if (!op_batch.empty()) {
-          batch[op_id] = std::move(op_batch);
-        }
-      }
-    }
-
-    return batch;
-  }
-
   ProgramMsgBatch collect_outputs(bool debug_mode = false) {
     ProgramMsgBatch batch;
 
-    std::function<void(const std::string&, const std::shared_ptr<Operator>&)> collect_operator_outputs =
-        [&](const std::string& op_id, const std::shared_ptr<Operator>& op) {
-          // Skip if not in debug mode and this operator is not in output_mappings_
-          if (!debug_mode && output_mappings_.find(op_id) == output_mappings_.end()) {
-            return;
-          }
+    std::function<void(const std::string&, const std::shared_ptr<Operator>&, const std::string&)>
+        collect_operator_outputs =
+            [&](const std::string& op_id, const std::shared_ptr<Operator>& op, const std::string& parent_prefix) {
+              // Build fully qualified ID
+              std::string qualified_id = parent_prefix.empty() ? op_id : parent_prefix + "::" + op_id;
 
-          OperatorMsgBatch op_batch;
-          bool has_messages = false;
+              // Skip if not in debug mode and this operator is not in output_mappings_
+              if (!debug_mode && output_mappings_.find(qualified_id) == output_mappings_.end()) {
+                return;
+              }
 
-          // In debug mode, collect all ports
-          if (debug_mode) {
-            for (size_t i = 0; i < op->num_output_ports(); i++) {
-              const auto& queue = op->get_output_queue(i);
-              if (!queue.empty()) {
-                PortMsgBatch port_msgs;
-                for (const auto& msg : queue) {
-                  port_msgs.push_back(msg->clone());
+              OperatorMsgBatch op_batch;
+              bool has_messages = false;
+
+              // In debug mode, collect all ports
+              if (debug_mode) {
+                for (size_t i = 0; i < op->num_output_ports(); i++) {
+                  const auto& queue = op->get_output_queue(i);
+                  if (!queue.empty()) {
+                    PortMsgBatch port_msgs;
+                    for (const auto& msg : queue) {
+                      port_msgs.push_back(msg->clone());
+                    }
+                    op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
+                    has_messages = true;
+                  }
                 }
-                op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
-                has_messages = true;
               }
-            }
-          }
-          // Otherwise only collect mapped ports
-          else {
-            const auto& port_indices = output_mappings_[op_id];
-            for (size_t port_idx : port_indices) {
-              const auto& queue = op->get_output_queue(port_idx);
-              if (!queue.empty()) {
-                PortMsgBatch port_msgs;
-                for (const auto& msg : queue) {
-                  port_msgs.push_back(msg->clone());
+              // Otherwise only collect mapped ports
+              else {
+                const auto& port_indices = output_mappings_[qualified_id];
+                for (size_t port_idx : port_indices) {
+                  const auto& queue = op->get_output_queue(port_idx);
+                  if (!queue.empty()) {
+                    PortMsgBatch port_msgs;
+                    for (const auto& msg : queue) {
+                      port_msgs.push_back(msg->clone());
+                    }
+                    op_batch["o" + std::to_string(port_idx + 1)] = std::move(port_msgs);
+                    has_messages = true;
+                  }
                 }
-                op_batch["o" + std::to_string(port_idx + 1)] = std::move(port_msgs);
-                has_messages = true;
               }
-            }
-          }
 
-          if (has_messages) {
-            batch[op_id] = std::move(op_batch);
-          }
-
-          // Only traverse pipeline if in debug mode
-          if (debug_mode) {
-            if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
-              for (const auto& [internal_id, internal_op] : pipeline->get_operators()) {
-                collect_operator_outputs(internal_id, internal_op);
+              if (has_messages) {
+                batch[qualified_id] = std::move(op_batch);
               }
-            }
-          }
-        };
 
+              // Recursively handle Pipeline operators
+              if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
+                for (const auto& [internal_id, internal_op] : pipeline->get_operators()) {
+                  // Pass qualified_id as the new parent prefix for nested operators
+                  collect_operator_outputs(internal_id, internal_op, qualified_id);
+                }
+
+                // Handle Pipeline output mappings in debug mode
+                if (debug_mode && pipeline->get_output_mappings().size() > 0) {
+                  for (const auto& [mapped_op_id, mappings] : pipeline->get_output_mappings()) {
+                    auto mapped_qualified_id = qualified_id + "::" + mapped_op_id;
+                    auto mapped_op = pipeline->get_operators().find(mapped_op_id);
+                    if (mapped_op != pipeline->get_operators().end()) {
+                      for (const auto& [op_port, pipeline_port] : mappings) {
+                        const auto& queue = mapped_op->second->get_output_queue(op_port);
+                        if (!queue.empty()) {
+                          if (batch[mapped_qualified_id].empty()) {
+                            batch[mapped_qualified_id] = OperatorMsgBatch();
+                          }
+                          PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(pipeline_port + 1)];
+                          for (const auto& msg : queue) {
+                            port_msgs.push_back(msg->clone());
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            };
+
+    // Start collection from top-level operators with empty parent prefix
     for (const auto& [op_id, op] : operators_) {
-      collect_operator_outputs(op_id, op);
+      collect_operator_outputs(op_id, op, "");
     }
 
     return batch;

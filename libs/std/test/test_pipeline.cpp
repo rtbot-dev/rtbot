@@ -51,8 +51,8 @@ SCENARIO("Pipeline handles internal operator configuration", "[pipeline]") {
     auto peak = std::make_shared<PeakDetector>("peak1", 3);
 
     WHEN("Configuring internal operators") {
-      pipeline->register_operator("ma1", ma);
-      pipeline->register_operator("peak1", peak);
+      pipeline->register_operator(ma);
+      pipeline->register_operator(peak);
       pipeline->set_entry("ma1");
       pipeline->connect("ma1", "peak1");
       pipeline->add_output_mapping("peak1", 0, 0);
@@ -83,7 +83,7 @@ SCENARIO("Pipeline handles internal operator configuration", "[pipeline]") {
     }
 
     WHEN("Trying to connect non-existent operators") {
-      pipeline->register_operator("ma1", ma);
+      pipeline->register_operator(ma);
 
       THEN("Error is thrown") { REQUIRE_THROWS_AS(pipeline->connect("ma1", "non_existent"), std::runtime_error); }
     }
@@ -93,7 +93,7 @@ SCENARIO("Pipeline handles internal operator configuration", "[pipeline]") {
     }
 
     WHEN("Adding invalid output mapping") {
-      pipeline->register_operator("peak1", peak);
+      pipeline->register_operator(peak);
 
       THEN("Error is thrown") { REQUIRE_THROWS_AS(pipeline->add_output_mapping("peak1", 0, 999), std::runtime_error); }
     }
@@ -106,7 +106,7 @@ SCENARIO("Pipeline handles state reset correctly", "[pipeline]") {
                                                std::vector<std::string>{PortType::NUMBER});
 
     auto ma = std::make_shared<MovingAverage>("ma1", 2);
-    pipeline->register_operator("ma1", ma);
+    pipeline->register_operator(ma);
     pipeline->set_entry("ma1");
     pipeline->add_output_mapping("ma1", 0, 0);
 
@@ -142,7 +142,7 @@ SCENARIO("Pipeline handles type checking", "[pipeline]") {
                                                std::vector<std::string>{PortType::NUMBER});
 
     auto ma = std::make_shared<MovingAverage>("ma1", 2);
-    pipeline->register_operator("ma1", ma);
+    pipeline->register_operator(ma);
     pipeline->set_entry("ma1");
     pipeline->add_output_mapping("ma1", 0, 0);
 
@@ -189,8 +189,8 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][serializa
     auto peak = std::make_shared<PeakDetector>("peak1", 3);
 
     // Register operators and set up configuration
-    pipeline->register_operator("ma1", ma);
-    pipeline->register_operator("peak1", peak);
+    pipeline->register_operator(ma);
+    pipeline->register_operator(peak);
     pipeline->set_entry("ma1");
     pipeline->connect("ma1", "peak1");
     pipeline->add_output_mapping("peak1", 0, 0);
@@ -207,8 +207,8 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][serializa
 
         THEN("Pipeline requires operator re-registration") {
           // Re-register operators
-          restored->register_operator("ma1", ma);
-          restored->register_operator("peak1", peak);
+          restored->register_operator(ma);
+          restored->register_operator(peak);
           restored->set_entry("ma1");
           restored->connect("ma1", "peak1");
           restored->add_output_mapping("peak1", 0, 0);

@@ -58,7 +58,7 @@ class Pipeline : public Operator {
   }
 
   // API for configuring the pipeline
-  void register_operator(const std::string& id, std::shared_ptr<Operator> op) { operators_[id] = std::move(op); }
+  void register_operator(std::shared_ptr<Operator> op) { operators_[op->id()] = std::move(op); }
 
   void set_entry(const std::string& op_id, size_t port = 0) {
     auto it = operators_.find(op_id);

@@ -206,30 +206,43 @@ std::string process_batch_debug(const std::string& program_id, const std::vector
 }
 
 std::string pretty_print(const std::string& json_output) {
+  const std::string BLUE = "\033[0;34m";
+  const std::string CYAN = "\033[0;36m";
+  const std::string YELLOW = "\033[0;33m";
   const std::string RESET = "\033[0m";
-  const std::string BOLD = "\033[1m";
-  const std::string RED = "\033[31m";
-  const std::string GREEN = "\033[32m";
-  const std::string YELLOW = "\033[33m";
-  const std::string BLUE = "\033[34m";
-  const std::string MAGENTA = "\033[35m";
 
-  json output = json::parse(json_output);
+  auto output = json::parse(json_output);
   std::stringstream ss;
 
-  ss << BOLD << BLUE << "=== Program Output ===" << RESET << "\n\n";
+  for (auto op_it = output.begin(); op_it != output.end(); ++op_it) {
+    const auto& op_id = op_it.key();
+    const auto& op_data = op_it.value();
 
-  for (const auto& [op_id, op_data] : output.items()) {
-    ss << BOLD << MAGENTA << "Operator: " << op_id << RESET << "\n";
+    bool first_port = true;
+    for (auto port_it = op_data.begin(); port_it != op_data.end(); ++port_it) {
+      const auto& port_name = port_it.key();
+      const auto& messages = port_it.value();
 
-    for (const auto& [port_name, messages] : op_data.items()) {
-      ss << YELLOW << "  Port: " << port_name << RESET << "\n";
-
-      for (const auto& msg : messages) {
-        ss << GREEN << "    Time: " << std::setw(10) << msg["time"].get<uint64_t>();
-        ss << RED << " | Value: " << std::setw(10) << std::fixed << std::setprecision(4) << msg["value"].get<double>()
-           << RESET << "\n";
+      if (first_port) {
+        ss << BLUE << op_id << RESET << ":" << CYAN << port_name << RESET << " -> ";
+        first_port = false;
+      } else {
+        ss << std::string(op_id.length(), ' ') << ":" << CYAN << port_name << RESET << " -> ";
       }
+
+      bool first_msg = true;
+      for (const auto& msg : messages) {
+        if (!first_msg) ss << ", ";
+        ss << "(" << msg["time"].get<uint64_t>() << ", " << YELLOW << msg["value"].get<double>() << RESET << ")";
+        first_msg = false;
+      }
+
+      if (std::next(port_it) != op_data.end()) {
+        ss << "\n";
+      }
+    }
+
+    if (std::next(op_it) != output.end()) {
       ss << "\n";
     }
   }
@@ -238,30 +251,44 @@ std::string pretty_print(const std::string& json_output) {
 }
 
 std::string pretty_print(const ProgramMsgBatch& batch) {
+  const std::string BLUE = "\033[0;34m";
+  const std::string CYAN = "\033[0;36m";
+  const std::string YELLOW = "\033[0;33m";
   const std::string RESET = "\033[0m";
-  const std::string BOLD = "\033[1m";
-  const std::string RED = "\033[31m";
-  const std::string GREEN = "\033[32m";
-  const std::string YELLOW = "\033[33m";
-  const std::string BLUE = "\033[34m";
-  const std::string MAGENTA = "\033[35m";
 
   std::stringstream ss;
-  ss << BOLD << BLUE << "=== Program Output ===" << RESET << "\n\n";
 
-  for (const auto& [op_id, op_batch] : batch) {
-    ss << BOLD << MAGENTA << "Operator: " << op_id << RESET << "\n";
+  for (auto op_it = batch.begin(); op_it != batch.end(); ++op_it) {
+    const auto& op_id = op_it->first;
+    const auto& op_batch = op_it->second;
 
-    for (const auto& [port_name, messages] : op_batch) {
-      ss << YELLOW << "  Port: " << port_name << RESET << "\n";
+    bool first_port = true;
+    for (auto port_it = op_batch.begin(); port_it != op_batch.end(); ++port_it) {
+      const auto& port_name = port_it->first;
+      const auto& messages = port_it->second;
 
+      if (first_port) {
+        ss << BLUE << op_id << RESET << ":" << CYAN << port_name << RESET << " -> ";
+        first_port = false;
+      } else {
+        ss << std::string(op_id.length(), ' ') << ":" << CYAN << port_name << RESET << " -> ";
+      }
+
+      bool first_msg = true;
       for (const auto& msg : messages) {
         if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
-          ss << GREEN << "    Time: " << std::setw(10) << num_msg->time;
-          ss << RED << " | Value: " << std::setw(10) << std::fixed << std::setprecision(4) << num_msg->data.value
-             << RESET << "\n";
+          if (!first_msg) ss << ", ";
+          ss << "(" << num_msg->time << ", " << YELLOW << num_msg->data.value << RESET << ")";
+          first_msg = false;
         }
       }
+
+      if (std::next(port_it) != op_batch.end()) {
+        ss << "\n";
+      }
+    }
+
+    if (std::next(op_it) != batch.end()) {
       ss << "\n";
     }
   }

@@ -209,7 +209,7 @@ class OperatorJson {
         if (!op_json.contains("id") || !op_json.contains("type")) {
           throw std::runtime_error("Pipeline operators must have id and type fields");
         }
-        pipeline->register_operator(op_json["id"].get<std::string>(), read_op(op_json.dump()));
+        pipeline->register_operator(read_op(op_json.dump()));
       }
 
       // Configure connections

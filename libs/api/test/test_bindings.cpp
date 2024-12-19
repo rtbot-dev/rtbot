@@ -293,7 +293,7 @@ SCENARIO("Program and operator validation", "[bindings]") {
           std::vector<std::string> ports(7, "i1");
 
           auto batch = process_batch("complex_prog", times, values, ports);
-          std::cout << pretty_print(batch) << std::endl;
+          // std::cout << pretty_print(batch) << std::endl;
           auto result = json::parse(batch);
           REQUIRE(result.contains("output1"));
           REQUIRE(result["output1"].contains("o1"));

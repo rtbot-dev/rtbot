@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include "rtbot/Program.h"
+#include "rtbot/bindings.h"
 
 using namespace rtbot;
 
@@ -208,7 +209,7 @@ SCENARIO("Program handles debug mode", "[program]") {
 }
 
 SCENARIO("Program handles Pipeline operators", "[program][pipeline]") {
-  GIVEN("A program with a Pipeline containing multiple connected operators") {
+  GIVEN("A sprogram with a Pipeline containing multiple connected operators") {
     std::string program_json = R"({
             "operators": [
                 {"type": "Input", "id": "input1", "portTypes": ["number"]},
@@ -897,7 +898,6 @@ SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prot
 
       for (const auto& msg : messages) {
         auto final_batch = program.receive_debug(msg);
-
         if (msg.time == 6) {  // First STD output
           THEN("STD produces expected output for first set of values") {
             REQUIRE(final_batch.count("output1") == 1);
@@ -925,48 +925,43 @@ SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prot
       }
     }
 
-    // WHEN("Serializing and deserializing") {
-    //   // Process first three messages
-    //   for (int i = 1; i <= 3; i++) {
-    //     program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
-    //   }
+    WHEN("Serializing and deserializing") {
+      // Process first 5 messages (not enough for STD output)
+      for (int i = 1; i <= 5; i++) {
+        program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
+      }
 
-    //   Bytes serialized = program.serialize();
-    //   Program restored(serialized);
+      Bytes serialized = program.serialize();
+      Program restored(serialized);
 
-    //   // Send message that will produce first output
-    //   auto orig_batch4 = program.receive(Message<NumberData>(4, NumberData{40.0}));
-    //   auto rest_batch4 = restored.receive(Message<NumberData>(4, NumberData{40.0}));
+      // Send message that will produce first STD output
+      auto orig_batch = program.receive(Message<NumberData>(6, NumberData{60.0}));
+      auto rest_batch = restored.receive(Message<NumberData>(6, NumberData{60.0}));
 
-    //   // Both should emit at t=4
-    //   REQUIRE(!orig_batch4.empty());
-    //   REQUIRE(!rest_batch4.empty());
+      THEN("Both programs produce identical first output") {
+        REQUIRE(orig_batch.count("output1") == 1);
+        REQUIRE(rest_batch.count("output1") == 1);
+        REQUIRE(orig_batch["output1"].count("o1") == 1);
+        REQUIRE(rest_batch["output1"].count("o1") == 1);
 
-    //   const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_batch4["output1"]["o1"].back().get());
-    //   const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_batch4["output1"]["o1"].back().get());
+        const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_batch["output1"]["o1"].back().get());
+        const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_batch["output1"]["o1"].back().get());
 
-    //   REQUIRE(orig_msg->data.value == Approx(rest_msg->data.value));
+        REQUIRE(orig_msg != nullptr);
+        REQUIRE(rest_msg != nullptr);
+        REQUIRE(orig_msg->time == 6);
+        REQUIRE(rest_msg->time == 6);
+        REQUIRE(orig_msg->data.value == Approx(rest_msg->data.value));
 
-    //   // Process next three messages after reset
-    //   for (int i = 5; i <= 7; i++) {
-    //     auto orig = program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
-    //     auto rest = restored.receive(Message<NumberData>(i, NumberData{i * 10.0}));
-    //     REQUIRE(orig.empty());
-    //     REQUIRE(rest.empty());
-    //   }
+        // Verify state reset by processing another message
+        auto orig_next = program.receive(Message<NumberData>(7, NumberData{70.0}));
+        auto rest_next = restored.receive(Message<NumberData>(7, NumberData{70.0}));
 
-    //   // Both should emit again at t=8
-    //   auto orig_batch8 = program.receive(Message<NumberData>(8, NumberData{80.0}));
-    //   auto rest_batch8 = restored.receive(Message<NumberData>(8, NumberData{80.0}));
-
-    //   REQUIRE(!orig_batch8.empty());
-    //   REQUIRE(!rest_batch8.empty());
-
-    //   const auto* orig_msg8 = dynamic_cast<const Message<NumberData>*>(orig_batch8["output1"]["o1"].back().get());
-    //   const auto* rest_msg8 = dynamic_cast<const Message<NumberData>*>(rest_batch8["output1"]["o1"].back().get());
-
-    //   REQUIRE(orig_msg8->data.value == Approx(rest_msg8->data.value));
-    // }
+        // Both should have no output after reset
+        REQUIRE(orig_next.empty());
+        REQUIRE(rest_next.empty());
+      }
+    }
   }
 
   GIVEN("A program with invalid nested pipeline parameters") {
