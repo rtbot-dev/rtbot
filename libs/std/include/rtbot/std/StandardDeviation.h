@@ -10,7 +10,6 @@ namespace rtbot {
 // StandardDeviation needs mean and variance tracking
 struct StandardDeviationFeatures {
   static constexpr bool TRACK_SUM = false;      // Not needed directly
-  static constexpr bool TRACK_MEAN = true;      // Required for variance
   static constexpr bool TRACK_VARIANCE = true;  // Required for std dev
 };
 

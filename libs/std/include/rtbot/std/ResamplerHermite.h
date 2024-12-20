@@ -10,7 +10,6 @@ namespace rtbot {
 
 struct ResamplerFeatures {
   static constexpr bool TRACK_SUM = false;
-  static constexpr bool TRACK_MEAN = false;
   static constexpr bool TRACK_VARIANCE = false;
 };
 

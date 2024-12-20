@@ -64,7 +64,6 @@ Features can be enabled/disabled using the `BufferFeatures` struct:
 ```cpp
 struct BufferFeatures {
     static constexpr bool TRACK_SUM = true;      // Enable sum tracking
-    static constexpr bool TRACK_MEAN = true;     // Enable mean tracking
     static constexpr bool TRACK_VARIANCE = true; // Enable variance tracking
 };
 ```
@@ -145,7 +144,6 @@ Creating a moving average operator using Buffer:
 ```cpp
 struct MovingAverageFeatures {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = true;
   static constexpr bool TRACK_VARIANCE = false;
 };
 

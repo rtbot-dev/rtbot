@@ -355,7 +355,6 @@ void UIComponents::process_next_n_messages(AppState& state, size_t n) {
 }
 
 Component UIComponents::create_logger(const AppState& state) {
-  static int selected_log = 0;
   return Container::Vertical(
       {Renderer([] { return text("Logger") | bold | hcenter; }), Renderer([&] {
                                                                    Elements log_elements;

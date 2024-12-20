@@ -12,7 +12,6 @@ namespace rtbot {
 // Custom feature set - we only need sum tracking
 struct FIRFeatures {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = false;
   static constexpr bool TRACK_VARIANCE = false;
 };
 

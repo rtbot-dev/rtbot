@@ -13,7 +13,6 @@ namespace rtbot {
 // MovingAverage only needs sum and mean tracking
 struct MovingAverageFeatures {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = true;
   static constexpr bool TRACK_VARIANCE = false;
 };
 

@@ -3,6 +3,7 @@ import json
 import random
 import warnings
 import pandas as pd
+import numpy as np
 from typing import Optional, Dict, List, Any, Union
 
 class Run:
@@ -46,12 +47,25 @@ class Run:
         
         # Initialize columns for all ports regardless of mapping
         if self.debug:
+            # Handle both regular operators and prototype instances
             for operator in self.program.operators:
                 op_id = operator["id"]
-                num_ports = len(operator.get("portTypes", [1]))
-                for port_idx in range(num_ports):
-                    col_key = f"{op_id}:o{port_idx + 1}"
-                    df_data[col_key] = []
+                if "prototype" in operator:
+                    # For prototype instances, get the prototype definition
+                    proto_def = self.program.prototypes[operator["prototype"]]
+                    # Track all operators within the prototype
+                    for proto_op in proto_def["operators"]:
+                        internal_op_id = f"{op_id}::{proto_op['id']}"
+                        num_ports = len(proto_op.get("portTypes", [1]))
+                        for port_idx in range(num_ports):
+                            col_key = f"{internal_op_id}:o{port_idx + 1}"
+                            df_data[col_key] = []
+                else:
+                    # Regular operator handling
+                    num_ports = len(operator.get("portTypes", [1]))
+                    for port_idx in range(num_ports):
+                        col_key = f"{op_id}:o{port_idx + 1}"
+                        df_data[col_key] = []
 
         # Initialize output operator columns
         for op_id, ports in self.program.output.items():
@@ -84,7 +98,7 @@ class Run:
             # Extend all columns to current length with None
             for col in df_data:
                 if len(df_data[col]) < len(df_data['time']):
-                    df_data[col].append(None)
+                    df_data[col].append(np.nan)
             
             # Update values from batch results
             for op_id, ports in batch_result.items():

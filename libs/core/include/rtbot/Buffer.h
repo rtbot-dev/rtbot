@@ -1,36 +1,3 @@
-/**
- * @brief Numerically Stable Statistical Buffer Implementation
- *
- * Implements online computation of statistics (sum, mean, variance) with numerical stability
- * for streaming data using a sliding window approach.
- *
- * Key algorithms:
- * 1. West, D.H.D (1979). Updating Mean and Variance Estimates: An Improved Method.
- *    For stable variance calculation:
- *    - M2 accumulates squared distances from current mean
- *    - Adding value x:
- *      delta = x - oldMean
- *      newMean = oldMean + delta/n
- *      M2 += delta * (x - newMean)
- *    - Sample variance = M2/(n-1)
- *
- * 2. Kahan, W. (1965). Compensated Summation
- *    Reduces floating-point rounding errors:
- *    - y = value - compensation
- *    - t = sum + y
- *    - compensation = (t - sum) - y
- *    - sum = t
- *
- * State variables:
- * - sum_, sum_compensation_: Running sum with Kahan compensation
- * - M2_, M2_compensation_: Second moment with Kahan compensation
- *
- * Performance:
- * - O(1) statistical updates
- * - O(n) serialization/restore where n = buffer size
- * - Feature templating ensures zero overhead for unused stats
- */
-
 #ifndef BUFFER_H
 #define BUFFER_H
 
@@ -49,7 +16,6 @@ namespace rtbot {
 
 struct BufferFeatures {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = true;
   static constexpr bool TRACK_VARIANCE = true;
 };
 
@@ -64,14 +30,12 @@ class Buffer : public Operator {
     add_data_port<T>();
     add_output_port<T>();
 
-    if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
+    if constexpr (Features::TRACK_SUM) {
       sum_ = 0.0;
-      sum_compensation_ = 0.0;
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
       M2_ = 0.0;
-      M2_compensation_ = 0.0;
     }
   }
 
@@ -80,8 +44,6 @@ class Buffer : public Operator {
     buffer_.clear();  // Clear buffer contents
     sum_ = 0.0;       // Reset statistical accumulators
     M2_ = 0.0;
-    sum_compensation_ = 0.0;
-    M2_compensation_ = 0.0;
   }
 
   const std::deque<std::unique_ptr<Message<T>>>& buffer() const { return buffer_; }
@@ -90,12 +52,12 @@ class Buffer : public Operator {
   uint32_t window_size() const { return window_size_; }
 
   template <typename F = Features>
-  std::enable_if_t<F::TRACK_SUM || F::TRACK_MEAN, double> sum() const {
+  std::enable_if_t<F::TRACK_SUM, double> sum() const {
     return sum_;
   }
 
   template <typename F = Features>
-  std::enable_if_t<F::TRACK_MEAN, double> mean() const {
+  std::enable_if_t<F::TRACK_SUM, double> mean() const {
     return buffer_.empty() ? 0.0 : sum_ / buffer_.size();
   }
 
@@ -128,18 +90,14 @@ class Buffer : public Operator {
       bytes.insert(bytes.end(), msg_bytes.begin(), msg_bytes.end());
     }
 
-    if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
+    if constexpr (Features::TRACK_SUM) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
                    reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_compensation_),
-                   reinterpret_cast<const uint8_t*>(&sum_compensation_) + sizeof(sum_compensation_));
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&M2_),
                    reinterpret_cast<const uint8_t*>(&M2_) + sizeof(M2_));
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&M2_compensation_),
-                   reinterpret_cast<const uint8_t*>(&M2_compensation_) + sizeof(M2_compensation_));
     }
 
     return bytes;
@@ -165,18 +123,32 @@ class Buffer : public Operator {
       it += msg_size;
     }
 
-    if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
+    if constexpr (Features::TRACK_SUM) {
       sum_ = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
-      sum_compensation_ = *reinterpret_cast<const double*>(&(*it));
       it += sizeof(double);
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
       M2_ = *reinterpret_cast<const double*>(&(*it));
       it += sizeof(double);
-      M2_compensation_ = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
+
+      // Recompute statistics from buffer to ensure consistency
+      sum_ = 0.0;
+      M2_ = 0.0;
+
+      if (!buffer_.empty()) {
+        // First pass: compute mean
+        for (const auto& msg : buffer_) {
+          sum_ += msg->data.value;
+        }
+
+        // Second pass: compute M2
+        double mean = sum_ / buffer_.size();
+        for (const auto& msg : buffer_) {
+          double delta = msg->data.value - mean;
+          M2_ += delta * delta;
+        }
+      }
     }
   }
 
@@ -216,34 +188,31 @@ class Buffer : public Operator {
   virtual std::vector<std::unique_ptr<Message<T>>> process_message(const Message<T>* msg) = 0;
 
  private:
-  void kahan_add(double& sum, double& compensation, double value) {
-    double y = value - compensation;
-    double t = sum + y;
-    compensation = (t - sum) - y;
-    sum = t;
-  }
-
   void update_statistics(double added_value, std::optional<double> removed_value) {
-    if constexpr (Features::TRACK_SUM || Features::TRACK_MEAN) {
+    if constexpr (Features::TRACK_SUM && !Features::TRACK_VARIANCE) {
       if (removed_value) {
-        // First remove old value if it exists
-        double old_mean = sum_ / buffer_.size();
-        kahan_add(sum_, sum_compensation_, -(*removed_value));
-
-        if constexpr (Features::TRACK_VARIANCE) {
-          double delta = *removed_value - old_mean;
-          kahan_add(M2_, M2_compensation_, -delta * (*removed_value - old_mean));
-        }
+        sum_ -= *removed_value;
       }
+      sum_ += added_value;
+      return;
+    }
 
-      // Then add new value
-      double old_mean = buffer_.size() > 1 ? (sum_ / (buffer_.size() - 1)) : 0;
-      kahan_add(sum_, sum_compensation_, added_value);
-      double new_mean = sum_ / buffer_.size();
+    if constexpr (Features::TRACK_VARIANCE) {
+      if (removed_value) {
+        sum_ -= *removed_value;
+      }
+      sum_ += added_value;
 
-      if constexpr (Features::TRACK_VARIANCE) {
-        double delta = added_value - old_mean;
-        kahan_add(M2_, M2_compensation_, delta * (added_value - new_mean));
+      M2_ = 0.0;
+
+      if (buffer_.size() <= 1) return;
+
+      double mean = sum_ / buffer_.size();
+
+      // Second pass: compute M2
+      for (const auto& msg : buffer_) {
+        double delta = msg->data.value - mean;
+        M2_ += delta * delta;
       }
     }
   }
@@ -251,9 +220,7 @@ class Buffer : public Operator {
   size_t window_size_;
   std::deque<std::unique_ptr<Message<T>>> buffer_;
   double sum_{0.0};
-  double sum_compensation_{0.0};
   double M2_{0.0};
-  double M2_compensation_{0.0};
 };
 
 }  // namespace rtbot

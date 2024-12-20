@@ -13,7 +13,6 @@ namespace rtbot {
 // PeakDetector only needs buffer functionality, no statistics
 struct PeakDetectorFeatures {
   static constexpr bool TRACK_SUM = false;
-  static constexpr bool TRACK_MEAN = false;
   static constexpr bool TRACK_VARIANCE = false;
 };
 

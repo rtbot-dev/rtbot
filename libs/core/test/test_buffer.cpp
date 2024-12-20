@@ -8,25 +8,16 @@ using namespace rtbot;
 // Custom Feature sets for testing different configurations
 struct NoFeatures {
   static constexpr bool TRACK_SUM = false;
-  static constexpr bool TRACK_MEAN = false;
   static constexpr bool TRACK_VARIANCE = false;
 };
 
 struct SumOnly {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = false;
-  static constexpr bool TRACK_VARIANCE = false;
-};
-
-struct MeanOnly {
-  static constexpr bool TRACK_SUM = false;
-  static constexpr bool TRACK_MEAN = true;
   static constexpr bool TRACK_VARIANCE = false;
 };
 
 struct FullStats {
   static constexpr bool TRACK_SUM = true;
-  static constexpr bool TRACK_MEAN = true;
   static constexpr bool TRACK_VARIANCE = true;
 };
 
@@ -120,7 +111,7 @@ SCENARIO("Buffer operator calculates running sum correctly", "[Buffer][Statistic
 
 SCENARIO("Buffer operator calculates running mean correctly", "[Buffer][Statistics]") {
   GIVEN("A Buffer with mean tracking enabled") {
-    auto buffer = TestBuffer<MeanOnly>("test", 3);
+    auto buffer = TestBuffer<SumOnly>("test", 3);
 
     WHEN("Messages are added sequentially") {
       buffer.receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);

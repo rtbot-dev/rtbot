@@ -10,7 +10,6 @@ namespace rtbot {
 // Difference only needs the buffer, no statistics tracking
 struct DifferenceFeatures {
   static constexpr bool TRACK_SUM = false;
-  static constexpr bool TRACK_MEAN = false;
   static constexpr bool TRACK_VARIANCE = false;
 };
 
