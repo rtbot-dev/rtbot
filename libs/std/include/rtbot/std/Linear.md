@@ -6,34 +6,70 @@ view:
   shape: circle
   latex:
     template: |
-      Linear({{#each coeff}}{{this}}{{#unless @last}},{{/unless}}{{/each}})
+      Linear({{coefficients}})
 jsonschema:
   type: object
   properties:
     id:
       type: string
       description: The id of the operator
-    coeff:
+    coefficients:
       type: array
-      examples: 
-        - [1, 1, -1]
-      description: The list of coefficients.
+      description: Array of coefficients for the linear combination
       minItems: 2
       items:
         type: number
-  required: ["id"]
+  required: ["id", "coefficients"]
 ---
 
 # Linear
 
-Inputs: `i1`...`iN` where N is defined by the length of `coeff`.  
-Outputs: `o1`
+A Linear operator computes a linear combination of synchronized input values using predefined coefficients. It extends Join to ensure input synchronization before computing the combination.
 
-Synchronizes input streams and emits a linear combination of the values for a given $t_n$.
+## Coefficients
 
-The synchronization mechanism is inherited from the `Join` operator. The `Linear` operator holds a message buffer on `i1`...`iN`
-respectively, it emits a modified version of the synchronized messages from `i1`...`iN` as the linear combination
-of its values and the coefficients in `coeff` through `o1` right after the synchronization takes place, if no synchronization 
-occurs then an empty message {} is emitted through `o1`.
+Coefficients are specified during construction and define the linear combination:
 
-$$y(t_n)=c_1 x_1(t_n) + c_2 x_2(t_n) + ... + c_N x_N(t_n)$$
+- Minimum of 2 coefficients required
+- Each coefficient corresponds to one input port
+- Output = c₁x₁ + c₂x₂ + ... + cₙxₙ where cᵢ are coefficients and xᵢ are inputs
+
+## Ports
+
+- Input ports: One per coefficient, all NumberData type
+- Output port: One NumberData port containing linear combination
+
+## Operation
+
+1. Inherits Join synchronization behavior
+2. When inputs are synchronized:
+   - Computes linear combination
+   - Outputs result on first port
+   - Clears other output ports
+
+## Example
+
+```cpp
+// Create linear combination: 2x - y
+auto linear = make_linear("linear1", {2.0, -1.0});
+
+// Process synchronized inputs
+linear->receive_data(create_message<NumberData>(1, NumberData{3.0}), 0); // x = 3
+linear->receive_data(create_message<NumberData>(1, NumberData{1.0}), 1); // y = 1
+linear->execute();
+// Output: 5.0 (2*3 - 1)
+```
+
+## Error Handling
+
+Throws exceptions for:
+
+- Fewer than 2 coefficients
+- Invalid message types
+- Port index out of range
+
+## Performance Considerations
+
+- O(n) computation where n is number of coefficients
+- Memory usage proportional to coefficient count
+- Numerical stability maintained for large coefficients

@@ -35,27 +35,43 @@ program
   )
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
-    console.log(
-      `${chalk.cyan("Generating schemas, scanning c++ input files:\n  - ")}${chalk.yellow(sources.join("\n  - "))}`
-    );
+    console.log(`${chalk.cyan("[schemas] scanning c++ input files: ")}${chalk.yellow(sources.length)}`);
     let schemas = await Promise.all(
       sources.map(async (f: string) => {
         try {
           const fileContent = await fs.readFileSync(f).toString();
           if (fileContent.indexOf("---") > -1) {
-            const schemaStr = fileContent.split("---")[1];
-            const schema = parse(schemaStr).jsonschema;
-            const type = path.basename(f).replace(".md", "");
-            schema.properties.type = { enum: [type] };
-            schema.required = ["type", ...schema.required];
-            return schema;
+            const headerStr = fileContent.split("---")[1];
+            const header = parse(headerStr);
+            const schema = header.jsonschema;
+            if (schema) {
+              const type = path.basename(f).replace(".md", "");
+              schema.properties.type = { enum: [type] };
+              schema.required = ["type", ...schema.required];
+              return schema;
+            }
+            const schemas = header.jsonschemas;
+            if (schemas) {
+              return schemas.map((s: any) => ({
+                ...s,
+                required: ["type", ...s.required],
+              }));
+            }
           }
         } catch (e) {
           console.log(chalk.red(`Error: ${e.message}, file ${f}`));
         }
       })
     );
-    schemas = schemas.filter((s) => s);
+    schemas = schemas
+      .filter((s) => s)
+      // flatten the array of schemas
+      .reduce((acc, s) => acc.concat(s), []);
+    console.log(
+      `${chalk.cyan("[schemas] found operators:\n  - ")}${chalk.yellow(
+        schemas.map((s) => s.properties.type.enum[0]).reduce((acc, s) => `${acc}\n  - ${s}`)
+      )}`
+    );
 
     const programJsonschema = JSON.parse(jsonschemaTemplate({ schemas: schemas.map((s) => JSON.stringify(s)) }));
     const jsonschemaContent = JSON.stringify(programJsonschema, null, 2);
@@ -80,6 +96,7 @@ program
               if (schema.properties[k].type === "integer") return 2;
               if (schema.properties[k].type === "numeric") return 2.0;
               if (schema.properties[k].type === "string") return "some";
+              if (schema.properties[k].type === "boolean") return true;
             };
             const exampleParameters = Object.keys(schema.properties).reduce(
               (acc, k) => ({ ...acc, [`${k}`]: getExampleParameter(k) }),
@@ -154,15 +171,26 @@ program
     if (target === "python") {
       const opSchemas = programJsonschema.properties.operators.items.oneOf;
       const pythonContent = pythonTemplate({
-        operators: opSchemas.map((s: any) => ({
-          type: s.properties.type.enum[0],
-          parameters: Object.keys(s.properties)
-            .filter((p) => p !== "type")
-            .map((k) => ({
-              name: k,
-              init: s.required.indexOf(k) > -1 ? "" : ` = ${s.properties[k].default ?? "None"}`,
-            })),
-        })),
+        operators: opSchemas
+          .map((s: any) => {
+            if (!s.properties.type?.enum) {
+              return;
+            }
+
+            return {
+              type: s.properties.type.enum[0],
+              parameters: Object.keys(s.properties)
+                .filter((p) => p !== "type")
+                .map((k) => ({
+                  name: k,
+                  init:
+                    s.required.indexOf(k) > -1
+                      ? ""
+                      : ` = ${s.properties[k].default ?? "None"}`.replace("true", "True").replace("false", "False"),
+                })),
+            };
+          })
+          .filter((s) => s),
       });
       fs.writeFileSync(`${output}/jsonschema.py`, pythonContent);
     }
