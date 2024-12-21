@@ -1,11 +1,11 @@
 #ifndef VARIABLE_H
 #define VARIABLE_H
 
-#include <map>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "rtbot/Operator.h"
 #include "rtbot/StateSerializer.h"
@@ -14,9 +14,8 @@ namespace rtbot {
 
 class Variable : public Operator {
  private:
-  struct TimeRange {
-    timestamp_t start;  // Inclusive
-    timestamp_t end;    // Exclusive
+  struct TimeValue {
+    timestamp_t time;
     double value;
   };
 
@@ -25,11 +24,14 @@ class Variable : public Operator {
     add_data_port<NumberData>();     // For value updates
     add_control_port<NumberData>();  // For queries
     add_output_port<NumberData>();   // For responses
+
+    values_.push_back({0, default_value_});
   }
 
   void reset() override {
     Operator::reset();
-    ranges_.clear();
+    values_.clear();
+    values_.push_back({0, default_value_});
     pending_queries_.clear();
   }
 
@@ -44,30 +46,26 @@ class Variable : public Operator {
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&default_value_),
                  reinterpret_cast<const uint8_t*>(&default_value_) + sizeof(default_value_));
 
-    // Serialize ranges
-    size_t ranges_count = ranges_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&ranges_count),
-                 reinterpret_cast<const uint8_t*>(&ranges_count) + sizeof(ranges_count));
+    // Serialize time-value pairs
+    size_t values_count = values_.size();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&values_count),
+                 reinterpret_cast<const uint8_t*>(&values_count) + sizeof(values_count));
 
-    for (const auto& range : ranges_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&range.start),
-                   reinterpret_cast<const uint8_t*>(&range.start) + sizeof(range.start));
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&range.end),
-                   reinterpret_cast<const uint8_t*>(&range.end) + sizeof(range.end));
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&range.value),
-                   reinterpret_cast<const uint8_t*>(&range.value) + sizeof(range.value));
+    for (const auto& tv : values_) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&tv.time),
+                   reinterpret_cast<const uint8_t*>(&tv.time) + sizeof(tv.time));
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&tv.value),
+                   reinterpret_cast<const uint8_t*>(&tv.value) + sizeof(tv.value));
     }
 
-    // Serialize pending queries
+    // Serialize pending query timestamps
     size_t queries_count = pending_queries_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&queries_count),
                  reinterpret_cast<const uint8_t*>(&queries_count) + sizeof(queries_count));
 
-    for (const auto& query : pending_queries_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&query.time),
-                   reinterpret_cast<const uint8_t*>(&query.time) + sizeof(query.time));
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&query.data.value),
-                   reinterpret_cast<const uint8_t*>(&query.data.value) + sizeof(query.data.value));
+    for (const auto& time : pending_queries_) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
+                   reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
     }
 
     return bytes;
@@ -80,40 +78,37 @@ class Variable : public Operator {
     default_value_ = *reinterpret_cast<const double*>(&(*it));
     it += sizeof(double);
 
-    // Restore ranges
-    size_t ranges_count = *reinterpret_cast<const size_t*>(&(*it));
+    // Restore time-value pairs
+    size_t values_count = *reinterpret_cast<const size_t*>(&(*it));
     it += sizeof(size_t);
 
-    ranges_.clear();
-    for (size_t i = 0; i < ranges_count; ++i) {
-      TimeRange range;
-      range.start = *reinterpret_cast<const timestamp_t*>(&(*it));
-      it += sizeof(timestamp_t);
-      range.end = *reinterpret_cast<const timestamp_t*>(&(*it));
-      it += sizeof(timestamp_t);
-      range.value = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
-      ranges_.push_back(range);
-    }
-
-    // Restore pending queries
-    size_t queries_count = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    pending_queries_.clear();
-    for (size_t i = 0; i < queries_count; ++i) {
+    values_.clear();
+    values_.reserve(values_count);
+    for (size_t i = 0; i < values_count; ++i) {
       timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
       it += sizeof(timestamp_t);
       double value = *reinterpret_cast<const double*>(&(*it));
       it += sizeof(double);
-      pending_queries_.push_back(Message<NumberData>(time, NumberData{value}));
+      values_.push_back({time, value});
+    }
+
+    // Restore pending query timestamps
+    size_t queries_count = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
+
+    pending_queries_.clear();
+    pending_queries_.reserve(queries_count);
+    for (size_t i = 0; i < queries_count; ++i) {
+      timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
+      it += sizeof(timestamp_t);
+      pending_queries_.push_back(time);
     }
   }
 
  protected:
   void process_data() override {
     auto& data_queue = get_data_queue(0);
-    bool ranges_updated = false;
+    bool values_updated = false;
 
     while (!data_queue.empty()) {
       const auto* msg = dynamic_cast<const Message<NumberData>*>(data_queue.front().get());
@@ -121,12 +116,12 @@ class Variable : public Operator {
         throw std::runtime_error("Invalid message type in Variable");
       }
 
-      update_ranges(msg->time, msg->data.value);
-      ranges_updated = true;
+      values_.push_back({msg->time, msg->data.value});
+      values_updated = true;
       data_queue.pop_front();
     }
 
-    if (ranges_updated) {
+    if (values_updated) {
       process_pending_queries();
     }
   }
@@ -140,7 +135,7 @@ class Variable : public Operator {
         throw std::runtime_error("Invalid control message type in Variable");
       }
 
-      pending_queries_.push_back(*query);
+      pending_queries_.push_back(query->time);
       control_queue.pop_front();
     }
 
@@ -149,31 +144,32 @@ class Variable : public Operator {
 
  private:
   double default_value_;
-  std::vector<TimeRange> ranges_;
-  std::vector<Message<NumberData>> pending_queries_;
+  std::vector<TimeValue> values_;
+  std::vector<timestamp_t> pending_queries_;
 
-  void update_ranges(timestamp_t time, double value) {
-    if (ranges_.empty()) {
-      ranges_.push_back({0, time, default_value_});
+  std::optional<double> query_value(timestamp_t time) {
+    if (values_.size() == 1 && time == values_[0].time) {
+      return values_[0].value;
     }
 
-    ranges_.back().end = time;
-    ranges_.push_back({time, 0, value});  // End time doesn't matter as it will be set by next update
-  }
-
-  std::optional<double> query_value(timestamp_t time) const {
-    if (ranges_.empty() || time < ranges_[0].start) {
-      return std::nullopt;
-    }
-
-    // From the last range we are only sure about the value at start time
-    if (time == ranges_.back().start) {
-      return ranges_.back().value;
-    }
-
-    for (size_t i = 0; i < ranges_.size() - 1; i++) {
-      if (time >= ranges_[i].start && time < ranges_[i].end) {
-        return ranges_[i].value;
+    if (values_.size() > 1) {
+      // Find the last value that occurred at or before the query time
+      for (size_t i = 1; i < values_.size(); i++) {
+        if (time == values_[i].time) {
+          // Found exact match - clean up all ranges before this one
+          double value = values_[i].value;
+          for (size_t j = 0; j < i; j++) {
+            values_.erase(values_.begin());
+          }
+          return value;
+        } else if (values_[i - 1].time <= time && time < values_[i].time) {
+          // Found containing range - clean up all ranges before the starting range
+          double value = values_[i - 1].value;
+          for (size_t j = 0; j < i - 1; j++) {
+            values_.erase(values_.begin());
+          }
+          return value;
+        }
       }
     }
 
@@ -184,23 +180,21 @@ class Variable : public Operator {
     auto& output_queue = get_output_queue(0);
     size_t processed = 0;
 
-    for (const auto& query : pending_queries_) {
-      auto value = query_value(query.time);
+    for (size_t i = 0; i < pending_queries_.size(); i++) {
+      timestamp_t query_time = pending_queries_[i];
+      auto value = query_value(query_time);
       if (!value) {
         break;  // Stop at first uncertain value
       }
 
-      output_queue.push_back(create_message<NumberData>(query.time, NumberData{*value}));
-
-      // Remove all ranges that end before this query time
-      while (!ranges_.empty() && ranges_[0].end <= query.time) {
-        ranges_.erase(ranges_.begin());
-      }
+      output_queue.push_back(create_message<NumberData>(query_time, NumberData{*value}));
       processed++;
     }
 
     // Remove processed queries
-    pending_queries_.erase(pending_queries_.begin(), pending_queries_.begin() + processed);
+    if (processed > 0) {
+      pending_queries_.erase(pending_queries_.begin(), pending_queries_.begin() + processed);
+    }
   }
 };
 

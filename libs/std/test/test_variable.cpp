@@ -106,3 +106,161 @@ SCENARIO("Variable operator handles state serialization", "[variable]") {
     }
   }
 }
+
+SCENARIO("Variable operator handles message arrival order variations", "[variable]") {
+  GIVEN("A Variable operator without default value") {
+    auto var = make_variable("var1");
+
+    WHEN("Control messages arrive before any data") {
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("No output is produced as there's no known value range") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.empty());
+      }
+    }
+
+    WHEN("Data arrives, making previous queries resolvable") {
+      // First send queries
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      // Then send data
+      var->receive_data(create_message<NumberData>(5, NumberData{100.0}), 0);
+      var->receive_data(create_message<NumberData>(35, NumberData{200.0}), 0);
+      var->execute();
+
+      THEN("Previously pending queries are resolved") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 10);
+        REQUIRE(msg1->data.value == 100.0);
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 20);
+        REQUIRE(msg2->data.value == 100.0);
+      }
+    }
+
+    WHEN("Data arrives, making previous queries resolvable 2") {
+      // First send queries
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      // Then send data
+      var->receive_data(create_message<NumberData>(15, NumberData{100.0}), 0);
+      var->receive_data(create_message<NumberData>(35, NumberData{200.0}), 0);
+      var->execute();
+
+      THEN("Previously pending queries are resolved") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 10);
+        REQUIRE(msg1->data.value == 0.0);
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 20);
+        REQUIRE(msg2->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator with interleaved message arrival") {
+    auto var = make_variable("var1", 42.0);
+
+    WHEN("Messages arrive in mixed order") {
+      // First data point
+      var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+      var->execute();
+
+      // Query before and at first point
+      var->receive_control(create_message<NumberData>(5, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->execute();
+
+      // Second data point
+      var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+      var->execute();
+
+      // More queries
+      var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(25, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("All queries are resolved correctly") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 3);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 5);
+        REQUIRE(msg1->data.value == 42.0);  // Default value
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 10);
+        REQUIRE(msg2->data.value == 100.0);
+
+        const auto* msg3 = dynamic_cast<const Message<NumberData>*>(output[2].get());
+        REQUIRE(msg3->time == 15);
+        REQUIRE(msg3->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator handling edge cases") {
+    auto var = make_variable("var1", 42.0);
+
+    WHEN("Multiple data points arrive at the same timestamp") {
+      var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+      var->execute();
+
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("The last value is used") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 10);
+        REQUIRE(msg->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator that gets reset") {
+    auto var = make_variable("var1", 42.0);
+
+    // Setup initial state
+    var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+    var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+    var->execute();
+
+    WHEN("The operator is reset") {
+      var->reset();
+
+      // Send new data
+      var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+      var->execute();
+
+      var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("Previous state is cleared and new queries use default value") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 15);
+        REQUIRE(msg->data.value == 42.0);  // Default value used
+      }
+    }
+  }
+}
