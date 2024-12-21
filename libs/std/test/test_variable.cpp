@@ -12,12 +12,9 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
       var->receive_control(create_message<NumberData>(1, NumberData{0.0}), 0);
       var->execute();
 
-      THEN("Default value is returned") {
+      THEN("Default value is not returned because we don't know its range end") {
         const auto& output = var->get_output_queue(0);
-        REQUIRE(output.size() == 1);
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
-        REQUIRE(msg->time == 1);
-        REQUIRE(msg->data.value == 42.0);
+        REQUIRE(output.size() == 0);
       }
     }
 
@@ -38,7 +35,7 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
 
       THEN("Correct values are returned for each query") {
         const auto& output = var->get_output_queue(0);
-        REQUIRE(output.size() == 5);
+        REQUIRE(output.size() == 4);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg1->time == 5);
@@ -55,10 +52,6 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
         const auto* msg4 = dynamic_cast<const Message<NumberData>*>(output[3].get());
         REQUIRE(msg4->time == 20);
         REQUIRE(msg4->data.value == 200.0);
-
-        const auto* msg5 = dynamic_cast<const Message<NumberData>*>(output[4].get());
-        REQUIRE(msg5->time == 25);
-        REQUIRE(msg5->data.value == 200.0);
       }
     }
   }
