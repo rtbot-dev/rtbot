@@ -65,6 +65,7 @@ class OperatorJson {
     auto parsed = json::parse(json_string);
     auto type = parsed["type"].get<std::string>();
     auto id = parsed["id"].get<std::string>();
+    auto num_ports = parsed.value("numPorts", 2);
 
     if (type == "Input") {
       return make_input(id, parsed["portTypes"].get<std::vector<std::string>>());
@@ -87,11 +88,19 @@ class OperatorJson {
     } else if (type == "Linear") {
       return make_linear(id, parsed["coefficients"].get<std::vector<double>>());
     } else if (type == "Subtraction") {
-      return make_subtraction(id);
+      return make_subtraction(id, num_ports);
     } else if (type == "LogicalAnd") {
-      return make_logical_and(id);
+      return make_logical_and(id, num_ports);
     } else if (type == "LogicalOr") {
-      return make_logical_or(id);
+      return make_logical_or(id, num_ports);
+    } else if (type == "LogicalXor") {
+      return make_logical_xor(id, num_ports);
+    } else if (type == "LogicalNand") {
+      return make_logical_nand(id, num_ports);
+    } else if (type == "LogicalNor") {
+      return make_logical_nor(id, num_ports);
+    } else if (type == "LogicalImplication") {
+      return make_logical_implication(id, num_ports);
     } else if (type == "SyncGreaterThan") {
       return make_sync_greater_than(id);
     } else if (type == "SyncLessThan") {
@@ -103,11 +112,11 @@ class OperatorJson {
     } else if (type == "Add") {
       return make_add(id, parsed["value"].get<double>());
     } else if (type == "Division") {
-      return make_division(id);
+      return make_division(id, num_ports);
     } else if (type == "Multiplication") {
-      return make_multiplication(id);
+      return make_multiplication(id, num_ports);
     } else if (type == "Addition") {
-      return make_addition(id);
+      return make_addition(id, num_ports);
     } else if (type == "GreaterThan") {
       return make_greater_than(id, parsed["value"].get<double>());
     } else if (type == "ConstantNumber") {
@@ -294,6 +303,9 @@ class OperatorJson {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
     } else if (type == "LessThan") {
       j["value"] = std::dynamic_pointer_cast<LessThan>(op)->get_threshold();
+    } else if (type == "LogicalAnd" || type == "LogicalOr" || type == "LogicalXor" || type == "LogicalNand" ||
+               type == "LogicalNor" || type == "LogicalImplication") {
+      j["numPorts"] = std::dynamic_pointer_cast<BooleanSync>(op)->get_num_ports();
     } else if (type == "Sin" || type == "Cos" || type == "Tan" || type == "Exp" || type == "Log" || type == "Log10" ||
                type == "Abs" || type == "Sign" || type == "Floor" || type == "Ceil" || type == "Round") {
     } else if (type == "Variable") {

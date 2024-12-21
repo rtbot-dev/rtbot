@@ -1,6 +1,7 @@
 #ifndef BOOLEAN_SYNC_H
 #define BOOLEAN_SYNC_H
 
+#include <cstddef>
 #include <memory>
 #include <optional>
 
@@ -11,11 +12,16 @@ namespace rtbot {
 
 class BooleanSync : public ReduceJoin<BooleanData> {
  public:
-  explicit BooleanSync(std::string id, size_t num_ports) : ReduceJoin<BooleanData>(std::move(id), num_ports) {}
+  explicit BooleanSync(std::string id, size_t num_ports)
+      : ReduceJoin<BooleanData>(std::move(id), num_ports), num_ports_(num_ports) {}
   explicit BooleanSync(std::string id, size_t num_ports, bool init_value)
       : ReduceJoin<BooleanData>(std::move(id), num_ports, BooleanData{init_value}) {}
 
+  size_t get_num_ports() const { return num_ports_; }
   std::string type_name() const override = 0;
+
+ protected:
+  size_t num_ports_;
 };
 
 class LogicalAnd : public BooleanSync {
