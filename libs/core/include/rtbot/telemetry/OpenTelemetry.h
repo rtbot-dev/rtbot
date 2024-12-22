@@ -34,13 +34,14 @@ class OpenTelemetry {
   }
 
   static void record_message_sent(const std::string& from_id, const std::string& from_type_name,
-                                  const std::string& to_id, const std::string& to_type_name,
-                                  std::unique_ptr<BaseMessage> msg) {
+                                  const std::string& from_port, const std::string& to_id,
+                                  const std::string& to_type_name, const std::string& to_port,
+                                  const std::string& to_port_kind, std::unique_ptr<BaseMessage> msg) {
     std::cout << "\033[90m" << get_timestamp() << "\033[0m "
               << "\033[1;32m[FLOW]\033[0m "
-              << "\033[1;33m" << from_type_name << "(" << from_id << ")\033[0m "
+              << "\033[1;33m" << from_type_name << "(" << from_id << "):" << from_port << "\033[0m "
               << "\033[1;36m──►\033[0m "
-              << "\033[1;33m" << to_type_name << "(" << to_id << ")\033[0m "
+              << "\033[1;33m" << to_type_name << "(" << to_id << "):" << to_port_kind << to_port << "\033[0m "
               << "\033[90m|\033[0m "
               << "\033[97m" << msg->to_string() << "\033[0m" << std::endl;
   }
@@ -86,8 +87,9 @@ class OpenTelemetry {
 #ifdef RTBOT_INSTRUMENTATION
 #define RTBOT_INIT_TELEMETRY(service) rtbot::OpenTelemetry::initialize(service)
 #define RTBOT_RECORD_MESSAGE(id, type_name, msg) rtbot::OpenTelemetry::record_message(id, type_name, msg)
-#define RTBOT_RECORD_MESSAGE_SENT(from_id, from_type_name, to_id, to_type_name, msg) \
-  rtbot::OpenTelemetry::record_message_sent(from_id, from_type_name, to_id, to_type_name, msg)
+#define RTBOT_RECORD_MESSAGE_SENT(from_id, from_type_name, from_type, to_id, to_type_name, to_port, to_port_kind, msg) \
+  rtbot::OpenTelemetry::record_message_sent(from_id, from_type_name, from_type, to_id, to_type_name, to_port,          \
+                                            to_port_kind, msg)
 #define RTBOT_RECORD_OPERATOR_OUTPUT(op_id, type_name, port, msg) \
   rtbot::OpenTelemetry::record_operator_output(op_id, type_name, port, msg)
 
@@ -98,7 +100,7 @@ class OpenTelemetry {
 #else
 #define RTBOT_INIT_TELEMETRY(service)
 #define RTBOT_RECORD_MESSAGE(id, type_name, msg)
-#define RTBOT_RECORD_MESSAGE_SENT(from_id, from_type_name, to_id, to_type_name, msg)
+#define RTBOT_RECORD_MESSAGE_SENT(from_id, from_type_name, from_type, to_id, to_type_name, to_port, to_port_kind, msg)
 #define RTBOT_RECORD_OPERATOR_OUTPUT(op_id, type_name, port, msg)
 #define RTBOT_RECORD_QUEUE_SIZE(size)
 #define RTBOT_START_SPAN(name)

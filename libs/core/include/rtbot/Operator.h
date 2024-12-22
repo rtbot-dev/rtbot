@@ -27,6 +27,7 @@ using MessageQueue = std::deque<std::unique_ptr<BaseMessage>>;
 struct PortInfo {
   MessageQueue queue;
   std::type_index type;
+  timestamp_t last_timestamp{std::numeric_limits<timestamp_t>::min()};
 };
 
 enum class PortKind { DATA, CONTROL };
@@ -168,6 +169,16 @@ class Operator {
                                std::to_string(port_index));
     }
 
+    // Check timestamp ordering
+    if (msg->time <= data_ports_[port_index].last_timestamp) {
+      throw std::runtime_error("Out of order timestamp received at " + type_name() + "(" + id_ + ")" + " port " +
+                               std::to_string(port_index) + ". Current timestamp: " + std::to_string(msg->time) +
+                               ", Last timestamp: " + std::to_string(data_ports_[port_index].last_timestamp));
+    }
+
+    // Update last timestamp
+    data_ports_[port_index].last_timestamp = msg->time;
+
 #ifdef RTBOT_INSTRUMENTATION
     RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
@@ -179,9 +190,11 @@ class Operator {
   virtual void reset() {
     // Base reset implementation clears all queues
     for (auto& port : data_ports_) {
+      port.last_timestamp = std::numeric_limits<timestamp_t>::min();
       port.queue.clear();
     }
     for (auto& port : control_ports_) {
+      port.last_timestamp = std::numeric_limits<timestamp_t>::min();
       port.queue.clear();
     }
     for (auto& port : output_ports_) {
@@ -244,6 +257,17 @@ class Operator {
       throw std::runtime_error("Type mismatch on control port at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
     }
+
+    // Check timestamp ordering
+    if (msg->time <= control_ports_[port_index].last_timestamp) {
+      throw std::runtime_error("Out of order timestamp received at " + type_name() + "(" + id_ + ")" +
+                               " control port " + std::to_string(port_index) +
+                               ". Current timestamp: " + std::to_string(msg->time) +
+                               ", Last timestamp: " + std::to_string(control_ports_[port_index].last_timestamp));
+    }
+
+    // Update last timestamp
+    control_ports_[port_index].last_timestamp = msg->time;
 
     control_ports_[port_index].queue.push_back(std::move(msg));
     control_ports_with_new_data_.insert(port_index);
@@ -357,8 +381,9 @@ class Operator {
       for (size_t i = last_propagated_index; i < output_queue.size(); i++) {
         auto msg_copy = output_queue[i]->clone();
 #ifdef RTBOT_INSTRUMENTATION
-        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), conn.child->id(), conn.child->type_name(),
-                                  output_queue[i]->clone());
+        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), conn.child->id(), conn.child->type_name(),
+                                  std::to_string(conn.child_input_port),
+                                  conn.child_port_kind == PortKind::DATA ? "" : "[c]", output_queue[i]->clone());
 #endif
         // Route message based on connection port kind
         if (conn.child_port_kind == PortKind::DATA) {

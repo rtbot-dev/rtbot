@@ -27,12 +27,8 @@ SCENARIO("TimeShift handles basic time shifting operations", "[TimeShift]") {
 
     WHEN("Processing messages that would result in negative time") {
       time_shift->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
-      time_shift->execute();
-
-      THEN("Messages with would-be negative times are dropped") {
-        const auto& output = time_shift->get_output_queue(0);
-        REQUIRE(output.empty());
-      }
+      // Will throw an exception "Negative new time" ...
+      REQUIRE_THROWS(time_shift->execute());
     }
 
     WHEN("Processing messages that remain non-negative after shift") {

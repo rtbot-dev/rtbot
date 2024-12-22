@@ -32,6 +32,8 @@ class TimeShift : public Operator {
       // Only emit if the resulting time would be non-negative
       if (new_time >= 0) {
         output_queue.push_back(create_message<NumberData>(new_time, msg->data));
+      } else {
+        throw std::runtime_error("Negative new time " + std::to_string(new_time) + " in TimeShift");
       }
 
       input_queue.pop_front();

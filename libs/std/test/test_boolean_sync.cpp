@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+#include <iostream>
 
 #include "rtbot/std/BooleanSync.h"
 
@@ -32,9 +33,10 @@ SCENARIO("BooleanSync operators handle basic operations", "[boolean_sync_binary_
                                           {true, false, false, true, true, true, false, false, false},
                                           {true, true, true, true, false, false, false, true, true}};
 
+      timestamp_t time = 0;
       for (const auto& test : test_cases) {
+        time += 1;
         // Send messages with same timestamp
-        timestamp_t time = 1;
         auto send_inputs = [time](auto& op, bool a, bool b) {
           op->receive_data(create_message<BooleanData>(time, BooleanData{a}), 0);
           op->receive_data(create_message<BooleanData>(time, BooleanData{b}), 1);
