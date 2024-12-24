@@ -1,4 +1,5 @@
 #include <catch2/catch.hpp>
+#include <iostream>
 #include <memory>
 #include <vector>
 
@@ -31,10 +32,11 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     auto dm = std::make_shared<Demultiplexer<NumberData>>("dm", 2);
 
     // Control flow operators
-    auto lt = std::make_shared<LessThan>("lt", n + 1.0);
-    auto et = std::make_shared<EqualTo>("et", n + 1.0);
-    auto gt = std::make_shared<GreaterThan>("gt", n + 1.0);
-    auto etn2 = std::make_shared<EqualTo>("etn2", n + 2.0);
+    auto lt = std::make_shared<LessThan>("lt", n + 1);
+    auto et = std::make_shared<EqualTo>("et", n + 1);
+    auto gt = std::make_shared<GreaterThan>("gt", n + 1);
+    auto etn2 = std::make_shared<EqualTo>("etn2", n + 1);
+    auto etn2ts = std::make_shared<TimeShift>("etn2ts", 1);
 
     // Constants for control flow with BooleanData
     auto cgtz = std::make_shared<Constant<NumberData, BooleanData>>("cgtz", BooleanData{false});
@@ -68,7 +70,9 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     auto varg = std::make_shared<Variable>("varg");
     auto varl = std::make_shared<Variable>("varl");
     auto ts1 = std::make_shared<TimeShift>("ts1", 1);
+    auto ts11 = std::make_shared<TimeShift>("ts11", 1);
     auto ts2 = std::make_shared<TimeShift>("ts2", 1);
+    auto ts22 = std::make_shared<TimeShift>("ts22", 1);
 
     auto divide = std::make_shared<Division>("divide");
     auto add1 = std::make_shared<Add>("add1", 1.0);
@@ -83,6 +87,7 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     count->connect(gt);
     count->connect(et);
     count->connect(etn2);
+    etn2->connect(etn2ts);
 
     // Connect demultiplexer control
     lt->connect(clto);
@@ -109,7 +114,8 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     sc0->connect(varg);
     varg->connect(ts1);
     ts1->connect(l1, 0, 0);
-    l1->connect(ts1);
+    l1->connect(ts11);
+    ts11->connect(l1, 0, 0);
 
     // Second path - no change
     diff1->connect(et0);
@@ -124,7 +130,8 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     sc1->connect(varl);
     varl->connect(ts2);
     ts2->connect(l2, 0, 0);
-    l2->connect(ts2);
+    l2->connect(ts22);
+    ts22->connect(l2, 0, 0);
 
     // Connect diff2 paths
     dm->connect(diff2, 1);
@@ -143,9 +150,9 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     et1->connect(l1, 0, 1);
     et1->connect(l2, 0, 1);
 
-    etn2->connect(varg);
+    etn2ts->connect(varg);
     et->connect(varg, 0, 0, PortKind::CONTROL);
-    etn2->connect(varl);
+    etn2ts->connect(varl);
     et->connect(varl, 0, 0, PortKind::CONTROL);
 
     // Connect RSI calculation chain
@@ -180,7 +187,7 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
         std::vector<std::shared_ptr<Operator>> ops = {
             input, dm,   count, lt,   et,     gt,     etn2, diff1,  diff2, gt0,     et0,       lt0,    gt1,    et1,
             lt1,   l1,   l2,    neg0, neg1,   varg,   varl, divide, add1,  power_1, scale_100, add100, output, cgtz,
-            cgto,  cltz, clto,  ceto, const0, const1, ts1,  ts2,    sc0,   sc1,     sum0,      sum1};
+            cgto,  cltz, clto,  ceto, const0, const1, ts1,  ts11,   ts2,   ts22,    sc0,       sc1,    sum0,   sum1};
 
         for (auto& op : ops) {
           op->clear_all_output_ports();
@@ -199,7 +206,9 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
       }
 
       THEN("Output matches expected RSI behavior") {
+        // std::cout << "Outputs: " << outputs.size() << std::endl;
         for (size_t i = 0; i < outputs.size(); ++i) {
+          // std::cout << outputs[i].first << ", " << outputs[i].second << std::endl;
           REQUIRE(outputs[i].first == n + i + 1);  // 15, 16, 17, ...
           REQUIRE(outputs[i].second == Approx(expected_values[i]).margin(0.00001));
         }

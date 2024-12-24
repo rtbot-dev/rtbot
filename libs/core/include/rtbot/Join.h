@@ -246,6 +246,8 @@ class Join : public Operator {
     return synchronized_data;
   }
 
+  void clear_synchronized_data() { synchronized_data.clear(); }
+
  private:
   std::vector<std::string> port_type_names_;
   std::map<size_t, std::set<timestamp_t>> data_time_tracker_;

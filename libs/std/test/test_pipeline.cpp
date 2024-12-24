@@ -207,8 +207,10 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][serializa
 
         THEN("Pipeline requires operator re-registration") {
           // Re-register operators
-          restored->register_operator(ma);
-          restored->register_operator(peak);
+          auto ma_restored = std::make_shared<MovingAverage>("ma1", 3);
+          auto peak_restored = std::make_shared<PeakDetector>("peak1", 3);
+          restored->register_operator(ma_restored);
+          restored->register_operator(peak_restored);
           restored->set_entry("ma1");
           restored->connect("ma1", "peak1");
           restored->add_output_mapping("peak1", 0, 0);

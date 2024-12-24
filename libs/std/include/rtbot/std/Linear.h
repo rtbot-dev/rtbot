@@ -46,6 +46,9 @@ class Linear : public Join {
 
       get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));
     }
+
+    // Clear synchronized data after processing
+    clear_synchronized_data();
   }
 
  private:

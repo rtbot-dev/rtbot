@@ -76,6 +76,9 @@ class ReduceJoin : public Join {
         get_output_queue(0).push_back(create_message<T>(time, *result));
       }
     }
+
+    // Clear synchronized data after processing
+    clear_synchronized_data();
   }
 
  private:
