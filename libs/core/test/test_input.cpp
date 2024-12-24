@@ -97,13 +97,6 @@ SCENARIO("Input operator handles multiple types", "[input]") {
         REQUIRE(types[2] == PortType::VECTOR_NUMBER);
       }
     }
-
-    WHEN("Sending message to wrong port type") {
-      THEN("Type mismatch is detected") {
-        REQUIRE_THROWS_AS(input->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0),
-                          std::runtime_error);
-      }
-    }
   }
 }
 

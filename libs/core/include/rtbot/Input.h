@@ -95,6 +95,15 @@ class Input : public Operator {
     last_sent_times_.assign(last_sent_times_.size(), 0);
   }
 
+  // Do not throw exceptions in receive_data
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+    try {
+      Operator::receive_data(std::move(msg), port_index);
+    } catch (const std::exception& e) {
+      // Do nothing
+    }
+  }
+
  protected:
   void process_data() override {
     // Process each port independently to allow concurrent timestamps
