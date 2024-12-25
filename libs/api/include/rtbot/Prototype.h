@@ -38,7 +38,9 @@ class PrototypeHandler {
       return;
     }
 
-    auto prototypes = parse_prototypes(program_json["prototypes"]);
+    // Parse and store all prototypes
+    std::map<std::string, PrototypeDefinition> prototypes = parse_prototypes(program_json["prototypes"]);
+
     json expanded_operators = json::array();
     json expanded_connections = json::array();
     std::map<std::string, std::pair<std::string, std::string>> instance_mappings;
@@ -46,39 +48,48 @@ class PrototypeHandler {
     // Process original operators
     for (const auto& op : program_json["operators"]) {
       if (op.contains("prototype")) {
-        const auto& proto = prototypes[op["prototype"].get<std::string>()];
+        // Handle prototype instance
+        const auto& proto = prototypes.at(op["prototype"].get<std::string>());
+        const std::string instance_id = op["id"].get<std::string>();
 
-        // Expand prototype instance
-        expand_prototype_instance(op["id"].get<std::string>(), proto, op.value("parameters", json::object()),
-                                  expanded_operators, expanded_connections, instance_mappings);
+        expand_prototype_instance(instance_id, proto, op.value("parameters", json::object()), expanded_operators,
+                                  expanded_connections, instance_mappings, prototypes);
       } else {
+        // Regular operator - add as-is
         expanded_operators.push_back(op);
       }
     }
 
     // Process original connections
     for (const auto& conn : program_json["connections"]) {
-      std::string from_id = conn["from"];
-      std::string to_id = conn["to"];
+      bool processed = false;
 
-      json remapped_conn = conn;
-
-      // Map prototype instance connections
-      if (instance_mappings.count(from_id)) {
-        remapped_conn["from"] = instance_mappings[from_id].second;
-        remapped_conn["fromPort"] = conn.value("fromPort", "o1");
+      // Check if connection involves prototype instances
+      for (const auto& [instance_id, mapping] : instance_mappings) {
+        if (conn["from"] == instance_id) {
+          json new_conn = conn;
+          new_conn["from"] = mapping.second;  // Use output port
+          expanded_connections.push_back(new_conn);
+          processed = true;
+        }
+        if (conn["to"] == instance_id) {
+          json new_conn = conn;
+          new_conn["to"] = mapping.first;  // Use entry port
+          expanded_connections.push_back(new_conn);
+          processed = true;
+        }
       }
-      if (instance_mappings.count(to_id)) {
-        remapped_conn["to"] = instance_mappings[to_id].first;
-        remapped_conn["toPort"] = conn.value("toPort", "i1");
-      }
 
-      expanded_connections.push_back(remapped_conn);
+      // If not involving prototypes, add as-is
+      if (!processed) {
+        expanded_connections.push_back(conn);
+      }
     }
 
-    // Update program with expanded operators and connections
+    // Update program JSON
     program_json["operators"] = expanded_operators;
     program_json["connections"] = expanded_connections;
+    program_json.erase("prototypes");
   }
 
  private:
@@ -129,32 +140,42 @@ class PrototypeHandler {
     }
   }
 
-  static void expand_prototype_instance(const std::string& instance_id, const PrototypeDefinition& proto,
-                                        const json& params, json& expanded_operators, json& expanded_connections,
-                                        std::map<std::string, std::pair<std::string, std::string>>& instance_mappings) {
+  static void expand_prototype_instance(
+      const std::string& instance_id, const PrototypeDefinition& proto, const json& params, json& expanded_operators,
+      json& expanded_connections, std::map<std::string, std::pair<std::string, std::string>>& instance_mappings,
+      const std::map<std::string, PrototypeDefinition>& all_prototypes  // Add prototypes map
+  ) {
     json resolved_params = resolve_parameters(instance_id, params, proto.parameters);
 
-    // Create a copy of operators for modification
     json instance_operators = proto.operators;
 
-    // First resolve parameters in all operators, including nested Pipelines
+    // First pass: Resolve parameters
     resolve_pipeline_operators(instance_operators, resolved_params);
 
-    // Expand operators with scoped IDs
+    // Second pass: Handle nested prototypes
     for (auto& op : instance_operators) {
-      std::string local_id = op["id"];
-      op["id"] = instance_id + "::" + local_id;
-      expanded_operators.push_back(op);
+      if (op.contains("prototype")) {
+        // Recursively expand nested prototype
+        const auto& nested_proto = all_prototypes.at(op["prototype"].get<std::string>());
+        const std::string nested_id = instance_id + "::" + op["id"].get<std::string>();
+
+        expand_prototype_instance(nested_id, nested_proto, op.value("parameters", json::object()), expanded_operators,
+                                  expanded_connections, instance_mappings, all_prototypes);
+      } else {
+        // Regular operator - add with scoped ID
+        std::string local_id = op["id"];
+        op["id"] = instance_id + "::" + local_id;
+        expanded_operators.push_back(op);
+      }
     }
 
-    // Expand connections
+    // Expand connections with scoped IDs
     for (auto conn : proto.connections) {
       conn["from"] = instance_id + "::" + conn["from"].get<std::string>();
       conn["to"] = instance_id + "::" + conn["to"].get<std::string>();
       expanded_connections.push_back(conn);
     }
 
-    // Store mappings
     instance_mappings[instance_id] =
         std::make_pair(instance_id + "::" + proto.entry.operator_id, instance_id + "::" + proto.output.operator_id);
   }

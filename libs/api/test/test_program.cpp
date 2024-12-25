@@ -1031,3 +1031,76 @@ SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prot
     }
   }
 }
+
+SCENARIO("Program with nested prototypes", "[program]") {
+  std::string program_json = R"({
+      "prototypes": {
+        "simpleMA": {
+          "parameters": [
+            {"name": "window", "type": "number"}
+          ],
+          "operators": [
+            {"type": "MovingAverage", "id": "ma", "window_size": "${window}"}
+          ],
+          "connections": [],
+          "entry": {"operator": "ma"},
+          "output": {"operator": "ma"}
+        },
+        "dualMA": {
+          "parameters": [
+            {"name": "window1", "type": "number"},
+            {"name": "window2", "type": "number"}
+          ],
+          "operators": [
+            {"id": "ma1", "prototype": "simpleMA", "parameters": {"window": "${window1}"}},
+            {"id": "ma2", "prototype": "simpleMA", "parameters": {"window": "${window2}"}}
+          ],
+          "connections": [
+            {"from": "ma1::ma", "to": "ma2::ma"}
+          ],
+          "entry": {"operator": "ma1::ma"},
+          "output": {"operator": "ma2::ma"}
+        }
+      },
+      "operators": [
+        {"type": "Input", "id": "input1", "portTypes": ["number"]},
+        {"id": "nested_ma", "prototype": "dualMA", "parameters": {"window1": 2, "window2": 3}},
+        {"type": "Output", "id": "output1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "input1", "to": "nested_ma::ma1::ma"},
+        {"from": "nested_ma::ma2::ma", "to": "output1"}
+      ],
+      "entryOperator": "input1",
+      "output": {
+        "output1": ["o1"]
+      }
+    })";
+
+  Program program(program_json);
+  WHEN("Processing messages through nested moving averages") {
+    ProgramMsgBatch batch;
+    std::vector<double> results;
+
+    // Send messages one by one
+    batch = program.receive(Message<NumberData>(1, NumberData{2.0}));
+    REQUIRE(batch.empty());  // First MA collecting
+
+    batch = program.receive(Message<NumberData>(2, NumberData{4.0}));
+    REQUIRE(batch.empty());  // First MA starts outputting, second MA collecting
+
+    batch = program.receive(Message<NumberData>(3, NumberData{6.0}));
+    REQUIRE(batch.empty());  // Second MA still collecting
+
+    batch = program.receive(Message<NumberData>(4, NumberData{8.0}));
+    REQUIRE(batch.size() == 1);
+    REQUIRE(batch["output1"]["o1"].size() == 1);
+    auto* msg = dynamic_cast<const Message<NumberData>*>(batch["output1"]["o1"].back().get());
+    REQUIRE(msg->data.value == Approx(5.0));  // First output from nested MAs
+
+    batch = program.receive(Message<NumberData>(5, NumberData{10.0}));
+    REQUIRE(batch.size() == 1);
+    msg = dynamic_cast<const Message<NumberData>*>(batch["output1"]["o1"].back().get());
+    REQUIRE(msg->data.value == Approx(7.0));
+  }
+}
