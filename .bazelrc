@@ -30,7 +30,9 @@ build --workspace_status_command=tools/bazel_workspace_status.sh
 build --action_env=BAZEL_CXXOPTS="-std=c++17"
 build --cxxopt=-std=c++17
 build --repo_env=CC=clang
-build --cxxopt=-stdlib=libc++
+
+# linux
+build:linux --cxxopt=-stdlib=libc++
 
 # windows
 # MSVC
