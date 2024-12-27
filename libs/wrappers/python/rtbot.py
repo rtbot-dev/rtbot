@@ -250,38 +250,178 @@ class Program:
         return self
 
     def to_mermaid(self) -> str:
-        """Convert program structure to Mermaid.js flowchart representation."""
-        # Start with flowchart definition, left-to-right
+        """Convert program structure to Mermaid.js flowchart representation with improved layout."""
         lines = ["flowchart LR"]
+        nodes = {}
+        rank_groups = {}
         
-        # Create nodes for each operator
-        for op in self.operators:
-            op_id = op["id"]
-            op_type = op["type"]
+        def get_short_name(op_type: str, params: dict = None, op_id: str = "") -> str:
+            """Get shortened operator name with parameters."""
+            if isinstance(op_type, dict):
+                if "prototype" in op_type:
+                    proto_name = op_type["prototype"]
+                    params = op_type.get("parameters", {})
+                    param_str = ", ".join(f"{k}={v}" for k, v in params.items())
+                    return f"{proto_name}\\n({param_str})"
+                elif "type" in op_type:
+                    return get_short_name(op_type["type"], op_type.get("parameters", {}), op_id)
+                else:
+                    # If we can't determine the type, use the operator's ID
+                    return op_id.split("::")[-1]
+                
+            type_map = {
+                "LogicalAnd": "AND",
+                "LogicalOr": "OR",
+                "LogicalNot": "NOT",
+                "MovingAverage": "MA",
+                "StandardDeviation": "StdDev",
+                "GreaterThan": ">",
+                "LessThan": "<",
+                "EqualTo": "=",
+                "ResamplerHermite": "Hermite",
+                "ResamplerConstant": "Resampler",
+                "ConstantNumber": "",  # Will show just the value
+                "ConstantBoolean": "",  # Will show just the value
+                "ConstantNumberToBoolean": "→bool",
+                "ConstantBooleanToNumber": "→num",
+            }
             
-            # Special styling for entry operator
+            # Get base name, fallback to operator ID if type unknown
+            base_name = type_map.get(op_type, op_type)
+            if base_name not in type_map.values() and op_id:
+                base_name = op_id.split("::")[-1]
+            
+            # Add parameters if available
+            if params:
+                if op_type == "GreaterThan":
+                    return f"> {params.get('value', '')}"
+                elif op_type == "LessThan":
+                    return f"< {params.get('value', '')}"
+                elif op_type == "EqualTo":
+                    return f"= {params.get('value', '')}"
+                elif op_type == "ConstantNumber":
+                    return str(params.get('value', ''))
+                elif op_type == "ConstantBoolean":
+                    return str(params.get('value', '')).lower()
+                elif op_type == "MovingAverage":
+                    return f"MA({params.get('window_size', '')})"
+                elif op_type == "ResamplerHermite":
+                    return f"Hermite({params.get('interval', '')})"
+                elif op_type == "StandardDeviation":
+                    return f"StdDev({params.get('window_size', '')})"
+                else:
+                    # For any other operator type, show all parameters
+                    param_str = ", ".join(f"{k}={v}" for k, v in params.items())
+                    return f"{base_name}({param_str})"
+            
+            return base_name
+        
+        def add_node(op_id: str, op_type: str, level: int = 0):
+            styles = []
             if op_id == self.entryOperator:
-                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]:::entry')
-            # Special styling for output operators
-            elif op_id in self.output:
-                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]:::output')
-            else:
-                lines.append(f'    {op_id}["{op_type}\\n{op_id}"]')
-        
-        # Add connections
-        for conn in self.connections:
-            from_op = conn["from"]
-            to_op = conn["to"]
-            from_port = conn.get("fromPort", "o1")
-            to_port = conn.get("toPort", "i1")
+                styles.append("entry")
+            if op_id in self.output:
+                styles.append("output")
+            if isinstance(op_type, dict) and "prototype" in op_type:
+                styles.append("prototype")
+                
+            style = ":::" + ",".join(styles) if styles else ""
             
-            # Add port labels to connection
-            lines.append(f'    {from_op} -- "{from_port} → {to_port}" --> {to_op}')
+            node_id = op_id.replace("::", "_")
+            nodes[op_id] = node_id
+            
+            if level not in rank_groups:
+                rank_groups[level] = []
+            rank_groups[level].append(node_id)
+            
+            # Get parameters and create node label
+            params = op_type.get("parameters", {}) if isinstance(op_type, dict) else None
+            op_name = get_short_name(op_type if isinstance(op_type, str) else op_type.get("type", "Unknown"), 
+                                params, op_id)
+            
+            # Use hexagon shape for prototype instances
+            shape = "{{" if isinstance(op_type, dict) and "prototype" in op_type else "["
+            end_shape = "}}" if isinstance(op_type, dict) and "prototype" in op_type else "]"
+            
+            display_name = op_name if op_name else op_id.split("::")[-1]
+            lines.append(f'    {node_id}{shape}"{display_name}"{end_shape}{style}')
+            
+            # Handle prototypes and pipelines
+            if isinstance(op_type, dict) and "prototype" in op_type:
+                proto_name = op_type["prototype"]
+                proto_def = self.prototypes[proto_name]
+                # Add prototype internals
+                for internal_op in proto_def["operators"]:
+                    internal_id = f"{op_id}::{internal_op['id']}"
+                    internal_type = internal_op
+                    if isinstance(internal_op, dict):
+                        # Resolve template parameters
+                        params = {}
+                        for k, v in internal_op.get("parameters", {}).items():
+                            if isinstance(v, str) and v.startswith("${") and v.endswith("}"):
+                                param_name = v[2:-1]
+                                if param_name in op_type.get("parameters", {}):
+                                    params[k] = op_type["parameters"][param_name]
+                            else:
+                                params[k] = v
+                        internal_type = {"type": internal_op["type"], "parameters": params}
+                    add_node(internal_id, internal_type, level + 1)
+                    
+                # Add prototype connections
+                for conn in proto_def["connections"]:
+                    from_id = f"{op_id}::{conn['from']}"
+                    to_id = f"{op_id}::{conn['to']}"
+                    add_connection(from_id, to_id, conn.get("fromPort", "o1"), conn.get("toPort", "i1"))
+                    
+            elif isinstance(op_type, dict) and op_type.get("type") == "Pipeline":
+                # Add pipeline internals
+                for internal_op in op_type["operators"]:
+                    internal_id = f"{op_id}::{internal_op['id']}"
+                    add_node(internal_id, internal_op["type"], level + 1)
+                # Add pipeline connections
+                for conn in op_type["connections"]:
+                    from_id = f"{op_id}::{conn['from']}"
+                    to_id = f"{op_id}::{conn['to']}"
+                    add_connection(from_id, to_id, conn.get("fromPort", "o1"), conn.get("toPort", "i1"))
+
+        def add_connection(from_op: str, to_op: str, from_port: str = "o1", to_port: str = "i1"):
+            from_node = nodes[from_op]
+            to_node = nodes[to_op]
+            lines.append(f'    {from_node} -- "{from_port} → {to_port}" --> {to_node}')
+
+        # First pass: create all nodes with proper levels
+        for op in self.operators:
+            add_node(op["id"], op.get("type", op), 0)
         
-        # Add class definitions
+        # Second pass: add connections
+        for conn in self.connections:
+            add_connection(conn["from"], conn["to"], 
+                        conn.get("fromPort", "o1"), 
+                        conn.get("toPort", "i1"))
+        
+        # Add subgraph rankings to enforce left-to-right layout
+        max_level = max(rank_groups.keys()) if rank_groups else 0
+        for level in range(max_level + 1):
+            if level in rank_groups and rank_groups[level]:
+                lines.append(f"    subgraph level_{level} [\" \"]")
+                lines.append("    direction LR")  # Force left-to-right direction within subgraph
+                lines.append("    " + " & ".join(rank_groups[level]))
+                lines.append("    end")
+                
+        # Add invisible edges to force ordering between levels
+        for level in range(max_level):
+            if level in rank_groups and (level + 1) in rank_groups:
+                if rank_groups[level] and rank_groups[level + 1]:
+                    first_node = rank_groups[level][0]
+                    next_node = rank_groups[level + 1][0]
+                    lines.append(f"    {first_node} ~~~ {next_node}")  # Invisible edge
+        
+        # Add styling
         lines.extend([
-            "    classDef entry fill:#f96",
-            "    classDef output fill:#9cf"
+            "    classDef entry fill:#f96,stroke:#333,stroke-width:2px",
+            "    classDef output fill:#9cf,stroke:#333,stroke-width:2px",
+            "    classDef prototype fill:#f0f0f0,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5",
+            "    classDef default fill:white,stroke:#333,stroke-width:1px"
         ])
         
         return "\n".join(lines)
