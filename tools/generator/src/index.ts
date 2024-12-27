@@ -196,40 +196,67 @@ program
     }
 
     if (target === "typescript") {
+      const getTypeString = (prop: any): string => {
+        if (prop.name === "outputMappings") {
+          return "any";
+        }
+        if (prop.type === "array") {
+          if (
+            prop.items?.enum?.every((e: string) => ["number", "boolean", "vector_number", "vector_boolean"].includes(e))
+          ) {
+            return "PortType[]";
+          }
+          if (prop.items?.enum) {
+            const enumVals = prop.items.enum.map((e: string) => `"${e}"`).join(" | ");
+            return `(${enumVals})[]`;
+          }
+          return "any[]";
+        }
+        if (prop.type === "string" && prop.enum) {
+          if (prop.enum.every((e: string) => ["number", "boolean", "vector_number", "vector_boolean"].includes(e))) {
+            return "PortType";
+          }
+          return prop.enum.map((e: string) => `"${e}"`).join(" | ");
+        }
+        const typeMap: Record<string, string> = {
+          integer: "number",
+          number: "number",
+          string: "string",
+          boolean: "boolean",
+          object: "Record<string, any>",
+          array: "any[]",
+        };
+        return typeMap[prop.type] || "any";
+      };
+
+      const nonPrototypeSchemas = programJsonschema.properties.operators.items.oneOf.filter(
+        (schema: any) => !schema.properties?.prototype
+      );
+
       const typescriptContent = typescriptTemplate({
-        schemas: parseSchema({ type: "array", items: programJsonschema.properties.operators.items.oneOf })
-          .replace("z.tuple(", "")
-          .slice(0, -1),
-        operators: await Promise.all(
-          schemas.map(async (schema) => {
-            const properties = Object.keys(schema.properties);
+        schemas: nonPrototypeSchemas.map((schema) => parseSchema(schema)).join(",\n"),
+        operators: schemas
+          .filter((schema) => !schema.properties?.prototype)
+          .map((schema) => {
             const type = schema.properties.type.enum[0];
-            const ts = await compile(schema, type);
-            let parametersBlock = ts
-              .split("export interface")[1]
-              .split("\n")
-              .filter((l) => l.indexOf("type") === -1 && l.indexOf("unknown") === -1)
-              .slice(1)
-              .slice(0, -2)
-              .map((l) => l.replace(";", ","))
+            const props = Object.entries(schema.properties)
+              .filter(([k]) => k !== "type")
+              .map(([name, prop]: [string, any]) => {
+                const description = prop.description ? `/**\n* ${prop.description}\n*/\n` : "";
+                const typeStr = getTypeString({ ...prop, name });
+                return `${description}readonly ${name}${schema.required?.includes(name) ? "" : "?"}: ${typeStr},`;
+              })
               .join("\n");
-            properties.forEach(
-              (prop) =>
-                (parametersBlock = parametersBlock
-                  .replace(`${prop}:`, `readonly ${prop}:`)
-                  .replace(`${prop}?:`, `readonly ${prop}?:`))
-            );
-            const zodSchema = parseSchema(schema);
 
             return {
               type,
-              parametersBlock,
-              schema: zodSchema,
+              parametersBlock: props,
+              schema: parseSchema(schema),
             };
-          })
-        ),
+          }),
       });
-      const formatted = await prettier.format(typescriptContent, { parser: "babel-ts" });
+
+      const formatted = typescriptContent; //await prettier.format(typescriptContent, { parser: "babel-ts" });
       fs.writeFileSync(`${output}/index.ts`, formatted);
     }
   });

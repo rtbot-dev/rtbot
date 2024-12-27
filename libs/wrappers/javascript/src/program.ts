@@ -11,6 +11,7 @@ export class Program {
   connections: Connection[] = [];
   programId: string;
   defaultPort?: string;
+  output: Record<string, string[]> = {};
 
   constructor(
     public entryOperator?: string,
@@ -39,11 +40,33 @@ export class Program {
   }
 
   validate() {
-    programSchema.parse(JSON.parse(JSON.stringify(this)));
+    try {
+      programSchema.parse(JSON.parse(JSON.stringify(this)));
+    } catch (error) {
+      if (error instanceof Error) {
+        // Extract operator info from error path if present
+        const issues = JSON.parse(error.message);
+        const operatorErrors = issues.filter((i: any) => i.path[0] === "operators");
+
+        if (operatorErrors.length > 0) {
+          const operatorIndex = operatorErrors[0].path[1];
+          const invalidOperator = this.operators[operatorIndex];
+          throw new Error(
+            `Invalid operator "${invalidOperator?.type}" at index ${operatorIndex}. ` +
+              `Valid operators are: ${operatorErrors[0].unionErrors?.[1].issues[0].options.join(", ")}`
+          );
+        }
+      }
+      throw error;
+    }
   }
 
   safeValidate() {
     return programSchema.safeParse(JSON.parse(JSON.stringify(this)));
+  }
+
+  addOutput(operatorId: string, ports: string[]) {
+    this.output[operatorId] = ports;
   }
 
   addOperator(op: Operator) {
