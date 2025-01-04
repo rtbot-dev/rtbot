@@ -20,7 +20,7 @@ operators:
   LogicalNand:
     latex:
       template: |
-        \uparrow
+        ↑
   LogicalNor:
     latex:
       template: |

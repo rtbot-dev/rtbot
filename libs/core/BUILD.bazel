@@ -8,7 +8,7 @@ filegroup(
     name = "md",
     srcs = glob([
         "include/**/*.md",
-    ]),
+    ], exclude = ["**/README.md", "**/Operator.md"]),
 )
 
 filegroup(

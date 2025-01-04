@@ -21,7 +21,7 @@ program
   .description("RtBot code generator")
   .option(
     "-s, --sources [sources...]",
-    "A list of markdown files where the documentation and schema of the operators are stored"
+    "A list of markdown files where the documentation and schema of the operators are stored",
   )
   .option("-o, --output <string>", "Output directory")
   .addOption(
@@ -31,7 +31,7 @@ program
       "cpp",
       "python",
       "markdown",
-    ])
+    ]),
   )
   .action(async ({ output, sources, target }) => {
     if (sources.length === 1) sources = sources[0].split(" ");
@@ -61,7 +61,7 @@ program
         } catch (e) {
           console.log(chalk.red(`Error: ${e.message}, file ${f}`));
         }
-      })
+      }),
     );
     schemas = schemas
       .filter((s) => s)
@@ -69,8 +69,8 @@ program
       .reduce((acc, s) => acc.concat(s), []);
     console.log(
       `${chalk.cyan("[schemas] found operators:\n  - ")}${chalk.yellow(
-        schemas.map((s) => s.properties.type.enum[0]).reduce((acc, s) => `${acc}\n  - ${s}`)
-      )}`
+        schemas.map((s) => s.properties.type.enum[0]).reduce((acc, s) => `${acc}\n  - ${s}`),
+      )}`,
     );
 
     const programJsonschema = JSON.parse(jsonschemaTemplate({ schemas: schemas.map((s) => JSON.stringify(s)) }));
@@ -85,62 +85,88 @@ program
           if (fileContent.indexOf("---") > -1) {
             const frontMatterStr = fileContent.split("---")[1];
             const frontMatter = parse(frontMatterStr);
-            const schema = frontMatter.jsonschema;
-            // cook up an example parameter object
-            const getExampleParameter = (k: string) => {
-              if (k === "id") return '"id"';
-              if (schema.properties[k].examples) {
-                if (schema.properties[k].type === "array") return `[${schema.properties[k].examples[0]}]`;
-                return schema.properties[k].examples[0];
+            const schemas = frontMatter.jsonschemas || [frontMatter.jsonschema];
+
+            // Determine if this file has multiple schemas
+            const hasMultipleSchemas = Array.isArray(schemas) && schemas.length > 1;
+
+            let newFileContent = fileContent;
+
+            schemas.forEach((schema: any) => {
+              if (!schema) return;
+
+              // Use the filename as the operator type if `type` is not specified
+              const op = schema.properties?.type?.enum?.[0] || path.basename(f).replace(".md", "");
+
+              // Generate the parameters section
+              const parameters = {
+                parameters: Object.entries(schema.properties).map(([k, v]: [string, any]) => ({ name: k, ...v })),
+              };
+              const parametersSection = parametersMdTemplate(parameters);
+
+              // Append the parameters section to the file content
+              // deprecated
+              // newFileContent += "\n\n" + parametersSection;
+
+              // For single schema files, inject the usage section
+              if (!hasMultipleSchemas) {
+                // cook up an example parameter object
+                const getExampleParameter = (k: string) => {
+                  if (k === "id") return '"id"';
+                  if (schema.properties[k].examples) {
+                    if (schema.properties[k].type === "array") return `[${schema.properties[k].examples[0]}]`;
+                    return schema.properties[k].examples[0];
+                  }
+                  if (schema.properties[k].type === "integer") return 2;
+                  if (schema.properties[k].type === "numeric") return 2.0;
+                  if (schema.properties[k].type === "string") return "some";
+                  if (schema.properties[k].type === "boolean") return true;
+                };
+
+                const exampleParameters = Object.keys(schema.properties).reduce(
+                  (acc, k) => ({ ...acc, [`${k}`]: getExampleParameter(k) }),
+                  {},
+                );
+
+                const opParams = Object.keys(exampleParameters).join(", ");
+                const opParamsDef = Object.keys(exampleParameters).reduce(
+                  (acc, k) => `${acc}const ${k} = ${exampleParameters[k]};\n`,
+                  "",
+                );
+                const opParamsDefPy = Object.keys(exampleParameters).reduce(
+                  (acc, k) => `${acc}${k} = ${exampleParameters[k]};\n`,
+                  "",
+                );
+                const opParamsDefCpp = Object.keys(exampleParameters)
+                  .reduce((acc, k) => `${acc}auto ${k} = ${exampleParameters[k]};\n`, "")
+                  .replaceAll("[", "{")
+                  .replaceAll("]", "}");
+                const opParamsYaml = Object.keys(exampleParameters).reduce(
+                  (acc, k) => `${acc}    ${k}: ${exampleParameters[k]}\n`,
+                  "",
+                );
+                const opParamsJson = Object.keys(exampleParameters)
+                  .reduce((acc, k) => [...acc, `"${k}": ${exampleParameters[k]}`], [])
+                  .join(", ");
+
+                const usageSection = usageMdTemplate({
+                  op,
+                  opParams,
+                  opParamsDef,
+                  opParamsDefPy,
+                  opParamsDefCpp,
+                  opParamsYaml,
+                  opParamsJson,
+                });
+
+                // deprecated
+                //newFileContent += "\n\n" + usageSection;
               }
-              if (schema.properties[k].type === "integer") return 2;
-              if (schema.properties[k].type === "numeric") return 2.0;
-              if (schema.properties[k].type === "string") return "some";
-              if (schema.properties[k].type === "boolean") return true;
-            };
-            const exampleParameters = Object.keys(schema.properties).reduce(
-              (acc, k) => ({ ...acc, [`${k}`]: getExampleParameter(k) }),
-              {}
-            );
-            const opParams = Object.keys(exampleParameters).join(", ");
-            const opParamsDef = Object.keys(exampleParameters).reduce(
-              (acc, k) => `${acc}const ${k} = ${exampleParameters[k]};\n`,
-              ""
-            );
-            const opParamsDefPy = Object.keys(exampleParameters).reduce(
-              (acc, k) => `${acc}${k} = ${exampleParameters[k]};\n`,
-              ""
-            );
-            const opParamsDefCpp = Object.keys(exampleParameters)
-              .reduce((acc, k) => `${acc}auto ${k} = ${exampleParameters[k]};\n`, "")
-              .replaceAll("[", "{")
-              .replaceAll("]", "}");
-            const opParamsYaml = Object.keys(exampleParameters).reduce(
-              (acc, k) => `${acc}    ${k}: ${exampleParameters[k]}\n`,
-              ""
-            );
-            const opParamsJson = Object.keys(exampleParameters)
-              .reduce((acc, k) => [...acc, `"${k}": ${exampleParameters[k]}`], [])
-              .join(", ");
-
-            const op = path.basename(f).replace(".md", "");
-            const usageSection = usageMdTemplate({
-              op,
-              opParams,
-              opParamsDef,
-              opParamsDefPy,
-              opParamsDefCpp,
-              opParamsYaml,
-              opParamsJson,
             });
-            const parameters = {
-              parameters: Object.entries(schema.properties).map(([k, v]: [string, any]) => ({ name: k, ...v })),
-            };
-            const parametersSection = parametersMdTemplate(parameters);
-            fileContent += "\n\n" + parametersSection;
-            fileContent += "\n\n" + usageSection;
 
-            fs.writeFileSync(`${output}/${path.basename(f)}x`, fileContent);
+            // Write the file with the same name as the original
+            const outputFileName = `${output}/${path.basename(f)}x`;
+            fs.writeFileSync(outputFileName, newFileContent);
           }
         } catch (e) {
           console.log(chalk.red(`Error: ${e.message}, file ${f}`), e.stack);
@@ -164,7 +190,7 @@ program
             .map((l) => '"' + l.replaceAll('"', '\\"') + '"')
             .join("\n")}
         ""_json;
-        #endif`.replace(/       +/g, "")
+        #endif`.replace(/       +/g, ""),
       );
     }
 
@@ -230,7 +256,7 @@ program
       };
 
       const nonPrototypeSchemas = programJsonschema.properties.operators.items.oneOf.filter(
-        (schema: any) => !schema.properties?.prototype
+        (schema: any) => !schema.properties?.prototype,
       );
 
       const typescriptContent = typescriptTemplate({

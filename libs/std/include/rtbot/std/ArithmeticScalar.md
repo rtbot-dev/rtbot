@@ -213,7 +213,7 @@ jsonschemas:
     required: ["id"]
 ---
 
-# ArithmeticScalar
+# Arithmetic Scalar Operators
 
 The ArithmeticScalar class serves as a base for operators that perform mathematical operations on a single numeric input stream. Each derived class implements a specific mathematical function that is applied to each input value.
 
