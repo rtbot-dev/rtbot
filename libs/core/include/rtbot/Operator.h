@@ -370,6 +370,7 @@ class Operator {
   virtual void process_control() {}
 
   void propagate_outputs() {
+    // First send the messages to the connected operators
     for (auto& conn : connections_) {
       auto& output_queue = output_ports_[conn.output_port].queue;
       size_t last_propagated_index = conn.last_propagated_index;
@@ -394,6 +395,10 @@ class Operator {
       }
 
       conn.last_propagated_index = output_queue.size();
+    }
+
+    // Then execute connected operators
+    for (auto& conn : connections_) {
       conn.child->execute();
     }
   }

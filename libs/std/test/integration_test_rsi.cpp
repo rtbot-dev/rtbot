@@ -35,8 +35,7 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     auto lt = std::make_shared<LessThan>("lt", n + 1);
     auto et = std::make_shared<EqualTo>("et", n + 1);
     auto gt = std::make_shared<GreaterThan>("gt", n + 1);
-    auto etn2 = std::make_shared<EqualTo>("etn2", n + 1);
-    auto etn2ts = std::make_shared<TimeShift>("etn2ts", 1);
+    auto etn2 = std::make_shared<EqualTo>("etn2", n + 2);
 
     // Constants for control flow with BooleanData
     auto cgtz = std::make_shared<Constant<NumberData, BooleanData>>("cgtz", BooleanData{false});
@@ -87,7 +86,6 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     count->connect(gt);
     count->connect(et);
     count->connect(etn2);
-    etn2->connect(etn2ts);
 
     // Connect demultiplexer control
     lt->connect(clto);
@@ -150,9 +148,9 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     et1->connect(l1, 0, 1);
     et1->connect(l2, 0, 1);
 
-    etn2ts->connect(varg);
+    etn2->connect(varg);
     et->connect(varg, 0, 0, PortKind::CONTROL);
-    etn2ts->connect(varl);
+    etn2->connect(varl);
     et->connect(varl, 0, 0, PortKind::CONTROL);
 
     // Connect RSI calculation chain
@@ -206,6 +204,7 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
       }
 
       THEN("Output matches expected RSI behavior") {
+        REQUIRE(outputs.size() == expected_values.size());
         // std::cout << "Outputs: " << outputs.size() << std::endl;
         for (size_t i = 0; i < outputs.size(); ++i) {
           // std::cout << outputs[i].first << ", " << outputs[i].second << std::endl;
