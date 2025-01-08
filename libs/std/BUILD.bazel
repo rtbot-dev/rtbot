@@ -22,8 +22,11 @@ cc_library(
     srcs = glob([
         "src/**/*.cpp",
     ]),
-    copts = ["-O3"],
     hdrs = glob(["include/**/*.h"]),
+    copts = ["-O3"],
     includes = ["include"],
     visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core:rtbot",
+    ],
 )

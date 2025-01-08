@@ -1,113 +1,165 @@
 #ifndef INPUT_H
 #define INPUT_H
 
-#include "Message.h"
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "StateSerializer.h"
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Input : public Operator<T, V> {
-  Input() = default;
-
-  Input(string const &id, size_t numPorts = 1) : Operator<T, V>(id) {
-    for (int i = 1; i <= numPorts; i++) {
-      string inputPort = "i" + to_string(i);
-      string outputPort = "o" + to_string(i);
-      portsMap.emplace(inputPort, outputPort);
-      this->addDataInput(inputPort, 1);
-      this->addOutput(outputPort);
+class Input : public Operator {
+ public:
+  // Constructor takes a vector of port type strings
+  Input(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
+    for (const auto& type : port_types) {
+      if (!PortType::is_valid_port_type(type)) {
+        throw std::runtime_error("Unknown port type: " + type);
+      }
+      PortType::add_port(*this, type, true, true);
+      last_sent_times_.push_back(0);
+      port_type_names_.push_back(type);
     }
   }
 
-  virtual Bytes collect() {
-    Bytes bytes = Operator<T, V>::collect();
-    // Serialize the lastSent map
-    size_t lastSentSize = this->lastSent.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&lastSentSize),
-                 reinterpret_cast<const unsigned char *>(&lastSentSize) + sizeof(lastSentSize));
+  std::string type_name() const override { return "Input"; }
 
-    for (const auto &[port, msg] : this->lastSent) {
-      // Serialize the size of the port word
-      size_t portSize = port.size();
-      bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&portSize),
-                   reinterpret_cast<const unsigned char *>(&portSize) + sizeof(portSize));
-      bytes.insert(bytes.end(), port.begin(), port.end());
+  // Get port configuration
+  const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
-      // Serialize the message
-      Bytes msgBytes = msg.collect();
-      bytes.insert(bytes.end(), msgBytes.begin(), msgBytes.end());
+  // Query port state
+  bool has_sent(size_t port_index) const {
+    validate_port_index(port_index);
+    return last_sent_times_[port_index] > 0;
+  }
+
+  timestamp_t get_last_sent_time(size_t port_index) const {
+    validate_port_index(port_index);
+    return last_sent_times_[port_index];
+  }
+
+  // State serialization
+  Bytes collect() override {
+    // First collect base state
+    Bytes bytes = Operator::collect();
+
+    // Serialize last sent times
+    size_t num_ports = last_sent_times_.size();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
+                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
+
+    for (const auto& time : last_sent_times_) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
+                   reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
     }
+
+    // Serialize port type names
+    StateSerializer::serialize_string_vector(bytes, port_type_names_);
 
     return bytes;
   }
 
-  virtual void restore(Bytes::const_iterator &it) {
-    Operator<T, V>::restore(it);
+  void restore(Bytes::const_iterator& it) override {
+    // First restore base state
+    Operator::restore(it);
 
-    // Deserialize the lastSent map
-    size_t lastSentSize = *reinterpret_cast<const size_t *>(&(*it));
-    it += sizeof(lastSentSize);
+    // Restore last sent times
+    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(size_t);
 
-    for (size_t i = 0; i < lastSentSize; i++) {
-      // Deserialize the size of the port word
-      size_t portSize = *reinterpret_cast<const size_t *>(&(*it));
-      it += sizeof(portSize);
-      string port(it, it + portSize);
-      it += portSize;
+    StateSerializer::validate_port_count(num_ports, num_data_ports(), "Data");
 
-      Message<T, V> msg;
-      msg.restore(it);
-      this->lastSent.erase(port);
-      this->lastSent.insert({port, msg});
+    last_sent_times_.clear();
+    last_sent_times_.reserve(num_ports);
+    for (size_t i = 0; i < num_ports; ++i) {
+      timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
+      it += sizeof(timestamp_t);
+      last_sent_times_.push_back(time);
+    }
+
+    // Restore port type names
+    StateSerializer::deserialize_string_vector(it, port_type_names_);
+
+    // Validate port types match
+    if (port_type_names_.size() != num_data_ports()) {
+      throw std::runtime_error("Port type count mismatch during restore");
     }
   }
 
-  virtual string debug(string empty) const override {
-    string toReturn = "lastSent: ";
-    toReturn += "[";
-    for (const auto &[port, msg] : this->lastSent) {
-      toReturn += port + ": " + msg.debug() + " ";
-    }
-    toReturn += "]";
-    return Operator<T, V>::debug(toReturn);
+  void reset() override {
+    Operator::reset();
+    last_sent_times_.assign(last_sent_times_.size(), 0);
   }
 
-  size_t getNumPorts() const { return this->dataInputs.size(); }
+  // Do not throw exceptions in receive_data
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+    try {
+      Operator::receive_data(std::move(msg), port_index);
+    } catch (const std::exception& e) {
+      // Do nothing
+    }
+  }
 
-  string typeName() const override { return "Input"; }
+ protected:
+  void process_data() override {
+    // Process each port independently to allow concurrent timestamps
+    for (const auto& port_index : data_ports_with_new_data_) {
+      const auto& input_queue = get_data_queue(port_index);
+      if (input_queue.empty()) continue;
 
-  virtual OperatorMessage<T, V> processData() override {
-    OperatorMessage<T, V> outputMsgs;
-    while (!this->toProcess.empty()) {
-      string inputPort = *(this->toProcess.begin());
-      Message<T, V> m0 = this->getDataInputMessage(inputPort, 0);
-      if (this->lastSent.count(inputPort) > 0) {
-        Message last = this->lastSent.at(inputPort);
-        if (last.time < m0.time) {
-          PortMessage<T, V> v;
-          v.push_back(m0);
-          outputMsgs.emplace(portsMap.find(inputPort)->second, v);
-          this->lastSent.erase(inputPort);
-          this->lastSent.emplace(inputPort, m0);
+      auto& output_queue = get_output_queue(port_index);
+
+      // Process all messages in input queue
+      for (const auto& msg : input_queue) {
+        // Only forward if timestamp is increasing for this specific port
+        if (!has_sent(port_index) || msg->time > last_sent_times_[port_index]) {
+          output_queue.push_back(std::move(msg->clone()));
+          last_sent_times_[port_index] = msg->time;
         }
-      } else {
-        PortMessage<T, V> v;
-        v.push_back(m0);
-        outputMsgs.emplace(portsMap.find(inputPort)->second, v);
-        this->lastSent.emplace(inputPort, m0);
       }
-      this->toProcess.erase(inputPort);
+
+      // Clear processed messages
+      get_data_queue(port_index).clear();
     }
-    return outputMsgs;
   }
+
+  void process_control() override {}  // No control processing needed
 
  private:
-  map<string, string> portsMap;
-  map<string, Message<T, V>> lastSent;
+  void validate_port_index(size_t port_index) const {
+    if (port_index >= num_data_ports()) {
+      throw std::runtime_error("Invalid port index: " + std::to_string(port_index));
+    }
+  }
+
+  std::vector<timestamp_t> last_sent_times_;
+  std::vector<std::string> port_type_names_;
 };
+
+// Factory functions for common configurations
+inline std::shared_ptr<Input> make_input(std::string id, const std::vector<std::string>& port_types) {
+  return std::make_shared<Input>(std::move(id), port_types);
+}
+
+inline std::shared_ptr<Input> make_number_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::NUMBER});
+}
+
+inline std::shared_ptr<Input> make_boolean_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::BOOLEAN});
+}
+
+inline std::shared_ptr<Input> make_vector_number_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_NUMBER});
+}
+
+inline std::shared_ptr<Input> make_vector_boolean_input(std::string id) {
+  return std::make_shared<Input>(std::move(id), std::vector<std::string>{PortType::VECTOR_BOOLEAN});
+}
 
 }  // namespace rtbot
 

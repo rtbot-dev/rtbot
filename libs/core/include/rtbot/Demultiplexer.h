@@ -1,130 +1,200 @@
 #ifndef DEMULTIPLEXER_H
 #define DEMULTIPLEXER_H
 
-#include "Operator.h"
+#include <cstddef>
+
+#include "StateSerializer.h"
+#include "rtbot/Message.h"
+#include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
+#include "rtbot/TimestampTracker.h"
 
 namespace rtbot {
 
-template <class T, class V>
-class Demultiplexer : public Operator<T, V> {
+template <typename T>
+class Demultiplexer : public Operator {
  public:
-  Demultiplexer() = default;
-  Demultiplexer(string const &id, size_t numPorts = 1) : Operator<T, V>(id) {
-    if (numPorts < 1)
-      throw std::runtime_error(typeName() + ": number of output ports have to be greater than or equal 1");
-
-    for (int i = 1; i <= numPorts; i++) {
-      string controlPort = string("c") + to_string(i);
-      string outputPort = string("o") + to_string(i);
-      this->addControlInput(controlPort);
-      this->addOutput(outputPort);
-      this->controlMap.emplace(controlPort, outputPort);
-    }
-    this->addDataInput("i1");
-  }
-  virtual ~Demultiplexer() = default;
-
-  virtual string typeName() const override { return "Demultiplexer"; }
-
-  void receiveData(Message<T, V> msg, string inputPort = "") override {
-    if (inputPort.empty()) {
-      auto in = this->getDataInputs();
-      if (in.size() == 1) inputPort = in.at(0);
+  Demultiplexer(std::string id, size_t num_ports) : Operator(std::move(id)) {
+    if (num_ports < 1) {
+      throw std::runtime_error("Number of output ports must be at least 1");
     }
 
-    if (this->dataInputs.count(inputPort) > 0) {
-      this->dataInputs.find(inputPort)->second.push_back(msg);
-      this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() +
-                                                      this->dataInputs.find(inputPort)->second.back().value);
-    } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " refers to a non existing input data port");
-  }
+    // Add single data input port with type T
+    add_data_port<T>();
+    data_time_tracker_ = std::set<timestamp_t>();
 
-  virtual ProgramMessage<T, V> executeData() override {
-    auto toEmit = processData();
-    if (!toEmit.empty()) return this->emit(toEmit);
-    return {};
-  }
-
-  virtual void receiveControl(Message<T, V> msg, string inputPort) {
-    if (inputPort.empty()) {
-      auto in = this->getControlInputs();
-      if (in.size() == 1) inputPort = in.at(0);
+    // Add corresponding control ports (always boolean)
+    for (size_t i = 0; i < num_ports; ++i) {
+      add_control_port<BooleanData>();
+      control_time_tracker_[i] = std::map<timestamp_t, bool>();
     }
 
-    if (this->controlInputs.count(inputPort) > 0) {
-      this->controlInputs.find(inputPort)->second.push_back(msg);
-      this->controlInputs.find(inputPort)->second.setSum(this->controlInputs.find(inputPort)->second.getSum() +
-                                                         this->controlInputs.find(inputPort)->second.back().value);
-
-    } else
-      throw std::runtime_error(typeName() + ": " + inputPort + " : refers to a non existing input control port");
+    // Add output ports (same type as input)
+    for (size_t i = 0; i < num_ports; ++i) {
+      add_output_port<T>();
+    }
   }
 
-  virtual ProgramMessage<T, V> executeControl() override {
-    auto toEmit = processControl();
-    if (!toEmit.empty()) return this->emit(toEmit);
-    return {};
+  std::string type_name() const override { return "Demultiplexer"; }
+
+  size_t get_num_ports() const { return control_time_tracker_.size(); }
+
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();  // First collect base state
+
+    // Serialize data time tracker
+    StateSerializer::serialize_timestamp_set(bytes, data_time_tracker_);
+
+    // Serialize control time tracker
+    StateSerializer::serialize_port_control_map(bytes, control_time_tracker_);
+
+    return bytes;
   }
 
-  virtual OperatorMessage<T, V> processData() { return join(); }
+  void restore(Bytes::const_iterator& it) override {
+    // First restore base state
+    Operator::restore(it);
 
-  virtual OperatorMessage<T, V> processControl() { return join(); }
+    // Clear current state
+    data_time_tracker_.clear();
+    control_time_tracker_.clear();
 
- private:
-  map<string, string> controlMap;
+    // Restore data time tracker
+    StateSerializer::deserialize_timestamp_set(it, data_time_tracker_);
 
-  OperatorMessage<T, V> join() {
-    OperatorMessage<T, V> outputMsgs;
+    // Restore control time tracker
+    StateSerializer::deserialize_port_control_map(it, control_time_tracker_);
 
-    vector<string> in = this->getDataInputs();
-    string inputPort;
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw std::runtime_error(typeName() + ": " + "should have 1 input port, no more no less");
+    // Validate control port count
+    StateSerializer::validate_port_count(control_time_tracker_.size(), num_control_ports(), "Control");
+  }
 
-    if (this->dataInputs.find(inputPort)->second.empty()) return {};
+  void reset() override {
+    Operator::reset();
+    data_time_tracker_.clear();
+    control_time_tracker_.clear();
+  }
 
-    size_t instructions = 0;
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+    auto time = msg->time;
+    Operator::receive_data(std::move(msg), port_index);
 
-    for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
-      while (!it->second.empty() && (it->second.front().time < this->dataInputs.find(inputPort)->second.front().time)) {
-        it->second.setSum(it->second.getSum() - it->second.front().value);
-        it->second.pop_front();
+    data_time_tracker_.insert(time);
+  }
+
+  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+    if (port_index >= num_control_ports()) {
+      throw std::runtime_error("Invalid control port index");
+    }
+
+    auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(msg.get());
+    if (!ctrl_msg) {
+      throw std::runtime_error("Invalid control message type");
+    }
+
+    // Update control tracker
+    control_time_tracker_[port_index][ctrl_msg->time] = ctrl_msg->data.value;
+
+    // Add message to queue
+    get_control_queue(port_index).push_back(std::move(msg));
+    control_ports_with_new_data_.insert(port_index);
+  }
+
+ protected:
+  void process_data() override {
+    while (true) {
+      // Find oldest common control timestamp
+      auto common_control_time = TimestampTracker::find_oldest_common_time(control_time_tracker_);
+      if (!common_control_time) {
+        break;
       }
-      if (!it->second.empty() && it->second.front().time == this->dataInputs.find(inputPort)->second.front().time &&
-          (it->second.front().value == 1 || it->second.front().value == 0))
-        instructions++;
-      else if (!it->second.empty())
-        throw std::runtime_error(
-            typeName() + ": " +
-            "Count not find matching control message for current message on the pipe. Review your design");
-    }
 
-    if (instructions == this->getNumControlInputs()) {
-      for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
-        if (it->second.front().value == 1) {
-          PortMessage<T, V> v;
-          v.push_back(this->dataInputs.find(inputPort)->second.front());
-          outputMsgs.emplace(this->controlMap.find(it->first)->second, v);
+      // Clean up any old input data messages
+      auto& data_queue = get_data_queue(0);
+      while (!data_queue.empty()) {
+        auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
+        if (msg && msg->time < *common_control_time) {
+          data_time_tracker_.erase(msg->time);
+          data_queue.pop_front();
+        } else {
+          break;
         }
       }
-      this->dataInputs.find(inputPort)->second.setSum(this->dataInputs.find(inputPort)->second.getSum() -
-                                                      this->dataInputs.find(inputPort)->second.front().value);
-      this->dataInputs.find(inputPort)->second.pop_front();
-      for (auto it = this->controlInputs.begin(); it != this->controlInputs.end(); ++it) {
-        it->second.setSum(it->second.getSum() - it->second.front().value);
-        it->second.pop_front();
+
+      // Look for matching data message
+      bool message_found = false;
+      if (!data_queue.empty()) {
+        auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
+        if (msg && msg->time == *common_control_time) {
+          // Get active control ports
+          std::vector<size_t> active_ports;
+          for (size_t i = 0; i < num_control_ports(); ++i) {
+            if (control_time_tracker_[i].at(*common_control_time)) {
+              active_ports.push_back(i);
+            }
+          }
+
+          // Route message to all active ports
+          for (size_t port : active_ports) {
+            get_output_queue(port).push_back(data_queue.front()->clone());
+          }
+
+          data_time_tracker_.erase(msg->time);
+          data_queue.pop_front();
+          message_found = true;
+        }
+      }
+
+      clean_up_control_messages(*common_control_time);
+
+      if (!message_found) {
+        break;
       }
     }
-
-    if (outputMsgs.size() > 0) return outputMsgs;
-
-    return {};
   }
+
+ private:
+  void clean_up_control_messages(timestamp_t time) {
+    for (auto& [port, tracker] : control_time_tracker_) {
+      tracker.erase(time);
+    }
+
+    for (size_t port = 0; port < num_control_ports(); ++port) {
+      auto& queue = get_control_queue(port);
+      while (!queue.empty()) {
+        auto* msg = dynamic_cast<const Message<BooleanData>*>(queue.front().get());
+        if (msg && msg->time <= time) {
+          queue.pop_front();
+        } else {
+          break;
+        }
+      }
+    }
+  }
+
+  std::set<timestamp_t> data_time_tracker_;
+  std::map<size_t, std::map<timestamp_t, bool>> control_time_tracker_;
 };
 
-}  // end namespace rtbot
+// Factory functions for common configurations using PortType
+inline std::shared_ptr<Demultiplexer<NumberData>> make_demultiplexer_number(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Demultiplexer<BooleanData>> make_demultiplexer_boolean(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_demultiplexer_vector_number(std::string id,
+                                                                                         size_t num_ports) {
+  return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
+}
+
+inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_demultiplexer_vector_boolean(std::string id,
+                                                                                           size_t num_ports) {
+  return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
+}
+
+}  // namespace rtbot
 
 #endif  // DEMULTIPLEXER_H

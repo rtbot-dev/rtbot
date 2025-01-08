@@ -33,23 +33,56 @@ jsonschema:
 
 # Function
 
-Inputs: `i1`  
-Outputs: `o1`
+The Function operator transforms input values through a piecewise function specified by a set of points, using either linear or Hermite interpolation.
 
-The `Function` operator transforms input values through a user-defined function specified by a set of points. It supports both linear and Hermite interpolation methods.
+Inputs: 1 port (port 0)  
+Outputs: 1 port (port 0)
+
+## Operation
 
 For input values between defined points, the operator performs interpolation according to the specified method:
 
 - `linear`: Simple linear interpolation between adjacent points
-- `hermite`: Smooth cubic Hermite interpolation using estimated tangents at each point
+- `hermite`: Smooth cubic Hermite interpolation using estimated tangents
 
-For input values outside the defined range, the operator extrapolates using the same method.
+For input values outside the defined range, the operator extrapolates using the chosen method.
 
-The `Function` operator does not hold a message buffer on `i1`. It emits transformed values through `o1` immediately after receiving input.
+The operator emits transformed values through port 0 immediately after receiving input.
 
-Example usage for linear interpolation between points (0,0) and (1,1):
+## Example
 
-```cpp
-vector<pair<double, double>> points = {{0.0, 0.0}, {1.0, 1.0}};
-auto func = Function<uint64_t, double>("func", points, "linear");
+Given points: [(0,0), (1,2), (2,0)] with linear interpolation:
+
 ```
+Time  Input  Output  Notes
+1     0.5    1.0     Linear interpolation between (0,0) and (1,2)
+3     1.5    1.0     Linear interpolation between (1,2) and (2,0)
+5     2.5    -1.0    Linear extrapolation beyond (2,0)
+```
+
+## Points Specification
+
+Points must be provided as (x,y) coordinate pairs. At least 2 points are required. Points are automatically sorted by x-coordinate.
+
+## Interpolation Types
+
+### Linear
+
+- Simple straight-line interpolation between points
+- Computationally efficient
+- Continuous but not smooth at control points
+
+### Hermite
+
+- Smooth cubic interpolation using estimated tangents
+- Better for representing natural curves
+- Maintains continuity of first derivatives
+- More computationally intensive
+
+## Use Cases
+
+- Signal value transformation
+- Sensor calibration curves
+- Transfer function implementation
+- Non-linear scaling
+- Smooth transition functions

@@ -3,142 +3,264 @@
 #include "rtbot/std/Variable.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("Variable sync") {
-  ProgramMessage<uint64_t, double> emitted;
-  auto variable = Variable<uint64_t, double>("variable", 0.5);
+SCENARIO("Variable operator handles basic operations", "[variable]") {
+  GIVEN("A Variable operator with default value") {
+    auto var = make_variable("var1", 42.0);
 
-  variable.receiveData(Message<uint64_t, double>(1, 1.1), "i1");
-  variable.receiveData(Message<uint64_t, double>(3, 1.2), "i1");
-  variable.receiveData(Message<uint64_t, double>(5, 2.5), "i1");
-  variable.receiveData(Message<uint64_t, double>(7, 2.8), "i1");
-  variable.receiveData(Message<uint64_t, double>(10, 3.1), "i1");
+    WHEN("Querying before any data") {
+      var->receive_control(create_message<NumberData>(1, NumberData{0.0}), 0);
+      var->execute();
 
-  variable.receiveControl(Message<uint64_t, double>(0, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 0.5);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 0);
-
-  variable.receiveControl(Message<uint64_t, double>(1, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 1.1);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 1);
-
-  variable.receiveControl(Message<uint64_t, double>(2, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 1.1);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 2);
-
-  variable.receiveControl(Message<uint64_t, double>(4, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 1.2);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 4);
-
-  variable.receiveControl(Message<uint64_t, double>(5, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 2.5);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 5);
-
-  variable.receiveControl(Message<uint64_t, double>(6, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 2.5);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 6);
-
-  variable.receiveControl(Message<uint64_t, double>(7, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 2.8);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 7);
-
-  variable.receiveControl(Message<uint64_t, double>(9, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 2.8);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 9);
-
-  variable.receiveControl(Message<uint64_t, double>(10, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 3.1);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 10);
-
-  variable.receiveControl(Message<uint64_t, double>(11, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(emitted.empty());
-
-  variable.receiveData(Message<uint64_t, double>(12, 5.1), "i1");
-
-  variable.receiveControl(Message<uint64_t, double>(11, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 3.1);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 11);
-
-  variable.receiveControl(Message<uint64_t, double>(12, 0), "c1");
-  emitted = variable.executeControl();
-
-  REQUIRE(!emitted.empty());
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).value == 5.1);
-  REQUIRE(emitted.find("variable")->second.find("o1")->second.at(0).time == 12);
-
-  SECTION("Variable controInputs can be collected and restored") {
-    auto var = Variable<uint64_t, double>("var", 1);
-    for (int i = 0; i < 5; i++) {
-      var.receiveData(Message<uint64_t, double>(i * 10, i), "i1");
-      var.receiveControl(Message<unsigned long long, double>(i * 10, i), "c1");
-    }
-
-    Bytes bytes = var.collect();
-    // print the bytes in hex format
-    // cout << hexStr(bytes.data(), bytes.size()) << endl;
-
-    // create a second Join operator with the same constructor arguments
-    auto var2 = Variable<uint64_t, double>("var2", 2);
-    // restore the state in the second operator
-    Bytes::const_iterator it = bytes.begin();
-    var2.restore(it);
-
-    // check that the controlInputs of the two operators are the same
-    for (auto [port, data2] : var2.controlInputs) {
-      auto data1 = var.controlInputs.at(port);
-      for (uint i = 0; i < data2.size(); i++) {
-        auto msg1 = data1.at(i);
-        auto msg2 = data2.at(i);
-        REQUIRE(msg1.time == msg2.time);
-        REQUIRE(msg1.value == msg2.value);
+      THEN("Default value is not returned because we don't know its range end") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 0);
       }
     }
 
-    // check that the dataInputs of the two operators are the same
-    for (auto [port, data2] : var2.dataInputs) {
-      auto data1 = var.dataInputs.at(port);
-      for (uint i = 0; i < data2.size(); i++) {
-        auto msg1 = data1.at(i);
-        auto msg2 = data2.at(i);
-        REQUIRE(msg1.time == msg2.time);
-        REQUIRE(msg1.value == msg2.value);
+    WHEN("Receiving data and querying") {
+      // Setup data points
+      var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+      var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+      var->execute();
+
+      // Query at various times
+      var->clear_all_output_ports();
+      var->receive_control(create_message<NumberData>(5, NumberData{0.0}), 0);   // Before first
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);  // At first
+      var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);  // Between
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);  // At second
+      var->receive_control(create_message<NumberData>(25, NumberData{0.0}), 0);  // After last
+      var->execute();
+
+      THEN("Correct values are returned for each query") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 4);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 5);
+        REQUIRE(msg1->data.value == 42.0);  // Default value before first data point
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 10);
+        REQUIRE(msg2->data.value == 100.0);
+
+        const auto* msg3 = dynamic_cast<const Message<NumberData>*>(output[2].get());
+        REQUIRE(msg3->time == 15);
+        REQUIRE(msg3->data.value == 100.0);
+
+        const auto* msg4 = dynamic_cast<const Message<NumberData>*>(output[3].get());
+        REQUIRE(msg4->time == 20);
+        REQUIRE(msg4->data.value == 200.0);
+      }
+    }
+  }
+}
+
+SCENARIO("Variable operator handles state serialization", "[variable]") {
+  GIVEN("A Variable with non-trivial state") {
+    auto var = make_variable("var1", 42.0);
+
+    // Add some data
+    var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+    var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+    var->execute();
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = var->collect();
+
+      // Create new operator
+      auto restored = make_variable("var1", 42.0);
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      // Test with same queries
+      var->clear_all_output_ports();
+      restored->clear_all_output_ports();
+
+      for (auto t : {5, 10, 15, 20, 25}) {
+        var->receive_control(create_message<NumberData>(t, NumberData{0.0}), 0);
+        restored->receive_control(create_message<NumberData>(t, NumberData{0.0}), 0);
+      }
+
+      var->execute();
+      restored->execute();
+
+      THEN("Original and restored operators produce identical results") {
+        const auto& orig_output = var->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+  }
+}
+
+SCENARIO("Variable operator handles message arrival order variations", "[variable]") {
+  GIVEN("A Variable operator without default value") {
+    auto var = make_variable("var1");
+
+    WHEN("Control messages arrive before any data") {
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("No output is produced as there's no known value range") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.empty());
       }
     }
 
-    // check that the value of the two operators are the same
-    REQUIRE(var2.getValue() == var.getValue());
+    WHEN("Data arrives, making previous queries resolvable") {
+      // First send queries
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      // Then send data
+      var->receive_data(create_message<NumberData>(5, NumberData{100.0}), 0);
+      var->receive_data(create_message<NumberData>(35, NumberData{200.0}), 0);
+      var->execute();
+
+      THEN("Previously pending queries are resolved") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 10);
+        REQUIRE(msg1->data.value == 100.0);
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 20);
+        REQUIRE(msg2->data.value == 100.0);
+      }
+    }
+
+    WHEN("Data arrives, making previous queries resolvable 2") {
+      // First send queries
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(20, NumberData{0.0}), 0);
+      var->execute();
+
+      // Then send data
+      var->receive_data(create_message<NumberData>(15, NumberData{100.0}), 0);
+      var->receive_data(create_message<NumberData>(35, NumberData{200.0}), 0);
+      var->execute();
+
+      THEN("Previously pending queries are resolved") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 10);
+        REQUIRE(msg1->data.value == 0.0);
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 20);
+        REQUIRE(msg2->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator with interleaved message arrival") {
+    auto var = make_variable("var1", 42.0);
+
+    WHEN("Messages arrive in mixed order") {
+      // First data point
+      var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+      var->execute();
+
+      // Query before and at first point
+      var->receive_control(create_message<NumberData>(5, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->execute();
+
+      // Second data point
+      var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+      var->execute();
+
+      // More queries
+      var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+      var->receive_control(create_message<NumberData>(25, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("All queries are resolved correctly") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 3);
+
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1->time == 5);
+        REQUIRE(msg1->data.value == 42.0);  // Default value
+
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg2->time == 10);
+        REQUIRE(msg2->data.value == 100.0);
+
+        const auto* msg3 = dynamic_cast<const Message<NumberData>*>(output[2].get());
+        REQUIRE(msg3->time == 15);
+        REQUIRE(msg3->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator handling edge cases") {
+    auto var = make_variable("var1", 42.0);
+
+    WHEN("Multiple data points arrive at the same timestamp") {
+      var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+      var->execute();
+
+      var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("The last value is used") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 10);
+        REQUIRE(msg->data.value == 100.0);
+      }
+    }
+  }
+
+  GIVEN("A Variable operator that gets reset") {
+    auto var = make_variable("var1", 42.0);
+
+    // Setup initial state
+    var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
+    var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+    var->execute();
+
+    WHEN("The operator is reset") {
+      var->reset();
+
+      // Send new data
+      var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
+      var->execute();
+
+      var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("Previous state is cleared and new queries use default value") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 15);
+        REQUIRE(msg->data.value == 42.0);  // Default value used
+      }
+    }
   }
 }

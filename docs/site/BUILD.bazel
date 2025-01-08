@@ -71,6 +71,7 @@ _DEPS = [
     "//:node_modules/@mdx-js/react",
     "//:node_modules/@monaco-editor/react",
     "//:node_modules/@rtbot-dev/rtbot",
+    "//:node_modules/@radix-ui/colors",
     "//:node_modules/@rtbot-dev/wasm",
     "//:node_modules/autoprefixer",
     "//:node_modules/clsx",
@@ -89,6 +90,8 @@ _DEPS = [
     "//:node_modules/vega",
     "//:node_modules/vega-lite",
     "//:node_modules/usehooks-ts",
+    "//:node_modules/remark-math",
+    "//:node_modules/rehype-katex",
 ]
 
 docusaurus_bin.docusaurus_binary(

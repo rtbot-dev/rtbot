@@ -3,12 +3,14 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 cc_test(
     name = "benchmark",
     srcs = glob(["src/**/*.cpp"]) + ["//libs/std/test:tools.h"],
-    copts = ["-O3", "-Iexternal/benchmark/include", "-Ilibs/std/test", "-lbenchmark", "-lpthread"],
+    copts = [
+        "-O3",
+        "-Ilibs/std/test",
+    ],
+    data = ["//examples/data:ppg.csv"],
     deps = [
+        "//libs/api:rtbot-api",
         "//libs/core:rtbot",
         "//libs/std:rtbot-std",
-        "@benchmark//:benchmark_main",
     ],
-    args = ["--benchmark_counters_tabular=true"],
-    data = ["//examples/data:ppg.csv"]
 )

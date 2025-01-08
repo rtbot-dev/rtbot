@@ -100,13 +100,19 @@ export class RtBotRun {
     // if (!success) throw new Error(`Program is invalid`);
     const program = this.program.toPlain();
     const programStr = JSON.stringify(program, null, 2);
-    if (this.verbose) console.log("Sending", programStr);
-    const createProgramResponseStr = await RtBot.getInstance().createProgram(this.program.programId, programStr);
+    try {
+      if (this.verbose) console.log("Sending", programStr);
+      const createProgramResponseStr = await RtBot.getInstance().createProgram(this.program.programId, programStr);
+      if (this.verbose) console.log("createProgram response", createProgramResponseStr);
 
-    if (createProgramResponseStr) {
-      const createProgramResponse = JSON.parse(createProgramResponseStr);
-      // if program fails validation, throw an error
-      if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+      if (createProgramResponseStr) {
+        const createProgramResponse = JSON.parse(createProgramResponseStr);
+        // if program fails validation, throw an error
+        if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+      }
+    } catch (e) {
+      console.error("Error creating program", e);
+      throw e;
     }
 
     if (this.verbose) console.log("Sending data...");

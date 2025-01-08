@@ -8,7 +8,7 @@ filegroup(
     name = "md",
     srcs = glob([
         "include/**/*.md",
-    ]),
+    ], exclude = ["**/README.md", "**/Operator.md"]),
 )
 
 filegroup(
@@ -24,10 +24,18 @@ cc_library(
     srcs = glob([
         "src/**/*.cpp",
     ]),
+    hdrs = glob(["include/**/*.h"]),
     copts = [
         "-O3",
     ],
-    hdrs = glob(["include/**/*.h"]),
     includes = ["include"],
     visibility = ["//visibility:public"],
+    deps = select({
+        "//:enable_telemetry": [
+            "@io_opentelemetry_cpp//api",
+            "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",
+            "@io_opentelemetry_cpp//sdk/src/trace",
+        ],
+        "//conditions:default": [],
+    }),
 )

@@ -1,38 +1,42 @@
 #ifndef IDENTITY_H
 #define IDENTITY_H
 
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Identity : public Operator<T, V> {
-  Identity() = default;
-
-  Identity(string const &id) : Operator<T, V>(id) {
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+class Identity : public Operator {
+ public:
+  Identity(std::string id) : Operator(std::move(id)) {
+    // Single input and output port
+    add_data_port<NumberData>();
+    add_output_port<NumberData>();
   }
 
-  string typeName() const override { return "Identity"; }
+  std::string type_name() const override { return "Identity"; }
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> out = this->getDataInputFirstMessage(inputPort);
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
+ protected:
+  void process_data() override {
+    auto& input_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
+
+    while (!input_queue.empty()) {
+      const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+      if (!msg) {
+        throw std::runtime_error("Invalid message type in Identity");
+      }
+
+      // Forward message by cloning
+      output_queue.push_back(input_queue.front()->clone());
+      input_queue.pop_front();
+    }
   }
 };
+
+// Factory function
+inline std::shared_ptr<Identity> make_identity(std::string id) { return std::make_shared<Identity>(std::move(id)); }
 
 }  // namespace rtbot
 

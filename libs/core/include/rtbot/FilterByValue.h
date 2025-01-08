@@ -1,43 +1,50 @@
-#ifndef FILTERBYVALUE_H
-#define FILTERBYVALUE_H
+#ifndef FILTER_BY_VALUE_H
+#define FILTER_BY_VALUE_H
 
 #include <functional>
 
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
+template <typename T>
+class FilterByValue : public Operator {
+ public:
+  using FilterFunction = std::function<bool(const T&)>;
 
-template <class T, class V>
-struct FilterByValue : public Operator<T, V> {
-  function<bool(V)> filter;
+  FilterByValue(std::string id, FilterFunction filter) : Operator(std::move(id)), filter_(std::move(filter)) {
+    // Add single data input port
+    add_data_port<T>();
 
-  FilterByValue() = default;
-  FilterByValue(string const& id, function<bool(V)> filter) : Operator<T, V>(id) {
-    this->filter = filter;
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+    // Add single output port
+    add_output_port<T>();
   }
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(this->typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    if (filter(out.value)) {
-      PortMessage<T, V> v;
-      v.push_back(out);
-      outputMsgs.emplace("o1", v);
-      return outputMsgs;
+ protected:
+  void process_data() override {
+    auto& input_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
+
+    while (!input_queue.empty()) {
+      const auto* msg = dynamic_cast<const Message<T>*>(input_queue.front().get());
+      if (!msg) {
+        throw std::runtime_error("Invalid message type in FilterByValue");
+      }
+
+      // Apply filter
+      if (filter_(msg->data)) {
+        output_queue.push_back(input_queue.front()->clone());
+      }
+
+      input_queue.pop_front();
     }
-    return {};
   }
+
+ private:
+  FilterFunction filter_;
 };
+
 }  // namespace rtbot
 
-#endif  // FILTERBYVALUE_H
+#endif  // FILTER_BY_VALUE_H

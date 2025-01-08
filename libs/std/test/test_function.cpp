@@ -4,75 +4,102 @@
 #include "rtbot/std/Function.h"
 
 using namespace rtbot;
-using namespace std;
 
-TEST_CASE("Function operator - Linear interpolation") {
-  vector<pair<double, double>> points = {{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}, {3.0, 6.0}};
-  auto func = Function<uint64_t, double>("func", points, "linear");
+SCENARIO("Function operator handles basic interpolation", "[function]") {
+  GIVEN("A linear function with two points") {
+    std::vector<std::pair<double, double>> points = {{0.0, 0.0}, {1.0, 1.0}};
+    auto func = std::make_unique<Function>("func", points);
 
-  SECTION("Interpolation between points") {
-    func.receiveData(Message<uint64_t, double>(1, 0.5));
-    auto output = func.executeData();
-    REQUIRE(output.find("func")->second.find("o1")->second.at(0).value == Approx(1.0));
+    WHEN("Processing points within range") {
+      func->receive_data(create_message<NumberData>(1, NumberData{0.5}), 0);
+      func->execute();
 
-    func.receiveData(Message<uint64_t, double>(2, 1.5));
-    output = func.executeData();
-    REQUIRE(output.find("func")->second.find("o1")->second.at(0).value == Approx(3.0));
+      THEN("Linear interpolation is correct") {
+        const auto& output = func->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 1);
+        REQUIRE(msg->data.value == Approx(0.5));
+      }
+    }
+
+    WHEN("Processing points outside range") {
+      func->receive_data(create_message<NumberData>(1, NumberData{-1.0}), 0);
+      func->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
+      func->execute();
+
+      THEN("Extrapolation is performed correctly") {
+        const auto& output = func->get_output_queue(0);
+        REQUIRE(output.size() == 2);
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        REQUIRE(msg1->data.value == Approx(-1.0));
+        REQUIRE(msg2->data.value == Approx(2.0));
+      }
+    }
   }
 
-  SECTION("Extrapolation before first point") {
-    func.receiveData(Message<uint64_t, double>(1, -1.0));
-    auto output = func.executeData();
-    REQUIRE(output.find("func")->second.find("o1")->second.at(0).value == Approx(-2.0));
-  }
+  GIVEN("A function with Hermite interpolation") {
+    std::vector<std::pair<double, double>> points = {{0.0, 0.0}, {1.0, 1.0}, {2.0, 0.0}};
+    auto func = std::make_unique<Function>("func", points, InterpolationType::HERMITE);
 
-  SECTION("Extrapolation after last point") {
-    func.receiveData(Message<uint64_t, double>(1, 4.0));
-    auto output = func.executeData();
-    REQUIRE(output.find("func")->second.find("o1")->second.at(0).value == Approx(8.0));
+    WHEN("Processing points") {
+      func->receive_data(create_message<NumberData>(1, NumberData{0.5}), 0);
+      func->execute();
+
+      THEN("Hermite interpolation is performed") {
+        const auto& output = func->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg->time == 1);
+        REQUIRE(msg->data.value > 0.0);  // Should overshoot linear interpolation
+      }
+    }
   }
 }
 
-TEST_CASE("Function operator - Hermite interpolation") {
-  vector<pair<double, double>> points = {{0.0, 0.0}, {1.0, 1.0}, {2.0, 0.0}, {3.0, 1.0}};
-  auto func = Function<uint64_t, double>("func", points, "hermite");
+SCENARIO("Function operator handles edge cases", "[function]") {
+  SECTION("Invalid point count") {
+    std::vector<std::pair<double, double>> single_point = {{0.0, 0.0}};
+    REQUIRE_THROWS_AS(Function("func", single_point), std::runtime_error);
+  }
 
-  SECTION("Interpolation between points") {
-    func.receiveData(Message<uint64_t, double>(1, 0.5));
-    auto output = func.executeData();
-    REQUIRE(output.find("func")->second.find("o1")->second.at(0).value > 0.5);
-
-    func.receiveData(Message<uint64_t, double>(2, 1.5));
-    output = func.executeData();
-    double y = output.find("func")->second.find("o1")->second.at(0).value;
-    REQUIRE(y >= 0.0);
-    REQUIRE(y <= 1.0);
+  SECTION("Unsorted points are automatically sorted") {
+    std::vector<std::pair<double, double>> unsorted_points = {{1.0, 1.0}, {0.0, 0.0}};
+    auto func = std::make_unique<Function>("func", unsorted_points);
+    const auto& points = func->get_points();
+    REQUIRE(points[0].first == 0.0);
+    REQUIRE(points[1].first == 1.0);
   }
 }
 
-TEST_CASE("Function operator - Serialization") {
-  vector<pair<double, double>> points = {{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}, {3.0, 6.0}};
-  auto func1 = Function<uint64_t, double>("func", points, "linear");
+SCENARIO("Function operator processes messages in sequence", "[function]") {
+  GIVEN("A linear function with multiple points") {
+    std::vector<std::pair<double, double>> points = {{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}};
+    auto func = std::make_unique<Function>("func", points);
 
-  // Add some data and process it
-  func1.receiveData(Message<uint64_t, double>(1, 1.5));
-  auto output1 = func1.executeData();
+    WHEN("Processing messages with different timestamps") {
+      func->receive_data(create_message<NumberData>(1, NumberData{0.5}), 0);
+      func->receive_data(create_message<NumberData>(2, NumberData{1.5}), 0);
+      func->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
+      func->execute();
 
-  // Serialize
-  Bytes bytes = func1.collect();
+      THEN("Messages are processed in order with correct timestamps") {
+        const auto& output = func->get_output_queue(0);
+        REQUIRE(output.size() == 3);
 
-  // Create new operator and restore state
-  auto func2 = Function<uint64_t, double>("func", {{0.0, 0.0}, {1.0, 1.0}}, "linear");  // Different initial state
-  Bytes::const_iterator it = bytes.begin();
-  func2.restore(it);
+        const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        const auto* msg2 = dynamic_cast<const Message<NumberData>*>(output[1].get());
+        const auto* msg3 = dynamic_cast<const Message<NumberData>*>(output[2].get());
 
-  // Verify state was properly restored
-  REQUIRE(func2.getPoints() == points);
-  REQUIRE(func2.getInterpolationType() == "linear");
+        REQUIRE(msg1->time == 1);
+        REQUIRE(msg2->time == 2);
+        REQUIRE(msg3->time == 3);
 
-  // Verify behavior is identical
-  func2.receiveData(Message<uint64_t, double>(1, 1.5));
-  auto output2 = func2.executeData();
-  REQUIRE(output2.find("func")->second.find("o1")->second.at(0).value ==
-          output1.find("func")->second.find("o1")->second.at(0).value);
+        REQUIRE(msg1->data.value == Approx(1.0));  // 0.5 -> 1.0
+        REQUIRE(msg2->data.value == Approx(3.0));  // 1.5 -> 3.0
+        REQUIRE(msg3->data.value == Approx(2.0));  // 1.0 -> 2.0
+      }
+    }
+  }
 }

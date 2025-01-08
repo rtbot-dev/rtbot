@@ -1,64 +1,71 @@
-#ifndef CUMULATIVESUM_H
-#define CUMULATIVESUM_H
+// CumulativeSum.h
+#ifndef CUMULATIVE_SUM_H
+#define CUMULATIVE_SUM_H
 
-#include <cstdint>
-
+#include "rtbot/Message.h"
 #include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct CumulativeSum : public Operator<T, V> {
-  CumulativeSum() = default;
-
-  CumulativeSum(string const &id) : Operator<T, V>(id) {
-    this->accumulated = 0;
-    this->addDataInput("i1", CumulativeSum::size);
-    this->addOutput("o1");
+class CumulativeSum : public Operator {
+ public:
+  CumulativeSum(std::string id) : Operator(std::move(id)), sum_(0.0) {
+    // Add single input and output port for NumberData
+    add_data_port<NumberData>();
+    add_output_port<NumberData>();
   }
 
-  virtual Bytes collect() {
-    Bytes bytes;
+  void reset() override {
+    Operator::reset();
+    sum_ = 0.0;  // Reset running sum
+  }
 
-    // Serialize accumulated
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&accumulated),
-                 reinterpret_cast<const unsigned char *>(&accumulated) + sizeof(accumulated));
+  std::string type_name() const override { return "CumulativeSum"; }
 
+  // Access current sum
+  double get_sum() const { return sum_; }
+
+  // State serialization
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
+                 reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
     return bytes;
   }
 
-  virtual void restore(Bytes::const_iterator &it) {
-    // Deserialize accumulated
-    accumulated = *reinterpret_cast<const V *>(&(*it));
-    it += sizeof(accumulated);
+  void restore(Bytes::const_iterator& it) override {
+    Operator::restore(it);
+    sum_ = *reinterpret_cast<const double*>(&(*it));
+    it += sizeof(double);
   }
 
-  string typeName() const override { return "CumulativeSum"; }
+ protected:
+  void process_data() override {
+    auto& input_queue = get_data_queue(0);
+    auto& output_queue = get_output_queue(0);
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    this->accumulated = this->accumulated + out.value;
-    out.value = this->accumulated;
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
+    while (!input_queue.empty()) {
+      const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+      if (!msg) {
+        throw std::runtime_error("Invalid message type in CumulativeSum");
+      }
+
+      // Update sum and create output message
+      sum_ += msg->data.value;
+      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{sum_}));
+
+      input_queue.pop_front();
+    }
   }
 
  private:
-  static const size_t size = 1;
-  V accumulated;
+  double sum_;  // Running sum
 };
+
+// Factory function for CumulativeSum
+inline std::shared_ptr<Operator> make_cumulative_sum(std::string id) { return std::make_shared<CumulativeSum>(id); }
 
 }  // namespace rtbot
 
-#endif  // CUMULATIVESUM_H
+#endif  // CUMULATIVE_SUM_H

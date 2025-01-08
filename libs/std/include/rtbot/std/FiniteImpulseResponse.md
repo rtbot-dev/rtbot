@@ -1,12 +1,12 @@
 ---
 behavior:
   buffered: true
-  throughput: variable
+  throughput: constant
 view:
   shape: circle
   latex:
     template: |
-      FIR({{ b_{0}, b_{1}, b{2} ... b_{N-1} }})
+      FIR({{#each coeff}}{{this}}{{#unless @last}},{{/unless}}{{/each}})
 jsonschema:
   type: object
   properties:
@@ -15,21 +15,51 @@ jsonschema:
       description: The id of the operator
     coeff:
       type: array
-      examples: 
-        - [1, 0, -1]
-      description: The vector of coefficients to be combined with the buffered message values.
+      description: The vector of FIR coefficients
+      examples:
+        - [1.0, -0.5, 0.25]
+      minItems: 1
       items:
         type: number
+    tolerance:
+      type: number
+      description: Threshold below which coefficients are considered zero
+      default: 1e-10
+      examples: [1e-6]
   required: ["id", "coeff"]
 ---
 
 # FiniteImpulseResponse
 
-Inputs: `i1`  
-Outputs: `o1`
+The Finite Impulse Response (FIR) operator implements a classical FIR filter, computing the weighted sum of a sliding window of input values.
 
-Computes the finite impulse response (FIR) within the time window specified by the length of the provided vector (coeff). 
+## Buffer Size
 
-The `FiniteImpulseResponse` operator holds a message buffer on `i1` with a size defined by the length of the provided vector (coeff). Once the message buffer on `i1` gets filled it calculates the FIR and emits a message through `o1` right after the message buffer on `i1` gets filled. The value field of the emitted message is the calculated FIR and the time field is the time of the newest message on the buffer.
+The buffer size equals the length of the coefficient vector. For N coefficients, the operator maintains an N-sample buffer.
 
-$$y(t_n)=  b_{0} \cdot x(t_n) + b_{1} \cdot x(t_{n-1}) + ... + b_{N-1} \cdot x(t_{n-N-1})$$
+## Output Computation
+
+For input sequence x[n] and coefficients b[k], the output y[n] is computed as:
+
+$$y[n] = \sum_{k=0}^{N-1} b[k] \cdot x[n-k]$$
+
+## Example Operation
+
+Time series showing input values and corresponding outputs for coefficients [0.5, 0.3, 0.2]:
+
+| Time | Input | Output | Notes                       |
+| ---- | ----- | ------ | --------------------------- |
+| 1    | 1.0   | -      | Buffering                   |
+| 2    | 2.0   | -      | Buffering                   |
+| 3    | 3.0   | 1.6    | 3.0×0.5 + 2.0×0.3 + 1.0×0.2 |
+| 5    | 4.0   | 2.4    | 4.0×0.5 + 3.0×0.3 + 2.0×0.2 |
+| 6    | 5.0   | 3.2    | 5.0×0.5 + 4.0×0.3 + 3.0×0.2 |
+
+Note how output starts after buffer fills and continues with constant throughput.
+
+## Error Handling
+
+Throws std::runtime_error if:
+
+- Coefficient vector is empty
+- Input message has invalid type

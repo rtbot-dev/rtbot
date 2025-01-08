@@ -2,52 +2,63 @@
 #define LINEAR_H
 
 #include "rtbot/Join.h"
+#include "rtbot/Message.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Linear : public Join<T, V> {
-  Linear() = default;
-
-  Linear(string const& id, vector<V> const& coeff) : Join<T, V>(id) {
-    if (coeff.size() < 2) throw runtime_error(typeName() + ": number of ports have to be greater than or equal 2");
-    this->coeff = coeff;
-
-    for (size_t i = 1; i <= this->coeff.size(); i++) {
-      string inputPort = string("i") + to_string(i);
-      this->addDataInput(inputPort, 0);
+class Linear : public Join {
+ public:
+  Linear(std::string id, const std::vector<double>& coeffs)
+      : Join(std::move(id), std::vector<std::string>(coeffs.size(), PortType::NUMBER),  // input ports
+             std::vector<std::string>{PortType::NUMBER})                                // single output port
+        ,
+        coeffs_(coeffs) {
+    if (coeffs.size() < 2) {
+      throw std::runtime_error("Linear operator requires at least 2 coefficients");
     }
-    this->addOutput("o1");
   }
 
-  string typeName() const override { return "Linear"; }
+  std::string type_name() const override { return "Linear"; }
+  const std::vector<double>& get_coefficients() const { return coeffs_; }
 
-  OperatorMessage<T, V> processData() override {
-    OperatorMessage<T, V> outputMsgs;
-    int i = 0;
-    Message<T, V> out;
-    out.value = 0;
-    out.time = 0;
-    for (auto it = this->dataInputs.begin(); it != this->dataInputs.end(); ++it) {
-      out.value = out.value + it->second.front().value * this->coeff.at(i);
-      out.time = it->second.front().time;
-      i++;
+ protected:
+  void process_data() override {
+    sync();
+    const auto& synced_data = get_synchronized_data();
+
+    for (const auto& [time, messages] : synced_data) {
+      std::vector<const Message<NumberData>*> typed_messages;
+      typed_messages.reserve(messages.size());
+
+      for (const auto& msg : messages) {
+        const auto* typed_msg = dynamic_cast<const Message<NumberData>*>(msg.get());
+        if (!typed_msg) {
+          throw std::runtime_error("Invalid message type in Linear");
+        }
+        typed_messages.push_back(typed_msg);
+      }
+
+      double result = 0.0;
+      for (size_t i = 0; i < coeffs_.size(); i++) {
+        result += coeffs_[i] * typed_messages[i]->data.value;
+      }
+
+      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));
     }
 
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-
-    return outputMsgs;
+    // Clear synchronized data after processing
+    clear_synchronized_data();
   }
-
-  vector<V> getCoefficients() const { return this->coeff; }
 
  private:
-  vector<V> coeff;
+  std::vector<double> coeffs_;
 };
+
+// Factory function
+inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs) {
+  return std::make_shared<Linear>(std::move(id), coeffs);
+}
 
 }  // namespace rtbot
 

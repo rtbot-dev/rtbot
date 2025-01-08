@@ -44,10 +44,88 @@
       },
       "examples": ["join1","join2"]
     },
+    "prototypes": {
+      "type": "object", 
+      "patternProperties": {
+        "^[A-Z0-9a-t_-]+$": {
+          "type": "object",
+          "properties": {
+            "parameters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "type": { 
+                    "type": "string",
+                    "enum": ["number", "string", "boolean", "array", "object"]
+                  },
+                  "default": { }
+                },
+                "required": ["name", "type"]
+              }
+            },
+            "operators": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string" }
+                    },
+                    "required": ["id"]
+                  }
+                ]
+              }
+            },
+            "connections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from": { "type": "string" },
+                  "to": { "type": "string" },
+                  "fromPort": { "type": "string" },
+                  "toPort": { "type": "string" }
+                },
+                "required": ["from", "to"]
+              }
+            },
+            "entry": {
+              "type": "object",
+              "properties": {
+                "operator": { "type": "string" },
+                "port": { "type": "string" }
+              },
+              "required": ["operator"]
+            },
+            "output": {
+              "type": "object", 
+              "properties": {
+                "operator": { "type": "string" },
+                "port": { "type": "string" }
+              },
+              "required": ["operator"]
+            }
+          },
+          "required": ["parameters", "operators", "connections", "entry", "output"]
+        }
+      }
+    },
     "operators": {
       "type": "array",
       "items": {
         "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "prototype": { "type": "string" },
+              "parameters": { "type": "object" }
+            },
+            "required": ["id", "prototype"]
+          },
           {{#each schemas}}
             {{{ this }}}{{#unless @last}},{{/unless}}
           {{/each}}

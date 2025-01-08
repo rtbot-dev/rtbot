@@ -19,37 +19,37 @@ const programJson = `{
   "operators": [
     {
       "id": "in1",
-      "type": "Input"
+      "type": "Input",
+      "portTypes": ["number"]
     },
     {
       "id": "ma1",
       "type": "MovingAverage",
-      "n": 6
+      "window_size": 6
     },
     {
       "id": "ma2",
       "type": "MovingAverage",
-      "n": 250
+      "window_size": 250
     },
     {
       "id": "minus",
-      "type": "Minus",
-      "policies": { "i1": { "eager": false } }
+      "type": "Subtraction"
     },
     {
       "id": "peak",
       "type": "PeakDetector",
-      "n": 13
+      "window_size": 13
     },
     {
       "id": "join",
       "type": "Join",
-      "policies": { "i1": { "eager": false } },
-      "numPorts": 2
+      "portTypes": ["number", "number"]
     },
     {
       "id": "out1",
-      "type": "Output"
+      "type": "Output",
+      "portTypes": ["number"]
     }
   ],
   "connections": [
@@ -101,7 +101,10 @@ const programJson = `{
       "fromPort": "o1",
       "toPort": "i2"
     }
-  ]
+  ],
+  "output": {
+    "out1": ["o1"]
+  }
 }
 `;
 
@@ -112,16 +115,18 @@ describe("Program", () => {
 
   beforeEach(() => {
     program = new Program("input1", title, description);
-    const input = new Input("input1");
+    const input = new Input("input1", ["number"]);
     const op1 = new MovingAverage("ma1", 2);
-    const output = new Output("out1");
+    const output = new Output("out1", ["number"]);
     program.addOperator(input);
     program.addOperator(op1);
     program.addOperator(output);
     program.addConnection(input, op1);
     program.addConnection(op1, output);
+    program.addOutput("out1", ["o1"]);
   });
 
+  // Rest of the test cases remain the same...
   it("can create a new instance", () => {
     expect(program.title).toBe(title);
   });
@@ -129,7 +134,7 @@ describe("Program", () => {
   it("can be serialized", () => {
     const json = JSON.stringify(program);
     const parsedProgram = JSON.parse(json);
-    expect(parsedProgram.operators.find((op: any) => op.id === "ma1")).toMatchObject({ id: "ma1", n: 2 });
+    expect(parsedProgram.operators.find((op: any) => op.id === "ma1")).toMatchObject({ id: "ma1", window_size: 2 });
   });
 
   it("validates operator input", () => {

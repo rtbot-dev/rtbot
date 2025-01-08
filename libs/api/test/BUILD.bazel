@@ -17,12 +17,11 @@ cc_test(
         "//examples/data:program-test-3.json",
         "//examples/data:program-test-4.json",
         "//examples/data:program-test-5.json",
-        "//examples/data:program-test-6.json"
+        "//examples/data:program-test-6.json",
     ],
     # defines = ["CATCH_CONFIG_MAIN"],
-    deps = [        
+    deps = [
         "//libs/api:rtbot-api",
         "@catch2",
     ],
-    copts = ["-Iexternal/json-schema-validator/src", "-fpermissive"]
 )

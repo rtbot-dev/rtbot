@@ -31,6 +31,11 @@ build --action_env=BAZEL_CXXOPTS="-std=c++17"
 build --cxxopt=-std=c++17
 build --repo_env=CC=clang
 
+# linux
+build:linux --cxxopt=-stdlib=libc++
+# TODO: we need to comment this while building the documentation
+# we need a way to make it conditional
+
 # windows
 # MSVC
 build:windows --cxxopt='/std:c++17'
@@ -40,3 +45,5 @@ startup --windows_enable_symlinks
 # allow to use network while building
 build --sandbox_default_allow_network
 
+# Custom flags
+build --define enable_telemetry=false

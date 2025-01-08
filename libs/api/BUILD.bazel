@@ -20,14 +20,13 @@ copy_file(
 cc_library(
     name = "rtbot-api",
     srcs = glob([
+        "include/**/*.h",
         "src/**/*.cpp",
         "src/**/*.hpp",
     ]),
     hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
     copts = [
         "-O3",
-        "-Iexternal/json-schema-validator/src",
-        "-Ilibs/core/include/rtbot",
         # this is needed when building from another workspace
         "-Iexternal/rtbot/libs/core/include/rtbot",
         # this is only needed for wasm compilation, we may want to create

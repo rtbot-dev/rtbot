@@ -1,6 +1,13 @@
 import { z } from "zod"
 import { Operator } from "./program"
 
+type PortType = "number" | "boolean" | "vector_number" | "vector_boolean";
+
+const prototypeSchema = z.object({
+  type: z.string(),
+  prototype: z.string()
+});
+
 export const programSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
@@ -8,18 +15,22 @@ export const programSchema = z.object({
   apiVersion: z.enum(["v1"]),
   author: z.string().optional(),
   license: z.string().optional(),
-  operators: z.discriminatedUnion("type", {{{ schemas }}}).array(),
+  operators: z.array(
+    z.union([
+      prototypeSchema,
+      z.discriminatedUnion("type", [{{{ schemas }}}])
+    ])
+  ),
   connections: z.array(
-    z
-      .object({
-        from: z.string(),
-        to: z.string(),
-        fromPort: z.string().optional(),
-        toPort: z.string().optional(),
-      })
-      .strict()
+    z.object({
+      from: z.string(),
+      to: z.string(),
+      fromPort: z.string().optional(),
+      toPort: z.string().optional(),
+    }).strict()
   ),
 });
+
 {{#each operators}}
 {{#each extraTypes}}
 
@@ -31,7 +42,7 @@ export type {{ name }} = {
 {{/each}}
 
 export class {{ type }} extends Operator {
-  readonly type = "{{ type}}";
+  readonly type = "{{ type }}";
   constructor(
 {{ parametersBlock }}
   ) {

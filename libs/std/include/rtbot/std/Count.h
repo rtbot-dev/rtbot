@@ -5,59 +5,77 @@
 
 namespace rtbot {
 
-using namespace std;
-
-template <class T, class V>
-struct Count : public Operator<T, V> {
-  size_t count;
-
-  Count() = default;
-
-  Count(string const &id) : Operator<T, V>(id) {
-    this->count = 0;
-    this->addDataInput("i1", 1);
-    this->addOutput("o1");
+/**
+ * Counts incoming messages regardless of their type.
+ * Has one input port and one output port that emits NumberData.
+ */
+template <typename T>
+class Count : public Operator {
+ public:
+  explicit Count(std::string id) : Operator(std::move(id)), count_(0) {
+    add_data_port<T>();             // Accept any type on input
+    add_output_port<NumberData>();  // Output count as number
   }
 
-  virtual Bytes collect() {
-    Bytes bytes = Operator<T, V>::collect();
-    // Serialize count
-    bytes.insert(bytes.end(), reinterpret_cast<const unsigned char *>(&count),
-                 reinterpret_cast<const unsigned char *>(&count) + sizeof(count));
+  void reset() override {
+    Operator::reset();
+    count_ = 0;  // Reset counter
+  }
+
+  std::string type_name() const override { return "Count"; }
+
+  // Serialize count_ since it's our only state
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&count_),
+                 reinterpret_cast<const uint8_t*>(&count_) + sizeof(count_));
     return bytes;
   }
 
-  virtual void restore(Bytes::const_iterator &it) {
-    Operator<T, V>::restore(it);
-    // Deserialize count
-    count = *reinterpret_cast<const size_t *>(&(*it));
-    it += sizeof(count);
+  void restore(Bytes::const_iterator& it) override {
+    Operator::restore(it);
+    count_ = *reinterpret_cast<const size_t*>(&(*it));
+    it += sizeof(count_);
   }
 
-  string typeName() const override { return "Count"; }
+ protected:
+  void process_data() override {
+    auto& input = get_data_queue(0);
+    auto& output = get_output_queue(0);
 
-  string debug() {
-    string s = "count: " + to_string(count);
-    return Operator<T, V>::debug(s);
+    while (!input.empty()) {
+      const auto& msg = input.front();
+      count_++;
+      output.push_back(create_message<NumberData>(msg->time, NumberData{static_cast<double>(count_)}));
+      input.pop_front();
+    }
   }
 
-  OperatorMessage<T, V> processData() override {
-    string inputPort;
-    auto in = this->getDataInputs();
-    if (in.size() == 1)
-      inputPort = in.at(0);
-    else
-      throw runtime_error(typeName() + " : more than 1 input port found");
-    OperatorMessage<T, V> outputMsgs;
-    Message<T, V> out = this->getDataInputLastMessage(inputPort);
-    this->count = this->count + 1;
-    out.value = this->count;
-    PortMessage<T, V> v;
-    v.push_back(out);
-    outputMsgs.emplace("o1", v);
-    return outputMsgs;
-  }
+ private:
+  size_t count_{0};
 };
+
+class CountNumber : public Count<NumberData> {
+ public:
+  explicit CountNumber(std::string id) : Count<NumberData>(std::move(id)) {}
+  std::string type_name() const override { return "CountNumber"; }
+};
+
+class CountBoolean : public Count<BooleanData> {
+ public:
+  explicit CountBoolean(std::string id) : Count<BooleanData>(std::move(id)) {}
+  std::string type_name() const override { return "CountBoolean"; }
+};
+
+// Factory function for Count
+template <typename T>
+inline std::shared_ptr<Operator> make_count(std::string id) {
+  return std::make_shared<Count<T>>(std::move(id));
+}
+
+inline std::shared_ptr<Operator> make_count_number(std::string id) {
+  return std::make_shared<CountNumber>(std::move(id));
+}
 
 }  // namespace rtbot
 
