@@ -119,6 +119,8 @@ class OperatorJson {
       return make_addition(id, num_ports);
     } else if (type == "GreaterThan") {
       return make_greater_than(id, parsed["value"].get<double>());
+    } else if (type == "Function") {
+      return make_function(id, parsed["points"].get<std::vector<std::pair<double, double>>>());
     } else if (type == "ConstantNumber") {
       return make_constant_number(id, parsed["value"].get<double>());
     } else if (type == "ConstantBoolean") {
@@ -283,6 +285,8 @@ class OperatorJson {
       j["window_size"] = std::dynamic_pointer_cast<PeakDetector>(op)->window_size();
     } else if (type == "GreaterThan") {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
+    } else if (type == "Function") {
+      j["points"] = std::dynamic_pointer_cast<Function>(op)->get_points();
     } else if (type == "ConstantNumber" || type == "ConstantNumberToBoolean") {
       j["value"] = std::dynamic_pointer_cast<ConstantNumber>(op)->get_value().value;
     } else if (type == "ConstantBoolean" || type == "ConstantBooleanToNumber") {
