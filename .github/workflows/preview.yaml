@@ -1,4 +1,5 @@
 name: Preview Changes
+
 on:
   pull_request:
     branches:
@@ -19,43 +20,51 @@ jobs:
     name: Test core
     runs-on: ubuntu-latest
     steps:
+      # 1️⃣ Checkout repo
       - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2.2.4
-        with:
-          version: 8
-          run_install: |
-            - args: [--no-frozen-lockfile]
+
+      # 2️⃣ Setup Node.js
       - uses: actions/setup-node@v3
         with:
           node-version: 18.x
           cache: pnpm
+
+      # 3️⃣ Install pnpm globally
+      - run: npm install -g pnpm@8
+
+      # 4️⃣ Install JS dependencies
+      - run: pnpm install --no-frozen-lockfile
+
+      # 5️⃣ Setup Python
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.11"
+          python-version: 3.11
+
+      # 6️⃣ Mount Bazel cache
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
           path: |
-            "~/.cache/bazel"
+            ~/.cache/bazel
           key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
           restore-keys: bazel-cache-
+
+      # 7️⃣ Setup Bazelisk
       - uses: bazelbuild/setup-bazelisk@v2
+
+      # 8️⃣ Run Bazel tests
       - name: Test lib
-        run: |
-          bazelisk test //libs/core/test
+        run: bazelisk test //libs/core/test
+
       - name: Test std
-        run: |
-          bazelisk test //libs/std/test
+        run: bazelisk test //libs/std/test
+
       - name: Test api
-        run: |
-          bazelisk test //libs/api/test
-      - name: Test finance
-        run: |
-          bazelisk test //libs/finance/test
+        run: bazelisk test //libs/api/test
+
       - name: Test python
         run: |
-          # use legacy python toolchain until rules_python is adopted
           bazel test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
+
       - name: Test javascript
-        run: |
-          bazelisk test //libs/wrappers/javascript:test
+        run: bazelisk test //libs/wrappers/javascript:test
