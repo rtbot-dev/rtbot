@@ -20,27 +20,27 @@ jobs:
     name: Test core
     runs-on: ubuntu-latest
     steps:
-      # 1️⃣ Checkout repo
+      # Checkout repo
       - uses: actions/checkout@v3
 
-      # 2️⃣ Setup Node.js
+      # Setup Node.js
       - uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: pnpm
+          
+      # Force Install pnpm
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: true
+          run_install_args: "--no-frozen-lockfile"      
 
-      # 3️⃣ Install pnpm globally
-      - run: npm install -g pnpm@8
-
-      # 4️⃣ Install JS dependencies
-      - run: pnpm install --no-frozen-lockfile
-
-      # 5️⃣ Setup Python
+      # Setup Python
       - uses: actions/setup-python@v4
         with:
           python-version: 3.11
 
-      # 6️⃣ Mount Bazel cache
+      # Mount Bazel cache
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
@@ -49,11 +49,11 @@ jobs:
           key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
           restore-keys: bazel-cache-
 
-      # 7️⃣ Setup Bazelisk
+      # Setup Bazelisk
       - uses: bazelbuild/setup-bazelisk@v2
 
-      # 8️⃣ Run Bazel tests
-      - name: Test lib
+      # Run Bazel tests
+      - name: Test core
         run: bazelisk test //libs/core/test
 
       - name: Test std
