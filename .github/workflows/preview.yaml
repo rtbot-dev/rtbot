@@ -45,10 +45,10 @@ jobs:
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
-          path: |
-            ~/.cache/bazel
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
-          restore-keys: bazel-cache-
+          path: ~/.cache/bazel
+          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') || 'default' }}
+          restore-keys: |
+            bazel-cache-
 
       # Setup Bazelisk
       - uses: bazelbuild/setup-bazelisk@v2
