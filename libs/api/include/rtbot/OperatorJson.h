@@ -28,6 +28,7 @@
 #include "rtbot/std/FiniteImpulseResponse.h"
 #include "rtbot/std/Function.h"
 #include "rtbot/std/Identity.h"
+#include "rtbot/std/Ignore.h"
 #include "rtbot/std/InfiniteImpulseResponse.h"
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/MovingAverage.h"
@@ -83,8 +84,12 @@ class OperatorJson {
       return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "Difference") {
       return make_difference(id);
+    } else if (type == "Identity") {
+      return make_identity(id);
     } else if (type == "PeakDetector") {
       return make_peak_detector(id, parsed["window_size"].get<size_t>());
+    } else if (type == "Ignore") {
+      return make_ignore(id, parsed["count"].get<size_t>());
     } else if (type == "Linear") {
       return make_linear(id, parsed["coefficients"].get<std::vector<double>>());
     } else if (type == "Subtraction") {
@@ -279,6 +284,8 @@ class OperatorJson {
       j["value"] = std::dynamic_pointer_cast<Power>(op)->get_value();
     } else if (type == "Add") {
       j["value"] = std::dynamic_pointer_cast<Add>(op)->get_value();
+    } else if (type == "Ignore") {
+      j["value"] = std::dynamic_pointer_cast<Ignore>(op)->get_count();
     } else if (type == "Linear") {
       j["coefficients"] = std::dynamic_pointer_cast<Linear>(op)->get_coefficients();
     } else if (type == "PeakDetector") {
@@ -369,6 +376,7 @@ class OperatorJson {
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
+    return j.dump();
   }
 };
 
