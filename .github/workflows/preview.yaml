@@ -53,7 +53,7 @@ jobs:
       # Setup Bazelisk
       - uses: bazelbuild/setup-bazelisk@v2
         with:
-          skip-cache: true
+          bazelisk-version: v1.27.0
 
       # Run Bazel tests
       - name: Test core
