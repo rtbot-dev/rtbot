@@ -41,6 +41,12 @@ jobs:
         with:
           python-version: 3.11
 
+      # Install clang + libc++ (needed for C++17 build with Bazel)
+      - name: Install clang and libc++
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libc++-dev libc++abi-dev
+
       # Mount Bazel cache
       - name: Mount bazel caches
         uses: actions/cache@v3
