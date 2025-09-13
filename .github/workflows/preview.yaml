@@ -33,7 +33,8 @@ jobs:
         with:
           version: 8
           run_install: true
-          run_install_args: "--no-frozen-lockfile"      
+          
+      - run: pnpm install --no-frozen-lockfile
 
       # Setup Python
       - uses: actions/setup-python@v4
