@@ -2,6 +2,8 @@ load("@aspect_rules_js//js:defs.bzl", "js_library")
 load("@aspect_rules_ts//ts:defs.bzl", "ts_config")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@aspect_rules_js//npm:defs.bzl", "npm_link_package")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@aspect_bazel_lib//lib:expand_template.bzl", "expand_template")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -34,4 +36,18 @@ npm_link_package(
 js_library(
     name = "package_json",
     srcs = ["package.json"],
+)
+
+# Global version computation that can be reused across all targets
+write_file(
+    name = "version_tmpl",
+    out = "version.txt.tmpl",
+    content = ["{{RTBOT_VERSION}}"],
+)
+
+expand_template(
+    name = "version",
+    out = "version.txt",
+    stamp_substitutions = {"{{RTBOT_VERSION}}": "{{RTBOT_VERSION}}"},
+    template = ":version_tmpl",
 )
