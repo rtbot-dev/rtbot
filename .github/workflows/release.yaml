@@ -44,13 +44,9 @@ jobs:
       - name: Test finance
         run: |
           bazelisk test //libs/finance/test
-      # - name: Test python
-      #   run: |
-      #     # TODO: make sure we don't have to build the wheel and install it
-      #     # in order to make the test to pass
-      #     bazelisk build //libs/core/wrappers/python:rtbot_wheel
-      #     pip install --force-reinstall dist/bin/libs/core/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
-      #     bazelisk test //libs/core/wrappers/python:rtbot_test
+      - name: Test python
+        run: |
+          bazelisk test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
       - name: Test javascript
         run: |
           bazelisk test //libs/wrappers/javascript:test
@@ -93,13 +89,12 @@ jobs:
           path: dist/bin/libs/api/jsonschema
 
   build_wheels:
-    name: Build wheel on ${{ matrix.os }}
+    name: Build wheel on ${{ matrix.os }} Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
-        # TODO: add more python versions later, when we can afford the cost
-        #python: [3.11]
+        os: [ubuntu-20.04, macOS-12]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v3
       - uses: pnpm/action-setup@v2.2.4
@@ -109,21 +104,49 @@ jobs:
             - args: [--frozen-lockfile]
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.11 #${{ matrix.python }}
+          python-version: ${{ matrix.python-version }}
       - name: Mount bazel caches
         uses: actions/cache@v3
         with:
           path: |
             "~/.cache/bazel"
-          key: bazel-cache-${{ matrix.os }}
+          key: bazel-cache-${{ matrix.os }}-py${{ matrix.python-version }}
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Build wheel
         run: |
           bazelisk build --stamp //libs/wrappers/python:rtbot_wheel
+      - name: Rename wheel with platform tag
+        run: |
+          cd dist/bin/libs/wrappers/python/
+          WHEEL_FILE="rtbot.whl"
+          if [ -f "$WHEEL_FILE" ]; then
+            # Extract version from wheel metadata
+            VERSION=$(python -c "
+import zipfile, re
+with zipfile.ZipFile('$WHEEL_FILE', 'r') as z:
+    for name in z.namelist():
+        if '.dist-info/METADATA' in name:
+            # Extract version from rtbot-VERSION.dist-info/METADATA
+            dist_info_dir = name.split('/')[0]
+            version = dist_info_dir.replace('rtbot-', '').replace('.dist-info', '')
+            print(version)
+            break
+")
+            # Determine platform tag
+            if [ "${{ runner.os }}" = "Linux" ]; then
+              PLATFORM="manylinux2014_x86_64"
+            else
+              PLATFORM="macosx_10_9_x86_64"
+            fi
+            # Create properly named wheel
+            NEW_NAME="rtbot-${VERSION}-py3-none-${PLATFORM}.whl"
+            cp "$WHEEL_FILE" "$NEW_NAME"
+            echo "Created wheel: $NEW_NAME"
+          fi
       - uses: actions/upload-artifact@v3
         with:
-          name: wheel-${{ matrix.os }}.tar
-          path: dist/bin/libs/wrappers/python/rtbot-*.whl
+          name: wheel-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/bin/libs/wrappers/python/rtbot-*-py3-none-*.whl
 
   publish:
     needs:
@@ -149,18 +172,12 @@ jobs:
         run: |
           GIT_TAG=${{ github.ref_name }}
           echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
-      - uses: actions/download-artifact@v3
+      # Download all wheel artifacts
+      - name: Download all wheel artifacts
+        uses: actions/download-artifact@v3
         with:
-          name: wheel-ubuntu-20.04.tar
-          path: wheel-linux
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheel-macOS-11.tar
-          path: wheel-macos
-      - uses: actions/download-artifact@v3
-        with:
-          name: wheel-windows-2019.tar
-          path: wheel-windows
+          path: wheels/
+          pattern: wheel-*
       - uses: actions/download-artifact@v3
         with:
           name: npm-wasm.tar
@@ -173,18 +190,14 @@ jobs:
         with:
           name: jsonschema.tar
           path: jsonschema
-      - name: Patch files before publishing
+      - name: Organize wheels for release
         run: |
-          ls -l
-          cd wheel-linux
-          mv rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-manylinux2014_x86_64.whl
-          cd ..
-          cd wheel-macos
-          mv rtbot-_VERSION_-py3-none-macosx_10_7_x86_64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-macosx_10_7_x86_64.whl
-          cd ..
-          cd wheel-windows
-          mv rtbot-_VERSION_-py3-none-win_amd64.whl rtbot-${{ steps.version.outputs.version }}-py3-none-win_amd64.whl
-          cd ..
+          ls -la wheels/
+          # Create directories for organizing wheels
+          mkdir -p wheel-organized
+          # Copy all wheels to organized directory
+          find wheels/ -name "*.whl" -exec cp {} wheel-organized/ \;
+          ls -la wheel-organized/
           # copy repo readme to main npm package
           cp README.md ./npm-rtbot
           # package npm files, which will be used on the github release
@@ -208,7 +221,5 @@ jobs:
           files: |
             *.tar.gz
             jsonschema/*
-            wheel-linux/*
-            wheel-macos/*
-            wheel-windows/*
+            wheel-organized/*
           fail_on_unmatched_files: true
