@@ -64,7 +64,8 @@ jobs:
 
       - name: Test python
         run: |
-          bazel test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
+          bazelisk build --stamp //libs/wrappers/python:rtbot_wheel
+          bazelisk test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
 
       - name: Test javascript
         run: bazelisk test //libs/wrappers/javascript:test
