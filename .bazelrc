@@ -48,3 +48,31 @@ build --sandbox_default_allow_network
 
 # Custom flags
 build --define enable_telemetry=false
+
+# Force use of standard C++ toolchain, ignore Apple toolchain
+build --crosstool_top=@bazel_tools//tools/cpp:toolchain
+build --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+
+# Critical flags that made it work
+build --incompatible_enable_apple_toolchain_resolution=false
+build --incompatible_require_ctx_in_configure_features=false
+build --action_env=BAZEL_USE_CPP_ONLY_TOOLCHAIN=1
+
+# C++ standard
+build --cxxopt=-std=c++17
+build --host_cxxopt=-std=c++17
+
+# Use standalone strategies
+build --spawn_strategy=standalone
+build --strategy=CppCompile=standalone
+build --strategy=CppLink=standalone
+build --genrule_strategy=standalone
+
+# Disable Apple features
+build --features=-apple
+build --features=-supports_dynamic_linker
+build --features=-supports_interface_shared_libraries
+
+# Environment overrides
+build --action_env=PATH
+build --host_action_env=PATH
