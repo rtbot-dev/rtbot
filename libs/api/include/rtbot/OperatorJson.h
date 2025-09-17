@@ -285,7 +285,7 @@ class OperatorJson {
     } else if (type == "Add") {
       j["value"] = std::dynamic_pointer_cast<Add>(op)->get_value();
     } else if (type == "Ignore") {
-      j["value"] = std::dynamic_pointer_cast<Ignore>(op)->get_count();
+      j["count"] = std::dynamic_pointer_cast<Ignore>(op)->get_count();
     } else if (type == "Linear") {
       j["coefficients"] = std::dynamic_pointer_cast<Linear>(op)->get_coefficients();
     } else if (type == "PeakDetector") {

@@ -32,7 +32,7 @@ class Pipeline : public Operator {
         throw std::runtime_error("Unknown input port type: " + type);
       }
       // Add data input port
-      PortType::add_port(*this, type, true, false);
+      PortType::add_port(*this, type, true, false, false);
       input_port_types_.push_back(type);
     }
 
@@ -42,7 +42,7 @@ class Pipeline : public Operator {
         throw std::runtime_error("Unknown output port type: " + type);
       }
       // Add output port
-      PortType::add_port(*this, type, false, true);
+      PortType::add_port(*this, type, false, false, true);
       output_port_types_.push_back(type);
     }
   }

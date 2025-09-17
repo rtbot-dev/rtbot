@@ -20,7 +20,7 @@ class Input : public Operator {
       if (!PortType::is_valid_port_type(type)) {
         throw std::runtime_error("Unknown port type: " + type);
       }
-      PortType::add_port(*this, type, true, true);
+      PortType::add_port(*this, type, true, false, true);
       last_sent_times_.push_back(0);
       port_type_names_.push_back(type);
     }

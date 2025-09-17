@@ -30,7 +30,7 @@ class Join : public Operator {
         throw std::runtime_error("Unknown port type: " + type);
       }
 
-      PortType::add_port(*this, type, true, false);  // input only
+      PortType::add_port(*this, type, true, false, false);  // input only
       data_time_tracker_[num_data_ports() - 1] = std::set<timestamp_t>();
       port_type_names_.push_back(type);
     }
@@ -40,7 +40,7 @@ class Join : public Operator {
       if (!PortType::is_valid_port_type(type)) {
         throw std::runtime_error("Unknown port type: " + type);
       }
-      PortType::add_port(*this, type, false, true);  // output only
+      PortType::add_port(*this, type, false, false, true);  // output only
     }
   }
 
@@ -55,7 +55,7 @@ class Join : public Operator {
         throw std::runtime_error("Unknown port type: " + type);
       }
 
-      PortType::add_port(*this, type, true, true);
+      PortType::add_port(*this, type, true, false, true);
       data_time_tracker_[num_data_ports() - 1] = std::set<timestamp_t>();
       port_type_names_.push_back(type);
     }
@@ -70,7 +70,7 @@ class Join : public Operator {
 
     std::string port_type = PortType::get_port_type<T>();
     for (size_t i = 0; i < num_ports; ++i) {
-      PortType::add_port(*this, port_type, true, true);
+      PortType::add_port(*this, port_type, true, false, true);
       data_time_tracker_[i] = std::set<timestamp_t>();
       port_type_names_.push_back(port_type);
     }

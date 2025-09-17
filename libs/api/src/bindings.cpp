@@ -20,9 +20,13 @@ using json = nlohmann::json;
 
 void to_json(json& j, const ProgramMsgBatch& batch) {
   j = json::object();
-  for (const auto& [op_id, op_batch] : batch) {
+  for (const auto& op_kv : batch) {
+    const auto& op_id = op_kv.first;
+    const auto& op_batch = op_kv.second;
     j[op_id] = json::object();
-    for (const auto& [port_name, msgs] : op_batch) {
+    for (const auto& port_kv : op_batch) {
+      const auto& port_name = port_kv.first;
+      const auto& msgs = port_kv.second;
       j[op_id][port_name] = json::array();
       for (const auto& msg : msgs) {
         if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {

@@ -26,7 +26,7 @@ class Output : public Operator {
       port_type_names_.push_back(type);
 
       // Add input port and matching output port
-      PortType::add_port(*this, type, true, true);  // input port
+      PortType::add_port(*this, type, true, false, true);  // input port
     }
   }
 

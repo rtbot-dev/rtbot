@@ -70,29 +70,30 @@ class PortType {
 
   // Helper method to add port of specified type to an operator
   template <typename OperatorType>
-  static void add_port(OperatorType& op, const std::string& port_type, bool is_data = true, bool add_output = false) {
+  static void add_port(OperatorType& op, const std::string& port_type, bool is_data = true, bool is_control = false,
+                       bool add_output = false) {
     if (port_type == NUMBER) {
       if (is_data)
         op.template add_data_port<NumberData>();
-      else
+      else if (is_control)
         op.template add_control_port<NumberData>();
       if (add_output) op.template add_output_port<NumberData>();
     } else if (port_type == BOOLEAN) {
       if (is_data)
         op.template add_data_port<BooleanData>();
-      else
+      else if (is_control)
         op.template add_control_port<BooleanData>();
       if (add_output) op.template add_output_port<BooleanData>();
     } else if (port_type == VECTOR_NUMBER) {
       if (is_data)
         op.template add_data_port<VectorNumberData>();
-      else
+      else if (is_control)
         op.template add_control_port<VectorNumberData>();
       if (add_output) op.template add_output_port<VectorNumberData>();
     } else if (port_type == VECTOR_BOOLEAN) {
       if (is_data)
         op.template add_data_port<VectorBooleanData>();
-      else
+      else if (is_control)
         op.template add_control_port<VectorBooleanData>();
       if (add_output) op.template add_output_port<VectorBooleanData>();
     } else {
