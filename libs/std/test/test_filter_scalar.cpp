@@ -68,6 +68,37 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
     }
   }
 
+  SECTION("GreaterThan operator small value") {
+    auto gt = make_greater_than("gt1", 0.5);
+
+    REQUIRE(gt->type_name() == "GreaterThan");
+    REQUIRE(dynamic_cast<GreaterThan*>(gt.get())->get_threshold() == 0.5);
+
+    std::vector<std::pair<timestamp_t, double>> inputs = {
+        {0, 0.3},  // Should be filtered
+        {1, 1.0},  // Should pass
+        {2, 4.0},  // Should pass
+        {4, 0.2},  // Should be filtered
+        {5, 0.5}   // Should be filtered (not strictly greater than)
+    };
+
+    std::vector<std::pair<timestamp_t, double>> expected = {{1, 1.0}, {2, 4.0}};
+
+    for (const auto& input : inputs) {
+      gt->receive_data(create_message<NumberData>(input.first, NumberData{input.second}), 0);
+    }
+    gt->execute();
+
+    auto& output = gt->get_output_queue(0);
+    REQUIRE(output.size() == expected.size());
+
+    for (size_t i = 0; i < output.size(); ++i) {
+      auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
+      REQUIRE(msg->time == expected[i].first);
+      REQUIRE(msg->data.value == expected[i].second);
+    }
+  }
+
   SECTION("EqualTo operator") {
     auto eq = make_equal_to("eq1", 3.0, 0.1);
 

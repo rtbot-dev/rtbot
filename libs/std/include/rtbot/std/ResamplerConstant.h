@@ -29,6 +29,34 @@ class ResamplerConstant : public Operator {
 
   std::string type_name() const override { return "ResamplerConstant"; }
 
+  Bytes collect() override {
+    // First collect base state
+    Bytes bytes = Operator::collect();
+
+    // Serialize next emission time
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&next_emit_),
+                 reinterpret_cast<const uint8_t*>(&next_emit_) + sizeof(next_emit_));
+
+    // Serialize initialization state
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&initialized_),
+                 reinterpret_cast<const uint8_t*>(&initialized_) + sizeof(initialized_));
+
+    return bytes;
+  }
+
+  void restore(Bytes::const_iterator& it) override {
+    // First restore base state
+    Operator::restore(it);
+
+    // Restore next emission time
+    next_emit_ = *reinterpret_cast<const timestamp_t*>(&(*it));
+    it += sizeof(timestamp_t);
+
+    // Restore initialization state
+    initialized_ = *reinterpret_cast<const bool*>(&(*it));
+    it += sizeof(bool);
+  }
+
   timestamp_t get_interval() const { return dt_; }
   timestamp_t get_next_emission_time() const { return next_emit_; }
   std::optional<timestamp_t> get_t0() const { return t0_; }

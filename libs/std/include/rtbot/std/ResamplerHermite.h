@@ -30,7 +30,6 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
     Buffer<NumberData, ResamplerFeatures>::reset();
     initialized_ = false;
     next_emit_ = 0;
-    pending_emissions_.clear();
   }
 
   std::string type_name() const override { return "ResamplerHermite"; }
@@ -125,11 +124,10 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
     return h00 * y1 + h10 * m0 + h01 * y2 + h11 * m1;
   }
 
-  timestamp_t dt_;                                                       // Resampling interval
-  std::optional<timestamp_t> t0_;                                        // Optional start time
-  timestamp_t next_emit_;                                                // Next time to emit a sample
-  bool initialized_;                                                     // Whether we've initialized next_emit_
-  std::vector<std::unique_ptr<Message<NumberData>>> pending_emissions_;  // Queue of pending emissions
+  timestamp_t dt_;                 // Resampling interval
+  std::optional<timestamp_t> t0_;  // Optional start time
+  timestamp_t next_emit_;          // Next time to emit a sample
+  bool initialized_;               // Whether we've initialized next_emit_
 };
 
 inline std::shared_ptr<ResamplerHermite> make_resampler_hermite(std::string id, timestamp_t interval,
