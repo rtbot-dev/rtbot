@@ -333,6 +333,114 @@ SCENARIO("Program handles Pipeline operators", "[program][pipeline]") {
   }
 }
 
+SCENARIO("Program handles Pipeline operators and resets", "[program][pipeline]") {
+  GIVEN("A program with a Pipeline") {
+    std::string program_json = R"({
+            "operators": [
+                {"type": "Input", "id": "input", "portTypes": ["number"]},
+                {
+                    "type": "Pipeline",
+                    "id": "pipeline",
+                    "input_port_types": ["number"],
+                    "output_port_types": ["number"],
+                    "operators": [
+                        {"type": "Input", "id": "pinput", "portTypes": ["number"]},
+                        {"type": "MovingAverage", "id": "ma", "window_size": 3}
+                        
+                    ],
+                    "connections": [
+                        {"from": "pinput", "to": "ma", "fromPort": "o1", "toPort": "i1"}
+                    ],
+                    "entryOperator": "pinput",
+                    "outputMappings": {
+                        "ma": {"o1": "o1"}
+                    }
+                },
+                {"type": "Output", "id": "output", "portTypes": ["number"]}
+            ],
+            "connections": [
+                {"from": "input", "to": "pipeline", "fromPort": "o1", "toPort": "i1"},
+                {"from": "pipeline", "to": "output", "fromPort": "o1", "toPort": "i1"}
+            ],
+            "entryOperator": "input",
+            "output": {
+                "output": ["o1"]
+            }
+        })";
+
+    Program program(program_json);
+
+    WHEN("Processing messages") {
+      // Need 5 messages:
+      // First 3 messages to fill MA(3) buffer
+      // Message 4 and 5 to emit MA values that will fill STD(3) buffer and produce output
+      std::vector<Message<NumberData>> messages = {
+          {1, NumberData{1.0}},  // MA collecting
+          {2, NumberData{2.0}},  // MA collecting
+          {3, NumberData{3.0}},  // MA emits value (3.0) -> pipeline resets
+          {4, NumberData{4.0}},  // MA collecting
+          {5, NumberData{5.0}},  // MA collecting
+          {6, NumberData{6.0}},  // MA emits value (5.0) -> pipeline resets
+          {7, NumberData{0.0}},  // MA collecting
+          {8, NumberData{0.0}},  // MA collecting
+          {9, NumberData{0.0}},  // MA emits value (0.0) -> pipeline resets
+      };
+
+      ProgramMsgBatch final_batch;
+
+      program.receive(messages.at(0));
+      program.receive(messages.at(1));
+      final_batch = program.receive(messages.at(2));
+
+      THEN("Pipeline processes messages correctly and resets") {
+        REQUIRE(final_batch.size() == 1);
+        REQUIRE(final_batch["output"].count("o1") == 1);
+        const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output"]["o1"].back().get());
+        REQUIRE(out_msg != nullptr);
+        REQUIRE(out_msg->time == 3);
+        REQUIRE(out_msg->data.value == 2.0);
+
+        final_batch = program.receive(messages.at(3));
+
+        AND_THEN("Pipeline start all over, ma collects") {
+          REQUIRE(final_batch.size() == 0);
+
+          final_batch = program.receive(messages.at(4));
+
+          AND_THEN("ma collects") {
+            REQUIRE(final_batch.size() == 0);
+
+            final_batch = program.receive(messages.at(5));
+
+            AND_THEN("pipeline emits") {
+              REQUIRE(final_batch.size() == 1);
+              REQUIRE(final_batch["output"].count("o1") == 1);
+              const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output"]["o1"].back().get());
+              REQUIRE(out_msg != nullptr);
+              REQUIRE(out_msg->time == 6);
+              REQUIRE(out_msg->data.value == 5.0);
+
+              program.receive(messages.at(6));
+              program.receive(messages.at(7));
+              final_batch = program.receive(messages.at(8));
+
+              AND_THEN("pipeline emits") {
+                REQUIRE(final_batch.size() == 1);
+                REQUIRE(final_batch["output"].count("o1") == 1);
+                const auto* out_msg =
+                    dynamic_cast<const Message<NumberData>*>(final_batch["output"]["o1"].back().get());
+                REQUIRE(out_msg != nullptr);
+                REQUIRE(out_msg->time == 9);
+                REQUIRE(out_msg->data.value == 0.0);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 SCENARIO("Program handles Pipeline serialization", "[program][pipeline]") {
   GIVEN("A program with a stateful Pipeline") {
     std::string program_json = R"({

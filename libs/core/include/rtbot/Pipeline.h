@@ -98,9 +98,6 @@ class Pipeline : public Operator {
 
   void reset() override {
     RTBOT_LOG_DEBUG("Resetting pipeline");
-    // First reset our own state
-    Operator::reset();
-
     // Then reset all internal operators
     for (auto& [_, op] : operators_) {
       op->reset();
@@ -108,20 +105,6 @@ class Pipeline : public Operator {
   }
 
   void clear_all_output_ports() override {
-    // Check if we produced any output
-    bool has_output = false;
-    for (size_t i = 0; i < num_output_ports(); ++i) {
-      if (!get_output_queue(i).empty()) {
-        has_output = true;
-        break;
-      }
-    }
-
-    // If we produced output, reset the pipeline for next iteration
-    if (has_output) {
-      reset();
-    }
-
     Operator::clear_all_output_ports();
     for (auto& [_, op] : operators_) {
       op->clear_all_output_ports();
@@ -145,27 +128,30 @@ class Pipeline : public Operator {
         entry_operator_->receive_data(msg->clone(), i);
         entry_operator_->execute();
         input_queue.pop_front();
-      }
-    }
-
-    // Process output mappings
-    for (const auto& [op_id, mappings] : output_mappings_) {
-      auto it = operators_.find(op_id);
-      if (it != operators_.end()) {
-        auto& op = it->second;
-        for (const auto& [operator_port, pipeline_port] : mappings) {
-          if (operator_port < op->num_output_ports() && pipeline_port < num_output_ports()) {
-            const auto& source_queue = op->get_output_queue(operator_port);
-            // Only forward if source operator has produced output on the mapped port
-            if (!source_queue.empty()) {
-              auto& target_queue = get_output_queue(pipeline_port);
-              for (const auto& msg : source_queue) {
-                RTBOT_LOG_DEBUG("Forwarding message ", msg->to_string(), " from ", op_id, " -> ", pipeline_port);
-                target_queue.push_back(msg->clone());
+        // Process output mappings
+        bool has_output = false;
+        for (const auto& [op_id, mappings] : output_mappings_) {
+          auto it = operators_.find(op_id);
+          if (it != operators_.end()) {
+            auto& op = it->second;
+            for (const auto& [operator_port, pipeline_port] : mappings) {
+              if (operator_port < op->num_output_ports() && pipeline_port < num_output_ports()) {
+                const auto& source_queue = op->get_output_queue(operator_port);
+                // Only forward if source operator has produced output on the mapped port
+                if (!source_queue.empty()) {
+                  has_output = true;
+                  auto& target_queue = get_output_queue(pipeline_port);
+                  for (const auto& msg : source_queue) {
+                    RTBOT_LOG_DEBUG("Forwarding message ", msg->to_string(), " from ", op_id, " -> ", pipeline_port);
+                    target_queue.push_back(msg->clone());
+                  }
+                }
               }
             }
           }
         }
+        // if source operator has produced output on the mapped port then reset the pipeline
+        if (has_output) reset();
       }
     }
   }
