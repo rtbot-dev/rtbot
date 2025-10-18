@@ -441,6 +441,283 @@ SCENARIO("Program handles Pipeline operators and resets", "[program][pipeline]")
   }
 }
 
+SCENARIO("Program handles complex Pipeline operators and resets", "[program][pipeline]") {
+  GIVEN("A complex program with a Pipeline") {
+    std::string program_json = R"({
+    "apiVersion": "v1",
+    "operators": [
+        {
+            "id": "input",
+            "type": "Input",
+            "portTypes": [
+                "number",
+                "number"
+            ]
+        },
+        {
+            "id": "hi_input_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "lo_input_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "hiresampler",
+            "type": "ResamplerConstant",
+            "interval": 5000
+        },
+        {
+            "id": "loresampler",
+            "type": "ResamplerConstant",
+            "interval": 5000
+        },
+        {
+            "id": "hiresampler_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },        
+        {
+            "id": "loresampler_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "power1",
+            "type": "Scale",
+            "value": 220
+        },
+        {
+            "id": "power2",
+            "type": "Scale",
+            "value": 220
+        },
+        {
+            "id": "power1_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "power2_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "total_power",
+            "type": "Addition"
+        },
+        {
+            "id": "total_power_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "hourly",
+            "type": "Pipeline",
+            "input_port_types": [
+                "number"
+            ],
+            "output_port_types": [
+                "number"
+            ],
+            "operators": [                
+                {
+                    "id": "trapezoid",
+                    "type": "MovingAverage",
+                    "window_size": 2
+                },
+                {
+                    "id": "trapezoid_cutoff",
+                    "type": "LessThanOrEqualToReplace",
+                    "value": 0.5,
+                    "replaceBy": 0.0
+                },
+                {
+                    "id": "wh",
+                    "type": "Scale",
+                    "value": 0.00138888888
+                },
+                {
+                    "id": "wh_cutoff",
+                    "type": "LessThanOrEqualToReplace",
+                    "value": 0.5,
+                    "replaceBy": 0.0
+                },                
+                {
+                    "id": "hourly_ms",
+                    "type": "MovingSum",
+                    "window_size": 720
+                }
+            ],
+            "connections": [              
+                {
+                    "from": "trapezoid",
+                    "to": "trapezoid_cutoff"
+                },
+                {
+                    "from": "trapezoid_cutoff",
+                    "to": "wh"
+                },
+                {
+                    "from": "wh",
+                    "to": "wh_cutoff"
+                },
+                {
+                    "from": "wh_cutoff",
+                    "to": "hourly_ms"
+                }
+            ],
+            "entryOperator": "trapezoid",
+            "outputMappings": {
+                "hourly_ms": {
+                    "o1": "o1"
+                }
+            }
+        },
+        {
+            "id": "output",
+            "type": "Output",
+            "portTypes": [
+                "number"                
+            ]
+        }
+    ],
+    "connections": [
+        {
+            "from": "input",
+            "to": "hi_input_cutoff",
+            "fromPort": "o1",
+            "toPort": "i1"           
+        },
+        {
+            "from": "input",
+            "to": "lo_input_cutoff",
+            "fromPort": "o2",
+            "toPort": "i1"
+        },
+        {
+            "from": "hi_input_cutoff",
+            "to": "hiresampler"
+        },
+        {
+            "from": "lo_input_cutoff",
+            "to": "loresampler"
+        },
+        {
+            "from": "hiresampler",
+            "to": "hiresampler_cutoff"
+        },
+        {
+            "from": "hiresampler_cutoff",
+            "to": "power1"
+        },        
+        {
+            "from": "loresampler",
+            "to": "loresampler_cutoff"
+        },
+        {
+            "from": "loresampler_cutoff",
+            "to": "power2"
+        },
+        {
+            "from": "power1",
+            "to": "power1_cutoff"
+        },
+        {
+            "from": "power2",
+            "to": "power2_cutoff"
+        },        
+        {
+            "from": "power1_cutoff",
+            "to": "total_power",
+            "fromPort": "o1",
+            "toPort": "i1"
+        },
+        {
+            "from": "power2_cutoff",
+            "to": "total_power",
+            "fromPort": "o1",
+            "toPort": "i2"
+        },
+        {
+            "from": "total_power",
+            "to": "total_power_cutoff"
+        },
+        {
+            "from": "total_power_cutoff",
+            "to": "hourly"
+        },
+        {
+            "from": "hourly",
+            "to": "output",
+            "fromPort": "o1",
+            "toPort": "i1"
+        }
+    ],
+    "entryOperator": "input",
+    "output": {
+        "output": [
+            "o1"
+        ]
+    },
+    "title": "Power Consumption Monitor with Multiple Averages",
+    "description": "Calculates hourly power consumption from two current inputs"
+})";
+
+    Program program(program_json);
+
+    WHEN("Processing messages") {
+      int t = 5000;
+      for (int h = 1; h <= 20; h++) {
+        ProgramMsgBatch final_batch;
+        // int iterations = 0;
+        if (h % 2 == 1) {
+          while (final_batch.size() == 0) {
+            program.receive({t, NumberData{30.23}}, "i1");
+            final_batch = program.receive({t, NumberData{10.5802}}, "i2");
+            t = t + 5000;
+            // iterations++;
+          }
+        } else {
+          while (final_batch.size() == 0) {
+            program.receive({t, NumberData{0.01}}, "i1");
+            final_batch = program.receive({t, NumberData{0.01}}, "i2");
+            t = t + 5000;
+            // iterations++;
+          }
+        }
+
+        if (final_batch.size() == 1 && h % 2 == 1) {
+          const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output"]["o1"].back().get());
+          REQUIRE(out_msg->data.value > 0.0);
+          /*std::cout << " time " << out_msg->time << std::endl;
+          std::cout << " value " << out_msg->data.value << std::endl;
+          std::cout << " iterations " << iterations << std::endl;
+          std::cout << " ----------------------------- " << std::endl;*/
+        } else if (final_batch.size() == 1 && h % 2 == 0) {
+          const auto* out_msg = dynamic_cast<const Message<NumberData>*>(final_batch["output"]["o1"].back().get());
+          REQUIRE(out_msg->data.value == 0.0);
+          /*std::cout << " time " << out_msg->time << std::endl;
+          std::cout << " value " << out_msg->data.value << std::endl;
+          std::cout << " iterations " << iterations << std::endl;
+          std::cout << " ----------------------------- " << std::endl;*/
+        } else {
+          FAIL(true);
+        }
+      }
+    }
+  }
+}
+
 SCENARIO("Program handles Pipeline serialization", "[program][pipeline]") {
   GIVEN("A program with a stateful Pipeline") {
     std::string program_json = R"({

@@ -129,7 +129,7 @@ class Pipeline : public Operator {
         entry_operator_->execute();
         input_queue.pop_front();
         // Process output mappings
-        bool was_reseted = false;
+        bool was_reset = false;
         for (const auto& [op_id, mappings] : output_mappings_) {
           auto it = operators_.find(op_id);
           if (it != operators_.end()) {
@@ -139,23 +139,22 @@ class Pipeline : public Operator {
                 const auto& source_queue = op->get_output_queue(operator_port);
                 // Only forward if source operator has produced output on the mapped port
                 if (!source_queue.empty()) {
-                  was_reseted = false;
                   auto& target_queue = get_output_queue(pipeline_port);
                   for (const auto& msg : source_queue) {
                     RTBOT_LOG_DEBUG("Forwarding message ", msg->to_string(), " from ", op_id, " -> ", pipeline_port);
                     target_queue.push_back(msg->clone());
                     reset();
-                    was_reseted = true;
+                    was_reset = true;
                     break;
                   }
                 }
               }
-              if (was_reseted) {
+              if (was_reset) {
                 break;
               }
             }
           }
-          if (was_reseted) {
+          if (was_reset) {
             break;
           }
         }
