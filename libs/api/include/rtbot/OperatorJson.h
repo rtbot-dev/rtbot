@@ -31,7 +31,9 @@
 #include "rtbot/std/InfiniteImpulseResponse.h"
 #include "rtbot/std/Linear.h"
 #include "rtbot/std/MovingAverage.h"
+#include "rtbot/std/MovingSum.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/Replace.h"
 #include "rtbot/std/ResamplerConstant.h"
 #include "rtbot/std/ResamplerHermite.h"
 #include "rtbot/std/StandardDeviation.h"
@@ -73,6 +75,8 @@ class OperatorJson {
       return make_output(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "MovingAverage") {
       return make_moving_average(id, parsed["window_size"].get<size_t>());
+    } else if (type == "MovingSum") {
+      return make_moving_sum(id, parsed["window_size"].get<size_t>());
     } else if (type == "StandardDeviation") {
       return make_std_dev(id, parsed["window_size"].get<size_t>());
     } else if (type == "FiniteImpulseResponse") {
@@ -131,6 +135,8 @@ class OperatorJson {
       return make_constant_boolean_to_number(id, parsed["value"].get<double>());
     } else if (type == "LessThan") {
       return make_less_than(id, parsed["value"].get<double>());
+    } else if (type == "LessThanOrEqualToReplace") {
+      return make_less_than_or_equal_to_replace(id, parsed["value"].get<double>(), parsed["replaceBy"].get<double>());
     } else if (type == "EqualTo") {
       return make_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
     } else if (type == "NotEqualTo") {
@@ -264,6 +270,8 @@ class OperatorJson {
       j["portTypes"] = std::dynamic_pointer_cast<Output>(op)->get_port_types();
     } else if (type == "MovingAverage") {
       j["window_size"] = std::dynamic_pointer_cast<MovingAverage>(op)->window_size();
+    } else if (type == "MovingSum") {
+      j["window_size"] = std::dynamic_pointer_cast<MovingSum>(op)->window_size();
     } else if (type == "StandardDeviation") {
       j["window_size"] = std::dynamic_pointer_cast<StandardDeviation>(op)->window_size();
     } else if (type == "FiniteImpulseResponse") {
@@ -305,8 +313,9 @@ class OperatorJson {
       j["epsilon"] = std::dynamic_pointer_cast<SyncNotEqual>(op)->get_epsilon();
     } else if (type == "GreaterThan") {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
-    } else if (type == "LessThan") {
-      j["value"] = std::dynamic_pointer_cast<LessThan>(op)->get_threshold();
+    } else if (type == "LessThanOrEqualToReplace") {
+      j["value"] = std::dynamic_pointer_cast<LessThanOrEqualToReplace>(op)->get_threshold();
+      j["replaceBy"] = std::dynamic_pointer_cast<LessThanOrEqualToReplace>(op)->get_replace_by();
     } else if (type == "LogicalAnd" || type == "LogicalOr" || type == "LogicalXor" || type == "LogicalNand" ||
                type == "LogicalNor" || type == "LogicalImplication") {
       j["numPorts"] = std::dynamic_pointer_cast<BooleanSync>(op)->get_num_ports();
@@ -369,6 +378,7 @@ class OperatorJson {
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
+    return j.dump();
   }
 };
 

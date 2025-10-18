@@ -12,4 +12,6 @@ namespace rtbot {
 using namespace std;
 // TODO
 
+}  // namespace rtbot
+
 #endif  // COSINERESAMPLER_H
