@@ -76,6 +76,27 @@ SCENARIO("Multiplexer routes messages based on control signals", "[multiplexer]"
       }
     }
 
+    WHEN("Receiving multiple messages in sequence and exceeds max_size_per_port()") {
+      
+      for (int i = 0; i < mult->max_size_per_port() + 5; i ++) {
+        mult->receive_control(create_message<BooleanData>(i, BooleanData{i % 2 == 0}), 0);
+        mult->receive_control(create_message<BooleanData>(i, BooleanData{i % 2 == 1}), 1);
+        mult->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
+        mult->receive_data(create_message<NumberData>(i, NumberData{i * 3.0}), 1);
+      }
+      mult->execute();
+      
+      THEN("It forwards data from the correct ports in sequence, it drops 5 messages") {
+        const auto& output = mult->get_output_queue(0);
+        REQUIRE(output.size() == mult->max_size_per_port());
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
+        REQUIRE(msg1 != nullptr);
+        REQUIRE(msg1->time == 5);
+        REQUIRE(msg1->data.value == 15.0);        
+      }
+    }
+
     WHEN("Receiving control signals with no active port") {
       mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 0);
       mult->receive_control(create_message<BooleanData>(1, BooleanData{false}), 1);

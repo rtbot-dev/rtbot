@@ -64,6 +64,45 @@ SCENARIO("Join operator handles basic synchronization", "[join]") {
         REQUIRE(msg1->data.value == 24.0);
       }
     }
+
+    WHEN("Receiving messages above the limit max_size_per_port()") {
+
+      for (int i = 0; i < join->max_size_per_port() + 2; i++) {
+        join->receive_data(create_message<NumberData>(i, NumberData{2.0 * i}), 1);
+        join->receive_data(create_message<NumberData>(i, NumberData{3.0 * i}), 0);
+      }
+    
+      join->execute();
+
+      THEN("max_size_per_port() messages are synchronized correctly, first and second message are dropped") {
+        auto& output0 = join->get_output_queue(0);
+        auto& output1 = join->get_output_queue(1);
+
+        const auto& input0 = join->get_data_queue(0);
+        const auto& input1 = join->get_data_queue(1);
+
+
+        REQUIRE(output0.size() == join->max_size_per_port());
+        REQUIRE(output1.size() == join->max_size_per_port());
+
+        REQUIRE(input0.size() == 0);
+        REQUIRE(input1.size() == 0);
+
+        const Message<NumberData>* msg0; 
+        const Message<NumberData>* msg1;        
+
+        for (int i = 0; i < join->max_size_per_port(); i++) {
+          msg0 = dynamic_cast<const Message<NumberData>*>(output0.front().get());
+          msg1 = dynamic_cast<const Message<NumberData>*>(output1.front().get());
+          REQUIRE(msg0->time == i+2);
+          REQUIRE(msg0->data.value == (i+2.0) * 3);
+          REQUIRE(msg1->time == i+2);
+          REQUIRE(msg1->data.value == (i+2.0) * 2);
+          output0.pop_front();
+          output1.pop_front();
+        }
+      }
+    }
   }
 }
 

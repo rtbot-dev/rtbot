@@ -170,12 +170,18 @@ class Join : public Operator {
     synchronized_data.clear();
   }
 
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  timestamp_t receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     auto time = msg->time;
-    Operator::receive_data(std::move(msg), port_index);
+    timestamp_t time_dequeued =  Operator::receive_data(std::move(msg), port_index);
 
     // Track timestamp
     data_time_tracker_[port_index].insert(time);
+
+    if (time_dequeued >= 0) {
+      data_time_tracker_[port_index].erase(time_dequeued);
+    }
+
+    return time_dequeued;
   }
 
  protected:

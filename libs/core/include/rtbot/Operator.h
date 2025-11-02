@@ -35,7 +35,7 @@ enum class PortKind { DATA, CONTROL };
 // Base operator class
 class Operator {
  public:
-  Operator(std::string id) : id_(std::move(id)) {}
+  Operator(std::string id) : id_(std::move(id)), max_size_per_port_(17280) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
@@ -156,9 +156,10 @@ class Operator {
   size_t num_data_ports() const { return data_ports_.size(); }
   size_t num_control_ports() const { return control_ports_.size(); }
   size_t num_output_ports() const { return output_ports_.size(); }
+  size_t max_size_per_port() const { return max_size_per_port_; }
 
   // Runtime port access for data with type checking
-  virtual void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) {
+  virtual timestamp_t receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) {
     if (port_index >= data_ports_.size()) {
       throw std::runtime_error("Invalid data port index at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
@@ -183,8 +184,17 @@ class Operator {
     RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
 
+    timestamp_t time_dequeued = -1;
+
+    if (data_ports_[port_index].queue.size() == max_size_per_port_) {
+      time_dequeued = data_ports_[port_index].queue.front()->time;
+      data_ports_[port_index].queue.pop_front();
+    }
+
     data_ports_[port_index].queue.push_back(std::move(msg));
     data_ports_with_new_data_.insert(port_index);
+
+    return time_dequeued;
   }
 
   virtual void reset() {
@@ -247,7 +257,7 @@ class Operator {
   }
 
   // Runtime port access for control messages with type checking
-  virtual void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) {
+  virtual timestamp_t receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) {
     if (port_index >= control_ports_.size()) {
       throw std::runtime_error("Invalid control port index at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
@@ -269,8 +279,17 @@ class Operator {
     // Update last timestamp
     control_ports_[port_index].last_timestamp = msg->time;
 
+    timestamp_t time_dequeued = -1;
+
+    if (control_ports_[port_index].queue.size() == max_size_per_port_) {
+      time_dequeued = control_ports_[port_index].queue.front()->time;
+      control_ports_[port_index].queue.pop_front();
+    }
+
     control_ports_[port_index].queue.push_back(std::move(msg));
     control_ports_with_new_data_.insert(port_index);
+
+    return time_dequeued;
   }
 
   std::shared_ptr<Operator> connect(std::shared_ptr<Operator> child, size_t output_port = 0,
@@ -417,6 +436,7 @@ class Operator {
   std::vector<Connection> connections_;
   std::set<size_t> data_ports_with_new_data_;
   std::set<size_t> control_ports_with_new_data_;
+  std::size_t max_size_per_port_;
 };
 
 }  // namespace rtbot

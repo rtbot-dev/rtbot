@@ -42,9 +42,17 @@ class Multiplexer : public Operator {
     Operator::reset();
     data_time_tracker_.clear();
     control_time_tracker_.clear();
+    
+    for (size_t i = 0; i < get_num_ports(); ++i) {      
+      data_time_tracker_[i] = std::set<timestamp_t>();
+    }
+   
+    for (size_t i = 0; i < get_num_ports(); ++i) {      
+      control_time_tracker_[i] = std::map<timestamp_t, bool>();
+    }
   }
 
-  size_t get_num_ports() const { return data_time_tracker_.size(); }
+  size_t get_num_ports() const { return data_ports_.size(); }
 
   std::string type_name() const override { return "Multiplexer"; }
 
@@ -79,15 +87,19 @@ class Multiplexer : public Operator {
     StateSerializer::validate_port_count(control_time_tracker_.size(), num_control_ports(), "Control");
   }
 
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  timestamp_t receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     auto time = msg->time;
-    Operator::receive_data(std::move(msg), port_index);
+    timestamp_t time_dequeued = Operator::receive_data(std::move(msg), port_index);
 
-    // Add timestamp to the tracker
     data_time_tracker_[port_index].insert(time);
+    if (time_dequeued >= 0) {      
+      data_time_tracker_[port_index].erase(time_dequeued);
+    }
+
+    return time_dequeued;
   }
 
-  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  timestamp_t receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     if (port_index >= num_control_ports()) {
       throw std::runtime_error("Invalid control port index");
     }
@@ -97,12 +109,28 @@ class Multiplexer : public Operator {
       throw std::runtime_error("Invalid control message type");
     }
 
+    timestamp_t time_dequeued = -1;
+
+    if (get_control_queue(port_index).size() == max_size_per_port_) {
+      time_dequeued = get_control_queue(port_index).front()->time;
+      get_control_queue(port_index).pop_front();
+    }
+
     // Update control time tracker
     control_time_tracker_[port_index][ctrl_msg->time] = ctrl_msg->data.value;
+
+    if (time_dequeued >= 0) {
+      auto it = control_time_tracker_.find(port_index);
+      if (it != control_time_tracker_.end()) {
+          it->second.erase(time_dequeued);
+      }
+    }
 
     // Add message to queue
     get_control_queue(port_index).push_back(std::move(msg));
     data_ports_with_new_data_.insert(port_index);
+
+    return time_dequeued;
   }
 
  protected:

@@ -96,11 +96,12 @@ class Input : public Operator {
   }
 
   // Do not throw exceptions in receive_data
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  timestamp_t receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     try {
-      Operator::receive_data(std::move(msg), port_index);
+      timestamp_t time_dequeued = Operator::receive_data(std::move(msg), port_index);
+      return time_dequeued;
     } catch (const std::exception& e) {
-      // Do nothing
+      return -1;
     }
   }
 
