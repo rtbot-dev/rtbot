@@ -35,7 +35,7 @@ enum class PortKind { DATA, CONTROL };
 // Base operator class
 class Operator {
  public:
-  Operator(std::string id) : id_(std::move(id)) {}
+  Operator(std::string id) : id_(std::move(id)), max_size_per_port_(17280) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
@@ -156,6 +156,7 @@ class Operator {
   size_t num_data_ports() const { return data_ports_.size(); }
   size_t num_control_ports() const { return control_ports_.size(); }
   size_t num_output_ports() const { return output_ports_.size(); }
+  size_t max_size_per_port() const { return max_size_per_port_; }
 
   // Runtime port access for data with type checking
   virtual void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) {
@@ -182,9 +183,15 @@ class Operator {
 #ifdef RTBOT_INSTRUMENTATION
     RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
+    
+
+    if (data_ports_[port_index].queue.size() == max_size_per_port_) {      
+      data_ports_[port_index].queue.pop_front();
+    }
 
     data_ports_[port_index].queue.push_back(std::move(msg));
     data_ports_with_new_data_.insert(port_index);
+
   }
 
   virtual void reset() {
@@ -269,8 +276,14 @@ class Operator {
     // Update last timestamp
     control_ports_[port_index].last_timestamp = msg->time;
 
+    
+    if (control_ports_[port_index].queue.size() == max_size_per_port_) {      
+      control_ports_[port_index].queue.pop_front();
+    }
+
     control_ports_[port_index].queue.push_back(std::move(msg));
     control_ports_with_new_data_.insert(port_index);
+
   }
 
   std::shared_ptr<Operator> connect(std::shared_ptr<Operator> child, size_t output_port = 0,
@@ -369,6 +382,86 @@ class Operator {
   virtual void process_data() = 0;
   virtual void process_control() {}
 
+  bool sync_data_inputs() {
+
+    if (data_ports_.empty()) return false;
+
+    while (true) {
+      // If any queue is empty, sync not possible
+      for (auto& port : data_ports_) {
+        if (port.queue.empty())
+          return false;
+      }
+
+      // Find min and max front timestamps
+      timestamp_t min_time = data_ports_.front().queue.front()->time;
+      timestamp_t max_time = min_time;
+
+      for (auto& port : data_ports_) {
+        timestamp_t t = port.queue.front()->time;
+        if (t < min_time) min_time = t;
+        if (t > max_time) max_time = t;
+      }
+
+      // All equal → synchronized
+      if (min_time == max_time)
+        return true;
+
+      // Pop all queues that have the oldest front timestamp
+      for (auto& port : data_ports_) {
+        if (!port.queue.empty() && port.queue.front()->time == min_time)
+          port.queue.pop_front();
+      }
+
+      // If any queue now empty → cannot sync
+      for (auto& port : data_ports_) {
+        if (port.queue.empty())
+          return false;
+      }
+    }
+    return false;  
+  }
+
+  bool sync_control_inputs() {
+
+    if (control_ports_.empty()) return false;
+
+    while (true) {
+      // If any queue is empty, sync not possible
+      for (auto& port : control_ports_) {
+        if (port.queue.empty())
+          return false;
+      }
+
+      // Find min and max front timestamps
+      timestamp_t min_time = control_ports_.front().queue.front()->time;
+      timestamp_t max_time = min_time;
+
+      for (auto& port : control_ports_) {
+        timestamp_t t = port.queue.front()->time;
+        if (t < min_time) min_time = t;
+        if (t > max_time) max_time = t;
+      }
+
+      // All equal → synchronized
+      if (min_time == max_time)
+        return true;
+
+      // Pop all queues that have the oldest front timestamp
+      for (auto& port : control_ports_) {
+        if (!port.queue.empty() && port.queue.front()->time == min_time)
+          port.queue.pop_front();
+      }
+
+      // If any queue now empty → cannot sync
+      for (auto& port : control_ports_) {
+        if (port.queue.empty())
+          return false;
+      }
+    }
+    return false;  
+  }
+
   void propagate_outputs() {
     // First send the messages to the connected operators
     for (auto& conn : connections_) {
@@ -417,6 +510,7 @@ class Operator {
   std::vector<Connection> connections_;
   std::set<size_t> data_ports_with_new_data_;
   std::set<size_t> control_ports_with_new_data_;
+  std::size_t max_size_per_port_;
 };
 
 }  // namespace rtbot

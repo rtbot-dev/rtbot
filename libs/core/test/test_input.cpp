@@ -27,6 +27,21 @@ SCENARIO("Input operator handles single number port", "[input]") {
       }
     }
 
+     WHEN("Receiving a max_size_per_port() + 1 messages, only max_size_per_port() are forwarded") {
+      for (int i = 0; i < input->max_size_per_port() + 1; i++) {
+        input->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
+      }
+      input->execute();
+
+      THEN("only 11000 are forwarded") {
+        const auto& output = input->get_output_queue(0);
+        REQUIRE(output.size() == input->max_size_per_port());
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());        
+        REQUIRE(msg->time == 1);
+        REQUIRE(msg->data.value == 2.0);
+      }
+    }
+
     WHEN("Receiving messages with decreasing timestamps") {
       input->receive_data(create_message<NumberData>(2, NumberData{42.0}), 0);
       input->receive_data(create_message<NumberData>(1, NumberData{24.0}), 0);

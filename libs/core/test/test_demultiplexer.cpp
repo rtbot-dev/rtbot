@@ -47,6 +47,32 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
         REQUIRE(second_output.empty());
       }
     }
+
+    WHEN("Multiple control ports are active and messages exceeds the max_size_per_port()") {
+      
+      for (int i = 0; i < demux->max_size_per_port() + 2; i++) {
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 0);
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 1);
+        demux->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
+      }
+      demux->execute();
+
+      THEN("Message is routed to both ports") {
+        const auto& first_output = demux->get_output_queue(0);
+        const auto& second_output = demux->get_output_queue(1);
+
+        REQUIRE(first_output.size() == demux->max_size_per_port());
+        REQUIRE(second_output.size() == demux->max_size_per_port());
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
+
+        REQUIRE(msg1->time == 2);
+        REQUIRE(msg1->data.value == 4.0);
+        REQUIRE(msg2->time == 2);
+        REQUIRE(msg2->data.value == 4.0);
+      }
+    }
   }
 }
 

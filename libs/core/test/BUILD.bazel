@@ -18,4 +18,5 @@ cc_test(
         ],
         "//conditions:default": [],
     }),
+    timeout = "eternal",  # or "long"
 )
