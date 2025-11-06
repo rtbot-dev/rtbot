@@ -24,19 +24,35 @@ class Linear : public Join {
 
  protected:
   void process_data() override {
-    sync();
-    const auto& synced_data = get_synchronized_data();
+    
+    while(true) {
 
-    for (const auto& [time, messages] : synced_data) {
+      bool is_any_empty;
+      bool is_sync;
+      do {
+        is_any_empty = false;
+        is_sync = sync_data_inputs();
+        for (int i=0; i < num_data_ports(); i++) {
+          if (get_data_queue(i).empty()) {
+            is_any_empty = true;
+            break;
+          }
+        } 
+      } while (!is_sync && !is_any_empty );
+
+      if (!is_sync) return;
+
       std::vector<const Message<NumberData>*> typed_messages;
-      typed_messages.reserve(messages.size());
-
-      for (const auto& msg : messages) {
-        const auto* typed_msg = dynamic_cast<const Message<NumberData>*>(msg.get());
+      timestamp_t time = 0;
+      // Process each synchronized set of messages
+      for (int i=0; i < num_data_ports(); i++) {
+        typed_messages.reserve(num_data_ports());
+        const auto* typed_msg = dynamic_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
         if (!typed_msg) {
           throw std::runtime_error("Invalid message type in Linear");
         }
         typed_messages.push_back(typed_msg);
+        time = typed_msg->time;        
       }
 
       double result = 0.0;
@@ -44,11 +60,11 @@ class Linear : public Join {
         result += coeffs_[i] * typed_messages[i]->data.value;
       }
 
-      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));
-    }
+      for (int i = 0; i < num_data_ports(); i++)
+        get_data_queue(i).pop_front();
 
-    // Clear synchronized data after processing
-    clear_synchronized_data();
+      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));      
+    }
   }
 
  private:
