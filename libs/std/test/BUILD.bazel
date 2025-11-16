@@ -15,6 +15,15 @@ cc_test(
         "//examples/data:ppg.csv",
     ],
     #defines = ["CATCH_CONFIG_MAIN"],
+    copts = [
+        "-DCATCH_CONFIG_POSIX_SIGNALS",
+        "-g",
+        "-fsanitize=address",
+        "-Wno-macro-redefined"
+    ],
+    linkopts = [
+        "-fsanitize=address",
+    ],
     deps = [
         "//libs/std:rtbot-std",
         "@catch2",

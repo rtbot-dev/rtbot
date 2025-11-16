@@ -114,14 +114,14 @@ class Program {
 
   // Message processing
   ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
-    send_to_entry(msg, port_id);
+    send_to_entry(msg, port_id, false);
     ProgramMsgBatch result = collect_outputs(false);
     clear_all_outputs();
     return result;
   }
 
   ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
-    send_to_entry(msg, port_id);
+    send_to_entry(msg, port_id, true);
     ProgramMsgBatch result = collect_outputs(true);
     clear_all_outputs();
     return result;
@@ -229,10 +229,10 @@ class Program {
     throw runtime_error("Could not resolve operator ID: " + id);
   }
 
-  void send_to_entry(const Message<NumberData>& msg, const std::string& port_id) {
+  void send_to_entry(const Message<NumberData>& msg, const std::string& port_id, bool debug=false) {
     auto port_info = OperatorJson::parse_port_name(port_id);
     operators_[entry_operator_id_]->receive_data(create_message<NumberData>(msg.time, msg.data), port_info.index);
-    operators_[entry_operator_id_]->execute();
+    operators_[entry_operator_id_]->execute(debug);
   }
 
   ProgramMsgBatch collect_outputs(bool debug_mode = false) {
@@ -255,7 +255,7 @@ class Program {
               // In debug mode, collect all ports
               if (debug_mode) {
                 for (size_t i = 0; i < op->num_output_ports(); i++) {
-                  const auto& queue = op->get_output_queue(i);
+                  const auto& queue = op->get_debug_output_queue(i);
                   if (!queue.empty()) {
                     PortMsgBatch port_msgs;
                     for (const auto& msg : queue) {

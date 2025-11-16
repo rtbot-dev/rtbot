@@ -24,6 +24,18 @@ class Count : public Operator {
 
   std::string type_name() const override { return "Count"; }
 
+  bool equals(const Count& other) const {
+    return (count_ == other.count_ && Operator::equals(other));
+  }
+  
+  bool operator==(const Count& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Count& other) const {
+    return !(*this == other);
+  }
+
   // Serialize count_ since it's our only state
   Bytes collect() override {
     Bytes bytes = Operator::collect();
@@ -33,8 +45,12 @@ class Count : public Operator {
   }
 
   void restore(Bytes::const_iterator& it) override {
+    // Restore parent first
     Operator::restore(it);
-    count_ = *reinterpret_cast<const size_t*>(&(*it));
+
+    // Safely read count_
+    count_ = 0;
+    std::memcpy(&count_, &(*it), sizeof(count_));
     it += sizeof(count_);
   }
 

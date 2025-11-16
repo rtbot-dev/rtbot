@@ -32,7 +32,7 @@ class Pipeline : public Operator {
         throw std::runtime_error("Unknown input port type: " + type);
       }
       // Add data input port
-      PortType::add_port(*this, type, true, false);
+      PortType::add_port(*this, type, true, false ,false);
       input_port_types_.push_back(type);
     }
 
@@ -42,7 +42,7 @@ class Pipeline : public Operator {
         throw std::runtime_error("Unknown output port type: " + type);
       }
       // Add output port
-      PortType::add_port(*this, type, false, true);
+      PortType::add_port(*this, type, false, false ,true);
       output_port_types_.push_back(type);
     }
   }
@@ -112,6 +112,33 @@ class Pipeline : public Operator {
   }
 
   std::string type_name() const override { return "Pipeline"; }
+
+  bool equals(const Pipeline& other) const {
+    if (input_port_types_ != other.input_port_types_) return false;
+    if (output_port_types_!= other.output_port_types_) return false;
+    if (output_mappings_ != other.output_mappings_) return false;
+    if (entry_operator_ != other.entry_operator_) return false;
+    if (entry_port_ != other.entry_port_) return false;
+    if (operators_.size() != other.operators_.size()) return false;
+
+    for (const auto& [key, op1] : operators_) {
+        auto it = other.operators_.find(key);
+        if (it == other.operators_.end()) return false;
+        const auto& op2 = it->second;
+        if (!op1 || !op2) return false;
+        else if (*op1 != *op2) return false;
+    }
+
+    return Operator::equals(other);
+  }
+  
+  bool operator==(const Pipeline& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Pipeline& other) const {
+    return !(*this == other);
+  }
 
  protected:
   void process_data() override {

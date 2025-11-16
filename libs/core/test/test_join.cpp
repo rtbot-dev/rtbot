@@ -147,15 +147,16 @@ SCENARIO("Join operator handles multiple types", "[join]") {
       }
     }
 
-    WHEN("Sending message to wrong port type") {
+    WHEN("Sending message to wrong port type and port indexes") {
       THEN("Type mismatch is detected") {
         REQUIRE_THROWS_AS(join->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
+        REQUIRE_THROWS_AS(join->receive_control(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
       }
     }
   }
 }
 
-SCENARIO("Join operator handles state serialization", "[join]") {
+SCENARIO("Join operator handles state serialization", "[join][State]") {
   GIVEN("A join with processed messages") {
     auto join = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
 
@@ -175,6 +176,7 @@ SCENARIO("Join operator handles state serialization", "[join]") {
       restored->restore(it);
 
       AND_WHEN("New synchronized messages are received") {
+        REQUIRE(*restored == *join);
         restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
         restored->receive_data(create_message<NumberData>(3, NumberData{48.0}), 1);
         restored->execute();

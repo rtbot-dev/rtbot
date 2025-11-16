@@ -96,9 +96,15 @@ SCENARIO("BooleanSync operators handle unsynchronized messages", "[boolean_sync_
   }
 }
 
-SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_binary_op]") {
+SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_binary_op][State]") {
   GIVEN("An operator with buffered messages") {
     auto and_op = make_logical_and("and1");
+    auto or_op = make_logical_or("or1");
+    auto xor_op = make_logical_xor("xor1");
+    auto nand_op = make_logical_nand("nand1");
+    auto nor_op = make_logical_nor("nor1");
+    auto xnor_op = make_logical_xnor("xnor1");
+    auto impl_op = make_logical_implication("impl1");
 
     // Add some messages to buffer
     and_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
@@ -106,7 +112,37 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
     and_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
     and_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
 
-    WHEN("State is serialized and restored") {
+    or_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    or_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    or_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    or_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    xor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    xor_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    xor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    xor_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    nand_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    nand_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    nand_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    nand_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    nor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    nor_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    nor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    nor_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    xnor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    xnor_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    xnor_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    xnor_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    impl_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    impl_op->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    impl_op->receive_data(create_message<BooleanData>(1, BooleanData{true}), 1);
+    impl_op->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+
+    WHEN("and is serialized and restored") {
       // Serialize state
       Bytes state = and_op->collect();
 
@@ -122,7 +158,200 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
       restored->execute();
 
       THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *and_op);
         const auto& orig_output = and_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("or is serialized and restored") {
+      // Serialize state
+      Bytes state = or_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_or("or1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      or_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *or_op);
+        const auto& orig_output = or_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("xor is serialized and restored") {
+      // Serialize state
+      Bytes state = xor_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_xor("xor1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      xor_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *xor_op);
+        const auto& orig_output = xor_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("nand is serialized and restored") {
+      // Serialize state
+      Bytes state = nand_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_nand("nand1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      nand_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *nand_op);
+        const auto& orig_output = nand_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("nor is serialized and restored") {
+      // Serialize state
+      Bytes state = nor_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_nor("nor1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      nor_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *nor_op);
+        const auto& orig_output = nor_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("xnor is serialized and restored") {
+      // Serialize state
+      Bytes state = xnor_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_xnor("xnor1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      xnor_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *xnor_op);
+        const auto& orig_output = xnor_op->get_output_queue(0);
+        const auto& rest_output = restored->get_output_queue(0);
+
+        REQUIRE(orig_output.size() == rest_output.size());
+
+        for (size_t i = 0; i < orig_output.size(); i++) {
+          const auto* orig_msg = dynamic_cast<const Message<BooleanData>*>(orig_output[i].get());
+          const auto* rest_msg = dynamic_cast<const Message<BooleanData>*>(rest_output[i].get());
+
+          REQUIRE(orig_msg->time == rest_msg->time);
+          REQUIRE(orig_msg->data.value == rest_msg->data.value);
+        }
+      }
+    }
+
+    WHEN("impl is serialized and restored") {
+      // Serialize state
+      Bytes state = impl_op->collect();
+
+      // Create new operator
+      auto restored = make_logical_implication("impl1");
+
+      // Restore state
+      Bytes::const_iterator it = state.begin();
+      restored->restore(it);
+
+      // Execute both operators
+      impl_op->execute();
+      restored->execute();
+
+      THEN("Both operators produce identical results") {
+        REQUIRE(*restored == *impl_op);
+        const auto& orig_output = impl_op->get_output_queue(0);
         const auto& rest_output = restored->get_output_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());

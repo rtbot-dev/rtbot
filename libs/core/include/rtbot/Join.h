@@ -30,7 +30,7 @@ class Join : public Operator {
         throw std::runtime_error("Unknown port type: " + type);
       }
 
-      PortType::add_port(*this, type, true, false);  // input only      
+      PortType::add_port(*this, type, true, false, false);  // input only      
       port_type_names_.push_back(type);
     }
 
@@ -39,7 +39,7 @@ class Join : public Operator {
       if (!PortType::is_valid_port_type(type)) {
         throw std::runtime_error("Unknown port type: " + type);
       }
-      PortType::add_port(*this, type, false, true);  // output only
+      PortType::add_port(*this, type,false ,false, true);  // output only
     }
   }
 
@@ -54,7 +54,7 @@ class Join : public Operator {
         throw std::runtime_error("Unknown port type: " + type);
       }
 
-      PortType::add_port(*this, type, true, true);      
+      PortType::add_port(*this, type, true, false ,true);      
       port_type_names_.push_back(type);
     }
   }
@@ -68,7 +68,7 @@ class Join : public Operator {
 
     std::string port_type = PortType::get_port_type<T>();
     for (size_t i = 0; i < num_ports; ++i) {
-      PortType::add_port(*this, port_type, true, true);      
+      PortType::add_port(*this, port_type, true, false ,true);      
       port_type_names_.push_back(port_type);
     }
   }
@@ -78,28 +78,17 @@ class Join : public Operator {
   // Get port configuration
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
-  Bytes collect() override {
-    // First collect base state
-    Bytes bytes = Operator::collect();
-   
-    // Serialize port type names
-    StateSerializer::serialize_string_vector(bytes, port_type_names_);    
-
-    return bytes;
+  bool equals(const Join& other) const {
+    return (port_type_names_ == other.port_type_names_ && Operator::equals(other));
   }
 
-  void restore(Bytes::const_iterator& it) override {
-    // First restore base state
-    Operator::restore(it);
-    
-    // Restore port type names
-    StateSerializer::deserialize_string_vector(it, port_type_names_);
+  bool operator==(const Join& other) const {
+    return equals(other);
+  }
 
-    // Validate port types match
-    if (port_type_names_.size() != num_data_ports()) {
-      throw std::runtime_error("Port type count mismatch during restore");
-    }
-  }  
+  bool operator!=(const Join& other) const {
+    return !(*this == other);
+  }
 
  protected:
   // Performs synchronization of input messages
@@ -132,7 +121,6 @@ class Join : public Operator {
     }
   }
 
-  void process_control() override {}  // Join has no control ports  
 
  private:
   std::vector<std::string> port_type_names_;

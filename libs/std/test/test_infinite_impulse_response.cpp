@@ -156,6 +156,7 @@ SCENARIO("InfiniteImpulseResponse operator handles serialization", "[iir]") {
         const auto& rest_output = restored->get_output_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
+        REQUIRE(*iir == *restored);
 
         auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output[0].get());
         auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output[0].get());

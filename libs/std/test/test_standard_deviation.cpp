@@ -97,7 +97,7 @@ SCENARIO("StandardDeviation operator handles edge cases", "[StandardDeviation]")
   }
 }
 
-SCENARIO("StandardDeviation operator handles state serialization", "[StandardDeviation]") {
+SCENARIO("StandardDeviation operator handles state serialization", "[StandardDeviation][State]") {
   GIVEN("A StandardDeviation operator with processed messages") {
     auto sd = StandardDeviation("sd1", 3);
 
@@ -121,17 +121,20 @@ SCENARIO("StandardDeviation operator handles state serialization", "[StandardDev
       restored.restore(it);
 
       THEN("Statistical calculations match") {
-        const auto& orig_output = sd.get_output_queue(0);
-        const auto& rest_output = restored.get_output_queue(0);
+        auto& orig_output = sd.get_output_queue(0);
+        auto& rest_output = restored.get_output_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
+        REQUIRE(sd == restored);
 
-        if (!orig_output.empty()) {
-          auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output[0].get());
-          auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output[0].get());
+        while (!orig_output.empty()) {
+          auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output.front().get());
+          auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output.front().get());
 
           REQUIRE(orig_msg->time == rest_msg->time);
           REQUIRE(orig_msg->data.value == rest_msg->data.value);
+          orig_output.pop_front();
+          rest_output.pop_front();
         }
       }
 

@@ -26,7 +26,7 @@ class Output : public Operator {
       port_type_names_.push_back(type);
 
       // Add input port and matching output port
-      PortType::add_port(*this, type, true, true);  // input port
+      PortType::add_port(*this, type, true, false ,true);  // input port
     }
   }
 
@@ -34,6 +34,18 @@ class Output : public Operator {
 
   // Get port configuration
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
+
+  bool equals(const Output& other) const {
+    return (port_type_names_ == other.port_type_names_ && Operator::equals(other));
+  }
+  
+  bool operator==(const Output& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Output& other) const {
+    return !(*this == other);
+  }
 
  protected:
   void process_data() override {

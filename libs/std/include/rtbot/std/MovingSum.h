@@ -22,6 +22,18 @@ class MovingSum : public Buffer<NumberData, MovingSumFeatures> {
 
   std::string type_name() const override { return "MovingSum"; }
 
+  bool equals(const MovingSum& other) const {
+    return (StateSerializer::hash_double(sum()) == StateSerializer::hash_double(other.sum()) && Buffer<NumberData, MovingSumFeatures>::equals(other));
+  }
+
+  bool operator==(const MovingSum& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const MovingSum& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
     // Only emit messages when the buffer is full to ensure

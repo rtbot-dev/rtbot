@@ -131,7 +131,7 @@ SCENARIO("ResamplerHermite handles edge cases", "[resampler][hermite]") {
   }
 }
 
-SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite]") {
+SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][State]") {
   GIVEN("A hermite resampler with interval 4") {
     auto resampler = make_resampler_hermite("test", 4);
 
@@ -155,6 +155,7 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite]") {
         REQUIRE(restored->get_interval() == resampler->get_interval());
         REQUIRE(restored->get_next_emission_time() == resampler->get_next_emission_time());
         REQUIRE(restored->buffer_size() == resampler->buffer_size());
+        REQUIRE(*restored == *resampler);
       }
 
       AND_WHEN("New data is processed") {

@@ -75,7 +75,7 @@ SCENARIO("PeakDetector handles edge cases", "[PeakDetector]") {
   }
 }
 
-SCENARIO("PeakDetector handles state serialization", "[PeakDetector]") {
+SCENARIO("PeakDetector handles state serialization", "[PeakDetector][State]") {
   GIVEN("A PeakDetector with processed data") {
     auto detector = std::make_unique<PeakDetector>("test", 3);
 
@@ -99,6 +99,7 @@ SCENARIO("PeakDetector handles state serialization", "[PeakDetector]") {
         const auto& rest_buf = restored->buffer();
 
         REQUIRE(orig_buf.size() == rest_buf.size());
+        REQUIRE(*detector == *restored);
         for (size_t i = 0; i < orig_buf.size(); ++i) {
           REQUIRE(orig_buf[i]->time == rest_buf[i]->time);
           REQUIRE(orig_buf[i]->data.value == rest_buf[i]->data.value);
@@ -164,8 +165,8 @@ SCENARIO("PeakDetector works in a PPG analysis pipeline", "[PeakDetector][Integr
   for (size_t i = 0; i < s.ti.size(); i++) {
     input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
     // std::cout << "Processing PPG data at " << s.ti[i] << std::endl;
-    input->execute();
-    const auto& output_queue = join->get_output_queue(0);
+    input->execute(true);
+    const auto& output_queue = join->get_debug_output_queue(0);
 
     for (const auto& msg : output_queue) {
       const auto* data = dynamic_cast<const Message<NumberData>*>(msg.get());

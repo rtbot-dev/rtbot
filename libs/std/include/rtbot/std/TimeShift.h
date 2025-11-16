@@ -16,6 +16,18 @@ class TimeShift : public Operator {
   std::string type_name() const override { return "TimeShift"; }
   timestamp_t get_shift() const { return shift_; }
 
+  bool equals(const TimeShift& other) const {
+    return (shift_ == other.shift_ && Operator::equals(other));
+  }
+
+  bool operator==(const TimeShift& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const TimeShift& other) const {
+    return !(*this == other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);

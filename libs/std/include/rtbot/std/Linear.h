@@ -22,6 +22,18 @@ class Linear : public Join {
   std::string type_name() const override { return "Linear"; }
   const std::vector<double>& get_coefficients() const { return coeffs_; }
 
+  bool equals(const Linear& other) const {
+    return (coeffs_ == other.coeffs_ && Join::equals(other));
+  }
+
+  bool operator==(const Linear& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Linear& other) const {
+    return !(*this == other);
+  }
+
  protected:
   void process_data() override {
     
@@ -63,7 +75,7 @@ class Linear : public Join {
       for (int i = 0; i < num_data_ports(); i++)
         get_data_queue(i).pop_front();
 
-      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));      
+      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));
     }
   }
 

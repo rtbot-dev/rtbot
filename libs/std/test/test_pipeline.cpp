@@ -155,7 +155,7 @@ SCENARIO("Pipeline handles type checking", "[pipeline]") {
   }
 }
 
-SCENARIO("Pipeline handles state serialization correctly", "[pipeline][serialization]") {
+SCENARIO("Pipeline handles state serialization correctly", "[pipeline][State]") {
   GIVEN("A pipeline with base operator state") {
     // Create pipeline and verify base operator serialization
     auto pipeline = std::make_unique<Pipeline>("serial_pipe", std::vector<std::string>{PortType::NUMBER},
@@ -176,6 +176,7 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][serializa
         REQUIRE(restored->id() == pipeline->id());
         REQUIRE(restored->num_data_ports() == pipeline->num_data_ports());
         REQUIRE(restored->num_output_ports() == pipeline->num_output_ports());
+        REQUIRE(*restored==*pipeline);
       }
     }
   }

@@ -47,7 +47,7 @@ SCENARIO("Identity operator handles basic message forwarding", "[identity]") {
   }
 }
 
-SCENARIO("Identity operator handles state serialization", "[identity]") {
+SCENARIO("Identity operator handles state serialization", "[identity][State]") {
   GIVEN("An identity operator with processed messages") {
     auto identity = make_identity("id1");
 
@@ -68,6 +68,7 @@ SCENARIO("Identity operator handles state serialization", "[identity]") {
       restored->restore(it);
 
       THEN("Behavior is preserved") {
+        REQUIRE(*restored == *identity);
         restored->clear_all_output_ports();
         restored->receive_data(create_message<NumberData>(5, NumberData{50.0}), 0);
         restored->execute();

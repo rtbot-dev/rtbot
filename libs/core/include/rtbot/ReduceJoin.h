@@ -36,6 +36,10 @@ class ReduceJoin : public Join {
   // Pure virtual function to define the reduction operation
   virtual std::optional<T> combine(const T& accumulator, const T& next_value) const = 0;
 
+  bool equals(const ReduceJoin& other) const {
+    return (initial_value_ == other.initial_value_ && Operator::equals(other));
+  }
+
  protected:
   void process_data() override {
     

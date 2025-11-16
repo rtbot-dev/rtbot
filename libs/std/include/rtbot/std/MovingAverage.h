@@ -23,6 +23,18 @@ class MovingAverage : public Buffer<NumberData, MovingAverageFeatures> {
 
   std::string type_name() const override { return "MovingAverage"; }
 
+  bool equals(const MovingAverage& other) const {
+    return (StateSerializer::hash_double(mean()) == StateSerializer::hash_double(other.mean()) && Buffer<NumberData, MovingAverageFeatures>::equals(other));
+  }
+
+  bool operator==(const MovingAverage& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const MovingAverage& other) const {
+      return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
     // Only emit messages when the buffer is full to ensure

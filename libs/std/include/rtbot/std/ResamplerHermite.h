@@ -33,6 +33,27 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
   }
 
   std::string type_name() const override { return "ResamplerHermite"; }
+
+  bool equals(const ResamplerHermite& other) const {
+      
+      if (dt_ != other.dt_) return false;
+      if (t0_ != other.t0_) return false;
+      if (initialized_ != other.initialized_) return false;
+      if (next_emit_ != other.next_emit_) return false;
+
+      if (!Buffer<NumberData, ResamplerFeatures>::equals(other)) return false;
+
+      return true;
+  }
+  
+  bool operator==(const ResamplerHermite& other) const {
+      return equals(other);
+  }
+
+  bool operator!=(const ResamplerHermite& other) const {
+      return !(*this == other);
+  }
+
   Bytes collect() override {
     // First collect base state
     Bytes bytes = Buffer<NumberData, ResamplerFeatures>::collect();
@@ -49,16 +70,16 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
   }
 
   void restore(Bytes::const_iterator& it) override {
-    // First restore base state
+    // ---- Restore base state ----
     Buffer<NumberData, ResamplerFeatures>::restore(it);
 
-    // Restore next emission time
-    next_emit_ = *reinterpret_cast<const timestamp_t*>(&(*it));
-    it += sizeof(timestamp_t);
+    // ---- Restore next_emit_ safely ----
+    std::memcpy(&next_emit_, &(*it), sizeof(next_emit_));
+    it += sizeof(next_emit_);
 
-    // Restore initialization state
-    initialized_ = *reinterpret_cast<const bool*>(&(*it));
-    it += sizeof(bool);
+    // ---- Restore initialized_ safely ----
+    std::memcpy(&initialized_, &(*it), sizeof(initialized_));
+    it += sizeof(initialized_);
   }
 
   timestamp_t get_interval() const { return dt_; }

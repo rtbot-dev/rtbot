@@ -1,13 +1,15 @@
 #ifndef OPERATOR_H
 #define OPERATOR_H
 
+#define MAX_SIZE_PER_PORT 17280
+
 #include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iostream>
 #include <map>
 #include <memory>
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -35,7 +37,7 @@ enum class PortKind { DATA, CONTROL };
 // Base operator class
 class Operator {
  public:
-  Operator(std::string id) : id_(std::move(id)), max_size_per_port_(17280) {}
+  Operator(std::string id) : id_(std::move(id)), max_size_per_port_(MAX_SIZE_PER_PORT) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
@@ -55,86 +57,58 @@ class Operator {
                  reinterpret_cast<const uint8_t*>(&control_ports_count) + sizeof(control_ports_count));
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&output_ports_count),
                  reinterpret_cast<const uint8_t*>(&output_ports_count) + sizeof(output_ports_count));
-
-    // Serialize port types
-    for (const auto& port : data_ports_) {
-      StateSerializer::serialize_type_index(bytes, port.type);
-    }
-    for (const auto& port : control_ports_) {
-      StateSerializer::serialize_type_index(bytes, port.type);
-    }
-    for (const auto& port : output_ports_) {
-      StateSerializer::serialize_type_index(bytes, port.type);
-    }
-
     // Serialize message queues
     for (const auto& port : data_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&port.last_timestamp),
+                   reinterpret_cast<const uint8_t*>(&port.last_timestamp) + sizeof(port.last_timestamp));
     }
     for (const auto& port : control_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&port.last_timestamp),
+                   reinterpret_cast<const uint8_t*>(&port.last_timestamp) + sizeof(port.last_timestamp));
     }
     for (const auto& port : output_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
-    }
-    // Serialize connection stateful data
-    for (const auto& conn : connections_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&conn.last_propagated_index),
-                   reinterpret_cast<const uint8_t*>(&conn.last_propagated_index) + sizeof(conn.last_propagated_index));
-    }
-
-    // Serialize ports with new data sets
-    StateSerializer::serialize_index_set(bytes, data_ports_with_new_data_);
-    StateSerializer::serialize_index_set(bytes, control_ports_with_new_data_);
+    }    
 
     return bytes;
   }
 
   virtual void restore(Bytes::const_iterator& it) {
-    // Read port counts
-    size_t data_ports_count = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-    size_t control_ports_count = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-    size_t output_ports_count = *reinterpret_cast<const size_t*>(&(*it));
+    // ---- Read port counts safely ----
+    size_t data_ports_count;
+    std::memcpy(&data_ports_count, &(*it), sizeof(data_ports_count));
     it += sizeof(size_t);
 
-    // Validate port counts match current configuration
+    size_t control_ports_count;
+    std::memcpy(&control_ports_count, &(*it), sizeof(control_ports_count));
+    it += sizeof(size_t);
+
+    size_t output_ports_count;
+    std::memcpy(&output_ports_count, &(*it), sizeof(output_ports_count));
+    it += sizeof(size_t);
+
+    // ---- Validate counts ----
     StateSerializer::validate_port_count(data_ports_count, data_ports_.size(), "Data");
     StateSerializer::validate_port_count(control_ports_count, control_ports_.size(), "Control");
     StateSerializer::validate_port_count(output_ports_count, output_ports_.size(), "Output");
 
-    // Validate and restore port types
+    // ---- Restore message queues ----
     for (auto& port : data_ports_) {
-      StateSerializer::validate_and_restore_type(it, port.type);
+        StateSerializer::deserialize_message_queue(it, port.queue);
+        std::memcpy(&port.last_timestamp, &(*it), sizeof(port.last_timestamp));
+        it += sizeof(timestamp_t);
     }
     for (auto& port : control_ports_) {
-      StateSerializer::validate_and_restore_type(it, port.type);
+        StateSerializer::deserialize_message_queue(it, port.queue);
+        std::memcpy(&port.last_timestamp, &(*it), sizeof(port.last_timestamp));
+        it += sizeof(timestamp_t);
     }
     for (auto& port : output_ports_) {
-      StateSerializer::validate_and_restore_type(it, port.type);
+        StateSerializer::deserialize_message_queue(it, port.queue);
     }
 
-    // Restore message queues
-    for (auto& port : data_ports_) {
-      StateSerializer::deserialize_message_queue(it, port.queue);
-    }
-    for (auto& port : control_ports_) {
-      StateSerializer::deserialize_message_queue(it, port.queue);
-    }
-    for (auto& port : output_ports_) {
-      StateSerializer::deserialize_message_queue(it, port.queue);
-    }
-
-    // Restore connections (excluding child pointers)
-    for (size_t i = 0; i < connections_.size(); ++i) {
-      connections_[i].last_propagated_index = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
-    }
-
-    // Restore ports with new data sets
-    StateSerializer::deserialize_index_set(it, data_ports_with_new_data_);
-    StateSerializer::deserialize_index_set(it, control_ports_with_new_data_);
   }
 
   // Dynamic port management with type information
@@ -190,8 +164,6 @@ class Operator {
     }
 
     data_ports_[port_index].queue.push_back(std::move(msg));
-    data_ports_with_new_data_.insert(port_index);
-
   }
 
   virtual void reset() {
@@ -207,8 +179,9 @@ class Operator {
     for (auto& port : output_ports_) {
       port.queue.clear();
     }
-    data_ports_with_new_data_.clear();
-    control_ports_with_new_data_.clear();
+    for (auto& queue : debug_output_queues_) {
+      queue.clear();
+    }
   }
 
   // This should be called by the runtime to clear all output ports before executing
@@ -217,30 +190,26 @@ class Operator {
     for (auto& port : output_ports_) {
       port.queue.clear();
     }
-    // also clear all connections
-    for (auto& conn : connections_) {
-      conn.last_propagated_index = 0;
+    for (auto& queue : debug_output_queues_) {
+      queue.clear();
     }
   }
 
-  void execute() {
+  void execute(bool debug=false) {
     SpanScope span_scope{"operator_execute"};
-    RTBOT_ADD_ATTRIBUTE("operator.id", id_);
-
-    if (data_ports_with_new_data_.empty() && control_ports_with_new_data_.empty()) {
-      return;
-    }
+    RTBOT_ADD_ATTRIBUTE("operator.id", id_);    
 
     // Process control messages first
-    if (!control_ports_with_new_data_.empty()) {
+    if (num_control_ports() > 0) {
       SpanScope control_scope{"process_control"};
-      process_control();
-      control_ports_with_new_data_.clear();
+      process_control();      
     }
 
     // Then process data
-    process_data();
-    data_ports_with_new_data_.clear();
+    if (num_data_ports() > 0) {
+      SpanScope data_scope{"process_data"};
+      process_data();      
+    }
 
 #ifdef RTBOT_INSTRUMENTATION
     for (size_t i = 0; i < output_ports_.size(); i++) {
@@ -250,7 +219,7 @@ class Operator {
     }
 #endif
 
-    propagate_outputs();
+    propagate_outputs(debug);
   }
 
   // Runtime port access for control messages with type checking
@@ -282,7 +251,6 @@ class Operator {
     }
 
     control_ports_[port_index].queue.push_back(std::move(msg));
-    control_ports_with_new_data_.insert(port_index);
 
   }
 
@@ -321,59 +289,122 @@ class Operator {
       }
     }
 
-    connections_.push_back({child, output_port, child_port_index, 0, child_port_kind});
+    connections_.push_back({child, output_port, child_port_index, child_port_kind});
     return child;
   }
 
   // Get port type
   std::type_index get_data_port_type(size_t port_index) const {
     if (port_index >= data_ports_.size()) {
-      throw std::runtime_error("Invalid data port index");
+      throw std::runtime_error("Invalid data port index for data queue");
     }
     return data_ports_[port_index].type;
   }
 
   std::type_index get_control_port_type(size_t port_index) const {
     if (port_index >= control_ports_.size()) {
-      throw std::runtime_error("Invalid control port index");
+      throw std::runtime_error("Invalid control port index for control queue");
     }
     return control_ports_[port_index].type;
   }
 
   std::type_index get_output_port_type(size_t port_index) const {
     if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index");
+      throw std::runtime_error("Invalid output port index for output queue");
     }
     return output_ports_[port_index].type;
   }
 
   const std::string& id() const { return id_; }
 
+  bool equals(const Operator& other) const {
+      // Compare IDs
+      if (id_ != other.id_) return false;
+      if (type_name() != other.type_name()) return false;
+
+      // Compare number of ports
+      if (data_ports_.size() != other.data_ports_.size()) return false;
+      if (control_ports_.size() != other.control_ports_.size()) return false;
+      if (output_ports_.size() != other.output_ports_.size()) return false;
+
+      // Compare data port types and last timestamps
+      for (size_t i = 0; i < data_ports_.size(); ++i) {
+        if (data_ports_[i].type != other.data_ports_[i].type) return false;
+        if (data_ports_[i].last_timestamp != other.data_ports_[i].last_timestamp) return false;
+
+        // Optional: compare queues
+        if (data_ports_[i].queue.size() != other.data_ports_[i].queue.size()) return false;
+        for (size_t j = 0; j < data_ports_[i].queue.size(); ++j) {
+            if (data_ports_[i].queue[j]->hash() != other.data_ports_[i].queue[j]->hash()) return false;
+            if (data_ports_[i].queue[j]->time != other.data_ports_[i].queue[j]->time) return false;
+        }
+      }
+
+      // Compare control port types and last timestamps
+      for (size_t i = 0; i < control_ports_.size(); ++i) {
+        if (control_ports_[i].type != other.control_ports_[i].type) return false;
+        if (control_ports_[i].last_timestamp != other.control_ports_[i].last_timestamp) return false;
+
+        if (control_ports_[i].queue.size() != other.control_ports_[i].queue.size()) return false;
+        for (size_t j = 0; j < control_ports_[i].queue.size(); ++j) {
+            if (control_ports_[i].queue[j]->hash() != other.control_ports_[i].queue[j]->hash()) return false;
+            if (control_ports_[i].queue[j]->time != other.control_ports_[i].queue[j]->time) return false;
+        }
+      }
+
+      // Compare output ports queues (types can be ignored if always match)
+      for (size_t i = 0; i < output_ports_.size(); ++i) {
+        if (output_ports_[i].queue.size() != other.output_ports_[i].queue.size()) return false;
+        for (size_t j = 0; j < output_ports_[i].queue.size(); ++j) {
+            if (output_ports_[i].queue[j]->hash() != other.output_ports_[i].queue[j]->hash()) return false;
+            if (output_ports_[i].queue[j]->time != other.output_ports_[i].queue[j]->time) return false;
+        }
+      }
+
+      return true;
+  }
+  
+  bool operator==(const Operator& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Operator& other) const {
+    return !(*this == other);
+  }
+
   // Access to port queues for derived classes
   MessageQueue& get_data_queue(size_t port_index) {
     if (port_index >= data_ports_.size()) {
-      throw std::runtime_error("Invalid data port index");
+      throw std::runtime_error("Invalid data port index for data queue");
     }
     return data_ports_[port_index].queue;
   }
 
   MessageQueue& get_control_queue(size_t port_index) {
     if (port_index >= control_ports_.size()) {
-      throw std::runtime_error("Invalid control port index");
+      throw std::runtime_error("Invalid control port index for control queue");
     }
     return control_ports_[port_index].queue;
   }
 
   MessageQueue& get_output_queue(size_t port_index) {
     if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index");
+      throw std::runtime_error("Invalid output port index for output queue");
     }
     return output_ports_[port_index].queue;
   }
 
+  MessageQueue& get_debug_output_queue(size_t port_index) {
+    static MessageQueue empty;
+    if (port_index >= debug_output_queues_.size()) {
+      return empty;
+    }
+    return debug_output_queues_[port_index];
+  }
+
   const MessageQueue& get_output_queue(size_t port_index) const {
     if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index");
+      throw std::runtime_error("Invalid output port index for output queue");
     }
     return output_ports_[port_index].queue;
   }
@@ -462,17 +493,30 @@ class Operator {
     return false;  
   }
 
-  void propagate_outputs() {
-    // First send the messages to the connected operators
-    for (auto& conn : connections_) {
-      auto& output_queue = output_ports_[conn.output_port].queue;
-      size_t last_propagated_index = conn.last_propagated_index;
+  void propagate_outputs(bool debug=false) {
+    
+    std::unordered_set<size_t> propagated_outputs;
+    if (debug) {
+      
+      if (debug_output_queues_.size() != num_output_ports()) {
+        debug_output_queues_.clear();
+        for (int i = 0; i < num_output_ports(); i++) {
+          debug_output_queues_.push_back(MessageQueue());
+        }
+      }
+      
+    } else if (!debug && debug_output_queues_.size() > 0) {
+      debug_output_queues_.clear();
+    }
 
+    // Send the messages to the connected operators
+    for (auto& conn : connections_) {      
+      auto& output_queue = output_ports_[conn.output_port].queue;
       if (output_queue.empty()) {
         continue;
       }
 
-      for (size_t i = last_propagated_index; i < output_queue.size(); i++) {
+      for (size_t i = 0; i < output_queue.size(); i++) {
         auto msg_copy = output_queue[i]->clone();
 #ifdef RTBOT_INSTRUMENTATION
         RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), conn.child->id(), conn.child->type_name(),
@@ -485,21 +529,37 @@ class Operator {
         } else {
           conn.child->receive_control(std::move(msg_copy), conn.child_input_port);
         }
+         propagated_outputs.insert(conn.output_port);
       }
-
-      conn.last_propagated_index = output_queue.size();
     }
+    
+    if (debug) {
+      for (size_t i = 0; i < num_output_ports(); i++) {
+        auto& queue = output_ports_[i].queue;
+        for (size_t j = 0; j < queue.size(); j++) {
+          auto msg_copy = queue[j]->clone();
+          debug_output_queues_[i].push_back(std::move(msg_copy));
+        }
+      }
+    }
+
+    for (const size_t& value : propagated_outputs) {
+      get_output_queue(value).clear();
+    }
+
+    
 
     // Then execute connected operators
-    for (auto& conn : connections_) {
-      conn.child->execute();
+    for (auto& conn : connections_) {      
+      if (conn.child != nullptr && propagated_outputs.find(conn.output_port) != propagated_outputs.end())
+      conn.child->execute(debug);
     }
+
   }
   struct Connection {
     std::shared_ptr<Operator> child;
     size_t output_port;
-    size_t child_input_port;
-    size_t last_propagated_index{0};  // Track last propagated message per connection
+    size_t child_input_port;    
     PortKind child_port_kind{PortKind::DATA};
   };
 
@@ -507,9 +567,8 @@ class Operator {
   std::vector<PortInfo> data_ports_;
   std::vector<PortInfo> control_ports_;
   std::vector<PortInfo> output_ports_;
-  std::vector<Connection> connections_;
-  std::set<size_t> data_ports_with_new_data_;
-  std::set<size_t> control_ports_with_new_data_;
+  std::vector<MessageQueue> debug_output_queues_;
+  std::vector<Connection> connections_;  
   std::size_t max_size_per_port_;
 };
 

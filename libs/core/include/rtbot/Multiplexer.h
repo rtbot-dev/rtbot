@@ -40,6 +40,17 @@ class Multiplexer : public Operator {
 
   std::string type_name() const override { return "Multiplexer"; }
 
+  bool equals(const Multiplexer& other) const {
+    return Operator::equals(other);
+  }
+  
+  bool operator==(const Multiplexer& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Multiplexer& other) const {
+    return !(*this == other);
+  }
 
   void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     if (port_index >= num_control_ports()) {
@@ -61,7 +72,6 @@ class Multiplexer : public Operator {
 
     // Add message to queue
     get_control_queue(port_index).push_back(std::move(msg));
-    data_ports_with_new_data_.insert(port_index);
 
   }
 

@@ -35,28 +35,18 @@ class Demultiplexer : public Operator {
 
   std::string type_name() const override { return "Demultiplexer"; }
 
-  size_t get_num_ports() const { return num_control_ports(); }  
+  size_t get_num_ports() const { return num_control_ports(); }
 
-  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
-    if (port_index >= num_control_ports()) {
-      throw std::runtime_error("Invalid control port index");
-    }
+  bool equals(const Demultiplexer& other) const {
+    return Operator::equals(other);
+  }
+  
+  bool operator==(const Demultiplexer& other) const {
+    return equals(other);
+  }
 
-    auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(msg.get());
-    if (!ctrl_msg) {
-      throw std::runtime_error("Invalid control message type");
-    }
-
-    // Update last timestamp
-    control_ports_[port_index].last_timestamp = msg->time;
-    
-    if (get_control_queue(port_index).size() == max_size_per_port_) {      
-      get_control_queue(port_index).pop_front();
-    }    
-
-    // Add message to queue
-    get_control_queue(port_index).push_back(std::move(msg));
-    control_ports_with_new_data_.insert(port_index);
+  bool operator!=(const Demultiplexer& other) const {
+    return !(*this == other);
   }
 
  protected:  

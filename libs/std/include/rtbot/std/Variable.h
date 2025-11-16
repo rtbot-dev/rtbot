@@ -23,7 +23,19 @@ class Variable : public Operator {
 
   std::string type_name() const override { return "Variable"; }
 
-  double get_default_value() const { return default_value_; }  
+  double get_default_value() const { return default_value_; }
+
+  bool equals(const Variable& other) const {
+    return (StateSerializer::hash_double(default_value_) == StateSerializer::hash_double(other.default_value_) && Operator::equals(other));
+  }
+
+  bool operator==(const Variable& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Variable& other) const {
+    return !(*this == other);
+  }
 
  protected:
   void process_data() override {    

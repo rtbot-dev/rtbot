@@ -80,6 +80,7 @@ SCENARIO("Difference operator handles state serialization", "[Difference][State]
       restored->restore(it);
 
       THEN("Buffer content matches") {
+        REQUIRE(*diff == *restored);
         REQUIRE(restored->buffer_size() == diff->buffer_size());
         REQUIRE(restored->get_use_oldest_time() == diff->get_use_oldest_time());
       }

@@ -18,6 +18,7 @@ class ResamplerConstant : public Operator {
 
     add_data_port<T>();
     add_output_port<T>();
+    last_value_ = T{};
   }
 
   void reset() override {
@@ -28,6 +29,27 @@ class ResamplerConstant : public Operator {
   }
 
   std::string type_name() const override { return "ResamplerConstant"; }
+
+  bool equals(const ResamplerConstant& other) const {
+      
+      if (dt_ != other.dt_) return false;
+      if (t0_ != other.t0_) return false;
+      if (initialized_ != other.initialized_) return false;
+      if (next_emit_ != other.next_emit_) return false;
+      if (last_value_ != other.last_value_) return false;
+
+      if (!Operator::equals(other)) return false;
+
+      return true;
+  }
+  
+  bool operator==(const ResamplerConstant& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const ResamplerConstant& other) const {
+    return !(*this == other);
+  }
 
   Bytes collect() override {
     // First collect base state
@@ -41,20 +63,28 @@ class ResamplerConstant : public Operator {
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&initialized_),
                  reinterpret_cast<const uint8_t*>(&initialized_) + sizeof(initialized_));
 
+    // Serialize last value
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&last_value_),
+                reinterpret_cast<const uint8_t*>(&last_value_) + sizeof(last_value_));
+
     return bytes;
   }
 
   void restore(Bytes::const_iterator& it) override {
-    // First restore base state
+    // ---- Restore base state ----
     Operator::restore(it);
 
-    // Restore next emission time
-    next_emit_ = *reinterpret_cast<const timestamp_t*>(&(*it));
-    it += sizeof(timestamp_t);
+    // ---- Restore next_emit_ safely ----
+    std::memcpy(&next_emit_, &(*it), sizeof(next_emit_));
+    it += sizeof(next_emit_);
 
-    // Restore initialization state
-    initialized_ = *reinterpret_cast<const bool*>(&(*it));
-    it += sizeof(bool);
+    // ---- Restore initialized_ safely ----
+    std::memcpy(&initialized_, &(*it), sizeof(initialized_));
+    it += sizeof(initialized_);
+
+    // ---- Restore last_value_ safely ----
+    std::memcpy(&last_value_, &(*it), sizeof(last_value_));
+    it += sizeof(last_value_);
   }
 
   timestamp_t get_interval() const { return dt_; }

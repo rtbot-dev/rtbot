@@ -28,6 +28,18 @@ class FiniteImpulseResponse : public Buffer<NumberData, FIRFeatures> {
 
   const std::vector<double>& get_coefficients() const { return coeffs_; }
 
+  bool equals(const FiniteImpulseResponse& other) const {
+    return coeffs_ == other.coeffs_ && Buffer<NumberData, FIRFeatures>::equals(other);
+  }
+
+  bool operator==(const FiniteImpulseResponse& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const FiniteImpulseResponse& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
     std::vector<std::unique_ptr<Message<NumberData>>> output;

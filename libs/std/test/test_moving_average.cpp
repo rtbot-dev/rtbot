@@ -93,6 +93,7 @@ SCENARIO("MovingAverage operator handles state serialization", "[moving_average]
 
       THEN("State is correctly preserved") {
         REQUIRE(restored.mean() == ma.mean());
+        REQUIRE(restored == ma);
 
         AND_WHEN("New data is added to both") {
           ma.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);

@@ -72,11 +72,38 @@ class Buffer : public Operator {
     return std::sqrt(variance());
   }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  bool equals(const Buffer& other) const {
+      
+    if (window_size_ != other.window_size_) return false;
 
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&window_size_),
-                 reinterpret_cast<const uint8_t*>(&window_size_) + sizeof(window_size_));
+    if (buffer_.size() != other.buffer_.size()) return false;
+
+    auto it1 = buffer_.begin();
+    auto it2 = other.buffer_.begin();
+
+    for (; it1 != buffer_.end() && it2 != other.buffer_.end(); ++it1, ++it2) {
+        const auto& msg1 = *it1;
+        const auto& msg2 = *it2;
+
+        if (msg1 && msg2) {
+            if (msg1->time != msg2->time) return false;
+            if (msg1->hash() != msg2->hash()) return false;
+        } else return false;
+    }
+    
+    if constexpr (Features::TRACK_SUM) {
+        if (StateSerializer::hash_double(sum_) != StateSerializer::hash_double(other.sum_)) return false;
+    }
+
+    if constexpr (Features::TRACK_VARIANCE) {
+        if (StateSerializer::hash_double(M2_) != StateSerializer::hash_double(other.M2_)) return false;    
+    }
+
+    return Operator::equals(other);
+  }
+
+  Bytes collect() override {
+    Bytes bytes = Operator::collect();    
 
     size_t buffer_size = buffer_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&buffer_size),
@@ -90,65 +117,68 @@ class Buffer : public Operator {
       bytes.insert(bytes.end(), msg_bytes.begin(), msg_bytes.end());
     }
 
-    if constexpr (Features::TRACK_SUM) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
-                   reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
-    }
-
-    if constexpr (Features::TRACK_VARIANCE) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&M2_),
-                   reinterpret_cast<const uint8_t*>(&M2_) + sizeof(M2_));
-    }
-
     return bytes;
   }
 
   void restore(Bytes::const_iterator& it) override {
-    Operator::restore(it);
+    // Call base restore first
+    Operator::restore(it);    
 
-    window_size_ = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
+    // ---- Read buffer_size safely ----
+    size_t buffer_size;
+    std::memcpy(&buffer_size, &(*it), sizeof(buffer_size));
+    it += sizeof(buffer_size);
 
-    size_t buffer_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
+    // ---- Deserialize buffer ----
     buffer_.clear();
     for (size_t i = 0; i < buffer_size; ++i) {
-      size_t msg_size = *reinterpret_cast<const size_t*>(&(*it));
-      it += sizeof(size_t);
+        // Read size of each message
+        size_t msg_size;
+        std::memcpy(&msg_size, &(*it), sizeof(msg_size));
+        it += sizeof(msg_size);
 
-      Bytes msg_bytes(it, it + msg_size);
-      buffer_.push_back(
-          std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(BaseMessage::deserialize(msg_bytes).release())));
-      it += msg_size;
+        // Extract message bytes
+        Bytes msg_bytes(it, it + msg_size);
+
+        // Deserialize message and cast to derived type
+        buffer_.push_back(
+            std::unique_ptr<Message<T>>(
+                dynamic_cast<Message<T>*>(BaseMessage::deserialize(msg_bytes).release())
+            )
+        );
+
+        it += msg_size;
     }
 
+    // ---- Optional statistics ----
     if constexpr (Features::TRACK_SUM) {
-      sum_ = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
+        sum_ = 0.0;
+        if (!buffer_.empty()) {
+            // First pass: compute sum
+            for (const auto& msg : buffer_) {
+                sum_ += msg->data.value;
+            }
+        }
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
-      M2_ = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
+        // Recompute statistics from buffer to ensure consistency
+        sum_ = 0.0;
+        M2_ = 0.0;
 
-      // Recompute statistics from buffer to ensure consistency
-      sum_ = 0.0;
-      M2_ = 0.0;
+        if (!buffer_.empty()) {
+            // First pass: compute sum
+            for (const auto& msg : buffer_) {
+                sum_ += msg->data.value;
+            }
 
-      if (!buffer_.empty()) {
-        // First pass: compute mean
-        for (const auto& msg : buffer_) {
-          sum_ += msg->data.value;
+            // Second pass: compute M2
+            double mean = sum_ / buffer_.size();
+            for (const auto& msg : buffer_) {
+                double delta = msg->data.value - mean;
+                M2_ += delta * delta;
+            }
         }
-
-        // Second pass: compute M2
-        double mean = sum_ / buffer_.size();
-        for (const auto& msg : buffer_) {
-          double delta = msg->data.value - mean;
-          M2_ += delta * delta;
-        }
-      }
     }
   }
 

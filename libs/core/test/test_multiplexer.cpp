@@ -125,7 +125,7 @@ SCENARIO("Multiplexer routes messages based on control signals", "[multiplexer]"
   }
 }
 
-SCENARIO("Multiplexer state serialization", "[multiplexer]") {
+SCENARIO("Multiplexer state serialization", "[multiplexer][State]") {
   GIVEN("A multiplexer with active state") {
     auto mult = std::make_unique<Multiplexer<NumberData>>("mult", 2);
 
@@ -153,6 +153,8 @@ SCENARIO("Multiplexer state serialization", "[multiplexer]") {
 
         send_data(mult);
         send_data(restored);
+
+        REQUIRE(*mult == *restored);
 
         // Compare outputs
         const auto& orig_output = mult->get_output_queue(0);

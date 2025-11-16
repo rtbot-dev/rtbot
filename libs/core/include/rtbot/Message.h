@@ -37,9 +37,30 @@ struct NumberData {
 
   static NumberData deserialize(Bytes::const_iterator& it) {
     NumberData data;
-    data.value = *reinterpret_cast<const double*>(&(*it));
+
+    // Read double safely (avoid unaligned reinterpret_cast)
+    double value;
+    std::memcpy(&value, &(*it), sizeof(double));
+    data.value = value;
+
     it += sizeof(double);
     return data;
+  }
+
+  bool operator==(const NumberData& other) const noexcept {
+    return hash() == other.hash();
+  }
+
+  bool operator!=(const NumberData& other) const noexcept {
+    return !(*this == other);
+  }
+
+
+  uint64_t hash() const {
+      uint64_t u;
+      uint64_t quantize = static_cast<uint64_t>(value * 1e9);
+      std::memcpy(&u, &quantize, sizeof(uint64_t));
+      return u;
   }
 };
 
@@ -55,10 +76,28 @@ struct BooleanData {
 
   static BooleanData deserialize(Bytes::const_iterator& it) {
     BooleanData data;
-    data.value = *reinterpret_cast<const bool*>(&(*it));
+
+    bool value;
+    std::memcpy(&value, &(*it), sizeof(bool));
+    data.value = value;
+
     it += sizeof(bool);
     return data;
   }
+
+  bool operator==(const BooleanData& other) const noexcept {
+    return hash() == other.hash();
+  }
+
+  bool operator!=(const BooleanData& other) const noexcept {
+    return !(*this == other);
+  }
+
+  uint64_t hash() const {
+      if (value) return 1;
+      else return 0;
+  }
+
 };
 
 struct VectorNumberData {
@@ -79,16 +118,43 @@ struct VectorNumberData {
 
   static VectorNumberData deserialize(Bytes::const_iterator& it) {
     VectorNumberData data;
-    size_t size = *reinterpret_cast<const size_t*>(&(*it));
+
+    // ---- read vector size ----
+    size_t size;
+    std::memcpy(&size, &(*it), sizeof(size));
     it += sizeof(size_t);
 
     data.values.reserve(size);
+
+    // ---- read each double ----
     for (size_t i = 0; i < size; ++i) {
-      double value = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
-      data.values.push_back(value);
+        double value;
+        std::memcpy(&value, &(*it), sizeof(double));
+        it += sizeof(double);
+        data.values.push_back(value);
     }
+
     return data;
+  }
+
+  bool operator==(const BooleanData& other) const noexcept {
+    return hash() == other.hash();
+  }
+
+  bool operator!=(const BooleanData& other) const noexcept {
+    return !(*this == other);
+  }
+
+  uint64_t hash() const {
+    uint64_t result = 0;
+    for (int i=0; i < values.size(); i++) {
+      uint64_t u;
+      double value = values.at(i);
+      uint64_t quantize = static_cast<uint64_t>(value * 1e9);
+      std::memcpy(&u, &quantize, sizeof(uint64_t));
+      result = result + u;
+    }
+    return result;
   }
 };
 
@@ -117,21 +183,39 @@ struct VectorBooleanData {
 
   static VectorBooleanData deserialize(Bytes::const_iterator& it) {
     VectorBooleanData data;
-    size_t size = *reinterpret_cast<const size_t*>(&(*it));
+
+    // ---- read vector size ----
+    size_t size;
+    std::memcpy(&size, &(*it), sizeof(size));
     it += sizeof(size_t);
 
-    // Read packed boolean values
+    // Number of bytes in the packed bitfield
     size_t byte_count = (size + 7) / 8;
+
     data.values.reserve(size);
 
+    // ---- decode packed bits ----
     for (size_t i = 0; i < size; ++i) {
-      uint8_t byte = *(it + (i / 8));
-      bool value = (byte & (1 << (i % 8))) != 0;
-      data.values.push_back(value);
+        uint8_t byte = *(it + (i / 8));
+        bool value = (byte & (uint8_t(1) << (i % 8))) != 0;
+        data.values.push_back(value);
     }
 
+    // Advance iterator past the packed bytes
     it += byte_count;
+
     return data;
+  }
+
+  uint64_t hash() const {
+    uint64_t result = 0;
+    for (int i=0; i < values.size(); i++) {
+      uint64_t u;
+      if (values.at(i)) u = 1;
+      else u = 0;
+      result = result + u;
+    }
+    return result;
   }
 };
 
@@ -145,6 +229,7 @@ class BaseMessage {
   virtual std::type_index type() const = 0;
   virtual std::unique_ptr<BaseMessage> clone() const = 0;
   virtual std::string to_string() const = 0;
+  virtual std::uint64_t hash() const = 0;
 
   virtual Bytes serialize() const {
     Bytes bytes;
@@ -224,6 +309,10 @@ class Message : public BaseMessage {
     return std::make_unique<Message<T>>(time, data);
   }
 
+  std::uint64_t hash() const override {
+    return data.hash();
+  }
+
   T data;
 };
 
@@ -231,28 +320,35 @@ class Message : public BaseMessage {
 inline std::unique_ptr<BaseMessage> BaseMessage::deserialize(const Bytes& bytes) {
   auto it = bytes.begin();
 
-  // Read timestamp
-  timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
+  // ---- Read timestamp ----
+  timestamp_t time;
+  std::memcpy(&time, &(*it), sizeof(time));
   it += sizeof(timestamp_t);
 
-  // Read type information
-  size_t type_length = *reinterpret_cast<const size_t*>(&(*it));
+  // ---- Read type string length ----
+  size_t type_length;
+  std::memcpy(&type_length, &(*it), sizeof(type_length));
   it += sizeof(size_t);
+
+  // ---- Read type name ----
   std::string type_name(it, it + type_length);
   it += type_length;
 
-  // Create appropriate message type based on type_name
+  // ---- Dispatch based on type name ----
   if (type_name == typeid(NumberData).name()) {
-    return Message<NumberData>::deserialize_data(time, it, bytes.end());
-  } else if (type_name == typeid(BooleanData).name()) {
-    return Message<BooleanData>::deserialize_data(time, it, bytes.end());
-  } else if (type_name == typeid(VectorNumberData).name()) {
-    return Message<VectorNumberData>::deserialize_data(time, it, bytes.end());
-  } else if (type_name == typeid(VectorBooleanData).name()) {
-    return Message<VectorBooleanData>::deserialize_data(time, it, bytes.end());
-  } else {
-    throw std::runtime_error("Unknown message type: " + type_name);
+      return Message<NumberData>::deserialize_data(time, it, bytes.end());
   }
+  else if (type_name == typeid(BooleanData).name()) {
+      return Message<BooleanData>::deserialize_data(time, it, bytes.end());
+  }
+  else if (type_name == typeid(VectorNumberData).name()) {
+      return Message<VectorNumberData>::deserialize_data(time, it, bytes.end());
+  }
+  else if (type_name == typeid(VectorBooleanData).name()) {
+      return Message<VectorBooleanData>::deserialize_data(time, it, bytes.end());
+  }
+
+  throw std::runtime_error("Unknown message type: " + type_name);
 }
 
 template <typename T>
