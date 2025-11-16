@@ -59,11 +59,11 @@ SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
 
     WHEN("Processing a single data point") {
       pipeline.input->receive_data(create_message<NumberData>(s.ti[0], NumberData{s.ppg[0]}), 0);
-      pipeline.input->execute();
+      pipeline.input->execute(true);
 
       THEN("Messages propagate through moving averages") {
-        REQUIRE(pipeline.ma_short->get_output_queue(0).size() <= 1);
-        REQUIRE(pipeline.ma_long->get_output_queue(0).size() <= 1);
+        REQUIRE(pipeline.ma_short->get_debug_output_queue(0).size() <= 1);
+        REQUIRE(pipeline.ma_long->get_debug_output_queue(0).size() <= 1);
       }
 
       AND_THEN("Moving average buffers start filling") {
@@ -75,12 +75,12 @@ SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
     WHEN("Processing enough points to fill short window") {
       for (int i = 1; i < short_window + 1; i++) {
         pipeline.input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
-        pipeline.input->execute();
+        pipeline.input->execute(true);
       }
 
       THEN("Short moving average starts producing output") {
         REQUIRE(pipeline.ma_short->buffer_full());
-        REQUIRE(pipeline.ma_short->get_output_queue(0).size() == 1);
+        REQUIRE(pipeline.ma_short->get_debug_output_queue(0).size() == 1);
       }
 
       AND_THEN("Long moving average still filling") {
@@ -112,9 +112,9 @@ SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
 
       for (int i = 0; i < test_window; i++) {
         pipeline.input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
-        pipeline.input->execute();
+        pipeline.input->execute(true);
 
-        const auto& peak_output = pipeline.peak->get_output_queue(0);
+        const auto& peak_output = pipeline.peak->get_debug_output_queue(0);
         for (const auto& msg : peak_output) {
           peak_times.push_back(msg->time);
         }

@@ -82,3 +82,34 @@ SCENARIO("Constant operator handles error cases", "[constant]") {
     }
   }
 }
+
+SCENARIO("Constant operator handles state serialization", "[Constant][State]") {
+  GIVEN("A Constant operator with some history") {
+    auto constant = make_constant_boolean("const2", true);
+
+    // Process initial messages
+    constant->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
+    constant->receive_data(create_message<BooleanData>(2, BooleanData{false}), 0);
+    constant->execute();
+
+    WHEN("State is serialized and restored") {
+      Bytes state = constant->collect();
+      auto restored = make_constant_boolean("const2", true);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("Continues counting from previous state") {
+        REQUIRE(*constant == *restored);
+        restored->clear_all_output_ports();
+        restored->receive_data(create_message<BooleanData>(3, BooleanData{false}), 0);
+        restored->execute();
+
+        const auto& output = restored->get_output_queue(0);
+        REQUIRE(output.size() == 1);
+        const auto* msg = dynamic_cast<const Message<BooleanData>*>(output.front().get());
+        REQUIRE(msg->time == 3);
+        REQUIRE(msg->data.value == true);
+      }
+    }
+  }
+}

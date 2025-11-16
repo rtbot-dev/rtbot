@@ -24,6 +24,10 @@ class ArithmeticScalar : public Operator {
   // Pure virtual method that derived classes must implement
   virtual double apply(double value) const = 0;
 
+  bool equals(const ArithmeticScalar& other) const {
+    return Operator::equals(other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);
@@ -50,6 +54,18 @@ class Add : public ArithmeticScalar {
   double apply(double x) const override { return x + value_; }
   double get_value() const { return value_; }
 
+  bool equals(const Add& other) const {
+    return (StateSerializer::hash_double(value_) == StateSerializer::hash_double(other.value_) && ArithmeticScalar::equals(other));
+  }
+  
+  bool operator==(const Add& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Add& other) const {
+    return !(*this == other);
+  }
+
  private:
   double value_;
 };
@@ -60,6 +76,18 @@ class Scale : public ArithmeticScalar {
   std::string type_name() const override { return "Scale"; }
   double apply(double x) const override { return x * value_; }
   double get_value() const { return value_; }
+
+  bool equals(const Scale& other) const {
+    return (StateSerializer::hash_double(value_) == StateSerializer::hash_double(other.value_) && ArithmeticScalar::equals(other));
+  }
+  
+  bool operator==(const Scale& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Scale& other) const {
+    return !(*this == other);
+  }
 
  private:
   double value_;
@@ -72,6 +100,18 @@ class Power : public ArithmeticScalar {
   double apply(double x) const override { return std::pow(x, value_); }
   double get_value() const { return value_; }
 
+  bool equals(const Power& other) const {
+    return (StateSerializer::hash_double(value_) == StateSerializer::hash_double(other.value_) && ArithmeticScalar::equals(other));
+  }
+  
+  bool operator==(const Power& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Power& other) const {
+    return !(*this == other);
+  }
+
  private:
   double value_;
 };
@@ -81,6 +121,19 @@ class Sin : public ArithmeticScalar {
  public:
   Sin(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Sin"; }
+
+  bool equals(const Sin& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Sin& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Sin& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::sin(x); }
 };
 
@@ -88,6 +141,19 @@ class Cos : public ArithmeticScalar {
  public:
   Cos(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Cos"; }
+
+  bool equals(const Cos& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Cos& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Cos& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::cos(x); }
 };
 
@@ -95,6 +161,19 @@ class Tan : public ArithmeticScalar {
  public:
   Tan(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Tan"; }
+
+  bool equals(const Tan& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Tan& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Tan& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::tan(x); }
 };
 
@@ -103,6 +182,19 @@ class Exp : public ArithmeticScalar {
  public:
   Exp(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Exp"; }
+
+  bool equals(const Exp& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Exp& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Exp& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::exp(x); }
 };
 
@@ -110,6 +202,19 @@ class Log : public ArithmeticScalar {
  public:
   Log(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Log"; }
+
+  bool equals(const Log& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Log& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Log& other) const {
+    return !(*this == other);
+  }
+  
   double apply(double x) const override { return std::log(x); }
 };
 
@@ -117,6 +222,19 @@ class Log10 : public ArithmeticScalar {
  public:
   Log10(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Log10"; }
+
+  bool equals(const Log10& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Log10& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Log10& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::log10(x); }
 };
 
@@ -125,6 +243,19 @@ class Abs : public ArithmeticScalar {
  public:
   Abs(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Abs"; }
+
+  bool equals(const Abs& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Abs& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Abs& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::abs(x); }
 };
 
@@ -132,6 +263,19 @@ class Sign : public ArithmeticScalar {
  public:
   Sign(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Sign"; }
+
+  bool equals(const Sign& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Sign& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Sign& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return x > 0 ? 1.0 : (x < 0 ? -1.0 : 0.0); }
 };
 
@@ -140,6 +284,19 @@ class Floor : public ArithmeticScalar {
  public:
   Floor(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Floor"; }
+
+  bool equals(const Floor& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Floor& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Floor& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::floor(x); }
 };
 
@@ -147,6 +304,19 @@ class Ceil : public ArithmeticScalar {
  public:
   Ceil(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Ceil"; }
+
+  bool equals(const Ceil& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Ceil& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Ceil& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::ceil(x); }
 };
 
@@ -154,6 +324,19 @@ class Round : public ArithmeticScalar {
  public:
   Round(std::string id) : ArithmeticScalar(std::move(id)) {}
   std::string type_name() const override { return "Round"; }
+
+  bool equals(const Round& other) const {
+    return ArithmeticScalar::equals(other);
+  }
+  
+  bool operator==(const Round& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Round& other) const {
+    return !(*this == other);
+  }
+
   double apply(double x) const override { return std::round(x); }
 };
 

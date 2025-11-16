@@ -23,6 +23,10 @@ class FilterScalar : public Operator {
   // Pure virtual method that derived classes must implement
   virtual bool evaluate(double value) const = 0;
 
+  bool equals(const FilterScalar& other) const {
+    return Operator::equals(other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);
@@ -52,6 +56,18 @@ class LessThan : public FilterScalar {
   bool evaluate(double x) const override { return x < threshold_; }
   double get_threshold() const { return threshold_; }
 
+  bool equals(const LessThan& other) const {
+    return StateSerializer::hash_double(threshold_) == StateSerializer::hash_double(other.threshold_) && FilterScalar::equals(other);
+  }
+  
+  bool operator==(const LessThan& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LessThan& other) const {
+    return !(*this == other);
+  }
+
  private:
   double threshold_;
 };
@@ -62,6 +78,18 @@ class GreaterThan : public FilterScalar {
   std::string type_name() const override { return "GreaterThan"; }
   bool evaluate(double x) const override { return x > threshold_; }
   double get_threshold() const { return threshold_; }
+
+  bool equals(const GreaterThan& other) const {
+    return StateSerializer::hash_double(threshold_) == StateSerializer::hash_double(other.threshold_) && FilterScalar::equals(other);
+  }
+  
+  bool operator==(const GreaterThan& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const GreaterThan& other) const {
+    return !(*this == other);
+  }
 
  private:
   double threshold_;
@@ -77,6 +105,20 @@ class EqualTo : public FilterScalar {
   double get_value() const { return value_; }
   double get_epsilon() const { return epsilon_; }
 
+  bool equals(const EqualTo& other) const {
+    return StateSerializer::hash_double(value_) == StateSerializer::hash_double(other.value_)
+    && StateSerializer::hash_double(epsilon_) == StateSerializer::hash_double(other.epsilon_)
+    && FilterScalar::equals(other);
+  }
+  
+  bool operator==(const EqualTo& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const EqualTo& other) const {
+    return !(*this == other);
+  }
+
  private:
   double value_;
   double epsilon_;  // Tolerance for floating-point comparison
@@ -91,6 +133,20 @@ class NotEqualTo : public FilterScalar {
   bool evaluate(double x) const override { return std::abs(x - value_) > epsilon_; }
   double get_value() const { return value_; }
   double get_epsilon() const { return epsilon_; }
+
+  bool equals(const NotEqualTo& other) const {
+    return StateSerializer::hash_double(value_) == StateSerializer::hash_double(other.value_)
+    && StateSerializer::hash_double(epsilon_) == StateSerializer::hash_double(other.epsilon_)
+    && FilterScalar::equals(other);
+  }
+  
+  bool operator==(const NotEqualTo& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const NotEqualTo& other) const {
+    return !(*this == other);
+  }
 
  private:
   double value_;

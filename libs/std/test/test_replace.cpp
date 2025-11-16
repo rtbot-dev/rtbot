@@ -76,7 +76,7 @@ SCENARIO("LessThanOrEqualToReplace handles error cases", "[replace_op]") {
   }
 }
 
-SCENARIO("ReplaceOp handles serialization", "[replace_op]") {
+SCENARIO("ReplaceOp handles serialization", "[replace_op][State]") {
   SECTION("LessThanOrEqualToReplace operator serialization") {
     auto ltR = make_less_than_or_equal_to_replace("ltR", 3.0, 2.0);
 
@@ -94,6 +94,7 @@ SCENARIO("ReplaceOp handles serialization", "[replace_op]") {
     restored->restore(it);
 
     // Verify restored state
+    REQUIRE(*restored == *ltR);
     REQUIRE(restored->type_name() == ltR->type_name());
     REQUIRE(dynamic_cast<LessThanOrEqualToReplace*>(restored.get())->get_threshold() ==
             dynamic_cast<LessThanOrEqualToReplace*>(ltR.get())->get_threshold());

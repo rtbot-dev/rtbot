@@ -103,6 +103,7 @@ SCENARIO("TimeShift handles state serialization", "[TimeShift]") {
         const auto& rest_output = restored->get_output_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
+        REQUIRE(*time_shift == *restored);
         for (size_t i = 0; i < orig_output.size(); ++i) {
           const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output[i].get());
           const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output[i].get());

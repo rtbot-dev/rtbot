@@ -178,37 +178,138 @@ SCENARIO("FilterScalarOp handles error cases", "[filter_scalar_op]") {
   }
 }
 
-SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op]") {
-  SECTION("LessThan operator serialization") {
+SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
+  SECTION("operators serialization") {
     auto lt = make_less_than("lt1", 3.0);
+    auto gt = make_greater_than("gt1", 3.0);
+    auto et = make_equal_to("et1", 3.0);
+    auto net = make_not_equal_to("net1", 3.0);
 
     // Fill with some data
     lt->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     lt->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
     lt->execute();
 
-    // Serialize state
-    Bytes state = lt->collect();
+    gt->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    gt->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+    gt->execute();
 
-    // Create new operator and restore state
-    auto restored = make_less_than("lt1", 3.0);
-    auto it = state.cbegin();
-    restored->restore(it);
+    et->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    et->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+    et->execute();
 
-    // Verify restored state
-    REQUIRE(restored->type_name() == lt->type_name());
-    REQUIRE(dynamic_cast<LessThan*>(restored.get())->get_threshold() ==
-            dynamic_cast<LessThan*>(lt.get())->get_threshold());
+    net->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    net->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+    net->execute();
 
-    // Process new data and verify behavior
-    restored->clear_all_output_ports();
-    restored->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
-    restored->execute();
+    WHEN("LessThan is serialized and restored") {
 
-    auto& output = restored->get_output_queue(0);
-    REQUIRE(!output.empty());
-    auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
-    REQUIRE(msg->time == 3);
-    REQUIRE(msg->data.value == 2.0);
+      // Serialize state
+      Bytes state = lt->collect();
+
+      // Create new operator and restore state
+      auto restored = make_less_than("lt1", 3.0);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      // Verify restored state
+      REQUIRE(*restored == *lt);
+      REQUIRE(restored->type_name() == lt->type_name());
+      REQUIRE(dynamic_cast<LessThan*>(restored.get())->get_threshold() ==
+              dynamic_cast<LessThan*>(lt.get())->get_threshold());
+
+      // Process new data and verify behavior
+      restored->clear_all_output_ports();
+      restored->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
+      restored->execute();
+
+      auto& output = restored->get_output_queue(0);
+      REQUIRE(!output.empty());
+      auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+      REQUIRE(msg->time == 3);
+      REQUIRE(msg->data.value == 2.0);
+    }
+
+    WHEN("GreaterThan is serialized and restored") {
+
+      // Serialize state
+      Bytes state = gt->collect();
+
+      // Create new operator and restore state
+      auto restored = make_greater_than("gt1", 3.0);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      // Verify restored state
+      REQUIRE(*restored == *gt);
+      REQUIRE(restored->type_name() == gt->type_name());
+      REQUIRE(dynamic_cast<GreaterThan*>(restored.get())->get_threshold() ==
+              dynamic_cast<GreaterThan*>(gt.get())->get_threshold());
+
+      // Process new data and verify behavior
+      restored->clear_all_output_ports();
+      restored->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
+      restored->execute();
+
+      auto& output = restored->get_output_queue(0);
+      REQUIRE(output.empty());
+    }
+
+    WHEN("EqualTo is serialized and restored") {
+
+      // Serialize state
+      Bytes state = et->collect();
+
+      // Create new operator and restore state
+      auto restored = make_equal_to("et1", 3.0);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      // Verify restored state
+      REQUIRE(*restored == *et);
+      REQUIRE(restored->type_name() == et->type_name());
+      REQUIRE(dynamic_cast<EqualTo*>(restored.get())->get_value() ==
+              dynamic_cast<EqualTo*>(et.get())->get_value());
+      REQUIRE(dynamic_cast<EqualTo*>(restored.get())->get_epsilon() ==
+              dynamic_cast<EqualTo*>(et.get())->get_epsilon());
+
+      // Process new data and verify behavior
+      restored->clear_all_output_ports();
+      restored->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
+      restored->execute();
+
+      auto& output = restored->get_output_queue(0);
+      REQUIRE(!output.empty());
+      auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
+      REQUIRE(msg->time == 3);
+      REQUIRE(msg->data.value == 3.0);
+    }
+
+    WHEN("NotEqualTo is serialized and restored") {
+
+      // Serialize state
+      Bytes state = net->collect();
+
+      // Create new operator and restore state
+      auto restored = make_not_equal_to("net1", 3.0);
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      // Verify restored state
+      REQUIRE(*restored == *net);
+      REQUIRE(restored->type_name() == net->type_name());
+      REQUIRE(dynamic_cast<NotEqualTo*>(restored.get())->get_value() ==
+              dynamic_cast<NotEqualTo*>(net.get())->get_value());
+      REQUIRE(dynamic_cast<NotEqualTo*>(restored.get())->get_epsilon() ==
+              dynamic_cast<NotEqualTo*>(net.get())->get_epsilon());
+
+      // Process new data and verify behavior
+      restored->clear_all_output_ports();
+      restored->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
+      restored->execute();
+
+      auto& output = restored->get_output_queue(0);
+      REQUIRE(output.empty());
+    }
   }
 }

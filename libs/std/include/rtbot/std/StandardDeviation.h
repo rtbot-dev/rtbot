@@ -20,6 +20,18 @@ class StandardDeviation : public Buffer<NumberData, StandardDeviationFeatures> {
 
   std::string type_name() const override { return "StandardDeviation"; }
 
+  bool equals(const StandardDeviation& other) const {
+    return (StateSerializer::hash_double(standard_deviation()) == StateSerializer::hash_double(other.standard_deviation()) && Buffer<NumberData, StandardDeviationFeatures>::equals(other));
+  }
+
+  bool operator==(const StandardDeviation& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const StandardDeviation& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData> *msg) override {
     // Only emit messages when the buffer is full to ensure

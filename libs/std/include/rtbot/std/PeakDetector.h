@@ -30,6 +30,18 @@ class PeakDetector : public Buffer<NumberData, PeakDetectorFeatures> {
 
   std::string type_name() const override { return "PeakDetector"; }
 
+  bool equals(const PeakDetector& other) const {
+    return Buffer<NumberData, PeakDetectorFeatures>::equals(other);
+  }
+
+  bool operator==(const PeakDetector& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const PeakDetector& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
     std::vector<std::unique_ptr<Message<NumberData>>> output;

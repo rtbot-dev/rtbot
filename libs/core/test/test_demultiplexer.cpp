@@ -47,6 +47,32 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
         REQUIRE(second_output.empty());
       }
     }
+
+    WHEN("Multiple control ports are active and messages exceeds the max_size_per_port()") {
+      
+      for (int i = 0; i < demux->max_size_per_port() + 2; i++) {
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 0);
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 1);
+        demux->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
+      }
+      demux->execute();
+
+      THEN("Message is routed to both ports") {
+        const auto& first_output = demux->get_output_queue(0);
+        const auto& second_output = demux->get_output_queue(1);
+
+        REQUIRE(first_output.size() == demux->max_size_per_port());
+        REQUIRE(second_output.size() == demux->max_size_per_port());
+
+        auto* msg1 = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
+        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
+
+        REQUIRE(msg1->time == 2);
+        REQUIRE(msg1->data.value == 4.0);
+        REQUIRE(msg2->time == 2);
+        REQUIRE(msg2->data.value == 4.0);
+      }
+    }
   }
 }
 
@@ -131,7 +157,38 @@ SCENARIO("Demultiplexer handles timing and cleanup", "[demultiplexer]") {
   }
 }
 
-SCENARIO("Demultiplexer handles state serialization", "[demultiplexer]") {
+SCENARIO("Demultiplexer fires exception when invalid data is sent to controls", "[demultiplexer]") {
+  GIVEN("A demultiplexer with two ports") {
+    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+
+    WHEN("Data arrives but controls arrives wit bad data") {
+      demux->receive_data(create_message<NumberData>(100, NumberData{10.0}), 0);
+      demux->execute();
+      
+
+      THEN("No output is produced and exception is fired") {
+        REQUIRE_THROWS_AS(demux->receive_control(create_message<NumberData>(100, NumberData{10.0}), 0),std::runtime_error);
+        const auto& output0 = demux->get_output_queue(0);
+        const auto& output1 = demux->get_output_queue(1);
+
+        REQUIRE(output0.empty());
+        REQUIRE(output1.empty());
+
+        AND_THEN("recieved proper control and data is produced") {
+          demux->receive_control(create_message<BooleanData>(100, BooleanData{false}), 0);
+          demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 1);
+          demux->execute();
+          const auto& input = demux->get_data_queue(0);
+          REQUIRE(input.empty());
+          REQUIRE(output0.empty());
+          REQUIRE(!output1.empty());
+        }
+      }
+    }
+  }
+}
+
+SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") {
   GIVEN("A demultiplexer with active state") {
     auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
 
@@ -149,6 +206,8 @@ SCENARIO("Demultiplexer handles state serialization", "[demultiplexer]") {
       THEN("Behavior matches original") {
         demux->execute();
         restored->execute();
+
+        REQUIRE(*demux == *restored);
 
         const auto& orig_output0 = demux->get_output_queue(0);
         const auto& orig_output1 = demux->get_output_queue(1);

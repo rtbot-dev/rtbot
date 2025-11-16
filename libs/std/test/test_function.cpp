@@ -73,6 +73,25 @@ SCENARIO("Function operator handles edge cases", "[function]") {
   }
 }
 
+SCENARIO("Function operator handles state serialization", "[function][State]") {
+  GIVEN("a valid function") {
+    std::vector<std::pair<double, double>> points = {{0.0, 0.0},{1.0, 1.0},{2.0, 2.0}};
+    auto function = std::make_shared<Function>("func", points);
+    function->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    function->execute();
+    function->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
+
+    Bytes state = function->collect();
+    auto restored = std::make_shared<Function>("func", points);
+    auto it = state.cbegin();
+    restored->restore(it);
+
+    SECTION("verifying deserialization") {
+      REQUIRE(*function == *restored);
+    }
+  }
+}
+
 SCENARIO("Function operator processes messages in sequence", "[function]") {
   GIVEN("A linear function with multiple points") {
     std::vector<std::pair<double, double>> points = {{0.0, 0.0}, {1.0, 2.0}, {2.0, 4.0}};

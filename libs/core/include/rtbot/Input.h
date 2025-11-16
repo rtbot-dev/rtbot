@@ -20,8 +20,7 @@ class Input : public Operator {
       if (!PortType::is_valid_port_type(type)) {
         throw std::runtime_error("Unknown port type: " + type);
       }
-      PortType::add_port(*this, type, true, true);
-      last_sent_times_.push_back(0);
+      PortType::add_port(*this, type, true, false ,true);
       port_type_names_.push_back(type);
     }
   }
@@ -31,68 +30,17 @@ class Input : public Operator {
   // Get port configuration
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
-  // Query port state
-  bool has_sent(size_t port_index) const {
-    validate_port_index(port_index);
-    return last_sent_times_[port_index] > 0;
+  bool equals(const Input& other) const {
+    if (port_type_names_ != other.port_type_names_) return false;
+    return Operator::equals(other);
+  }
+  
+  bool operator==(const Input& other) const {
+    return equals(other);
   }
 
-  timestamp_t get_last_sent_time(size_t port_index) const {
-    validate_port_index(port_index);
-    return last_sent_times_[port_index];
-  }
-
-  // State serialization
-  Bytes collect() override {
-    // First collect base state
-    Bytes bytes = Operator::collect();
-
-    // Serialize last sent times
-    size_t num_ports = last_sent_times_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&num_ports),
-                 reinterpret_cast<const uint8_t*>(&num_ports) + sizeof(num_ports));
-
-    for (const auto& time : last_sent_times_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
-                   reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
-    }
-
-    // Serialize port type names
-    StateSerializer::serialize_string_vector(bytes, port_type_names_);
-
-    return bytes;
-  }
-
-  void restore(Bytes::const_iterator& it) override {
-    // First restore base state
-    Operator::restore(it);
-
-    // Restore last sent times
-    size_t num_ports = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    StateSerializer::validate_port_count(num_ports, num_data_ports(), "Data");
-
-    last_sent_times_.clear();
-    last_sent_times_.reserve(num_ports);
-    for (size_t i = 0; i < num_ports; ++i) {
-      timestamp_t time = *reinterpret_cast<const timestamp_t*>(&(*it));
-      it += sizeof(timestamp_t);
-      last_sent_times_.push_back(time);
-    }
-
-    // Restore port type names
-    StateSerializer::deserialize_string_vector(it, port_type_names_);
-
-    // Validate port types match
-    if (port_type_names_.size() != num_data_ports()) {
-      throw std::runtime_error("Port type count mismatch during restore");
-    }
-  }
-
-  void reset() override {
-    Operator::reset();
-    last_sent_times_.assign(last_sent_times_.size(), 0);
+  bool operator!=(const Input& other) const {
+    return !(*this == other);
   }
 
   // Do not throw exceptions in receive_data
@@ -107,19 +55,15 @@ class Input : public Operator {
  protected:
   void process_data() override {
     // Process each port independently to allow concurrent timestamps
-    for (const auto& port_index : data_ports_with_new_data_) {
+    for (int port_index = 0; port_index < num_data_ports(); port_index++) {
       const auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
 
       auto& output_queue = get_output_queue(port_index);
 
       // Process all messages in input queue
-      for (const auto& msg : input_queue) {
-        // Only forward if timestamp is increasing for this specific port
-        if (!has_sent(port_index) || msg->time > last_sent_times_[port_index]) {
-          output_queue.push_back(std::move(msg->clone()));
-          last_sent_times_[port_index] = msg->time;
-        }
+      for (const auto& msg : input_queue) {        
+          output_queue.push_back(std::move(msg->clone()));       
       }
 
       // Clear processed messages
@@ -127,7 +71,6 @@ class Input : public Operator {
     }
   }
 
-  void process_control() override {}  // No control processing needed
 
  private:
   void validate_port_index(size_t port_index) const {
@@ -135,8 +78,6 @@ class Input : public Operator {
       throw std::runtime_error("Invalid port index: " + std::to_string(port_index));
     }
   }
-
-  std::vector<timestamp_t> last_sent_times_;
   std::vector<std::string> port_type_names_;
 };
 

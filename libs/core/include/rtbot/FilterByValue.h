@@ -21,6 +21,10 @@ class FilterByValue : public Operator {
     add_output_port<T>();
   }
 
+  bool equals(const FilterByValue& other) const {
+    return Operator::equals(other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);

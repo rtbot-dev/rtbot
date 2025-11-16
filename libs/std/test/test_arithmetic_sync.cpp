@@ -45,6 +45,91 @@ SCENARIO("ArithmeticSync operators handle basic synchronization", "[math_sync_bi
         check_output(div, 2.0);   // 10 / 5
       }
     }
+
+    WHEN("Additon State is serialized and restored") {
+      // Serialize state
+      add->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+      add->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
+      add->execute();
+      Bytes state = add->collect();
+
+      REQUIRE(add->get_output_queue(0).size() == 1);
+      
+      auto restored = make_addition("add1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(restored->get_output_queue(0).size() == 1);
+        REQUIRE(*restored == *add);
+      }
+    }
+
+    WHEN("Subtraction State is serialized and restored") {
+      // Serialize state
+      sub->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+      sub->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
+      sub->execute();
+      Bytes state = sub->collect();
+
+      REQUIRE(sub->get_output_queue(0).size() == 1);
+      
+      auto restored = make_subtraction("sub1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(restored->get_output_queue(0).size() == 1);
+        REQUIRE(*restored == *sub);
+      }
+    }
+
+    WHEN("Multiplication State is serialized and restored") {
+      // Serialize state
+      mul->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+      mul->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
+      mul->execute();
+      Bytes state = mul->collect();
+
+      REQUIRE(mul->get_output_queue(0).size() == 1);
+      
+      auto restored = make_multiplication("mul1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(restored->get_output_queue(0).size() == 1);
+        REQUIRE(*restored == *mul);
+      }
+    }
+
+    WHEN("Division State is serialized and restored") {
+      // Serialize state
+      div->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+      div->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
+      div->execute();
+      Bytes state = div->collect();
+
+      REQUIRE(div->get_output_queue(0).size() == 1);
+      
+      auto restored = make_division("div1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(restored->get_output_queue(0).size() == 1);
+        REQUIRE(*restored == *div);
+      }
+    }
+
   }
 }
 
@@ -77,7 +162,7 @@ SCENARIO("Division operator handles division by zero", "[math_sync_binary_op]") 
   }
 }*/
 
-SCENARIO("ArithmeticSync operators handle state serialization", "[math_sync_binary_op]") {
+SCENARIO("ArithmeticSync operators handle state serialization", "[math_sync_binary_op][State]") {
   GIVEN("An operator with buffered messages") {
     auto add = make_addition("add1");
 
@@ -103,6 +188,7 @@ SCENARIO("ArithmeticSync operators handle state serialization", "[math_sync_bina
       restored->execute();
 
       THEN("Both operators produce identical results") {
+        REQUIRE(*add == *restored);
         const auto& orig_output = add->get_output_queue(0);
         const auto& rest_output = restored->get_output_queue(0);
 

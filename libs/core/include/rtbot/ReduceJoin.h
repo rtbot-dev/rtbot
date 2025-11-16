@@ -36,25 +36,41 @@ class ReduceJoin : public Join {
   // Pure virtual function to define the reduction operation
   virtual std::optional<T> combine(const T& accumulator, const T& next_value) const = 0;
 
+  bool equals(const ReduceJoin& other) const {
+    return (initial_value_ == other.initial_value_ && Operator::equals(other));
+  }
+
  protected:
   void process_data() override {
-    // First perform synchronization
-    sync();
+    
+    while(true) {
 
-    // Get synchronized data
-    const auto& synced_data = get_synchronized_data();
+      bool is_any_empty;
+      bool is_sync;
+      do {
+        is_any_empty = false;
+        is_sync = sync_data_inputs();
+        for (int i=0; i < num_data_ports(); i++) {
+          if (get_data_queue(i).empty()) {
+            is_any_empty = true;
+            break;
+          }
+        } 
+      } while (!is_sync && !is_any_empty );
 
-    // Process each synchronized set of messages
-    for (const auto& [time, messages] : synced_data) {
+      if (!is_sync) return;
+
       std::vector<const Message<T>*> typed_messages;
-      typed_messages.reserve(messages.size());
-
-      for (const auto& msg : messages) {
-        const auto* typed_msg = dynamic_cast<const Message<T>*>(msg.get());
+      timestamp_t time = 0;
+      // Process each synchronized set of messages
+      for (int i=0; i < num_data_ports(); i++) {
+        typed_messages.reserve(num_data_ports());
+        const auto* typed_msg = dynamic_cast<const Message<T>*>(get_data_queue(i).front().get());
         if (!typed_msg) {
           throw std::runtime_error("Invalid message type in ReduceJoin");
         }
         typed_messages.push_back(typed_msg);
+        time = typed_msg->time;        
       }
 
       std::optional<T> result;
@@ -72,13 +88,13 @@ class ReduceJoin : public Join {
         }
       }
 
+      for (int i = 0; i < num_data_ports(); i++)
+        get_data_queue(i).pop_front();
+
       if (result.has_value()) {
         get_output_queue(0).push_back(create_message<T>(time, *result));
       }
     }
-
-    // Clear synchronized data after processing
-    clear_synchronized_data();
   }
 
  private:

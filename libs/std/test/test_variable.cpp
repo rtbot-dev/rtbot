@@ -57,7 +57,7 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
   }
 }
 
-SCENARIO("Variable operator handles state serialization", "[variable]") {
+SCENARIO("Variable operator handles state serialization", "[variable][State]") {
   GIVEN("A Variable with non-trivial state") {
     auto var = make_variable("var1", 42.0);
 
@@ -84,6 +84,7 @@ SCENARIO("Variable operator handles state serialization", "[variable]") {
       for (auto t : {5, 10, 15, 20, 25}) {
         var->receive_control(create_message<NumberData>(t, NumberData{0.0}), 0);
         restored->receive_control(create_message<NumberData>(t, NumberData{0.0}), 0);
+        REQUIRE(*var == *restored);
       }
 
       var->execute();
@@ -94,6 +95,7 @@ SCENARIO("Variable operator handles state serialization", "[variable]") {
         const auto& rest_output = restored->get_output_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
+        REQUIRE(*var == *restored);
 
         for (size_t i = 0; i < orig_output.size(); i++) {
           const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output[i].get());

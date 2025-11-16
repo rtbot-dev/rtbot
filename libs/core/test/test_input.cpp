@@ -27,13 +27,27 @@ SCENARIO("Input operator handles single number port", "[input]") {
       }
     }
 
+     WHEN("Receiving a max_size_per_port() + 1 messages, only max_size_per_port() are forwarded") {
+      for (int i = 0; i < input->max_size_per_port() + 1; i++) {
+        input->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
+      }
+      input->execute();
+
+      THEN("only 11000 are forwarded") {
+        const auto& output = input->get_output_queue(0);
+        REQUIRE(output.size() == input->max_size_per_port());
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());        
+        REQUIRE(msg->time == 1);
+        REQUIRE(msg->data.value == 2.0);
+      }
+    }
+
     WHEN("Receiving messages with decreasing timestamps") {
       input->receive_data(create_message<NumberData>(2, NumberData{42.0}), 0);
       input->receive_data(create_message<NumberData>(1, NumberData{24.0}), 0);
       input->execute();
 
-      THEN("Only the first message is forwarded") {
-        REQUIRE(input->get_last_sent_time(0) == 2);
+      THEN("Only the first message is forwarded") {        
         const auto& output = input->get_output_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -129,7 +143,7 @@ SCENARIO("Input operator factory functions work correctly", "[input]") {
   }
 }
 
-SCENARIO("Input operator handles state serialization", "[input]") {
+SCENARIO("Input operator handles state serialization", "[input][State]") {
   GIVEN("An input operator with multiple types and processed messages") {
     auto input = std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
 
@@ -150,10 +164,7 @@ SCENARIO("Input operator handles state serialization", "[input]") {
       restored->restore(it);
 
       THEN("State is correctly preserved") {
-        REQUIRE(restored->get_last_sent_time(0) == 1);
-        REQUIRE(restored->get_last_sent_time(1) == 2);
-        REQUIRE(restored->has_sent(0));
-        REQUIRE(restored->has_sent(1));
+        REQUIRE(*restored == *input);        
       }
 
       AND_WHEN("New messages are received") {
@@ -176,11 +187,12 @@ SCENARIO("Input operator handles state serialization", "[input]") {
 
       // Create new operator with different configuration
       auto mismatched = std::make_unique<Input>(
-          "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});  // Wrong order
+          "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});
 
       THEN("Type mismatch is detected") {
         auto it = state.cbegin();
-        REQUIRE_THROWS_AS(mismatched->restore(it), std::runtime_error);
+        mismatched->restore(it);
+        REQUIRE(*input != *mismatched);
       }
     }
   }

@@ -69,7 +69,7 @@ SCENARIO("MovingSum operator handles basic calculations", "[moving_sum]") {
   }
 }
 
-SCENARIO("MovingSum operator handles state serialization", "[moving_sum]") {
+SCENARIO("MovingSum operator handles state serialization", "[moving_sum][State]") {
   GIVEN("A MovingSum operator with some data") {
     auto ms = MovingSum("test_ms", 3);
 
@@ -77,6 +77,7 @@ SCENARIO("MovingSum operator handles state serialization", "[moving_sum]") {
     ms.receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
     ms.execute();
     ms.receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+    ms.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
     ms.execute();
 
     WHEN("State is serialized and restored") {
@@ -92,26 +93,29 @@ SCENARIO("MovingSum operator handles state serialization", "[moving_sum]") {
 
       THEN("State is correctly preserved") {
         REQUIRE(restored.sum() == ms.sum());
+        REQUIRE(restored == ms);
 
         AND_WHEN("New data is added to both") {
-          ms.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
-          restored.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
+          ms.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
+          restored.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
 
           ms.execute();
           restored.execute();
 
           THEN("Both produce identical output") {
-            const auto& orig_output = ms.get_output_queue(0);
-            const auto& rest_output = restored.get_output_queue(0);
+            auto& orig_output = ms.get_output_queue(0);
+            auto& rest_output = restored.get_output_queue(0);
 
             REQUIRE(orig_output.size() == rest_output.size());
 
-            if (!orig_output.empty()) {
+            while (!orig_output.empty()) {
               const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output.front().get());
               const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output.front().get());
 
               REQUIRE(orig_msg->time == rest_msg->time);
               REQUIRE(orig_msg->data.value == rest_msg->data.value);
+              orig_output.pop_front();
+              rest_output.pop_front();
             }
           }
         }

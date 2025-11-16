@@ -80,6 +80,8 @@ SCENARIO("CumulativeSum handles state serialization", "[CumulativeSum]") {
 
       THEN("State is preserved correctly") {
         REQUIRE(restored->get_sum() == 30.0);
+        REQUIRE(restored->get_sum() == sum->get_sum());
+        REQUIRE(*restored == *sum);
 
         AND_WHEN("New messages are processed") {
           restored->receive_data(create_message<NumberData>(3, NumberData{40.0}), 0);

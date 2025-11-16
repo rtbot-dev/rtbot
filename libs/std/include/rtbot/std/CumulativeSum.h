@@ -25,6 +25,18 @@ class CumulativeSum : public Operator {
 
   // Access current sum
   double get_sum() const { return sum_; }
+  
+  bool equals(const CumulativeSum& other) const {
+    return (StateSerializer::hash_double(sum_) == StateSerializer::hash_double(other.sum_) && Operator::equals(other));
+  }
+  
+  bool operator==(const CumulativeSum& other) const {
+    return equals(other);  // still check base class
+  }
+
+  bool operator!=(const CumulativeSum& other) const {
+    return !(*this == other);
+  }
 
   // State serialization
   Bytes collect() override {
@@ -35,9 +47,13 @@ class CumulativeSum : public Operator {
   }
 
   void restore(Bytes::const_iterator& it) override {
+    // Restore base state first
     Operator::restore(it);
-    sum_ = *reinterpret_cast<const double*>(&(*it));
-    it += sizeof(double);
+
+    // Safely read a double value
+    std::memcpy(&sum_, &(*it), sizeof(sum_));
+    it += sizeof(sum_);
+
   }
 
  protected:

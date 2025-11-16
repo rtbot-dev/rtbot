@@ -21,6 +21,18 @@ class Constant : public Operator {
   // Accessor for the constant value
   const OutputT& get_value() const { return value_; }
 
+  bool equals(const Constant& other) const {
+    return (value_ == other.value_ && Operator::equals(other));
+  }
+  
+  bool operator==(const Constant& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Constant& other) const {
+    return !(*this == other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);

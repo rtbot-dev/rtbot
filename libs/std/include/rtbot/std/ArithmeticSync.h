@@ -17,6 +17,11 @@ class ArithmeticSync : public ReduceJoin<T> {
       : ReduceJoin<T>(std::move(id), num_ports, init_value) {}
 
   std::string type_name() const override = 0;
+
+  bool equals(const ArithmeticSync& other) const {
+    return ReduceJoin<T>::equals(other);
+  }
+
 };
 
 class Addition : public ArithmeticSync<NumberData> {
@@ -25,6 +30,18 @@ class Addition : public ArithmeticSync<NumberData> {
       : ArithmeticSync<NumberData>(std::move(id), num_ports, NumberData{0.0}) {}
 
   std::string type_name() const override { return "Addition"; }
+
+  bool equals(const Addition& other) const {
+    return ArithmeticSync::equals(other);
+  }
+  
+  bool operator==(const Addition& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Addition& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<NumberData> combine(const NumberData& acc, const NumberData& next) const override {
@@ -37,6 +54,18 @@ class Subtraction : public ArithmeticSync<NumberData> {
   explicit Subtraction(std::string id, size_t num_ports = 2) : ArithmeticSync<NumberData>(std::move(id), num_ports) {}
 
   std::string type_name() const override { return "Subtraction"; }
+
+  bool equals(const Subtraction& other) const {
+    return ArithmeticSync::equals(other);
+  }
+  
+  bool operator==(const Subtraction& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Subtraction& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<NumberData> combine(const NumberData& acc, const NumberData& next) const override {
@@ -56,6 +85,18 @@ class Multiplication : public ArithmeticSync<NumberData> {
 
   std::string type_name() const override { return "Multiplication"; }
 
+  bool equals(const Multiplication& other) const {
+    return ArithmeticSync::equals(other);
+  }
+  
+  bool operator==(const Multiplication& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Multiplication& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::optional<NumberData> combine(const NumberData& acc, const NumberData& next) const override {
     return NumberData{acc.value * next.value};
@@ -67,6 +108,18 @@ class Division : public ArithmeticSync<NumberData> {
   explicit Division(std::string id, size_t num_ports = 2) : ArithmeticSync<NumberData>(std::move(id), num_ports) {}
 
   std::string type_name() const override { return "Division"; }
+
+  bool equals(const Division& other) const {
+    return ArithmeticSync::equals(other);
+  }
+  
+  bool operator==(const Division& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Division& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<NumberData> combine(const NumberData& acc, const NumberData& next) const override {

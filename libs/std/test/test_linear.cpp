@@ -87,6 +87,29 @@ SCENARIO("Linear operator validates configuration", "[linear]") {
   }
 }
 
+SCENARIO("Linear operator handles serialization", "[linear][serialization]") {
+  GIVEN("A linear join" ) {
+    auto linear = std::make_shared<Linear>("linear", std::vector<double>{1.0, 2.0, 3.0});
+    linear->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    linear->receive_data(create_message<NumberData>(1, NumberData{1.0}), 1);
+    linear->receive_data(create_message<NumberData>(1, NumberData{1.0}), 2);
+    linear->execute();
+    linear->receive_data(create_message<NumberData>(2, NumberData{1.0}), 0);
+    linear->receive_data(create_message<NumberData>(2, NumberData{1.0}), 1);
+    linear->receive_data(create_message<NumberData>(2, NumberData{1.0}), 2);
+
+    Bytes state = linear->collect();
+    auto restored = std::make_shared<Linear>("linear", std::vector<double>{1.0, 2.0, 3.0});
+    auto it = state.cbegin();
+    restored->restore(it);
+  
+    
+    SECTION("verifying deserialization") {
+      REQUIRE(*restored == *linear);
+    }
+  }
+}
+
 SCENARIO("Linear operator handles numerical stability", "[linear]") {
   GIVEN("A Linear operator with large coefficients") {
     std::vector<double> coeffs = {1e6, -1e6};  // Large opposing coefficients

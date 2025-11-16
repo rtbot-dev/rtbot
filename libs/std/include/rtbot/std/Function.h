@@ -35,6 +35,18 @@ class Function : public Operator {
   const std::vector<std::pair<double, double>>& get_points() const { return points_; }
   InterpolationType get_interpolation_type() const { return type_; }
 
+  bool equals(const Function& other) const {
+    return (points_ == other.points_ && type_ == other.type_ && Operator::equals(other));
+  }
+
+  bool operator==(const Function& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Function& other) const {
+      return !(*this == other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);

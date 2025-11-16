@@ -17,6 +17,18 @@ class Identity : public Operator {
 
   std::string type_name() const override { return "Identity"; }
 
+  bool equals(const Identity& other) const {
+    return Operator::equals(other);
+  }
+
+  bool operator==(const Identity& other) const {
+      return equals(other);
+  }
+
+  bool operator!=(const Identity& other) const {
+      return !(*this == other);
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);

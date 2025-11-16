@@ -20,6 +20,13 @@ using MessageQueue = std::deque<std::unique_ptr<BaseMessage>>;
 class StateSerializer {
  public:
   // Core serialization methods
+  static uint64_t fnv1a(const std::string& s);
+
+  static uint64_t hash_double(double value);
+
+  static void serialize_checksum(Bytes& bytes, std::uint64_t checksum);
+  static std::uint64_t deserialize_checksum(Bytes::const_iterator& it);
+
   static void serialize_timestamp_set(Bytes& bytes, const std::set<timestamp_t>& times);
   static void deserialize_timestamp_set(Bytes::const_iterator& it, std::set<timestamp_t>& times);
 
@@ -63,6 +70,34 @@ class StateSerializer {
   // Private constructor to prevent instantiation
   StateSerializer() = default;
 };
+
+inline uint64_t StateSerializer::fnv1a(const std::string& s) {
+    uint64_t hash = 1469598103934665603ULL;     // FNV offset basis
+    for (unsigned char c : s) {
+        hash ^= c;
+        hash *= 1099511628211ULL;               // FNV prime
+    }
+    return hash;
+}
+
+inline uint64_t StateSerializer::hash_double(double value) {
+    uint64_t u;
+    uint64_t quantized = static_cast<uint64_t>(value * 1e9);
+    std::memcpy(&u, &quantized, sizeof(uint64_t));
+    return u;
+}
+
+inline void StateSerializer::serialize_checksum(Bytes& bytes, std::uint64_t checksum) {
+  bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&checksum),
+               reinterpret_cast<const uint8_t*>(&checksum) + sizeof(checksum));
+}
+
+inline std::uint64_t StateSerializer::deserialize_checksum(Bytes::const_iterator& it) {
+  std::uint64_t checksum = 0;
+  std::memcpy(&checksum, &(*it), sizeof(uint64_t));
+  it += sizeof(uint64_t);
+  return checksum;
+}
 
 inline void StateSerializer::serialize_timestamp_set(Bytes& bytes, const std::set<timestamp_t>& times) {
   size_t size = times.size();
@@ -237,16 +272,27 @@ inline void StateSerializer::serialize_message_queue(Bytes& bytes, const Message
 
 inline void StateSerializer::deserialize_message_queue(Bytes::const_iterator& it, MessageQueue& queue) {
   queue.clear();
-  size_t queue_size = *reinterpret_cast<const size_t*>(&(*it));
-  it += sizeof(size_t);
 
+  // ---- read queue_size ----
+  size_t queue_size;
+  std::memcpy(&queue_size, &(*it), sizeof(queue_size));
+  it += sizeof(queue_size);
+
+  // ---- read each message ----
   for (size_t i = 0; i < queue_size; ++i) {
-    size_t msg_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
+      // read the size of the message
+      size_t msg_size;
+      std::memcpy(&msg_size, &(*it), sizeof(msg_size));
+      it += sizeof(msg_size);
 
-    Bytes msg_bytes(it, it + msg_size);
-    queue.push_back(BaseMessage::deserialize(msg_bytes));
-    it += msg_size;
+      // extract message bytes
+      Bytes msg_bytes(it, it + msg_size);
+
+      // deserialize the message
+      queue.push_back(BaseMessage::deserialize(msg_bytes));
+
+      // advance iterator
+      it += msg_size;
   }
 }
 

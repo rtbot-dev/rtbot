@@ -23,6 +23,10 @@ class Replace : public Operator {
   // Pure virtual method that derived classes must implement
   virtual double replace(double value) const = 0;
 
+  bool equals(const Replace& other) const {
+    return Operator::equals(other);    
+  }
+
  protected:
   void process_data() override {
     auto& input_queue = get_data_queue(0);
@@ -55,6 +59,24 @@ class LessThanOrEqualToReplace : public Replace {
   double get_threshold() const { return threshold_; }
   double get_replace_by() const { return replaceBy_; }
   double replace(double x) const override { return (x <= threshold_) ? replaceBy_ : x; }
+
+  bool equals(const LessThanOrEqualToReplace& other) const {
+      
+      if (StateSerializer::hash_double(threshold_) != StateSerializer::hash_double(other.threshold_)) return false;
+      if (StateSerializer::hash_double(replaceBy_) != StateSerializer::hash_double(other.replaceBy_)) return false;
+
+      if (!Replace::equals(other)) return false;
+
+      return true;
+  }
+  
+  bool operator==(const LessThanOrEqualToReplace& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LessThanOrEqualToReplace& other) const {
+    return !(*this == other);
+  }
 
  private:
   double threshold_;

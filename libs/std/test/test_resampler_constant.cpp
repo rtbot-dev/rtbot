@@ -75,6 +75,30 @@ SCENARIO("ResamplerConstant upsampling without t0", "[ResamplerConstant]") {
   }
 }
 
+SCENARIO("ResamplerConstant operator handles serialization", "[ResamplerConstant][State]") {
+  GIVEN("A linear join" ) {
+    auto rc = ResamplerConstant<NumberData>("resampler_constant", 1);
+    rc.receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    rc.receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
+    rc.receive_data(create_message<NumberData>(5, NumberData{5.0}), 0);
+    rc.receive_data(create_message<NumberData>(7, NumberData{7.0}), 0);
+    rc.receive_data(create_message<NumberData>(9, NumberData{9.0}), 0);
+    rc.execute();
+    rc.receive_data(create_message<NumberData>(11, NumberData{11.0}), 0);
+    
+
+    Bytes state = rc.collect();
+    auto restored = ResamplerConstant<NumberData>("resampler_constant", 1);
+    auto it = state.cbegin();
+    restored.restore(it);
+  
+    
+    SECTION("verifying deserialization") {
+      REQUIRE(restored == rc);
+    }
+  }
+}
+
 SCENARIO("ResamplerConstant with fixed t0", "[ResamplerConstant]") {
   auto resampler = ResamplerConstant<NumberData>("test", 10, 5);  // Grid: 5,15,25,...
 

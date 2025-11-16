@@ -33,6 +33,28 @@ class InfiniteImpulseResponse : public Operator {
   std::vector<double> get_a_coeffs() const { return a_; }
   std::vector<double> get_b_coeffs() const { return b_; }
 
+  bool equals(const InfiniteImpulseResponse& other) const {
+      if (!Operator::equals(other)) return false;
+      
+      // Compare coefficients
+      if (b_ != other.b_) return false;
+      if (a_ != other.a_) return false;
+
+      // Compare input/output buffers
+      if (x_ != other.x_) return false;
+      if (y_ != other.y_) return false;
+
+      return true;
+  }
+  
+  bool operator==(const InfiniteImpulseResponse& other) const {
+      return equals(other);
+  }
+
+  bool operator!=(const InfiniteImpulseResponse& other) const {
+      return !(*this == other);
+  }
+
   Bytes collect() override {
     Bytes bytes = Operator::collect();
 
@@ -56,26 +78,35 @@ class InfiniteImpulseResponse : public Operator {
   }
 
   void restore(Bytes::const_iterator& it) override {
+    // Restore base state
     Operator::restore(it);
 
-    // Restore x buffer
-    size_t x_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-    x_.clear();
+    // ---- Restore x buffer ----
+    size_t x_size = 0;
+    std::memcpy(&x_size, &(*it), sizeof(x_size));
+    it += sizeof(x_size);
+
+    x_.clear();    
+
     for (size_t i = 0; i < x_size; ++i) {
-      double value = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
-      x_.push_back(value);
+        double value = 0.0;
+        std::memcpy(&value, &(*it), sizeof(value));
+        it += sizeof(value);
+        x_.push_back(value);
     }
 
-    // Restore y buffer
-    size_t y_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-    y_.clear();
+    // ---- Restore y buffer ----
+    size_t y_size = 0;
+    std::memcpy(&y_size, &(*it), sizeof(y_size));
+    it += sizeof(y_size);
+
+    y_.clear();    
+
     for (size_t i = 0; i < y_size; ++i) {
-      double value = *reinterpret_cast<const double*>(&(*it));
-      it += sizeof(double);
-      y_.push_back(value);
+        double value = 0.0;
+        std::memcpy(&value, &(*it), sizeof(value));
+        it += sizeof(value);
+        y_.push_back(value);
     }
   }
 

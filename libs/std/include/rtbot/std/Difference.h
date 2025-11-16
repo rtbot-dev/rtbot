@@ -22,6 +22,18 @@ class Difference : public Buffer<NumberData, DifferenceFeatures> {
 
   bool get_use_oldest_time() const { return use_oldest_time_; }
 
+  bool equals(const Difference& other) const {
+    return (use_oldest_time_ == other.use_oldest_time_ && Buffer<NumberData, DifferenceFeatures>::equals(other));
+  }
+
+  bool operator==(const Difference& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const Difference& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
     std::vector<std::unique_ptr<Message<NumberData>>> output;

@@ -20,6 +20,10 @@ class BooleanSync : public ReduceJoin<BooleanData> {
   size_t get_num_ports() const { return num_ports_; }
   std::string type_name() const override = 0;
 
+  bool equals(const BooleanSync& other) const {
+    return ReduceJoin<BooleanData>::equals(other);
+  }
+
  protected:
   size_t num_ports_;
 };
@@ -29,6 +33,18 @@ class LogicalAnd : public BooleanSync {
   explicit LogicalAnd(std::string id, size_t num_ports) : BooleanSync(std::move(id), num_ports, true) {}
 
   std::string type_name() const override { return "LogicalAnd"; }
+
+  bool equals(const LogicalAnd& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalAnd& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalAnd& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
@@ -42,6 +58,18 @@ class LogicalOr : public BooleanSync {
 
   std::string type_name() const override { return "LogicalOr"; }
 
+  bool equals(const LogicalOr& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalOr& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalOr& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
     return BooleanData{acc.value || next.value};
@@ -54,6 +82,18 @@ class LogicalXor : public BooleanSync {
 
   std::string type_name() const override { return "LogicalXor"; }
 
+  bool equals(const LogicalXor& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalXor& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalXor& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
     return BooleanData{acc.value != next.value};
@@ -65,6 +105,18 @@ class LogicalNand : public BooleanSync {
   explicit LogicalNand(std::string id, size_t num_ports) : BooleanSync(std::move(id), num_ports, true) {}
 
   std::string type_name() const override { return "LogicalNand"; }
+
+  bool equals(const LogicalNand& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalNand& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalNand& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
@@ -79,6 +131,18 @@ class LogicalNor : public BooleanSync {
 
   std::string type_name() const override { return "LogicalNor"; }
 
+  bool equals(const LogicalNor& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalNor& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalNor& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
     return BooleanData{!(acc.value || next.value)};
@@ -91,6 +155,18 @@ class LogicalXnor : public BooleanSync {
 
   std::string type_name() const override { return "LogicalXnor"; }
 
+  bool equals(const LogicalXnor& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalXnor& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalXnor& other) const {
+    return !(*this == other);
+  }
+
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {
     return BooleanData{acc.value == next.value};
@@ -102,6 +178,18 @@ class LogicalImplication : public BooleanSync {
   explicit LogicalImplication(std::string id, size_t num_ports) : BooleanSync(std::move(id), num_ports, true) {}
 
   std::string type_name() const override { return "LogicalImplication"; }
+
+  bool equals(const LogicalImplication& other) const {
+    return BooleanSync::equals(other);
+  }
+  
+  bool operator==(const LogicalImplication& other) const {
+    return equals(other);
+  }
+
+  bool operator!=(const LogicalImplication& other) const {
+    return !(*this == other);
+  }
 
  protected:
   std::optional<BooleanData> combine(const BooleanData& acc, const BooleanData& next) const override {

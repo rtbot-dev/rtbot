@@ -25,66 +25,31 @@ class Multiplexer : public Operator {
     // Add data ports
     for (size_t i = 0; i < num_ports; ++i) {
       add_data_port<T>();
-      data_time_tracker_[i] = std::set<timestamp_t>();
     }
 
     // Add corresponding control ports
     for (size_t i = 0; i < num_ports; ++i) {
       add_control_port<BooleanData>();
-      control_time_tracker_[i] = std::map<timestamp_t, bool>();
     }
 
     // Single output port
     add_output_port<T>();
-  }
+  }  
 
-  void reset() override {
-    Operator::reset();
-    data_time_tracker_.clear();
-    control_time_tracker_.clear();
-  }
-
-  size_t get_num_ports() const { return data_time_tracker_.size(); }
+  size_t get_num_ports() const { return data_ports_.size(); }
 
   std::string type_name() const override { return "Multiplexer"; }
 
-  // State serialization
-  Bytes collect() override {
-    // First collect base state
-    Bytes bytes = Operator::collect();
-
-    // Serialize data time tracker
-    StateSerializer::serialize_port_timestamp_set_map(bytes, data_time_tracker_);
-
-    // Serialize control time tracker
-    StateSerializer::serialize_port_control_map(bytes, control_time_tracker_);
-
-    return bytes;
+  bool equals(const Multiplexer& other) const {
+    return Operator::equals(other);
+  }
+  
+  bool operator==(const Multiplexer& other) const {
+    return equals(other);
   }
 
-  void restore(Bytes::const_iterator& it) override {
-    // First restore base state
-    Operator::restore(it);
-
-    // Clear current state
-    data_time_tracker_.clear();
-    control_time_tracker_.clear();
-
-    // Restore data time tracker
-    StateSerializer::deserialize_port_timestamp_set_map(it, data_time_tracker_);
-    StateSerializer::validate_port_count(data_time_tracker_.size(), num_data_ports(), "Data");
-
-    // Restore control time tracker
-    StateSerializer::deserialize_port_control_map(it, control_time_tracker_);
-    StateSerializer::validate_port_count(control_time_tracker_.size(), num_control_ports(), "Control");
-  }
-
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
-    auto time = msg->time;
-    Operator::receive_data(std::move(msg), port_index);
-
-    // Add timestamp to the tracker
-    data_time_tracker_[port_index].insert(time);
+  bool operator!=(const Multiplexer& other) const {
+    return !(*this == other);
   }
 
   void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
@@ -96,138 +61,107 @@ class Multiplexer : public Operator {
     if (!ctrl_msg) {
       throw std::runtime_error("Invalid control message type");
     }
+    
+    // Update last timestamp
+    control_ports_[port_index].last_timestamp = msg->time;
 
-    // Update control time tracker
-    control_time_tracker_[port_index][ctrl_msg->time] = ctrl_msg->data.value;
+    if (get_control_queue(port_index).size() == max_size_per_port_) {      
+      get_control_queue(port_index).pop_front();
+    }    
+    
 
     // Add message to queue
     get_control_queue(port_index).push_back(std::move(msg));
-    data_ports_with_new_data_.insert(port_index);
+
   }
 
- protected:
+ protected:  
+
   void process_data() override {
     while (true) {
-      // Find the next timestamp that exists in all data queues
-      auto common_data_time = TimestampTracker::find_oldest_common_time(data_time_tracker_);
-
-      // Clean up old control data if we have a common data time
-      if (common_data_time) {
-        clean_old_control_timestamps(*common_data_time);
+      
+      int num_empty_data_ports = 0;
+      for (int i=0; i < num_data_ports(); i++) {
+        if (get_data_queue(i).empty()) {
+          num_empty_data_ports++;          
+        }
       }
+      
+      if (num_empty_data_ports == num_data_ports()) return;
 
-      // Look for matching control messages
-      auto common_control_time = TimestampTracker::find_oldest_common_time(
-          control_time_tracker_, common_data_time.value_or(std::numeric_limits<timestamp_t>::min()));
-      if (!common_control_time) {
-        break;
-      }
+      bool is_any_control_empty;
+      bool are_control_inputs_sync;
+      do {
+        is_any_control_empty = false;
+        are_control_inputs_sync = sync_control_inputs();
+        for (int i=0; i < num_control_ports(); i++) {
+          if (get_control_queue(i).empty()) {
+            is_any_control_empty = true;
+            break;
+          }
+        } 
+      } while (!are_control_inputs_sync && !is_any_control_empty );
 
-      auto port_to_emit = find_port_to_emit(*common_control_time);
-      if (!port_to_emit) {
-        clean_up_control_messages(*common_control_time);
-        continue;
-      }
+      if (!are_control_inputs_sync) return;
 
-      auto& input_queue = get_data_queue(*port_to_emit);
-      bool message_found = false;
+      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
 
-      if (!input_queue.empty()) {
-        message_found = false;
-        for (const auto& msg_ptr : input_queue) {
-          if (auto* msg = dynamic_cast<const Message<T>*>(msg_ptr.get())) {
-            if (msg->time == *common_control_time) {
-              auto& output = get_output_queue(0);
-              output.push_back(create_message<T>(msg->time, msg->data));
+      int64_t port_to_emit = find_port_to_emit(ctrl_msg->time);
+      if (port_to_emit >= 0) {
+        bool message_found = false;        
+        for (int i = 0; i < num_data_ports(); i++) {
+          if (!get_data_queue(i).empty()) {
+            auto* msg = dynamic_cast<const Message<T>*>(get_data_queue(i).front().get());
+            if (i == port_to_emit && msg->time == ctrl_msg->time) {
+              get_output_queue(0).push_back(create_message<T>(msg->time, msg->data));
+              get_data_queue(i).pop_front();
               message_found = true;
-              break;  // Found our message for this timestamp
-            } else if (msg->time > *common_control_time) {
-              break;  // No need to check further as messages are ordered by time
+            } else if (i == port_to_emit && ctrl_msg->time < msg->time) {
+              message_found = true;
+            } else if (msg->time <= ctrl_msg->time) {
+              get_data_queue(i).pop_front();              
             }
           }
         }
-      }
-
-      clean_up_control_messages(*common_control_time);
-
-      if (message_found) {
-        clean_up_data_messages(*common_control_time);
+        if (message_found) {
+          for (int i = 0; i < num_control_ports(); i++) {
+            get_control_queue(i).pop_front();            
+          }
+        }
       } else {
-        break;
+        clean_data_input_queue_fronts(ctrl_msg->time);
+        for (int i = 0; i < num_control_ports(); i++) {
+          get_control_queue(i).pop_front();            
+        }
       }
     }
   }
 
  private:
-  void clean_old_control_timestamps(timestamp_t current_time) {
-    // Clean up control trackers
-    for (auto& [port, times] : control_time_tracker_) {
-      auto it = times.begin();
-      while (it != times.end() && it->first < current_time) {
-        it = times.erase(it);
+ 
+  void clean_data_input_queue_fronts(timestamp_t time) {
+    for (int i = 0; i < num_data_ports(); i++) {
+      if (!get_data_queue(i).empty()) {
+        auto* msg = dynamic_cast<const Message<T>*>(get_data_queue(i).front().get());
+        if (msg && msg->time <= time) get_data_queue(i).pop_front();        
       }
     }
   }
 
-  std::optional<size_t> find_port_to_emit(timestamp_t time) {
+  int64_t find_port_to_emit(timestamp_t time) {
     size_t active_count = 0;
-    std::optional<size_t> selected_port;
+    int64_t selected_port = -1;
 
-    for (size_t port = 0; port < num_control_ports(); ++port) {
-      auto it = control_time_tracker_[port].find(time);
-      if (it != control_time_tracker_[port].end() && it->second) {
+    for (size_t i = 0; i < num_control_ports(); i++) {
+      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());
+      if ((ctrl_msg->time == time) && ctrl_msg->data.value) {
         active_count++;
-        selected_port = port;
+        selected_port = static_cast<int64_t>(i);
       }
     }
 
-    return (active_count == 1) ? selected_port : std::nullopt;
+    return (active_count == 1) ? selected_port : -1;
   }
-
-  void clean_up_data_messages(timestamp_t time) {
-    for (size_t port = 0; port < num_data_ports(); ++port) {
-      auto& data_queue = get_data_queue(port);
-      while (!data_queue.empty()) {
-        auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
-        if (msg && msg->time <= time) {
-          data_time_tracker_[port].erase(msg->time);
-          data_queue.pop_front();
-        } else {
-          break;
-        }
-      }
-    }
-  }
-
-  void clean_up_control_messages(timestamp_t time) {
-    // Clean up control queues and trackers
-    for (size_t port = 0; port < num_control_ports(); ++port) {
-      // Clear all control messages up to and including current time
-      auto& control_queue = get_control_queue(port);
-      while (!control_queue.empty()) {
-        if (auto* msg = dynamic_cast<const Message<BooleanData>*>(control_queue.front().get())) {
-          if (msg->time <= time) {
-            control_queue.pop_front();
-          } else {
-            break;
-          }
-        }
-      }
-
-      // Clean up the tracker for this timestamp
-      auto& port_tracker = control_time_tracker_[port];
-      auto it = port_tracker.begin();
-      while (it != port_tracker.end() && it->first <= time) {
-        it = port_tracker.erase(it);
-      }
-    }
-  }
-
-  // Track all available timestamps for each data port
-  std::map<size_t, std::set<timestamp_t>> data_time_tracker_;
-
-  // Track control values for each port and timestamp
-  std::map<size_t, std::map<timestamp_t, bool>> control_time_tracker_;
 };
 
 // Factory function for creating a Multiplexer operator

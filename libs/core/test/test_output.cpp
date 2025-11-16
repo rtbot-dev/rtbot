@@ -160,3 +160,57 @@ SCENARIO("Output operator handles type mismatches", "[output]") {
     }
   }
 }
+
+SCENARIO("Output operator handles state serialization", "[output][State]") {
+  GIVEN("An output operator with multiple types and processed messages") {
+    auto output = std::make_unique<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+
+    output->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+    output->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
+    output->execute();
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = output->collect();
+
+      // Create new operator with same configuration
+      auto restored = std::make_unique<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("State is correctly preserved") {
+        REQUIRE(*restored == *output);        
+      }
+
+      AND_WHEN("New messages are received") {
+        restored->clear_all_output_ports();
+        restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
+        restored->execute();
+
+        THEN("Messages are processed based on restored state") {
+          const auto& output_queue = restored->get_output_queue(0);
+          REQUIRE(output_queue.size() == 1);
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue.front().get());
+          REQUIRE(msg->time == 3);
+          REQUIRE(msg->data.value == 84.0);
+        }
+      }
+    }
+
+    WHEN("Restoring with mismatched configuration") {
+      Bytes state = output->collect();
+
+      // Create new operator with different configuration
+      auto mismatched = std::make_unique<Output>(
+          "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});
+
+      THEN("Type mismatch is detected") {
+        auto it = state.cbegin();
+        mismatched->restore(it);
+        REQUIRE(*output != *mismatched);
+      }
+    }
+  }
+}

@@ -29,19 +29,38 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
 
     std::vector<std::pair<timestamp_t, double>> expected = {{2, 1.0}, {4, 2.0}, {5, 12.0}};
 
+    add->clear_all_output_ports();
+
     for (const auto& input : inputs) {
       add->receive_data(create_message<NumberData>(input.first, NumberData{input.second}), 0);
       add->execute();
     }
 
-    /*output = add->get_output_queue(0);
-    REQUIRE(output.size() == inputs.size());
+    auto& output_queue = add->get_output_queue(0);
+    REQUIRE(output_queue.size() == inputs.size());
 
-    for (size_t i = 0; i < output.size(); ++i) {
-      auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
+    for (size_t i = 0; i < output_queue.size(); ++i) {
+      auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue[i].get());
       REQUIRE(msg->time == expected[i].first);
       REQUIRE(msg->data.value == expected[i].second);
-    }*/
+    }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = add->collect();
+
+      REQUIRE(add->get_output_queue(0).size() == 3);
+      
+      auto restored = make_add("add1", 2.0);
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *add);
+      }
+    }
   }
 
   SECTION("Scale operator") {
@@ -66,6 +85,23 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
       auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
       REQUIRE(msg->time == expected[i].first);
       REQUIRE(msg->data.value == expected[i].second);
+    }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = scale->collect();
+
+      REQUIRE(scale->get_output_queue(0).size() == 3);
+      
+      auto restored = make_scale("scale1", 2.0);
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *scale);
+      }
     }
   }
 
@@ -92,6 +128,23 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
       REQUIRE(msg->time == expected[i].first);
       REQUIRE(msg->data.value == Approx(expected[i].second));
     }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = power->collect();
+
+      REQUIRE(power->get_output_queue(0).size() == 3);
+      
+      auto restored = make_power("pow1", 2.0);
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *power);
+      }
+    }
   }
 }
 
@@ -116,8 +169,23 @@ SCENARIO("ArithmeticScalar handles trigonometric functions", "[math_scalar_op]")
     for (size_t i = 0; i < output.size(); ++i) {
       auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
       REQUIRE(msg->time == expected[i].first);
-      // TODO: Fails with  0.0 == Approx( 0.0 ), which is correct
-      // REQUIRE(msg->data.value == Approx(expected[i].second).epsilon(1e-3));
+    }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = sin->collect();
+
+      REQUIRE(sin->get_output_queue(0).size() == 3);
+      
+      auto restored = make_sin("sin1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *sin);
+      }
     }
   }
 }
@@ -144,6 +212,23 @@ SCENARIO("ArithmeticScalar handles exponential and logarithmic functions", "[mat
       auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
       REQUIRE(msg->time == expected[i].first);
       REQUIRE(msg->data.value == Approx(expected[i].second));
+    }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = exp->collect();
+
+      REQUIRE(exp->get_output_queue(0).size() == 3);
+      
+      auto restored = make_exp("exp1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *exp);
+      }
     }
   }
 
@@ -173,12 +258,30 @@ SCENARIO("ArithmeticScalar handles rounding functions", "[math_scalar_op]") {
       REQUIRE(msg->time == expected[i].first);
       REQUIRE(msg->data.value == expected[i].second);
     }
+
+    WHEN("State is serialized and restored") {
+      // Serialize state
+      Bytes state = round->collect();
+
+      REQUIRE(round->get_output_queue(0).size() == 4);
+      
+      auto restored = make_round("round1");
+
+      // Restore state
+      auto it = state.cbegin();
+      restored->restore(it);
+
+      THEN("The operators match") {
+        REQUIRE(*restored == *round);
+      }
+    }
+
   }
 
   // Similar tests for Floor and Ceil...
 }
 
-SCENARIO("ArithmeticScalar handles serialization", "[math_scalar_op]") {
+SCENARIO("ArithmeticScalar handles serialization", "[math_scalar_op][State]") {
   SECTION("Add operator serialization") {
     auto add = make_add("add1", 2.0);
 
@@ -200,6 +303,7 @@ SCENARIO("ArithmeticScalar handles serialization", "[math_scalar_op]") {
     // Verify restored state
     REQUIRE(restored->type_name() == add->type_name());
     REQUIRE(dynamic_cast<Add*>(restored.get())->get_value() == dynamic_cast<Add*>(add.get())->get_value());
+    REQUIRE(*restored == *add);
 
     // Process new data and verify behavior
     restored->clear_all_output_ports();
