@@ -133,7 +133,6 @@ struct VectorNumberData {
         it += sizeof(double);
         data.values.push_back(value);
     }
-
     return data;
   }
 
@@ -191,7 +190,6 @@ struct VectorBooleanData {
 
     // Number of bytes in the packed bitfield
     size_t byte_count = (size + 7) / 8;
-
     data.values.reserve(size);
 
     // ---- decode packed bits ----
@@ -203,7 +201,6 @@ struct VectorBooleanData {
 
     // Advance iterator past the packed bytes
     it += byte_count;
-
     return data;
   }
 

@@ -93,7 +93,7 @@ class ReduceJoin : public Join {
 
       if (result.has_value()) {
         get_output_queue(0).push_back(create_message<T>(time, *result));
-      }      
+      }
     }
   }
 

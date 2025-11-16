@@ -78,7 +78,6 @@ class Multiplexer : public Operator {
  protected:  
 
   void process_data() override {
-    
     while (true) {
       
       int num_empty_data_ports = 0;
@@ -135,7 +134,6 @@ class Multiplexer : public Operator {
           get_control_queue(i).pop_front();            
         }
       }
-      
     }
   }
 
@@ -163,7 +161,7 @@ class Multiplexer : public Operator {
     }
 
     return (active_count == 1) ? selected_port : -1;
-  }   
+  }
 };
 
 // Factory function for creating a Multiplexer operator

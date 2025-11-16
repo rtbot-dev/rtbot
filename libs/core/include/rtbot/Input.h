@@ -46,9 +46,9 @@ class Input : public Operator {
   // Do not throw exceptions in receive_data
   void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
     try {
-      Operator::receive_data(std::move(msg), port_index);      
+      Operator::receive_data(std::move(msg), port_index);
     } catch (const std::exception& e) {
-      
+      // Do nothing
     }
   }
 

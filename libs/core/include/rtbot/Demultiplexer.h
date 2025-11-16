@@ -52,7 +52,6 @@ class Demultiplexer : public Operator {
  protected:  
 
   void process_data() override {
-
     while(true) {
 
       bool is_any_control_empty;
@@ -90,9 +89,8 @@ class Demultiplexer : public Operator {
           get_control_queue(i).pop_front();
         
       }
-    }    
-  }  
-
+    }
+  }
 };
 
 // Factory functions for common configurations using PortType

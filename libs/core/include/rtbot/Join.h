@@ -92,7 +92,6 @@ class Join : public Operator {
 
  protected:
   // Performs synchronization of input messages
-  
 
   void process_data() override {
     
@@ -124,7 +123,6 @@ class Join : public Operator {
 
  private:
   std::vector<std::string> port_type_names_;
-  
 };
 
 // Factory functions remain unchanged
