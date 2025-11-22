@@ -77,7 +77,7 @@ class Multiplexer : public Operator {
 
  protected:  
 
-  void process_data() override {
+  void process_data(bool debug=false) override {
     while (true) {
       
       int num_empty_data_ports = 0;

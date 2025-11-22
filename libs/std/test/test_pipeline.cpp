@@ -220,6 +220,8 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][State]") 
           pipeline->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
           restored->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
 
+          REQUIRE(*pipeline==*restored);
+
           pipeline->execute();
           restored->execute();
 
