@@ -93,7 +93,7 @@ class Join : public Operator {
  protected:
   // Performs synchronization of input messages
 
-  void process_data() override {
+  void process_data(bool debug=false) override {
     
     while(true) {
 

@@ -51,7 +51,7 @@ class Demultiplexer : public Operator {
 
  protected:  
 
-  void process_data() override {
+  void process_data(bool debug=false) override {
     while(true) {
 
       bool is_any_control_empty;
