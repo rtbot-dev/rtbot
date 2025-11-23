@@ -60,14 +60,17 @@ class Pipeline : public Operator {
   // API for configuring the pipeline
   void register_operator(std::shared_ptr<Operator> op) { operators_[op->id()] = std::move(op); }
 
-  void set_entry(const std::string& op_id, size_t port = 0) {
+  void set_entry(const std::string& op_id) {
     auto it = operators_.find(op_id);
     if (it == operators_.end()) {
       throw std::runtime_error("Entry operator not found: " + op_id);
     }
-    entry_operator_ = it->second;
-    entry_port_ = port;
-    RTBOT_LOG_DEBUG("Setting entry operator: ", op_id, " -> ", port);
+    if (it->second->num_data_ports() >= num_data_ports()) {
+      entry_operator_ = it->second;
+      RTBOT_LOG_DEBUG("Setting entry operator: ", op_id);
+    } else {
+      throw std::runtime_error("Entry operator has less data ports that the pipeline: " + op_id);
+    }
   }
 
   void add_output_mapping(const std::string& op_id, size_t op_port, size_t pipeline_port) {
@@ -117,8 +120,11 @@ class Pipeline : public Operator {
     if (input_port_types_ != other.input_port_types_) return false;
     if (output_port_types_!= other.output_port_types_) return false;
     if (output_mappings_ != other.output_mappings_) return false;
-    if (entry_operator_ != other.entry_operator_) return false;
-    if (entry_port_ != other.entry_port_) return false;
+    if ((bool)entry_operator_ != (bool)other.entry_operator_) return false;
+    if (entry_operator_ && other.entry_operator_) {
+      if (*entry_operator_ != *other.entry_operator_)
+          return false;
+    }
     if (operators_.size() != other.operators_.size()) return false;
 
     for (const auto& [key, op1] : operators_) {
@@ -141,7 +147,7 @@ class Pipeline : public Operator {
   }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug=false) override {
     // Check if we have an entry point configured
     if (!entry_operator_) {
       throw std::runtime_error("Pipeline entry point not configured");
@@ -153,7 +159,7 @@ class Pipeline : public Operator {
       while (!input_queue.empty()) {
         auto& msg = input_queue.front();
         entry_operator_->receive_data(msg->clone(), i);
-        entry_operator_->execute();
+        entry_operator_->execute(debug);
         input_queue.pop_front();
         // Process output mappings
         bool was_reset = false;
@@ -195,7 +201,6 @@ class Pipeline : public Operator {
   std::vector<PipelineConnection> pipeline_connections_;
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;
-  size_t entry_port_;
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> output_mappings_;
 };
 
