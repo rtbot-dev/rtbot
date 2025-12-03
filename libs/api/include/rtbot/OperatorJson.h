@@ -33,6 +33,7 @@
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/MovingSum.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/PctChange.h"
 #include "rtbot/std/Replace.h"
 #include "rtbot/std/ResamplerConstant.h"
 #include "rtbot/std/ResamplerHermite.h"
@@ -186,6 +187,8 @@ class OperatorJson {
       return make_resampler_constant(id, parsed["interval"].get<int>());
     } else if (type == "ResamplerHermite") {
       return make_resampler_hermite(id, parsed["interval"].get<int>());
+    } else if (type == "PctChange") {
+      return make_pct_change(id);
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -337,6 +340,8 @@ class OperatorJson {
       }
     } else if (type == "ResamplerHermite") {
       j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
+    } else if (type == "PctChange") {
+      // PctChange has no additional parameters to serialize
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";
