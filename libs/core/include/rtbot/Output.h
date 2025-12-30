@@ -48,7 +48,7 @@ class Output : public Operator {
   }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug=false) override {
     // Forward all messages from inputs to corresponding outputs
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& input_queue = get_data_queue(i);

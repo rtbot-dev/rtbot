@@ -53,7 +53,7 @@ class Input : public Operator {
   }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug=false) override {
     // Process each port independently to allow concurrent timestamps
     for (int port_index = 0; port_index < num_data_ports(); port_index++) {
       const auto& input_queue = get_data_queue(port_index);

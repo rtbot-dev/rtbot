@@ -38,14 +38,14 @@ class Variable : public Operator {
   }
 
  protected:
-  void process_data() override {    
+  void process_data(bool debug=false) override {
 
     if (!get_data_queue(0).empty() && !get_control_queue(0).empty())
     process_pending_queries();
     
   }
 
-  void process_control() override {
+  void process_control(bool debug=false) override {
     
     if (!get_data_queue(0).empty() && !get_control_queue(0).empty())
     process_pending_queries();

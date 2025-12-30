@@ -202,13 +202,13 @@ class Operator {
     // Process control messages first
     if (num_control_ports() > 0) {
       SpanScope control_scope{"process_control"};
-      process_control();      
+      process_control(debug);      
     }
 
     // Then process data
     if (num_data_ports() > 0) {
       SpanScope data_scope{"process_data"};
-      process_data();      
+      process_data(debug);      
     }
 
 #ifdef RTBOT_INSTRUMENTATION
@@ -410,8 +410,8 @@ class Operator {
   }
 
  protected:
-  virtual void process_data() = 0;
-  virtual void process_control() {}
+  virtual void process_data(bool debug) = 0;
+  virtual void process_control(bool debug=false) {};
 
   bool sync_data_inputs() {
 

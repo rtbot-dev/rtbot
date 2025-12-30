@@ -28,7 +28,7 @@ class Replace : public Operator {
   }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
     auto& output_queue = get_output_queue(0);
 

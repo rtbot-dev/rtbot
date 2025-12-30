@@ -92,7 +92,7 @@ class ResamplerConstant : public Operator {
   std::optional<timestamp_t> get_t0() const { return t0_; }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
     auto& output_queue = get_output_queue(0);
 
