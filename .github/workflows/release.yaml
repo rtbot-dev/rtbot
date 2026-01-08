@@ -120,27 +120,23 @@ jobs:
       - name: Rename wheel with platform tag
         run: |
           cd dist/bin/libs/wrappers/python/
-          WHEEL_FILE="rtbot.whl"
-          if [ -f "$WHEEL_FILE" ]; then
-            # Extract version from wheel metadata
-            export WHEEL_FILE="rtbot.whl"            
+          export WHEEL_FILE="rtbot.whl"
+          if [ -f "$WHEEL_FILE" ]; then            
             VERSION=$(python - <<'EOF'
-import os, zipfile
-
-wheel = os.environ["WHEEL_FILE"]
-with zipfile.ZipFile(wheel, 'r') as z:
-    for name in z.namelist():
-        if '.dist-info/METADATA' in name:
-            dist_info_dir = name.split('/')[0]
-            print(
-                dist_info_dir
-                .replace('rtbot-', '')
-                .replace('.dist-info', '')
+              import os, zipfile
+              wheel = os.environ["WHEEL_FILE"]
+              with zipfile.ZipFile(wheel, 'r') as z:
+                for name in z.namelist():
+                    if '.dist-info/METADATA' in name:
+                        dist_info_dir = name.split('/')[0]
+                        print(
+                            dist_info_dir
+                            .replace('rtbot-', '')
+                            .replace('.dist-info', '')
+                        )
+                        break
+            EOF
             )
-            break
-EOF
-)
-
             # Determine platform tag
             if [ "${{ runner.os }}" = "Linux" ]; then
               PLATFORM="manylinux2014_x86_64"
