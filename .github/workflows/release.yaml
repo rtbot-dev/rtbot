@@ -31,7 +31,7 @@ jobs:
         with:
           path: |
             "~/.cache/bazel"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          key: "bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}"
           restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Test lib
@@ -68,7 +68,7 @@ jobs:
         with:
           path: |
             "~/.cache/bazel"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
+          key: "bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}"
           restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Build npm package
@@ -112,7 +112,7 @@ jobs:
         with:
           path: |
             "~/.cache/bazel"
-          key: bazel-cache-${{ matrix.os }}-py${{ matrix.python-version }}
+          key: "bazel-cache-${{ matrix.os }}-py${{ matrix.python-version }}"
       - uses: bazelbuild/setup-bazelisk@v2
       - name: Build wheel
         run: |
@@ -123,17 +123,24 @@ jobs:
           WHEEL_FILE="rtbot.whl"
           if [ -f "$WHEEL_FILE" ]; then
             # Extract version from wheel metadata
-            VERSION=$(python -c "
-import zipfile, re
-with zipfile.ZipFile('$WHEEL_FILE', 'r') as z:
+            export WHEEL_FILE="rtbot.whl"            
+            VERSION=$(python - <<'EOF'
+import os, zipfile
+
+wheel = os.environ["WHEEL_FILE"]
+with zipfile.ZipFile(wheel, 'r') as z:
     for name in z.namelist():
         if '.dist-info/METADATA' in name:
-            # Extract version from rtbot-VERSION.dist-info/METADATA
             dist_info_dir = name.split('/')[0]
-            version = dist_info_dir.replace('rtbot-', '').replace('.dist-info', '')
-            print(version)
+            print(
+                dist_info_dir
+                .replace('rtbot-', '')
+                .replace('.dist-info', '')
+            )
             break
-")
+EOF
+)
+
             # Determine platform tag
             if [ "${{ runner.os }}" = "Linux" ]; then
               PLATFORM="manylinux2014_x86_64"
