@@ -74,18 +74,18 @@ jobs:
       - name: Build npm package
         run: |
           bazelisk build --stamp //libs/wrappers/javascript:js
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: npm-wasm.tar
           path: dist/bin/libs/api/js
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
       - name: Generate jsonschema
         run: |
           bazelisk build //libs/api:jsonschema
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: jsonschema.tar
           path: dist/bin/libs/api/jsonschema
@@ -148,7 +148,7 @@ jobs:
             cp "$WHEEL_FILE" "$NEW_NAME"
             echo "Created wheel: $NEW_NAME"
           fi
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: wheel-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/bin/libs/wrappers/python/rtbot-*-py3-none-*.whl
@@ -179,19 +179,20 @@ jobs:
           echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
       # Download all wheel artifacts
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: wheels/
           pattern: wheel-*
-      - uses: actions/download-artifact@v3
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
         with:
           name: npm-wasm.tar
           path: npm-wasm
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: npm-rtbot.tar
           path: npm-rtbot
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: jsonschema.tar
           path: jsonschema
