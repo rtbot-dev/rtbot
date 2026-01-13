@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Mount bazel caches
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             "~/.cache/bazel"
@@ -64,7 +64,7 @@ jobs:
           run_install: |
             - args: [--no-frozen-lockfile]
       - name: Mount bazel caches
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             "~/.cache/bazel"
@@ -108,7 +108,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Mount bazel caches
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             "~/.cache/bazel"
