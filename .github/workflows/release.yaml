@@ -34,6 +34,7 @@ jobs:
           key: "bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}"
           restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
+        continue-on-error: true
       - name: Test lib
         run: |
           bazelisk test //libs/core/test
@@ -71,6 +72,7 @@ jobs:
           key: "bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}"
           restore-keys: bazel-cache-
       - uses: bazelbuild/setup-bazelisk@v2
+        continue-on-error: true
       - name: Build npm package
         run: |
           bazelisk build --stamp //libs/wrappers/javascript:js
@@ -114,6 +116,7 @@ jobs:
             "~/.cache/bazel"
           key: "bazel-cache-${{ matrix.os }}-py${{ matrix.python-version }}"
       - uses: bazelbuild/setup-bazelisk@v2
+        continue-on-error: true
       - name: Build wheel
         run: |
           bazelisk build --stamp //libs/wrappers/python:rtbot_wheel
