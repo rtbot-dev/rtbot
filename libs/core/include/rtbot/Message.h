@@ -358,7 +358,8 @@ inline std::unique_ptr<Message<T>> BaseMessage::deserialize_as(const Bytes& byte
   if (!typed_msg) {
     throw std::runtime_error("Failed to cast message to requested type");
   }
-  return std::unique_ptr<Message<T>>(static_cast<Message<T>*>(base_msg.release()));
+  base_msg.release();  // Safe: cast validated above
+  return std::unique_ptr<Message<T>>(typed_msg);
 }
 
 // Helper functions

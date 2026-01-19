@@ -10,7 +10,7 @@
 #include "rtbot/Output.h"
 #include "rtbot/Program.h"
 #include "rtbot/bindings.h"
-#include "rtbot/std/MathSyncBinaryOp.h"
+#include "rtbot/std/ArithmeticSync.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
 #include "tools.h"
@@ -157,7 +157,7 @@ class PPGPipelineBenchmark {
     p.input = std::make_shared<Input>("i1", std::vector<std::string>{PortType::NUMBER});
     p.ma_short = std::make_shared<MovingAverage>("ma1", short_window_);
     p.ma_long = std::make_shared<MovingAverage>("ma2", long_window_);
-    p.minus = std::make_shared<Subtraction>("diff");
+    p.minus = std::make_shared<Subtraction>("diff", 2);
     p.peak = std::make_shared<PeakDetector>("peak", 2 * short_window_ + 1);
     p.join = std::make_shared<Join>("join", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
     p.output = std::make_shared<Output>("o1", std::vector<std::string>{PortType::NUMBER});
@@ -252,8 +252,8 @@ class BollingerBandsPureBenchmark {
     p.ma = std::make_shared<MovingAverage>("ma", 14);
     p.sd = std::make_shared<StandardDeviation>("sd", 14);
     p.scale = std::make_shared<Scale>("scale", 2.0);
-    p.upper = std::make_shared<Addition>("upper");
-    p.lower = std::make_shared<Subtraction>("lower");
+    p.upper = std::make_shared<Addition>("upper", 2);
+    p.lower = std::make_shared<Subtraction>("lower", 2);
     p.output = std::make_shared<Output>("output",
                                         std::vector<std::string>{PortType::NUMBER, PortType::NUMBER, PortType::NUMBER});
 
