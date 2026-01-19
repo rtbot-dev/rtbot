@@ -1,6 +1,8 @@
 #ifndef RESAMPLER_CONSTANT_H
 #define RESAMPLER_CONSTANT_H
 
+#include <optional>
+
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"

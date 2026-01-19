@@ -141,11 +141,13 @@ class Buffer : public Operator {
         Bytes msg_bytes(it, it + msg_size);
 
         // Deserialize message and cast to derived type
-        buffer_.push_back(
-            std::unique_ptr<Message<T>>(
-                dynamic_cast<Message<T>*>(BaseMessage::deserialize(msg_bytes).release())
-            )
-        );
+        auto base_msg = BaseMessage::deserialize(msg_bytes);
+        auto* typed_msg = dynamic_cast<Message<T>*>(base_msg.get());
+        if (!typed_msg) {
+          throw std::runtime_error("Failed to cast message during Buffer restore");
+        }
+        base_msg.release();  // Safe: cast validated above
+        buffer_.push_back(std::unique_ptr<Message<T>>(typed_msg));
 
         it += msg_size;
     }
@@ -199,7 +201,13 @@ class Buffer : public Operator {
       }
 
       // Add new message to buffer
-      buffer_.push_back(std::unique_ptr<Message<T>>(dynamic_cast<Message<T>*>(input_queue.front()->clone().release())));
+      auto cloned = input_queue.front()->clone();
+      auto* typed_clone = dynamic_cast<Message<T>*>(cloned.get());
+      if (!typed_clone) {
+        throw std::runtime_error("Failed to cast cloned message in Buffer");
+      }
+      cloned.release();  // Safe: cast validated above
+      buffer_.push_back(std::unique_ptr<Message<T>>(typed_clone));
 
       // Update statistics with added and removed values
       update_statistics(msg->data.value, removed_value);

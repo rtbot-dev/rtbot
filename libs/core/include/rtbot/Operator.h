@@ -30,6 +30,18 @@ struct PortInfo {
   MessageQueue queue;
   std::type_index type;
   timestamp_t last_timestamp{std::numeric_limits<timestamp_t>::min()};
+
+  // Constructor
+  PortInfo(MessageQueue q, std::type_index t)
+      : queue(std::move(q)), type(t) {}
+
+  // Delete copy operations (MessageQueue contains unique_ptr)
+  PortInfo(const PortInfo&) = delete;
+  PortInfo& operator=(const PortInfo&) = delete;
+
+  // Explicitly default move operations with noexcept for vector reallocation
+  PortInfo(PortInfo&&) noexcept = default;
+  PortInfo& operator=(PortInfo&&) noexcept = default;
 };
 
 enum class PortKind { DATA, CONTROL };
@@ -510,7 +522,12 @@ class Operator {
     }
 
     // Send the messages to the connected operators
-    for (auto& conn : connections_) {      
+    for (auto& conn : connections_) {
+      auto child = conn.child.lock();  // Lock weak_ptr to get shared_ptr
+      if (!child) {
+        continue;  // Child has been destroyed
+      }
+
       auto& output_queue = output_ports_[conn.output_port].queue;
       if (output_queue.empty()) {
         continue;
@@ -519,17 +536,17 @@ class Operator {
       for (size_t i = 0; i < output_queue.size(); i++) {
         auto msg_copy = output_queue[i]->clone();
 #ifdef RTBOT_INSTRUMENTATION
-        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), conn.child->id(), conn.child->type_name(),
+        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), child->id(), child->type_name(),
                                   std::to_string(conn.child_input_port),
                                   conn.child_port_kind == PortKind::DATA ? "" : "[c]", output_queue[i]->clone());
 #endif
         // Route message based on connection port kind
         if (conn.child_port_kind == PortKind::DATA) {
-          conn.child->receive_data(std::move(msg_copy), conn.child_input_port);
+          child->receive_data(std::move(msg_copy), conn.child_input_port);
         } else {
-          conn.child->receive_control(std::move(msg_copy), conn.child_input_port);
+          child->receive_control(std::move(msg_copy), conn.child_input_port);
         }
-         propagated_outputs.insert(conn.output_port);
+        propagated_outputs.insert(conn.output_port);
       }
     }
     
@@ -550,16 +567,18 @@ class Operator {
     
 
     // Then execute connected operators
-    for (auto& conn : connections_) {      
-      if (conn.child != nullptr && propagated_outputs.find(conn.output_port) != propagated_outputs.end())
-      conn.child->execute(debug);
+    for (auto& conn : connections_) {
+      auto child = conn.child.lock();
+      if (child && propagated_outputs.find(conn.output_port) != propagated_outputs.end()) {
+        child->execute(debug);
+      }
     }
 
   }
   struct Connection {
-    std::shared_ptr<Operator> child;
+    std::weak_ptr<Operator> child;  // Use weak_ptr to avoid circular references
     size_t output_port;
-    size_t child_input_port;    
+    size_t child_input_port;
     PortKind child_port_kind{PortKind::DATA};
   };
 
