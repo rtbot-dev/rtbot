@@ -86,6 +86,7 @@ genrule(
     echo "  getProgramEntryOperatorId(programId: string): string;" >> $@
     echo "  getProgramEntryPorts(programId: string): string;" >> $@
     echo "  getProgramOutputFilter(programId: string): string;" >> $@
+    echo "  diagnoseProgram(programStr: string): string;" >> $@
     echo "  processBatch(programId: string, times: number[], values: number[], ports: string[]): string;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@

@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/Diagnostics.h"
 #include "rtbot/Message.h"
 #include "rtbot/Program.h"
 #include "rtbot/jsonschema.hpp"
@@ -351,6 +352,11 @@ std::string pretty_print_validation_error(const std::string& validation_result) 
   } catch (const nlohmann::json::exception& e) {
     return "Error parsing validation result: " + std::string(e.what());
   }
+}
+
+std::string diagnose_program(const std::string& json_program) {
+  auto result = ProgramDiagnostics::diagnose(json_program);
+  return json(result).dump();
 }
 
 }  // namespace rtbot

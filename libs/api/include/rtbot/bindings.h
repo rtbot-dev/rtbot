@@ -32,6 +32,7 @@ std::string get_program_entry_operator_id(const std::string& program_id);
 // Validation functions
 std::string validate_program(const std::string& json_program);
 std::string validate_operator(const std::string& type, const std::string& json_op);
+std::string diagnose_program(const std::string& json_program);
 
 // Message handling
 std::string add_to_message_buffer(const std::string& program_id, const std::string& port_id, uint64_t time,
