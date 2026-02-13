@@ -83,6 +83,7 @@ EMSCRIPTEN_BINDINGS(RtBot) {
   function("deleteProgram", &rtbot::delete_program);
   function("validateProgram", &rtbot::validate_program);
   function("validateOperator", &rtbot::validate_operator);
+  function("diagnoseProgram", &rtbot::diagnose_program);
 
   // Message handling
   function("addToMessageBuffer", &addMessage);

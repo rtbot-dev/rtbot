@@ -1,0 +1,9 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+cc_binary(
+    name = "diagnose_file",
+    srcs = ["diagnose_file.cpp"],
+    deps = [
+        "//libs/api:rtbot-api",
+    ],
+)
