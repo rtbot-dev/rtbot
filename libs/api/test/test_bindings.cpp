@@ -114,6 +114,94 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
   }
 }
 
+SCENARIO("Bindings support staged vector messages", "[bindings][vector]") {
+  auto& manager = ProgramManager::instance();
+  manager.clear_all_programs();
+
+  std::string vector_program_json = R"({
+    "operators": [
+      {"type": "Input", "id": "input1", "portTypes": ["vector_number"]},
+      {"type": "Output", "id": "output1", "portTypes": ["vector_number"]}
+    ],
+    "connections": [
+      {"from": "input1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+    ],
+    "entryOperator": "input1",
+    "output": { "output1": ["o1"] }
+  })";
+
+  REQUIRE(create_program("vector_prog_bindings", vector_program_json).empty());
+  REQUIRE(push_vector_message_value("vector_prog_bindings", "i1", 1.0) == "0");
+  REQUIRE(begin_vector_message("vector_prog_bindings", "i1", 10) == "1");
+  REQUIRE(push_vector_message_value("vector_prog_bindings", "i1", 11.5) == "1");
+  REQUIRE(push_vector_message_value("vector_prog_bindings", "i1", 22.5) == "1");
+  REQUIRE(end_vector_message("vector_prog_bindings", "i1") == "1");
+
+  auto result = json::parse(process_message_buffer("vector_prog_bindings"));
+  REQUIRE(result.contains("output1"));
+  REQUIRE(result["output1"].contains("o1"));
+  REQUIRE(result["output1"]["o1"].size() == 1);
+  REQUIRE(result["output1"]["o1"][0]["time"] == 10);
+  REQUIRE(result["output1"]["o1"][0]["value"].is_array());
+  REQUIRE(result["output1"]["o1"][0]["value"].size() == 2);
+  REQUIRE(result["output1"]["o1"][0]["value"][0] == Approx(11.5));
+  REQUIRE(result["output1"]["o1"][0]["value"][1] == Approx(22.5));
+}
+
+SCENARIO("Bindings accept inline KeyedPipeline prototypes", "[bindings][prototype]") {
+  auto& manager = ProgramManager::instance();
+  manager.clear_all_programs();
+
+  std::string inline_keyed_program_json = R"({
+    "operators": [
+      {"type": "Input", "id": "input1", "portTypes": ["vector_number"]},
+      {
+        "type": "KeyedPipeline",
+        "id": "keyed1",
+        "key_index": 1,
+        "prototype": {
+          "operators": [
+            {"type": "Input", "id": "proto_in", "portTypes": ["vector_number"]},
+            {"type": "Output", "id": "proto_out", "portTypes": ["vector_number"]}
+          ],
+          "connections": [
+            {"from": "proto_in", "to": "proto_out", "fromPort": "o1", "toPort": "i1"}
+          ],
+          "entry": {"operator": "proto_in"},
+          "output": {"operator": "proto_out"}
+        }
+      },
+      {"type": "Output", "id": "output1", "portTypes": ["vector_number"]}
+    ],
+    "connections": [
+      {"from": "input1", "to": "keyed1", "fromPort": "o1", "toPort": "i1"},
+      {"from": "keyed1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+    ],
+    "entryOperator": "input1",
+    "output": { "output1": ["o1"] }
+  })";
+
+  const auto create_result = create_program("inline_keyed_prog_bindings", inline_keyed_program_json);
+  INFO("inline keyed create result: " << create_result);
+  REQUIRE(create_result.empty());
+  REQUIRE(begin_vector_message("inline_keyed_prog_bindings", "i1", 123) == "1");
+  REQUIRE(push_vector_message_value("inline_keyed_prog_bindings", "i1", 7001.0) == "1");
+  REQUIRE(push_vector_message_value("inline_keyed_prog_bindings", "i1", 42.5) == "1");
+  REQUIRE(end_vector_message("inline_keyed_prog_bindings", "i1") == "1");
+
+  auto result = json::parse(process_message_buffer("inline_keyed_prog_bindings"));
+  REQUIRE(result.contains("output1"));
+  REQUIRE(result["output1"].contains("o1"));
+  REQUIRE(result["output1"]["o1"].size() == 1);
+  REQUIRE(result["output1"]["o1"][0]["time"] == 123);
+  REQUIRE(result["output1"]["o1"][0]["value"].is_array());
+  // KeyedPipeline prepends the key (42.5) to the sub-graph output [7001.0, 42.5]
+  REQUIRE(result["output1"]["o1"][0]["value"].size() == 3);
+  REQUIRE(result["output1"]["o1"][0]["value"][0] == Approx(42.5));
+  REQUIRE(result["output1"]["o1"][0]["value"][1] == Approx(7001.0));
+  REQUIRE(result["output1"]["o1"][0]["value"][2] == Approx(42.5));
+}
+
 SCENARIO("Program and operator validation", "[bindings]") {
   auto& manager = ProgramManager::instance();
   manager.clear_all_programs();

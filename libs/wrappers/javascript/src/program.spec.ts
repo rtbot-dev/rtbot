@@ -160,6 +160,35 @@ describe("Program", () => {
     expect(result.length).toBe(data.length);
   });
 
+  it("can process vector rows as a single vector message per iteration", async () => {
+    const vectorProgram = Program.toInstance({
+      operators: [
+        { id: "in1", type: "Input", portTypes: ["vector_number"] },
+        { id: "out1", type: "Output", portTypes: ["vector_number"] },
+      ],
+      connections: [{ from: "in1", to: "out1", fromPort: "o1", toPort: "i1" }],
+      entryOperator: "in1",
+      output: { out1: ["o1"] },
+    });
+
+    const vectorData = [
+      [1, 10, 20, 30],
+      [2, 7, 8, 9],
+    ];
+
+    const run = new RtBotRun(vectorProgram, vectorData, RtBotRunOutputFormat.EXTENDED);
+    await run.run();
+    const outputs = run.getOutputs() as Array<{
+      out: Record<string, Record<string, Array<{ time: number; value: number[] }>>>;
+    }>;
+
+    expect(outputs.length).toBe(2);
+    expect(outputs[0].out.out1.o1[0].time).toBe(1);
+    expect(outputs[0].out.out1.o1[0].value).toEqual([10, 20, 30]);
+    expect(outputs[1].out.out1.o1[0].time).toBe(2);
+    expect(outputs[1].out.out1.o1[0].value).toEqual([7, 8, 9]);
+  });
+
   it("there has to be at least one Input operator in a program to be valid", () => {
     const input = program.operators.find((op) => op.type === "Input");
     expect(input).toBeDefined();
