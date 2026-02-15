@@ -1,9 +1,18 @@
 #include "args.h"
 
-#include <filesystem>
+#include <fstream>
 #include <iostream>
 
 namespace rtbot_cli {
+
+namespace {
+
+bool file_exists(const std::string& path) {
+  std::ifstream file(path);
+  return file.good();
+}
+
+}  // namespace
 
 cxxopts::Options CLIArguments::create_options() {
   cxxopts::Options options("rtbot", "RTBot Command Line Interface");
@@ -86,7 +95,7 @@ CLIArguments CLIArguments::parse(int argc, char* argv[]) {
       }
       args.program_file = result["program"].as<std::string>();
 
-      if (!std::filesystem::exists(args.program_file)) {
+      if (!file_exists(args.program_file)) {
         throw ArgumentException("Program file does not exist: " + args.program_file);
       }
     }
@@ -97,7 +106,7 @@ CLIArguments CLIArguments::parse(int argc, char* argv[]) {
       }
       args.data_file = result["data"].as<std::string>();
 
-      if (!std::filesystem::exists(args.data_file)) {
+      if (!file_exists(args.data_file)) {
         throw ArgumentException("Data file does not exist: " + args.data_file);
       }
     }

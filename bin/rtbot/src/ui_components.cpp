@@ -1,7 +1,6 @@
 #include "ui_components.h"
 
 #include <algorithm>
-#include <filesystem>
 #include <numeric>
 #include <vector>
 
@@ -10,6 +9,15 @@
 namespace rtbot_cli {
 
 using namespace ftxui;
+
+namespace {
+
+std::string filename_from_path(const std::string& path) {
+  const size_t pos = path.find_last_of("/\\");
+  return pos == std::string::npos ? path : path.substr(pos + 1);
+}
+
+}  // namespace
 
 class MultiSeriesGraphFunction {
  public:
@@ -82,7 +90,7 @@ Component UIComponents::create_program_list(AppState& state) {
 Component UIComponents::create_csv_list(AppState& state) {
   state.csv_display_names.clear();
   for (const auto& csv : state.csv_files) {
-    state.csv_display_names.push_back(std::filesystem::path(csv).filename().string());
+    state.csv_display_names.push_back(filename_from_path(csv));
   }
   if (state.csv_display_names.empty()) {
     state.csv_display_names.push_back("No CSV files found");
