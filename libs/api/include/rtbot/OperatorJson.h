@@ -38,7 +38,12 @@
 #include "rtbot/std/ResamplerHermite.h"
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
+#include "rtbot/std/CompareScalar.h"
 #include "rtbot/std/Variable.h"
+#include "rtbot/std/KeyedPipeline.h"
+#include "rtbot/std/VectorCompose.h"
+#include "rtbot/std/VectorExtract.h"
+#include "rtbot/std/VectorProject.h"
 
 using json = nlohmann::json;
 
@@ -186,6 +191,53 @@ class OperatorJson {
       return make_resampler_constant(id, parsed["interval"].get<int>());
     } else if (type == "ResamplerHermite") {
       return make_resampler_hermite(id, parsed["interval"].get<int>());
+    } else if (type == "VectorExtract") {
+      return make_vector_extract(id, parsed["index"].get<int>());
+    } else if (type == "VectorProject") {
+      return make_vector_project(id, parsed["indices"].get<std::vector<int>>());
+    } else if (type == "VectorCompose") {
+      return make_vector_compose(id, parsed["numPorts"].get<size_t>());
+    } else if (type == "CompareGT") {
+      return make_compare_gt(id, parsed["value"].get<double>());
+    } else if (type == "CompareLT") {
+      return make_compare_lt(id, parsed["value"].get<double>());
+    } else if (type == "CompareGTE") {
+      return make_compare_gte(id, parsed["value"].get<double>());
+    } else if (type == "CompareLTE") {
+      return make_compare_lte(id, parsed["value"].get<double>());
+    } else if (type == "CompareEQ") {
+      return make_compare_eq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
+    } else if (type == "CompareNEQ") {
+      return make_compare_neq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
+    } else if (type == "KeyedPipeline") {
+      auto key_index = parsed["key_index"].get<int>();
+
+      // Build factory from embedded prototype definition
+      const auto& proto = parsed["prototype"];
+      json proto_operators = proto["operators"];
+      json proto_connections = proto["connections"];
+      std::string proto_entry = proto["entry"]["operator"].get<std::string>();
+      std::string proto_output = proto["output"]["operator"].get<std::string>();
+
+      auto factory = [proto_operators, proto_connections, proto_entry, proto_output]() -> SubGraph {
+        SubGraph sg;
+        for (const auto& op_json : proto_operators) {
+          auto op = OperatorJson::read_op(op_json.dump());
+          sg.operators[op->id()] = op;
+        }
+        for (const auto& conn : proto_connections) {
+          std::string from = conn["from"].get<std::string>();
+          std::string to = conn["to"].get<std::string>();
+          size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
+          size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
+          sg.operators[from]->connect(sg.operators[to], from_port, to_port);
+        }
+        sg.entry = sg.operators[proto_entry];
+        sg.output = sg.operators[proto_output];
+        return sg;
+      };
+
+      return make_keyed_pipeline(id, key_index, factory);
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -337,6 +389,29 @@ class OperatorJson {
       }
     } else if (type == "ResamplerHermite") {
       j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
+    } else if (type == "VectorExtract") {
+      j["index"] = std::dynamic_pointer_cast<VectorExtract>(op)->get_index();
+    } else if (type == "VectorProject") {
+      j["indices"] = std::dynamic_pointer_cast<VectorProject>(op)->get_indices();
+    } else if (type == "VectorCompose") {
+      j["numPorts"] = std::dynamic_pointer_cast<VectorCompose>(op)->get_num_ports();
+    } else if (type == "CompareGT") {
+      j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
+    } else if (type == "CompareLT") {
+      j["value"] = std::dynamic_pointer_cast<CompareLT>(op)->get_value();
+    } else if (type == "CompareGTE") {
+      j["value"] = std::dynamic_pointer_cast<CompareGTE>(op)->get_value();
+    } else if (type == "CompareLTE") {
+      j["value"] = std::dynamic_pointer_cast<CompareLTE>(op)->get_value();
+    } else if (type == "CompareEQ") {
+      j["value"] = std::dynamic_pointer_cast<CompareEQ>(op)->get_value();
+      j["tolerance"] = std::dynamic_pointer_cast<CompareEQ>(op)->get_tolerance();
+    } else if (type == "CompareNEQ") {
+      j["value"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_value();
+      j["tolerance"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_tolerance();
+    } else if (type == "KeyedPipeline") {
+      auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
+      j["key_index"] = kp->get_key_index();
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";

@@ -113,18 +113,26 @@ class Program {
   }
 
   // Message processing
-  ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
-    send_to_entry(msg, port_id, false);
+  ProgramMsgBatch receive(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
+    send_to_entry(std::move(msg), port_id, false);
     ProgramMsgBatch result = collect_outputs(false);
     clear_all_outputs();
     return result;
   }
 
-  ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
-    send_to_entry(msg, port_id, true);
+  ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
+    return receive(create_message<NumberData>(msg.time, msg.data), port_id);
+  }
+
+  ProgramMsgBatch receive_debug(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
+    send_to_entry(std::move(msg), port_id, true);
     ProgramMsgBatch result = collect_outputs(true);
     clear_all_outputs();
     return result;
+  }
+
+  ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
+    return receive_debug(create_message<NumberData>(msg.time, msg.data), port_id);
   }
 
   // Getters
@@ -229,9 +237,9 @@ class Program {
     throw runtime_error("Could not resolve operator ID: " + id);
   }
 
-  void send_to_entry(const Message<NumberData>& msg, const std::string& port_id, bool debug=false) {
+  void send_to_entry(std::unique_ptr<BaseMessage> msg, const std::string& port_id, bool debug = false) {
     auto port_info = OperatorJson::parse_port_name(port_id);
-    operators_[entry_operator_id_]->receive_data(create_message<NumberData>(msg.time, msg.data), port_info.index);
+    operators_[entry_operator_id_]->receive_data(std::move(msg), port_info.index);
     operators_[entry_operator_id_]->execute(debug);
   }
 
@@ -343,6 +351,7 @@ class ProgramManager {
   void clear_all_programs() {
     programs_.clear();
     message_buffer_.clear();
+    vector_builders_.clear();
   }
 
   string create_program(const string& id, const string& json_program) {
@@ -363,12 +372,57 @@ class ProgramManager {
       throw std::runtime_error("Program " + id + " already exists");
     }
     programs_.emplace(id, Program(bytes));
+    vector_builders_.erase(id);
     return;
   }
 
   bool add_to_message_buffer(const string& program_id, const string& port_id, const Message<NumberData>& msg) {
     if (programs_.count(program_id) == 0) return false;
-    message_buffer_[program_id][port_id].push_back(msg);
+    message_buffer_[program_id][port_id].push_back(create_message<NumberData>(msg.time, msg.data));
+    return true;
+  }
+
+  bool begin_vector_message(const string& program_id, const string& port_id, timestamp_t time) {
+    if (programs_.count(program_id) == 0) return false;
+    auto& builder = vector_builders_[program_id][port_id];
+    if (builder.active) return false;
+    builder.active = true;
+    builder.time = time;
+    builder.values.clear();
+    return true;
+  }
+
+  bool push_vector_message_value(const string& program_id, const string& port_id, double value) {
+    auto prog_it = vector_builders_.find(program_id);
+    if (prog_it == vector_builders_.end()) return false;
+    auto port_it = prog_it->second.find(port_id);
+    if (port_it == prog_it->second.end() || !port_it->second.active) return false;
+    port_it->second.values.push_back(value);
+    return true;
+  }
+
+  bool end_vector_message(const string& program_id, const string& port_id) {
+    if (programs_.count(program_id) == 0) return false;
+    auto prog_it = vector_builders_.find(program_id);
+    if (prog_it == vector_builders_.end()) return false;
+    auto port_it = prog_it->second.find(port_id);
+    if (port_it == prog_it->second.end() || !port_it->second.active) return false;
+
+    auto& builder = port_it->second;
+    message_buffer_[program_id][port_id].push_back(
+        create_message<VectorNumberData>(builder.time, VectorNumberData{builder.values}));
+    builder.active = false;
+    builder.values.clear();
+    return true;
+  }
+
+  bool abort_vector_message(const string& program_id, const string& port_id) {
+    auto prog_it = vector_builders_.find(program_id);
+    if (prog_it == vector_builders_.end()) return false;
+    auto port_it = prog_it->second.find(port_id);
+    if (port_it == prog_it->second.end() || !port_it->second.active) return false;
+    port_it->second.active = false;
+    port_it->second.values.clear();
     return true;
   }
 
@@ -384,7 +438,7 @@ class ProgramManager {
     if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
       for (const auto& [port_id, messages] : buffer_it->second) {
         for (const auto& msg : messages) {
-          auto batch = prog.receive(msg, port_id);
+          auto batch = prog.receive(msg->clone(), port_id);
           merge_batches(result, batch);
         }
       }
@@ -405,7 +459,7 @@ class ProgramManager {
     if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
       for (const auto& [port_id, messages] : buffer_it->second) {
         for (const auto& msg : messages) {
-          auto batch = prog.receive_debug(msg, port_id);
+          auto batch = prog.receive_debug(msg->clone(), port_id);
           merge_batches(result, batch);
         }
       }
@@ -424,7 +478,10 @@ class ProgramManager {
 
   Bytes serialize_program(const string& program_id) { return get_program(program_id).serialize(); }
 
-  bool delete_program(const string& program_id) { return programs_.erase(program_id) > 0; }
+  bool delete_program(const string& program_id) {
+    vector_builders_.erase(program_id);
+    return programs_.erase(program_id) > 0;
+  }
 
  private:
   Program& get_program(const string& program_id) {
@@ -447,8 +504,15 @@ class ProgramManager {
     }
   }
 
+  struct VectorBuilderState {
+    bool active = false;
+    timestamp_t time = 0;
+    std::vector<double> values;
+  };
+
   map<string, Program> programs_;
-  map<string, map<string, vector<Message<NumberData>>>> message_buffer_;
+  map<string, map<string, vector<std::unique_ptr<BaseMessage>>>> message_buffer_;
+  map<string, map<string, VectorBuilderState>> vector_builders_;
 };
 
 }  // namespace rtbot

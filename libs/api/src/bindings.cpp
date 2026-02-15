@@ -28,8 +28,13 @@ void to_json(json& j, const ProgramMsgBatch& batch) {
       for (const auto& msg : msgs) {
         if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
           j[op_id][port_name].push_back({{"time", num_msg->time}, {"value", num_msg->data.value}});
+        } else if (auto* vec_num_msg = dynamic_cast<const Message<VectorNumberData>*>(msg.get())) {
+          j[op_id][port_name].push_back({{"time", vec_num_msg->time}, {"value", vec_num_msg->data.values}});
+        } else if (auto* bool_msg = dynamic_cast<const Message<BooleanData>*>(msg.get())) {
+          j[op_id][port_name].push_back({{"time", bool_msg->time}, {"value", bool_msg->data.value}});
+        } else if (auto* vec_bool_msg = dynamic_cast<const Message<VectorBooleanData>*>(msg.get())) {
+          j[op_id][port_name].push_back({{"time", vec_bool_msg->time}, {"value", vec_bool_msg->data.values}});
         }
-        // Add other message type conversions as needed
       }
     }
   }
@@ -53,7 +58,9 @@ std::string validate_program(const std::string& json_program) {
   }
 
   try {
-    validator.validate(json::parse(json_program));
+    auto parsed = json::parse(json_program);
+    PrototypeHandler::resolve_prototypes(parsed);
+    validator.validate(parsed);
   } catch (const std::exception& e) {
     return json({{"valid", false}, {"error", e.what()}}).dump();
   }
@@ -169,6 +176,22 @@ std::string add_to_message_buffer(const std::string& program_id, const std::stri
                                   double value) {
   return std::to_string(ProgramManager::instance().add_to_message_buffer(program_id, port_id,
                                                                          Message<NumberData>(time, NumberData{value})));
+}
+
+std::string begin_vector_message(const std::string& program_id, const std::string& port_id, uint64_t time) {
+  return std::to_string(ProgramManager::instance().begin_vector_message(program_id, port_id, time));
+}
+
+std::string push_vector_message_value(const std::string& program_id, const std::string& port_id, double value) {
+  return std::to_string(ProgramManager::instance().push_vector_message_value(program_id, port_id, value));
+}
+
+std::string end_vector_message(const std::string& program_id, const std::string& port_id) {
+  return std::to_string(ProgramManager::instance().end_vector_message(program_id, port_id));
+}
+
+std::string abort_vector_message(const std::string& program_id, const std::string& port_id) {
+  return std::to_string(ProgramManager::instance().abort_vector_message(program_id, port_id));
 }
 
 std::string process_message_buffer(const std::string& program_id) {
