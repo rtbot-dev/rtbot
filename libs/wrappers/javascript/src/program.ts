@@ -114,21 +114,25 @@ export class Program {
     const createProgramResponseStr = await RtBot.getInstance().createProgram(this.programId, programStr);
 
     if (createProgramResponseStr) {
-      const createProgramResponse = JSON.parse(createProgramResponseStr);
-      // if program fails validation, throw an error
-      if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+      try {
+        const createProgramResponse = JSON.parse(createProgramResponseStr);
+        // if program fails validation, throw an error
+        if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+      } catch {
+        throw new Error(createProgramResponseStr);
+      }
     }
     // set the default port
     this.defaultPort = JSON.parse(await RtBot.getInstance().getProgramEntryPorts(this.programId))[0];
   }
 
-  async processMessageDebug(time: number, value: number, port?: string) {
+  async processMessageDebug(time: number, value: number | number[], port?: string) {
     port = port ?? this.defaultPort;
     if (port) return await RtBot.getInstance().processDebug(this.programId, { [`${port}`]: [{ time, value }] });
     else throw new Error("Please specify an entry port to send the message");
   }
 
-  async processMessage(time: number, value: number, port?: string) {
+  async processMessage(time: number, value: number | number[], port?: string) {
     port = port ?? this.defaultPort;
     if (port) return await RtBot.getInstance().process(this.programId, { [`${port}`]: [{ time, value }] });
     else throw new Error("Please specify an entry port to send the message");
