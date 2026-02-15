@@ -1,50 +1,71 @@
-# --- general ---
-# Import Aspect bazelrc presets
-import %workspace%/.aspect/bazelrc/bazel6.bazelrc
-import %workspace%/.aspect/bazelrc/convenience.bazelrc
-import %workspace%/.aspect/bazelrc/correctness.bazelrc
-import %workspace%/.aspect/bazelrc/debug.bazelrc
-import %workspace%/.aspect/bazelrc/javascript.bazelrc
-import %workspace%/.aspect/bazelrc/performance.bazelrc
-
-test --test_output=all
-
+# Output to dist/ instead of bazel-bin/, bazel-out/, etc.
 build --symlink_prefix=dist/
-test --notest_verbose_timeout_warnings
-# in general we don't want to pass  -Wno-c++11-narrowing argument
-# but currently it's required in order to make the cpp 
-# jsonschema validation library to compile
-# the issue appears while including the formatter and specifically
-# for the stmp format validation, which we don't use
-build --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable -Wno-unused-command-line-argument"
-build --incompatible_enable_cc_toolchain_resolution
 
+# Workspace status: derive version metadata from git tags/commit
+build --workspace_status_command=./tools/workspace_status.sh
+
+# Enable host OS-specific configs (build:linux, build:macos, build:windows, ...)
 build --enable_platform_specific_config
-build:macos --apple_crosstool_top=@local_config_apple_cc//:toolchain
-build:macos --crosstool_top=@local_config_apple_cc//:toolchain
-build:macos --host_crosstool_top=@local_config_apple_cc//:toolchain
 
-# -- platform specific --
-# unix
-build --workspace_status_command=tools/bazel_workspace_status.sh
-build --action_env=BAZEL_CXXOPTS="-std=c++17"
-build --cxxopt=-std=c++17
-build --repo_env=CC=clang
+# Linux clang + C++17
+build:linux --repo_env=CC=clang
+build:linux --cxxopt=-std=c++17
+build:linux --host_cxxopt=-std=c++17
+build:linux --cxxopt=-Wno-c++11-narrowing
 
-# linux
-build:linux --cxxopt=-stdlib=libc++
-build:linux --linkopt=-stdlib=libc++
-# TODO: we need to comment this while building the documentation
-# we need a way to make it conditional
+# macOS clang + C++17
+build:macos --repo_env=CC=clang
+build:macos --cxxopt=-std=c++17
+build:macos --host_cxxopt=-std=c++17
+build:macos --cxxopt=-Wno-c++11-narrowing
+build:macos --cxxopt=-stdlib=libc++
+build:macos --host_cxxopt=-stdlib=libc++
+build:macos --linkopt=-stdlib=libc++
 
-# windows
-# MSVC
-build:windows --cxxopt='/std:c++17'
-# see https://bazel.build/configure/windows
-startup --windows_enable_symlinks
+# Windows (explicit config also used in CI)
+build:windows --workspace_status_command=tools/workspace_status.bat
+build:windows --cxxopt=/std:c++17
+build:windows --host_cxxopt=/std:c++17
+build:windows --enable_runfiles
+build:windows --shell_executable=C:/Progra~1/Git/bin/bash.exe
+build:windows --repo_env=BAZEL_SH=C:/Progra~1/Git/bin/bash.exe
+build:windows --repo_env=BAZEL_VS
+build:windows --repo_env=BAZEL_VC
+build:windows --repo_env=BAZEL_VC_FULL_VERSION
+build:windows --repo_env=BAZEL_WINSDK_FULL_VERSION
+test:windows --repo_env=BAZEL_SH=C:/Progra~1/Git/bin/bash.exe
+test:windows --enable_runfiles
 
-# allow to use network while building
-build --sandbox_default_allow_network
-
-# Custom flags
+# Telemetry disabled by default
 build --define enable_telemetry=false
+
+# Test output
+test --test_output=errors
+
+# Debug config: stream test output, no caching
+test:debug --test_output=streamed
+test:debug --nocache_test_results
+test:debug --test_strategy=exclusive
+
+# AddressSanitizer config
+build:asan --copt=-g
+build:asan --copt=-fsanitize=address
+build:asan --copt=-fno-omit-frame-pointer
+build:asan --linkopt=-fsanitize=address
+build:asan --strip=never
+build:asan --compilation_mode=dbg
+
+# Emscripten flags (non-Windows)
+build:linux --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"
+build:macos --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"
+
+# TypeScript
+build --@aspect_rules_ts//ts:skipLibCheck=always
+fetch --@aspect_rules_ts//ts:skipLibCheck=always
+query --@aspect_rules_ts//ts:skipLibCheck=always
+build --@aspect_rules_ts//ts:default_to_tsc_transpiler
+fetch --@aspect_rules_ts//ts:default_to_tsc_transpiler
+query --@aspect_rules_ts//ts:default_to_tsc_transpiler
+
+# Allow network (needed for npm resolution)
+build --sandbox_default_allow_network

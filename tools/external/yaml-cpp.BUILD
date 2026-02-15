@@ -1,6 +1,6 @@
 yaml_cpp_defines = select({
     # On Windows, ensure static linking is used.
-    "@platforms//os:windows": ["YAML_CPP_STATIC_DEFINE", "YAML_CPP_NO_CONTRIB"],
+    "@bazel_tools//src/conditions:windows": ["YAML_CPP_STATIC_DEFINE", "YAML_CPP_NO_CONTRIB"],
     "//conditions:default": [],
 })
 

@@ -11,7 +11,7 @@ cc_test(
     data = glob([
         "**/*.json",
         "**/*.csv",
-    ]) + [
+    ], allow_empty = True) + [
         "//examples/data:ppg.csv",
     ],
     #defines = ["CATCH_CONFIG_MAIN"],

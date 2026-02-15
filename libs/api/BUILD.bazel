@@ -23,7 +23,7 @@ cc_library(
         "include/**/*.h",
         "src/**/*.cpp",
         "src/**/*.hpp",
-    ]),
+    ], allow_empty = True),
     hdrs = glob(["include/**/*.h"]) + [":jsonschema_to_src"],
     copts = [
         "-O3",
@@ -36,7 +36,7 @@ cc_library(
     includes = ["include"],
     visibility = ["//visibility:public"],
     deps = [
-        "//libs/api/proto",
+        # "//libs/api/proto",
         "//libs/core:rtbot",
         "//libs/finance:rtbot-finance",
         "//libs/std:rtbot-std",
@@ -81,6 +81,10 @@ genrule(
     echo "  createProgram(programId: string, programStr: string): string;" >> $@
     echo "  deleteProgram(programId: string): string;" >> $@
     echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number): string;" >> $@
+    echo "  beginVectorMessage(programId: string, port:string, time: number): string;" >> $@
+    echo "  pushVectorMessageValue(programId: string, port:string, value: number): string;" >> $@
+    echo "  endVectorMessage(programId: string, port:string): string;" >> $@
+    echo "  abortVectorMessage(programId: string, port:string): string;" >> $@
     echo "  processMessageBuffer(programId: string): string;" >> $@
     echo "  processMessageBufferDebug(programId: string): string;" >> $@
     echo "  getProgramEntryOperatorId(programId: string): string;" >> $@

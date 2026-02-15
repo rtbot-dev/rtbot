@@ -1,0 +1,114 @@
+module(name = "rtbot", version = "0.0.0")
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "rules_cc", version = "0.2.13")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "apple_support", version = "2.1.0", repo_name = "build_bazel_apple_support")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+bazel_dep(name = "rules_python", version = "1.3.0")
+
+sh_configure = use_extension("@rules_shell//shell/private/extensions:sh_configure.bzl", "sh_configure")
+use_repo(sh_configure, "local_config_shell")
+register_toolchains("@local_config_shell//:all")
+register_toolchains(
+    "//:emscripten_linux_sh_toolchain",
+    "//:emscripten_osx_sh_toolchain",
+    "//:emscripten_windows_sh_toolchain",
+    "//:emscripten_freebsd_sh_toolchain",
+    "//:emscripten_openbsd_sh_toolchain",
+)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.11",
+)
+use_repo(python, "python_3_11", "python_3_11_host")
+
+py_pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+py_pip.parse(
+    hub_name = "py_deps",
+    python_version = "3.11",
+    requirements_lock = "//:requirements-lock.txt",
+)
+use_repo(py_pip, "py_deps")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "pybind11",
+    build_file = "//tools/external:pybind11.BUILD",
+    integrity = "sha256-sBGnMMiEW/wmXw+B7k5enh01TfOQg20qJYgOEj0CH4k=",
+    strip_prefix = "pybind11-2.11.1",
+    urls = ["https://github.com/pybind/pybind11/archive/v2.11.1.zip"],
+)
+
+# JS/TS toolchain
+bazel_dep(name = "aspect_rules_js", version = "2.1.0")
+bazel_dep(name = "aspect_rules_ts", version = "3.1.0")
+bazel_dep(name = "aspect_rules_jest", version = "0.22.0")
+bazel_dep(name = "aspect_rules_swc", version = "2.0.1")
+bazel_dep(name = "aspect_bazel_lib", version = "2.21.1")
+
+# Proto
+bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
+
+# Emscripten SDK
+emsdk_version = "4.0.15"
+
+bazel_dep(name = "emsdk", version = emsdk_version)
+git_override(
+    module_name = "emsdk",
+    remote = "https://github.com/emscripten-core/emsdk.git",
+    strip_prefix = "bazel",
+    tag = emsdk_version,
+)
+
+emscripten_deps = use_extension("@emsdk//:emscripten_deps.bzl", "emscripten_deps")
+use_repo(
+    emscripten_deps,
+    "emscripten_bin_linux",
+    "emscripten_bin_linux_arm64",
+    "emscripten_bin_mac",
+    "emscripten_bin_mac_arm64",
+    "emscripten_bin_win",
+)
+
+emscripten_cache = use_extension("@emsdk//:emscripten_cache.bzl", "emscripten_cache")
+use_repo(emscripten_cache, "emscripten_cache")
+
+register_toolchains(
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_linux",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_linux_arm64",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_mac",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_mac_arm64",
+    "@emsdk//emscripten_toolchain:cc-toolchain-wasm-emscripten_win",
+)
+
+# TypeScript extension
+rules_ts_ext = use_extension("@aspect_rules_ts//ts:extensions.bzl", "ext")
+rules_ts_ext.deps(ts_version_from = "//:package.json")
+use_repo(rules_ts_ext, "npm_typescript")
+
+# npm extension
+npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
+npm.npm_translate_lock(
+    name = "npm",
+    pnpm_lock = "//:pnpm-lock.yaml",
+    verify_node_modules_ignored = "//:.bazelignore",
+)
+use_repo(npm, "npm")
+
+# Non-BCR deps via module extension (C++ libs with custom BUILD files)
+non_bcr_deps = use_extension("//tools:non_bcr_deps.bzl", "non_bcr_deps")
+use_repo(
+    non_bcr_deps,
+    "catch2",
+    "json-cpp",
+    "yaml-cpp",
+    "json-schema-validator",
+    "fast_double_parser",
+    "quill",
+    "ftxui",
+    "cxxopts",
+    "linenoise",
+)

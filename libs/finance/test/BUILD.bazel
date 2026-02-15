@@ -5,11 +5,11 @@ cc_test(
     srcs = glob([
         "**/*.cpp",
         "**/*.h",
-    ]),
+    ], allow_empty = True),
     data = glob([
         "**/*.json",
         "**/*.csv",
-    ]) + [
+    ], allow_empty = True) + [
         "//examples/data:ppg.csv",
     ],
     #defines = ["CATCH_CONFIG_MAIN"],
