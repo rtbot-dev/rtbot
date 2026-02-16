@@ -181,7 +181,12 @@ class OperatorJson {
     } else if (type == "CountNumber") {
       return make_count_number(id);
     } else if (type == "Demultiplexer") {
-      return make_demultiplexer_number(id, parsed.value("numPorts", 1));
+      auto port_type = parsed.value("portType", "number");
+      auto num = parsed.value("numPorts", 1);
+      if (port_type == "vector_number") return make_demultiplexer_vector_number(id, num);
+      if (port_type == "boolean") return make_demultiplexer_boolean(id, num);
+      if (port_type == "vector_boolean") return make_demultiplexer_vector_boolean(id, num);
+      return make_demultiplexer_number(id, num);
     } else if (type == "Multiplexer") {
       return make_multiplexer_number(id, parsed.value("numPorts", 2));
     } else if (type == "ResamplerConstant") {
@@ -378,7 +383,18 @@ class OperatorJson {
     } else if (type == "TimeShift") {
       j["shift"] = std::dynamic_pointer_cast<TimeShift>(op)->get_shift();
     } else if (type == "Demultiplexer") {
-      j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
+      if (auto d = std::dynamic_pointer_cast<Demultiplexer<VectorNumberData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "vector_number";
+      } else if (auto d = std::dynamic_pointer_cast<Demultiplexer<BooleanData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "boolean";
+      } else if (auto d = std::dynamic_pointer_cast<Demultiplexer<VectorBooleanData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "vector_boolean";
+      } else {
+        j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
+      }
     } else if (type == "Multiplexer") {
       j["numPorts"] = std::dynamic_pointer_cast<Multiplexer<NumberData>>(op)->get_num_ports();
     } else if (type == "ResamplerConstant") {
