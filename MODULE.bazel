@@ -86,17 +86,20 @@ register_toolchains(
 
 # TypeScript extension
 rules_ts_ext = use_extension("@aspect_rules_ts//ts:extensions.bzl", "ext")
-rules_ts_ext.deps(ts_version_from = "//:package.json")
-use_repo(rules_ts_ext, "npm_typescript")
+rules_ts_ext.deps(
+    name = "rtbot_npm_typescript",
+    ts_version_from = "//:package.json",
+)
+use_repo(rules_ts_ext, npm_typescript = "rtbot_npm_typescript")
 
 # npm extension
 npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
 npm.npm_translate_lock(
-    name = "npm",
+    name = "rtbot_npm",
     pnpm_lock = "//:pnpm-lock.yaml",
     verify_node_modules_ignored = "//:.bazelignore",
 )
-use_repo(npm, "npm")
+use_repo(npm, npm = "rtbot_npm")
 
 # Non-BCR deps via module extension (C++ libs with custom BUILD files)
 non_bcr_deps = use_extension("//tools:non_bcr_deps.bzl", "non_bcr_deps")
