@@ -77,8 +77,11 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
 }
 
 SCENARIO("VectorCompose validation", "[vector_compose]") {
-  SECTION("Less than 2 ports throws") {
-    REQUIRE_THROWS_AS(make_vector_compose("comp1", 1), std::runtime_error);
+  SECTION("Zero ports throws") {
+    REQUIRE_THROWS_AS(make_vector_compose("comp1", 0), std::runtime_error);
+  }
+  SECTION("One port is valid (single-element vector)") {
+    REQUIRE_NOTHROW(make_vector_compose("comp1", 1));
   }
 }
 
