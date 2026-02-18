@@ -44,6 +44,9 @@
 #include "rtbot/std/VectorCompose.h"
 #include "rtbot/std/VectorExtract.h"
 #include "rtbot/std/VectorProject.h"
+#include "rtbot/std/CompareSync.h"
+#include "rtbot/std/MovingKeyCount.h"
+#include "rtbot/std/MinMaxTracker.h"
 
 using json = nlohmann::json;
 
@@ -214,6 +217,24 @@ class OperatorJson {
       return make_compare_eq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
     } else if (type == "CompareNEQ") {
       return make_compare_neq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
+    } else if (type == "CompareSyncGT") {
+      return make_compare_sync_gt(id);
+    } else if (type == "CompareSyncLT") {
+      return make_compare_sync_lt(id);
+    } else if (type == "CompareSyncGTE") {
+      return make_compare_sync_gte(id);
+    } else if (type == "CompareSyncLTE") {
+      return make_compare_sync_lte(id);
+    } else if (type == "CompareSyncEQ") {
+      return make_compare_sync_eq(id, parsed.value("tolerance", 0.0));
+    } else if (type == "CompareSyncNEQ") {
+      return make_compare_sync_neq(id, parsed.value("tolerance", 0.0));
+    } else if (type == "MovingKeyCount") {
+      return make_moving_key_count(id, parsed["window_size"].get<size_t>());
+    } else if (type == "MinTracker") {
+      return make_min_tracker(id);
+    } else if (type == "MaxTracker") {
+      return make_max_tracker(id);
     } else if (type == "KeyedPipeline") {
       auto key_index = parsed["key_index"].get<int>();
 
@@ -425,6 +446,17 @@ class OperatorJson {
     } else if (type == "CompareNEQ") {
       j["value"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_value();
       j["tolerance"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_tolerance();
+    } else if (type == "CompareSyncGT" || type == "CompareSyncLT" ||
+               type == "CompareSyncGTE" || type == "CompareSyncLTE") {
+      // No parameters — type + id are sufficient
+    } else if (type == "CompareSyncEQ") {
+      j["tolerance"] = std::dynamic_pointer_cast<CompareSyncEQ>(op)->get_tolerance();
+    } else if (type == "CompareSyncNEQ") {
+      j["tolerance"] = std::dynamic_pointer_cast<CompareSyncNEQ>(op)->get_tolerance();
+    } else if (type == "MovingKeyCount") {
+      j["window_size"] = std::dynamic_pointer_cast<MovingKeyCount>(op)->get_window_size();
+    } else if (type == "MinTracker" || type == "MaxTracker") {
+      // No parameters — stateful but no configuration
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
       j["key_index"] = kp->get_key_index();
