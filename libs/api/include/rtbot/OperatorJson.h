@@ -41,6 +41,7 @@
 #include "rtbot/std/CompareScalar.h"
 #include "rtbot/std/Variable.h"
 #include "rtbot/std/KeyedPipeline.h"
+#include "rtbot/std/KeyedVariable.h"
 #include "rtbot/std/VectorCompose.h"
 #include "rtbot/std/VectorExtract.h"
 #include "rtbot/std/VectorProject.h"
@@ -177,6 +178,8 @@ class OperatorJson {
       return make_round(id);
     } else if (type == "Variable") {
       return make_variable(id, parsed.value("default_value", 0.0));
+    } else if (type == "KeyedVariable") {
+      return make_keyed_variable(id, parsed.value("mode", "exists"), parsed.value("default_value", 0.0));
     } else if (type == "TimeShift") {
       return make_time_shift(id, parsed["shift"].get<int>());
     } else if (type == "CumulativeSum") {
@@ -401,6 +404,10 @@ class OperatorJson {
                type == "Abs" || type == "Sign" || type == "Floor" || type == "Ceil" || type == "Round") {
     } else if (type == "Variable") {
       j["default_value"] = std::dynamic_pointer_cast<Variable>(op)->get_default_value();
+    } else if (type == "KeyedVariable") {
+      auto kv = std::dynamic_pointer_cast<KeyedVariable>(op);
+      j["mode"] = kv->get_mode();
+      j["default_value"] = kv->get_default_value();
     } else if (type == "TimeShift") {
       j["shift"] = std::dynamic_pointer_cast<TimeShift>(op)->get_shift();
     } else if (type == "Demultiplexer") {
