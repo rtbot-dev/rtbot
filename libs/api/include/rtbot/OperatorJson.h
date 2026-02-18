@@ -48,6 +48,8 @@
 #include "rtbot/std/CompareSync.h"
 #include "rtbot/std/MovingKeyCount.h"
 #include "rtbot/std/MinMaxTracker.h"
+#include "rtbot/std/TopK.h"
+#include "rtbot/std/WindowMinMax.h"
 
 using json = nlohmann::json;
 
@@ -238,6 +240,13 @@ class OperatorJson {
       return make_min_tracker(id);
     } else if (type == "MaxTracker") {
       return make_max_tracker(id);
+    } else if (type == "TopK") {
+      return make_topk(id, parsed["k"].get<int>(),
+                       parsed["score_index"].get<int>(),
+                       parsed.value("descending", "true") == "true");
+    } else if (type == "WindowMinMax") {
+      return make_window_min_max(id, parsed["window_size"].get<size_t>(),
+                                 parsed.value("mode", "min"));
     } else if (type == "KeyedPipeline") {
       auto key_index = parsed["key_index"].get<int>();
 
@@ -464,6 +473,15 @@ class OperatorJson {
       j["window_size"] = std::dynamic_pointer_cast<MovingKeyCount>(op)->get_window_size();
     } else if (type == "MinTracker" || type == "MaxTracker") {
       // No parameters — stateful but no configuration
+    } else if (type == "TopK") {
+      auto tk = std::dynamic_pointer_cast<TopK>(op);
+      j["k"] = tk->k();
+      j["score_index"] = tk->score_index();
+      j["descending"] = tk->descending() ? "true" : "false";
+    } else if (type == "WindowMinMax") {
+      auto wmm = std::dynamic_pointer_cast<WindowMinMax>(op);
+      j["window_size"] = wmm->window_size();
+      j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
       j["key_index"] = kp->get_key_index();
