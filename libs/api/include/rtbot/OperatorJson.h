@@ -266,9 +266,9 @@ class OperatorJson {
         for (const auto& conn : proto_connections) {
           std::string from = conn["from"].get<std::string>();
           std::string to = conn["to"].get<std::string>();
-          size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
-          size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
-          sg.operators[from]->connect(sg.operators[to], from_port, to_port);
+          auto from_parsed = conn.contains("fromPort") ? parse_port_name(conn["fromPort"].get<std::string>()) : ParsedPort{0, PortKind::DATA};
+          auto to_parsed = conn.contains("toPort") ? parse_port_name(conn["toPort"].get<std::string>()) : ParsedPort{0, PortKind::DATA};
+          sg.operators[from]->connect(sg.operators[to], from_parsed.index, to_parsed.index, to_parsed.kind);
         }
         sg.entry = sg.operators[proto_entry];
         sg.output = sg.operators[proto_output];
