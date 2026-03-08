@@ -165,7 +165,7 @@ program
             });
 
             // Write the file with the same name as the original
-            const outputFileName = `${output}/${path.basename(f)}x`;
+            const outputFileName = `${output}/${path.basename(f)}`;
             fs.writeFileSync(outputFileName, newFileContent);
           }
         } catch (e) {

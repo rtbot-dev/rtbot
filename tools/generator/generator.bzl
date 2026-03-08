@@ -23,7 +23,7 @@ def _rtbot_jsonschema_impl(ctx):
     if target == "markdown":
         genfiles = []
         for f in ctx.files.srcs:
-            genfiles.append(ctx.actions.declare_file("%s/%sx" % (ctx.label.name, f.basename)))
+            genfiles.append(ctx.actions.declare_file("%s/%s" % (ctx.label.name, f.basename)))
 
     args = ctx.actions.args()
     args.add("--output", genfiles[0].dirname)
