@@ -1,4 +1,5 @@
 ---
+title: Connection Types
 sidebar_position: 4
 ---
 

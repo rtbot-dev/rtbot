@@ -1,4 +1,5 @@
 ---
+title: Join Operators
 sidebar_position: 6
 ---
 
