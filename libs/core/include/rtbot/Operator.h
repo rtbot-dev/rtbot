@@ -513,7 +513,7 @@ class Operator {
       if (debug_output_queues_.size() != num_output_ports()) {
         debug_output_queues_.clear();
         for (int i = 0; i < num_output_ports(); i++) {
-          debug_output_queues_.push_back(MessageQueue());
+          debug_output_queues_.emplace_back();
         }
       }
       
@@ -586,7 +586,7 @@ class Operator {
   std::vector<PortInfo> data_ports_;
   std::vector<PortInfo> control_ports_;
   std::vector<PortInfo> output_ports_;
-  std::vector<MessageQueue> debug_output_queues_;
+  std::deque<MessageQueue> debug_output_queues_;
   std::vector<Connection> connections_;  
   std::size_t max_size_per_port_;
 };
