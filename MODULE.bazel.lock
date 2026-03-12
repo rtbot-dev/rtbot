@@ -467,12 +467,12 @@
     "@@aspect_rules_ts+//ts:extensions.bzl%ext": {
       "general": {
         "bzlTransitiveDigest": "Y0HUjEQOTxjqBrg66crb3jEWnlW45bU9kyY8/DqyR3g=",
-        "usagesDigest": "bN/hphk0qeAluzGwtFYAfhuPrUPg346VcUcLi/hzu+Y=",
+        "usagesDigest": "K9RIXFDx3ZnLFtIxz5W++pRxgysuxE6cbGcRspjxZcs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
         "generatedRepoSpecs": {
-          "npm_typescript": {
+          "rtbot_npm_typescript": {
             "repoRuleId": "@@aspect_rules_ts+//ts/private:npm_repositories.bzl%http_archive_version",
             "attributes": {
               "bzlmod": true,
