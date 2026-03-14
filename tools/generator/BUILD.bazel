@@ -55,9 +55,8 @@ copy_to_directory(
 
 js_binary(
     name = "generate",
-    copy_data_to_bin = True,
     data = [
-        ":hbs",
+        ":templates",
         ":ts",
     ],
     entry_point = "dist/index.js",

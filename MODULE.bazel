@@ -114,4 +114,6 @@ use_repo(
     "ftxui",
     "cxxopts",
     "linenoise",
+    "lua",
+    "sol2",
 )

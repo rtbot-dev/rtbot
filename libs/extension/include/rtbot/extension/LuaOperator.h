@@ -47,7 +47,7 @@ class LuaOperator : public Operator {
   std::string type_name() const override { return "LuaOperator"; }
 
  protected:
-  void process_data() override {
+  void process_data(bool debug) override {
     // Get input queues
     std::vector<std::vector<double>> input_values;
     std::vector<std::vector<timestamp_t>> input_times;

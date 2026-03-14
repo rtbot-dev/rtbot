@@ -4,10 +4,13 @@ package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "srcs",
-    srcs = glob([
-        "include/**/*.h",
-        "src/**/*.cpp",
-    ]),
+    srcs = glob(
+        [
+            "include/**/*.h",
+            "src/**/*.cpp",
+        ],
+        allow_empty = True,
+    ),
 )
 
 cc_library(

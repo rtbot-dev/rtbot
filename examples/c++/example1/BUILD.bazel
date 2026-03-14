@@ -2,10 +2,13 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 cc_binary(
     name = "run",
-    srcs = glob([
-        "**/*.cpp",
-        "**/*.h",
-    ]),
+    srcs = glob(
+        [
+            "**/*.cpp",
+            "**/*.h",
+        ],
+        allow_empty = True,
+    ),
     visibility = ["//visibility:public"],
     deps = [
         "//libs/api:rtbot-api",

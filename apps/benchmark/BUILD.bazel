@@ -2,6 +2,7 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 
 cc_test(
     name = "benchmark",
+    tags = ["manual"],
     srcs = glob(["src/**/*.cpp"]) + ["//libs/std/test:tools.h"],
     copts = [
         "-O3",

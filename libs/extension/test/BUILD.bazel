@@ -8,6 +8,7 @@ cc_test(
             "**/*.h",
         ],
         exclude = ["benchmark*"],
+        allow_empty = True,
     ),
     copts = [
         "-Iexternal/lua",
@@ -27,6 +28,7 @@ cc_test(
 
 cc_binary(
     name = "benchmark",
+    tags = ["manual"],
     srcs = glob(["benchmark_*.cpp"]),
     copts = [
         "-Iexternal/lua",

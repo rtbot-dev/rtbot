@@ -64,6 +64,22 @@ def _non_bcr_deps_impl(module_ctx):
     )
 
     http_archive(
+        name = "lua",
+        build_file = "//tools/external:lua.BUILD",
+        sha256 = "5c39111b3fc4c1c9e56671008955a1730f54a15b95e1f1bd0752b868b929d8e3",
+        strip_prefix = "lua-5.4.7",
+        urls = ["https://github.com/lua/lua/archive/refs/tags/v5.4.7.tar.gz"],
+    )
+
+    http_archive(
+        name = "sol2",
+        build_file = "//tools/external:sol2.BUILD",
+        sha256 = "f3b7bff03c260c74c74bd55f812f7e174d5c357f576430ffaf12a206462d6356",
+        strip_prefix = "sol2-c1f95a773c6f8f4fde8ca3efe872e7286afe4444",
+        urls = ["https://github.com/ThePhD/sol2/archive/c1f95a773c6f8f4fde8ca3efe872e7286afe4444.tar.gz"],
+    )
+
+    http_archive(
         name = "linenoise",
         build_file = "//tools/external:linenoise.BUILD",
         strip_prefix = "cpp-linenoise-master",

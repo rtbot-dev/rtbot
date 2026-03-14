@@ -63,6 +63,7 @@ cc_binary(
     name = "bindings-cpp-wasm",
     srcs = ["wasm/emscripten-bindings.cpp"],
     linkopts = BASE_LINKOPTS,
+    target_compatible_with = ["@platforms//os:emscripten"],
     deps = [":rtbot-api"],
 )
 
