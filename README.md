@@ -1,101 +1,90 @@
 # RtBot
 
-A low latency, high efficiency, incremental analytical engine.
-
-[![GitHub License](https://img.shields.io/github/license/rtbot-dev/rtbot)]((./LICENSE))
+[![License](https://img.shields.io/badge/license-BUSL--1.1-blue)](LICENSE)
+[![GitHub release](https://img.shields.io/github/v/release/rtbot-dev/rtbot)](https://github.com/rtbot-dev/rtbot/releases)
+[![npm](https://img.shields.io/npm/v/%40rtbot-dev/rtbot)](https://www.npmjs.com/package/@rtbot-dev/rtbot)
+[![CI](https://img.shields.io/github/actions/workflow/status/rtbot-dev/rtbot/release.yaml)](https://github.com/rtbot-dev/rtbot/actions/workflows/release.yaml)
 [![Discord](https://img.shields.io/discord/1097198588490162246)](https://discord.gg/XSv6mZq7YQ)
-[![GitHub release (with filter)](https://img.shields.io/github/v/release/rtbot-dev/rtbot)](https://github.com/rtbot-dev/rtbot/releases)
-[![npm (scoped)](https://img.shields.io/npm/v/%40rtbot-dev/rtbot)](https://www.npmjs.com/package/@rtbot-dev/rtbot)
-[![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/rtbot-dev/rtbot/release.yaml)](https://github.com/rtbot-dev/rtbot/actions/workflows/release.yaml)
 
-- site: [https://rtbot.dev](https://rtbot.dev)
-- repo: [https://github.com/rtbot-dev/rtbot](https://github.com/rtbot-dev/rtbot)
+The real-time computation engine behind [RtBot SQL](https://github.com/rtbot-dev/rtbot-sql). A C++ framework that processes streams of numerical data one message at a time using directed graphs of operators — with constant-time updates, deterministic output, and zero infrastructure dependencies.
 
-## What is?
+- Site: [www.rtbot.dev](https://www.rtbot.dev)
+- Repo: [github.com/rtbot-dev/rtbot](https://github.com/rtbot-dev/rtbot)
 
-`RtBot` is a framework, written in c++, to process streams of numerical data
-in real time and to derive analytics from it with the lowest latency possible.
-You can use it to detect anomalies, local peaks or to simply continuously transform
-your data in real time, efficiently.
+## Why RtBot
 
-`RtBot` have been designed as an extensible dsp framework, where the building blocks
-are called _operators_ and data flows through them according to the defined _connections_.
-Programs are written declaratively in plain `json` (or `yaml`), which are essentially
-definitions of a graph of operators with special input and output nodes.
+RtBot is the engine that powers [RtBot SQL](https://github.com/rtbot-dev/rtbot-sql). While most users should start with the SQL interface, the core engine is the right choice when you need:
 
-# Use cases
+- **Fine-grained operator control** — build custom signal processing chains that go beyond what SQL can express
+- **Custom operators** — extend the engine with Lua scripting or C++
+- **Embedded deployment** — run on microcontrollers (ARM, Raspberry Pi Pico) or directly in C++ applications
+- **Program prototypes** — define reusable parameterized subgraphs for complex, repeated patterns
 
-If you need a digital signal processing (dsp) multiplatform framework which can trigger signals on
-certain events happening on the input numerical stream then `RtBot` is for you.
+### Design principles
 
-Some use cases would be:
+**Causal.** Only the past determines the future. Operators receive messages ordered in time and can only look backward — no future data, no lookahead.
 
-- Digital signal processing
-- Low latency event detection
-- Algorithmic trading
+**Deterministic.** Same input always produces the same output. The system uses event time exclusively — no wall clocks, no watermarks, no timing-dependent behavior. Replay yesterday's data and get identical results.
 
-## How to effectively use it
+**Declarative.** Program behavior is determined by the topology of the operator graph, not by the order operators were created or connected. Programs are plain JSON.
 
-`RtBot` has been designed to work effectively accross different phases of software
-development, from the exploration over historical data to the production deployment
-on a web app or into a micro-controller. As such, it can drastically reduce the cost
-of producing software essentially due to the lack of translation phase.
-This is perhaps one of the main reasons to adopt it.
+**Incremental.** Every operator maintains internal state and updates it in constant time per message. A `MovingAverage` with window 10,000 is just as fast per message as one with window 10.
 
-Develop an `RtBot` program means finding the right operators, their configuration and how they
-are connected, such that they produce the result you want as the data comes in. A common
-workflow would be to use the `python` library to develop an `RtBot` program using historical
-data, and then, once the program is ready, use the `JavaScript` version to deploy it into a web
-app or the `c++` code directly to deploy it into any platform, depending on the needs.
+## How it works
 
-# Wrappers
+An RtBot program is a directed graph of operators. Data enters through `Input`, flows through operators that transform it, and exits through `Output`. Each operator receives a timestamped message, updates its internal state in constant time, and emits zero or more messages downstream. No batching, no micro-batching, no scheduling — pure incremental processing.
 
-## JavaScript
+The operator graph is a JSON structure that runs identically in every environment:
 
-`RtBot` code have been compiled into wasm and can be run both in node and the browser.
-The published `npm` package has `TypeScript` support.
-
-To install:
-
-```shell
-# npm
-npm install --save-dev @rtbot-dev/rtbot
-# yarn
-yarn add @rtbot-dev/rtbot
-# pnpm
-pnpm add @rtbot-dev/rtbot
+```
+┌────────────────────────┐
+│  Operator Graph (JSON) │
+└───────────┬────────────┘
+            │
+    ┌───────┼───────────────┬──────────────────┐
+    ▼       ▼               ▼                  ▼
+┌────────┐ ┌────────────┐ ┌────────────┐ ┌──────────┐
+│Browser │ │   Python   │ │   Redis    │ │   C++    │
+│ (WASM) │ │  (Native)  │ │  (Module)  │ │ (Native) │
+└────────┘ └────────────┘ └────────────┘ └──────────┘
+ Demos      Notebooks      Production     Embedded
 ```
 
-A simple example about how to use it in a node program can be found at [rtbot-dev/rtbot-example-ts](https://github.com/rtbot-dev/rtbot-example-ts).
+Prototype in a notebook, validate against historical data, deploy to Redis — no code rewrite, no behavioral differences.
 
-A more interesting example can be found at [rtbot-dev/rtbot-example-websocket-ts](https://github.com/rtbot-dev/rtbot-example-websocket-ts).
+## RtBot SQL
 
-## Python
+For most use cases, [RtBot SQL](https://github.com/rtbot-dev/rtbot-sql) provides a higher-level interface. Write SQL instead of JSON operator graphs:
 
-The `python` wrapper have been designed with a data science public in mind.
-
-### Install
-
-The best way to install the python library is to clone the [repo](https://github.com/rtbot-dev/rtbot) and
-build the wheel. You will need [bazel](https://bazel.build/) installed first, please follow
-the instructions for your os in the bazel page.
-
-After cloning the repository build the wheel with:
-
-```shell
-bazel build //libs/wrappers/python:rtbot_wheel
+```sql
+CREATE MATERIALIZED VIEW stats AS
+  SELECT temperature,
+         MOVING_AVERAGE(temperature, 50) AS avg_temp,
+         MOVING_STD(temperature, 50)     AS std_temp
+  FROM sensors
 ```
 
-Once the build finishes, you can install the produced wheel as usual:
+RtBot SQL compiles queries into operator graphs that execute on this engine. Same performance, same determinism, less boilerplate.
 
-```shell
-# the wheel name will vary according to your os
-pip install dist/bin/libs/wrappers/python/rtbot-_VERSION_-py3-none-manylinux2014_x86_64.whl
+## Development
+
+```bash
+bazel build //...
+bazel test //...
 ```
 
-Another option is to download a pre-compiled version of the wheel from our GitHub [releases](https://github.com/rtbot-dev/rtbot/releases) page.
-Notice though that we currently support a limited set of os and python version combinations.
+Build artifacts go to `dist/` (configured in `.bazelrc`).
 
-### Example notebooks
+## Documentation
 
-Some example notebooks can be found at the [examples/notebook](https://github.com/rtbot-dev/rtbot/tree/master/examples/notebook) directory.
+Full documentation, guides, and API reference at [www.rtbot.dev](https://www.rtbot.dev).
+
+## License
+
+This project is licensed under the Business Source License 1.1 (`BUSL-1.1`).
+
+- Licensor: `rtbot-dev`
+- Change Date: `2029-03-10`
+- Change License: `Apache-2.0`
+
+See `LICENSE` for full terms.
