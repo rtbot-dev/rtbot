@@ -1,6 +1,7 @@
 #ifndef TIMESTAMP_TRACKER_H
 #define TIMESTAMP_TRACKER_H
 
+#include <algorithm>
 #include <limits>
 #include <map>
 #include <optional>
