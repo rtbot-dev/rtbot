@@ -1,10 +1,10 @@
 cc_library(
     name = "lib",
     srcs = glob(
-        ["**/*.c"],
-        exclude = ["lua.c", "luac.c", "onelua.c"],
+        ["*.c"],
+        exclude = ["lua.c", "luac.c", "onelua.c", "ltests.c"],
     ),
-    hdrs = glob(["**/*.h"]),
+    hdrs = glob(["*.h"]),
     includes = ["."],
     visibility = ["//visibility:public"],
 )
