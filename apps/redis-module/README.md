@@ -1,5 +1,0 @@
-## Compiling
-
-```bash
-cargo build 
-```
