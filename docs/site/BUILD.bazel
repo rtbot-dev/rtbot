@@ -3,6 +3,19 @@ load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
 load("@aspect_bazel_lib//lib:copy_file.bzl", "copy_file")
 load("//tools/generator:generator.bzl", "rtbot_generate")
 
+# Expose docs files for platform to consume
+filegroup(
+    name = "user-guide",
+    srcs = glob(["docs/user-guide/*.md"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "intro",
+    srcs = ["docs/intro.md"],
+    visibility = ["//visibility:public"],
+)
+
 rtbot_generate(
     name = "mdx-core",
     target = "markdown",

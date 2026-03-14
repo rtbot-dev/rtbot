@@ -1,53 +1,97 @@
 #include "data_loader.h"
 
 #include <cmath>
+#include <dirent.h>
 #include <fstream>
 #include <sstream>
+#include <sys/stat.h>
 
 #include "rtbot/bindings.h"
 
 namespace rtbot_cli {
 
+namespace {
+
+bool has_extension(const std::string& filename, const std::string& extension) {
+  if (filename.size() <= extension.size()) {
+    return false;
+  }
+  return filename.compare(filename.size() - extension.size(), extension.size(), extension) == 0;
+}
+
+std::string file_stem(const std::string& filename) {
+  const size_t dot_pos = filename.find_last_of('.');
+  if (dot_pos == std::string::npos || dot_pos == 0) {
+    return filename;
+  }
+  return filename.substr(0, dot_pos);
+}
+
+std::string join_path(const std::string& dir_path, const std::string& filename) {
+  if (dir_path.empty() || dir_path.back() == '/') {
+    return dir_path + filename;
+  }
+  return dir_path + "/" + filename;
+}
+
+std::vector<std::string> list_files_with_extension(const std::string& dir_path, const std::string& extension) {
+  std::vector<std::string> files;
+
+  DIR* dir = opendir(dir_path.c_str());
+  if (dir == nullptr) {
+    return files;
+  }
+
+  while (const dirent* entry = readdir(dir)) {
+    const std::string filename = entry->d_name;
+    if (filename == "." || filename == ".." || !has_extension(filename, extension)) {
+      continue;
+    }
+
+    const std::string path = join_path(dir_path, filename);
+    struct stat info;
+    if (stat(path.c_str(), &info) == 0 && S_ISREG(info.st_mode)) {
+      files.push_back(path);
+    }
+  }
+
+  closedir(dir);
+  return files;
+}
+
+}  // namespace
+
 std::vector<ProgramInfo> DataLoader::load_programs(const std::string& dir_path) {
-  // Existing implementation remains the same
   std::vector<ProgramInfo> programs;
-  namespace fs = std::filesystem;
 
-  for (const auto& entry : fs::directory_iterator(dir_path)) {
-    if (entry.path().extension() == ".json") {
-      ProgramInfo info;
-      info.name = entry.path().stem().string();
-      info.path = entry.path().string();
+  for (const std::string& path : list_files_with_extension(dir_path, ".json")) {
+    const size_t slash_pos = path.find_last_of('/');
+    const std::string filename = slash_pos == std::string::npos ? path : path.substr(slash_pos + 1);
 
-      std::ifstream file(info.path);
-      if (file.is_open()) {
-        std::stringstream buffer;
-        buffer << file.rdbuf();
-        info.content = buffer.str();
+    ProgramInfo info;
+    info.name = file_stem(filename);
+    info.path = path;
 
-        auto validation_result = nlohmann::json::parse(rtbot::validate_program(info.content));
-        info.is_valid = validation_result["valid"].get<bool>();
+    std::ifstream file(info.path);
+    if (file.is_open()) {
+      std::stringstream buffer;
+      buffer << file.rdbuf();
+      info.content = buffer.str();
 
-        if (info.is_valid) {
-          programs.push_back(info);
-        }
+      auto validation_result = nlohmann::json::parse(rtbot::validate_program(info.content));
+      info.is_valid = validation_result["valid"].get<bool>();
+
+      if (info.is_valid) {
+        programs.push_back(info);
       }
     }
   }
+
   return programs;
 }
 
 std::vector<std::string> DataLoader::load_csv_files(const std::string& dir_path) {
-  // Existing implementation remains the same
-  std::vector<std::string> files;
-  namespace fs = std::filesystem;
-
-  for (const auto& entry : fs::directory_iterator(dir_path)) {
-    if (entry.path().extension() == ".csv") {
-      files.push_back(entry.path().string());
-    }
-  }
-  return files;
+  return list_files_with_extension(dir_path, ".csv");
 }
 
 CSVData DataLoader::load_csv(const std::string& path, const CLIArguments& args) {

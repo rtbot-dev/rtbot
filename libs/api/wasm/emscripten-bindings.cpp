@@ -25,15 +25,6 @@ struct BindingType<std::vector<T, Allocator>> {
   }
 };
 
-// TypeID specialization for vectors to ensure proper type handling
-template <typename T>
-struct TypeID<
-    T, typename std::enable_if_t<std::is_same<typename Canonicalized<T>::type,
-                                              std::vector<typename Canonicalized<T>::type::value_type,
-                                                          typename Canonicalized<T>::type::allocator_type>>::value>> {
-  static constexpr TYPEID get() { return TypeID<val>::get(); }
-};
-
 }  // namespace internal
 }  // namespace emscripten
 
@@ -55,6 +46,10 @@ std::string processBatch32Debug(const std::string& programId, const std::vector<
 // Helper to add a single message to the buffer
 std::string addMessage(const std::string& programId, const std::string& portId, uint32_t time, double value) {
   return rtbot::add_to_message_buffer(programId, portId, static_cast<uint64_t>(time), value);
+}
+
+std::string beginVectorMessage(const std::string& programId, const std::string& portId, uint32_t time) {
+  return rtbot::begin_vector_message(programId, portId, static_cast<uint64_t>(time));
 }
 
 namespace {
@@ -87,6 +82,10 @@ EMSCRIPTEN_BINDINGS(RtBot) {
 
   // Message handling
   function("addToMessageBuffer", &addMessage);
+  function("beginVectorMessage", &beginVectorMessage);
+  function("pushVectorMessageValue", &rtbot::push_vector_message_value);
+  function("endVectorMessage", &rtbot::end_vector_message);
+  function("abortVectorMessage", &rtbot::abort_vector_message);
   function("processMessageBuffer", &rtbot::process_message_buffer);
   function("processMessageBufferDebug", &rtbot::process_message_buffer_debug);
 

@@ -1,4 +1,4 @@
-load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_python//python:packaging.bzl", "py_package", "py_wheel")
 load("//tools/generator:generator.bzl", "rtbot_generate")
 load("@aspect_bazel_lib//lib:copy_to_directory.bzl", "copy_to_directory")
@@ -13,11 +13,29 @@ rtbot_generate(
     target = "python",
 )
 
-pybind_extension(
-    name = "rtbotapi",
+cc_binary(
+    name = "rtbotapi.so",
     srcs = ["rtbot.cpp"],
+    copts = select({
+        "@pybind11//:msvc_compiler": [],
+        "//conditions:default": [
+            "-fexceptions",
+            "-fvisibility=hidden",
+        ],
+    }),
+    linkopts = select({
+        "@pybind11//:msvc_compiler": [],
+        "@pybind11//:osx": [],
+        "//conditions:default": ["-Wl,-Bsymbolic"],
+    }),
+    linkshared = 1,
     visibility = ["//visibility:public"],
-    deps = ["//libs/api:rtbot-api"],
+    deps = [
+        "//libs/api:rtbot-api",
+        "@pybind11",
+        "@python_3_11//:python_headers",
+        "@python_3_11//:libpython",
+    ],
 )
 
 py_library(

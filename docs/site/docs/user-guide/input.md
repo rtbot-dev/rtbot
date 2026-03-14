@@ -1,4 +1,5 @@
 ---
+title: Input and Resampling
 sidebar_position: 5
 ---
 

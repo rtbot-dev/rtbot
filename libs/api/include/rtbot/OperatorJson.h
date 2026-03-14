@@ -38,7 +38,18 @@
 #include "rtbot/std/ResamplerHermite.h"
 #include "rtbot/std/StandardDeviation.h"
 #include "rtbot/std/TimeShift.h"
+#include "rtbot/std/CompareScalar.h"
 #include "rtbot/std/Variable.h"
+#include "rtbot/std/KeyedPipeline.h"
+#include "rtbot/std/KeyedVariable.h"
+#include "rtbot/std/VectorCompose.h"
+#include "rtbot/std/VectorExtract.h"
+#include "rtbot/std/VectorProject.h"
+#include "rtbot/std/CompareSync.h"
+#include "rtbot/std/MovingKeyCount.h"
+#include "rtbot/std/MinMaxTracker.h"
+#include "rtbot/std/TopK.h"
+#include "rtbot/std/WindowMinMax.h"
 
 using json = nlohmann::json;
 
@@ -169,6 +180,8 @@ class OperatorJson {
       return make_round(id);
     } else if (type == "Variable") {
       return make_variable(id, parsed.value("default_value", 0.0));
+    } else if (type == "KeyedVariable") {
+      return make_keyed_variable(id, parsed.value("mode", "exists"), parsed.value("default_value", 0.0));
     } else if (type == "TimeShift") {
       return make_time_shift(id, parsed["shift"].get<int>());
     } else if (type == "CumulativeSum") {
@@ -176,7 +189,12 @@ class OperatorJson {
     } else if (type == "CountNumber") {
       return make_count_number(id);
     } else if (type == "Demultiplexer") {
-      return make_demultiplexer_number(id, parsed.value("numPorts", 1));
+      auto port_type = parsed.value("portType", "number");
+      auto num = parsed.value("numPorts", 1);
+      if (port_type == "vector_number") return make_demultiplexer_vector_number(id, num);
+      if (port_type == "boolean") return make_demultiplexer_boolean(id, num);
+      if (port_type == "vector_boolean") return make_demultiplexer_vector_boolean(id, num);
+      return make_demultiplexer_number(id, num);
     } else if (type == "Multiplexer") {
       return make_multiplexer_number(id, parsed.value("numPorts", 2));
     } else if (type == "ResamplerConstant") {
@@ -186,6 +204,78 @@ class OperatorJson {
       return make_resampler_constant(id, parsed["interval"].get<int>());
     } else if (type == "ResamplerHermite") {
       return make_resampler_hermite(id, parsed["interval"].get<int>());
+    } else if (type == "VectorExtract") {
+      return make_vector_extract(id, parsed["index"].get<int>());
+    } else if (type == "VectorProject") {
+      return make_vector_project(id, parsed["indices"].get<std::vector<int>>());
+    } else if (type == "VectorCompose") {
+      return make_vector_compose(id, parsed["numPorts"].get<size_t>());
+    } else if (type == "CompareGT") {
+      return make_compare_gt(id, parsed["value"].get<double>());
+    } else if (type == "CompareLT") {
+      return make_compare_lt(id, parsed["value"].get<double>());
+    } else if (type == "CompareGTE") {
+      return make_compare_gte(id, parsed["value"].get<double>());
+    } else if (type == "CompareLTE") {
+      return make_compare_lte(id, parsed["value"].get<double>());
+    } else if (type == "CompareEQ") {
+      return make_compare_eq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
+    } else if (type == "CompareNEQ") {
+      return make_compare_neq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
+    } else if (type == "CompareSyncGT") {
+      return make_compare_sync_gt(id);
+    } else if (type == "CompareSyncLT") {
+      return make_compare_sync_lt(id);
+    } else if (type == "CompareSyncGTE") {
+      return make_compare_sync_gte(id);
+    } else if (type == "CompareSyncLTE") {
+      return make_compare_sync_lte(id);
+    } else if (type == "CompareSyncEQ") {
+      return make_compare_sync_eq(id, parsed.value("tolerance", 0.0));
+    } else if (type == "CompareSyncNEQ") {
+      return make_compare_sync_neq(id, parsed.value("tolerance", 0.0));
+    } else if (type == "MovingKeyCount") {
+      return make_moving_key_count(id, parsed["window_size"].get<size_t>());
+    } else if (type == "MinTracker") {
+      return make_min_tracker(id);
+    } else if (type == "MaxTracker") {
+      return make_max_tracker(id);
+    } else if (type == "TopK") {
+      return make_topk(id, parsed["k"].get<int>(),
+                       parsed["score_index"].get<int>(),
+                       parsed.value("descending", "true") == "true");
+    } else if (type == "WindowMinMax") {
+      return make_window_min_max(id, parsed["window_size"].get<size_t>(),
+                                 parsed.value("mode", "min"));
+    } else if (type == "KeyedPipeline") {
+      auto key_index = parsed["key_index"].get<int>();
+
+      // Build factory from embedded prototype definition
+      const auto& proto = parsed["prototype"];
+      json proto_operators = proto["operators"];
+      json proto_connections = proto["connections"];
+      std::string proto_entry = proto["entry"]["operator"].get<std::string>();
+      std::string proto_output = proto["output"]["operator"].get<std::string>();
+
+      auto factory = [proto_operators, proto_connections, proto_entry, proto_output]() -> SubGraph {
+        SubGraph sg;
+        for (const auto& op_json : proto_operators) {
+          auto op = OperatorJson::read_op(op_json.dump());
+          sg.operators[op->id()] = op;
+        }
+        for (const auto& conn : proto_connections) {
+          std::string from = conn["from"].get<std::string>();
+          std::string to = conn["to"].get<std::string>();
+          auto from_parsed = conn.contains("fromPort") ? parse_port_name(conn["fromPort"].get<std::string>()) : ParsedPort{0, PortKind::DATA};
+          auto to_parsed = conn.contains("toPort") ? parse_port_name(conn["toPort"].get<std::string>()) : ParsedPort{0, PortKind::DATA};
+          sg.operators[from]->connect(sg.operators[to], from_parsed.index, to_parsed.index, to_parsed.kind);
+        }
+        sg.entry = sg.operators[proto_entry];
+        sg.output = sg.operators[proto_output];
+        return sg;
+      };
+
+      return make_keyed_pipeline(id, key_index, factory);
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -323,10 +413,25 @@ class OperatorJson {
                type == "Abs" || type == "Sign" || type == "Floor" || type == "Ceil" || type == "Round") {
     } else if (type == "Variable") {
       j["default_value"] = std::dynamic_pointer_cast<Variable>(op)->get_default_value();
+    } else if (type == "KeyedVariable") {
+      auto kv = std::dynamic_pointer_cast<KeyedVariable>(op);
+      j["mode"] = kv->get_mode();
+      j["default_value"] = kv->get_default_value();
     } else if (type == "TimeShift") {
       j["shift"] = std::dynamic_pointer_cast<TimeShift>(op)->get_shift();
     } else if (type == "Demultiplexer") {
-      j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
+      if (auto d = std::dynamic_pointer_cast<Demultiplexer<VectorNumberData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "vector_number";
+      } else if (auto d = std::dynamic_pointer_cast<Demultiplexer<BooleanData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "boolean";
+      } else if (auto d = std::dynamic_pointer_cast<Demultiplexer<VectorBooleanData>>(op)) {
+        j["numPorts"] = d->get_num_ports();
+        j["portType"] = "vector_boolean";
+      } else {
+        j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
+      }
     } else if (type == "Multiplexer") {
       j["numPorts"] = std::dynamic_pointer_cast<Multiplexer<NumberData>>(op)->get_num_ports();
     } else if (type == "ResamplerConstant") {
@@ -337,6 +442,49 @@ class OperatorJson {
       }
     } else if (type == "ResamplerHermite") {
       j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
+    } else if (type == "VectorExtract") {
+      j["index"] = std::dynamic_pointer_cast<VectorExtract>(op)->get_index();
+    } else if (type == "VectorProject") {
+      j["indices"] = std::dynamic_pointer_cast<VectorProject>(op)->get_indices();
+    } else if (type == "VectorCompose") {
+      j["numPorts"] = std::dynamic_pointer_cast<VectorCompose>(op)->get_num_ports();
+    } else if (type == "CompareGT") {
+      j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
+    } else if (type == "CompareLT") {
+      j["value"] = std::dynamic_pointer_cast<CompareLT>(op)->get_value();
+    } else if (type == "CompareGTE") {
+      j["value"] = std::dynamic_pointer_cast<CompareGTE>(op)->get_value();
+    } else if (type == "CompareLTE") {
+      j["value"] = std::dynamic_pointer_cast<CompareLTE>(op)->get_value();
+    } else if (type == "CompareEQ") {
+      j["value"] = std::dynamic_pointer_cast<CompareEQ>(op)->get_value();
+      j["tolerance"] = std::dynamic_pointer_cast<CompareEQ>(op)->get_tolerance();
+    } else if (type == "CompareNEQ") {
+      j["value"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_value();
+      j["tolerance"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_tolerance();
+    } else if (type == "CompareSyncGT" || type == "CompareSyncLT" ||
+               type == "CompareSyncGTE" || type == "CompareSyncLTE") {
+      // No parameters — type + id are sufficient
+    } else if (type == "CompareSyncEQ") {
+      j["tolerance"] = std::dynamic_pointer_cast<CompareSyncEQ>(op)->get_tolerance();
+    } else if (type == "CompareSyncNEQ") {
+      j["tolerance"] = std::dynamic_pointer_cast<CompareSyncNEQ>(op)->get_tolerance();
+    } else if (type == "MovingKeyCount") {
+      j["window_size"] = std::dynamic_pointer_cast<MovingKeyCount>(op)->get_window_size();
+    } else if (type == "MinTracker" || type == "MaxTracker") {
+      // No parameters — stateful but no configuration
+    } else if (type == "TopK") {
+      auto tk = std::dynamic_pointer_cast<TopK>(op);
+      j["k"] = tk->k();
+      j["score_index"] = tk->score_index();
+      j["descending"] = tk->descending() ? "true" : "false";
+    } else if (type == "WindowMinMax") {
+      auto wmm = std::dynamic_pointer_cast<WindowMinMax>(op);
+      j["window_size"] = wmm->window_size();
+      j["mode"] = wmm->is_min() ? "min" : "max";
+    } else if (type == "KeyedPipeline") {
+      auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
+      j["key_index"] = kp->get_key_index();
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";

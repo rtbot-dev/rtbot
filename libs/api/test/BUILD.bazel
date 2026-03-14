@@ -6,11 +6,11 @@ cc_test(
         "**/*.cpp",
         "**/*.hpp",
         "**/*.h",
-    ]),
+    ], allow_empty = True),
     data = glob([
         "**/*.json",
         "**/*.csv",
-    ]) + [
+    ], allow_empty = True) + [
         "//examples/data:ppg.csv",
         "//examples/data:program-test-1.json",
         "//examples/data:program-test-2.json",

@@ -1,4 +1,5 @@
 ---
+title: Modules
 sidebar_position: 7
 ---
 

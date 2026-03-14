@@ -51,3 +51,43 @@ expand_template(
     stamp_substitutions = {"{{RTBOT_VERSION}}": "{{RTBOT_VERSION}}"},
     template = ":version_tmpl",
 )
+
+toolchain(
+    name = "emscripten_linux_sh_toolchain",
+    exec_compatible_with = ["@platforms//os:linux"],
+    target_compatible_with = ["@platforms//os:emscripten"],
+    toolchain = "@local_config_shell//:linux_sh",
+    toolchain_type = "@rules_shell//shell:toolchain_type",
+)
+
+toolchain(
+    name = "emscripten_osx_sh_toolchain",
+    exec_compatible_with = ["@platforms//os:osx"],
+    target_compatible_with = ["@platforms//os:emscripten"],
+    toolchain = "@local_config_shell//:osx_sh",
+    toolchain_type = "@rules_shell//shell:toolchain_type",
+)
+
+toolchain(
+    name = "emscripten_windows_sh_toolchain",
+    exec_compatible_with = ["@platforms//os:windows"],
+    target_compatible_with = ["@platforms//os:emscripten"],
+    toolchain = "@local_config_shell//:windows_sh",
+    toolchain_type = "@rules_shell//shell:toolchain_type",
+)
+
+toolchain(
+    name = "emscripten_freebsd_sh_toolchain",
+    exec_compatible_with = ["@platforms//os:freebsd"],
+    target_compatible_with = ["@platforms//os:emscripten"],
+    toolchain = "@local_config_shell//:freebsd_sh",
+    toolchain_type = "@rules_shell//shell:toolchain_type",
+)
+
+toolchain(
+    name = "emscripten_openbsd_sh_toolchain",
+    exec_compatible_with = ["@platforms//os:openbsd"],
+    target_compatible_with = ["@platforms//os:emscripten"],
+    toolchain = "@local_config_shell//:openbsd_sh",
+    toolchain_type = "@rules_shell//shell:toolchain_type",
+)

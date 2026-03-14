@@ -1,5 +1,3 @@
-load("@aspect_rules_js//js:providers.bzl", "JsInfo")
-
 def _rtbot_jsonschema_impl(ctx):
     """
     The "implementation function" for our rule.
@@ -25,19 +23,17 @@ def _rtbot_jsonschema_impl(ctx):
     if target == "markdown":
         genfiles = []
         for f in ctx.files.srcs:
-            genfiles.append(ctx.actions.declare_file("%s/%sx" % (ctx.label.name, f.basename)))
-
-    output_dir = ctx.actions.declare_directory(ctx.label.name)
+            genfiles.append(ctx.actions.declare_file("%s/%s" % (ctx.label.name, f.basename)))
 
     args = ctx.actions.args()
-    args.add("--output", output_dir.path)
+    args.add("--output", genfiles[0].dirname)
     args.add("--target", target)
     args.add_joined("--sources", ctx.files.srcs, join_with = " ")
 
     ctx.actions.run(
         arguments = [args],
         inputs = ctx.files.srcs,
-        outputs = [output_dir] + genfiles,
+        outputs = genfiles,
         env = {
             # We are not using ctx.bin_dir.path, which may be recommended for other cases
             "BAZEL_BINDIR": ".",

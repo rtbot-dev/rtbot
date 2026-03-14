@@ -1,5 +1,5 @@
 import bindings, { RtBotEmbindModule } from "@rtbot-dev/wasm";
-import { Operator, Program } from "./program";
+import { Program } from "./program";
 
 export interface RtBotIterationOutput {
   [operatorId: string]: { [port: string]: RtBotMessage[] };
@@ -7,7 +7,83 @@ export interface RtBotIterationOutput {
 
 export interface RtBotMessage {
   time: number;
-  value: number;
+  value: number | number[] | boolean | boolean[];
+}
+
+type RtBotInputMessage = {
+  time: number;
+  value: number | number[];
+};
+
+type ProgramOperator = {
+  id?: string;
+  type?: string;
+  portTypes?: string[];
+  [key: string]: unknown;
+};
+
+type ProgramPlain = {
+  entryOperator?: string;
+  operators?: ProgramOperator[];
+  [key: string]: unknown;
+};
+
+function isVectorPortType(portType: string | undefined): boolean {
+  return portType === "vector_number" || portType === "vector_boolean";
+}
+
+function inferEntryPortTypes(program: ProgramPlain, entryPorts: string[]): string[] {
+  if (!Array.isArray(program.operators) || entryPorts.length === 0) {
+    return entryPorts.map(() => "number");
+  }
+
+  const entryOperatorId =
+    typeof program.entryOperator === "string" && program.entryOperator.length > 0
+      ? program.entryOperator
+      : undefined;
+
+  if (!entryOperatorId) {
+    return entryPorts.map(() => "number");
+  }
+
+  const entryOperator = program.operators.find((operator) => operator.id === entryOperatorId);
+  const portTypes = Array.isArray(entryOperator?.portTypes) ? entryOperator.portTypes : [];
+  return entryPorts.map((_, index) => {
+    const portType = portTypes[index];
+    return typeof portType === "string" ? portType : "number";
+  });
+}
+
+function buildIterationMessages(
+  entryPorts: string[],
+  entryPortTypes: string[],
+  time: number,
+  values: number[]
+): { [portId: string]: RtBotInputMessage[] } {
+  const vectorPortIndexes = entryPortTypes
+    .map((portType, index) => (isVectorPortType(portType) ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (vectorPortIndexes.length > 0) {
+    if (!(entryPorts.length === 1 && vectorPortIndexes.length === 1 && vectorPortIndexes[0] === 0)) {
+      throw new Error("Vector entry ports currently require a single entry input port.");
+    }
+
+    return {
+      [entryPorts[0]]: [{ time, value: values }],
+    };
+  }
+
+  const messages: { [portId: string]: RtBotInputMessage[] } = {};
+  entryPorts.forEach((port, index) => {
+    const value = values[index];
+    if (!Number.isFinite(value)) {
+      throw new Error(`Missing or invalid scalar value for port ${port} at index ${index}`);
+    }
+    messages[port] = [{ time, value }];
+  });
+
+  return messages;
 }
 
 export class RtBot {
@@ -36,7 +112,7 @@ export class RtBot {
 
   async processDebug(
     programId: string,
-    messages: { [portId: string]: { time: number; value: number }[] }
+    messages: { [portId: string]: RtBotInputMessage[] }
   ): Promise<RtBotIterationOutput> {
     this.prepareInternalMessageBuffer(programId, messages, await this.rtbot);
     return JSON.parse((await this.rtbot).processMessageBufferDebug(programId));
@@ -44,7 +120,7 @@ export class RtBot {
 
   async process(
     programId: string,
-    messages: { [portId: string]: { time: number; value: number }[] }
+    messages: { [portId: string]: RtBotInputMessage[] }
   ): Promise<RtBotIterationOutput> {
     this.prepareInternalMessageBuffer(programId, messages, await this.rtbot);
     return JSON.parse((await this.rtbot).processMessageBuffer(programId));
@@ -52,12 +128,47 @@ export class RtBot {
 
   prepareInternalMessageBuffer(
     programId: string,
-    messages: { [portId: string]: { time: number; value: number }[] },
+    messages: { [portId: string]: RtBotInputMessage[] },
     rtbot: RtBotEmbindModule
   ) {
-    Object.entries(messages).map(([port, msgs]) =>
-      msgs.map(({ time, value }) => rtbot.addToMessageBuffer(programId, port, time, value))
-    );
+    Object.entries(messages).forEach(([port, msgs]) => {
+      msgs.forEach(({ time, value }) => {
+        if (Array.isArray(value)) {
+          const started = rtbot.beginVectorMessage(programId, port, time);
+          if (started !== "1") {
+            throw new Error(`Failed to start vector message for ${port}`);
+          }
+
+          let completed = false;
+          try {
+            value.forEach((vectorValue) => {
+              if (!Number.isFinite(vectorValue)) {
+                throw new Error(`Vector message for ${port} contains non-finite value`);
+              }
+              const pushed = rtbot.pushVectorMessageValue(programId, port, vectorValue);
+              if (pushed !== "1") {
+                throw new Error(`Failed to append vector value for ${port}`);
+              }
+            });
+
+            const ended = rtbot.endVectorMessage(programId, port);
+            if (ended !== "1") {
+              throw new Error(`Failed to finalize vector message for ${port}`);
+            }
+            completed = true;
+          } finally {
+            if (!completed) {
+              rtbot.abortVectorMessage(programId, port);
+            }
+          }
+        } else {
+          const added = rtbot.addToMessageBuffer(programId, port, time, value);
+          if (added !== "1") {
+            throw new Error(`Failed to queue scalar message for ${port}`);
+          }
+        }
+      });
+    });
   }
 
   async getProgramEntryPorts(programId: string) {
@@ -70,8 +181,8 @@ export enum RtBotRunOutputFormat {
   EXTENDED,
 }
 
-export type CollapsedFormat = { [operatorId: string]: number[][] };
-export type ExtendedFormat = { in: { [portId: string]: RtBotMessage[] }; out: RtBotIterationOutput }[];
+export type CollapsedFormat = { [operatorId: string]: unknown[][] };
+export type ExtendedFormat = { in: { [portId: string]: RtBotInputMessage[] }; out: RtBotIterationOutput }[];
 
 export class RtBotRun {
   // this variable will hold the outputs from different
@@ -98,17 +209,22 @@ export class RtBotRun {
   async run() {
     // const { success } = this.program.safeValidate();
     // if (!success) throw new Error(`Program is invalid`);
-    const program = this.program.toPlain();
-    const programStr = JSON.stringify(program, null, 2);
+    const plainProgram = this.program.toPlain() as ProgramPlain;
+    const programStr = JSON.stringify(plainProgram, null, 2);
     try {
       if (this.verbose) console.log("Sending", programStr);
       const createProgramResponseStr = await RtBot.getInstance().createProgram(this.program.programId, programStr);
       if (this.verbose) console.log("createProgram response", createProgramResponseStr);
 
       if (createProgramResponseStr) {
-        const createProgramResponse = JSON.parse(createProgramResponseStr);
-        // if program fails validation, throw an error
-        if (createProgramResponse.error) throw new Error(createProgramResponse.error);
+        try {
+          const createProgramResponse = JSON.parse(createProgramResponseStr);
+          if (createProgramResponse.error) {
+            throw new Error(createProgramResponse.error);
+          }
+        } catch {
+          throw new Error(createProgramResponseStr);
+        }
       }
     } catch (e) {
       console.error("Error creating program", e);
@@ -117,13 +233,15 @@ export class RtBotRun {
 
     if (this.verbose) console.log("Sending data...");
     const entryPorts: string[] = JSON.parse(await RtBot.getInstance().getProgramEntryPorts(this.program.programId));
+    const entryPortTypes = inferEntryPortTypes(plainProgram, entryPorts);
+
     // iterate over the data passed and send it to the rtbot program
     const dataSize = this.data.length;
-    const progressStepSize = Math.floor(dataSize / 20);
+    const progressStepSize = Math.max(1, Math.floor(dataSize / 20));
     let progressStepCounter = 0;
     for (let i = 0; i < dataSize; i++) {
       const [time, ...values] = this.data[i];
-      const msgs = Object.fromEntries(entryPorts.map((p, i) => [p, [{ time, value: values[i] }]]));
+      const msgs = buildIterationMessages(entryPorts, entryPortTypes, time, values);
       const iterationOutput = await RtBot.getInstance().processDebug(this.program.programId, msgs);
       if (this.verbose) console.log("iteration ", time, values, "=>", iterationOutput);
       // record the outputs

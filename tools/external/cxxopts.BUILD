@@ -5,12 +5,13 @@ cc_library(
             "src/**/*.cpp",
             "include/**/*.hpp",
         ],
+        allow_empty = True,
         exclude = ["**/*_test.cpp"],
     ),
     hdrs = glob([
         "**/*.h",
         "**/*.hpp",
-    ]),
+    ], allow_empty = True),
     includes = [
         "include",
         "src",

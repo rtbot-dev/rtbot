@@ -37,6 +37,10 @@ std::string diagnose_program(const std::string& json_program);
 // Message handling
 std::string add_to_message_buffer(const std::string& program_id, const std::string& port_id, uint64_t time,
                                   double value);
+std::string begin_vector_message(const std::string& program_id, const std::string& port_id, uint64_t time);
+std::string push_vector_message_value(const std::string& program_id, const std::string& port_id, double value);
+std::string end_vector_message(const std::string& program_id, const std::string& port_id);
+std::string abort_vector_message(const std::string& program_id, const std::string& port_id);
 std::string process_message_buffer(const std::string& program_id);
 std::string process_message_buffer_debug(const std::string& program_id);
 

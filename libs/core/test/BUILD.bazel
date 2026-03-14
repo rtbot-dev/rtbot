@@ -4,8 +4,9 @@ cc_test(
     name = "test",
     srcs = glob([
         "**/*.cpp",
+    ]) + glob([
         "**/*.h",
-    ]),
+    ], allow_empty = True),
     #defines = ["CATCH_CONFIG_MAIN"],
     deps = [
         "//libs/core:rtbot",

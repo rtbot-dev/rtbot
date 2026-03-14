@@ -2,6 +2,10 @@
 # You should use an annotated tag, like `git tag -a v1.2.3`
 # and put the release notes into the commit message for the tag.
 name: Release
+
+permissions:
+  contents: read
+
 on:
   push:
     tags:
@@ -11,71 +15,60 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Install LLVM libc++
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libc++-dev libc++abi-dev
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: |
             - args: [--no-frozen-lockfile]
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.x
           cache: pnpm
-      - uses: actions/setup-python@v4
+      - name: Setup Bazel toolchain
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
-          python-version: "3.11"      
-      - uses: bazelbuild/setup-bazelisk@v3
-      - name: Test lib
-        run: |
-          bazelisk test //libs/core/test
-      - name: Test std
-        run: |
-          bazelisk test //libs/std/test
-      - name: Test api
-        run: |
-          bazelisk test //libs/api/test
-      - name: Test finance
-        run: |
-          bazelisk test //libs/finance/test
-      - name: Test python
-        run: |
-          bazelisk test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
-      - name: Test javascript
-        run: |
-          bazelisk test //libs/wrappers/javascript:test
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - name: Run test suite
+        run: bazel test //...
 
   build_npm:
     name: Build npm package
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: |
-            - args: [--no-frozen-lockfile]      
-      - uses: bazelbuild/setup-bazelisk@v3
+            - args: [--no-frozen-lockfile]
+      - name: Setup Bazel toolchain
+        uses: bazel-contrib/setup-bazel@0.18.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
       - name: Build npm package
-        run: |
-          bazelisk build --stamp //libs/wrappers/javascript:js
-      - uses: actions/upload-artifact@v4
+        run: bazel build --stamp //libs/wrappers/javascript:js
+      - uses: actions/upload-artifact@v5
         with:
           name: npm-wasm.tar
           path: dist/bin/libs/api/js
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: npm-rtbot.tar
           path: dist/bin/libs/wrappers/javascript/js
       - name: Generate jsonschema
-        run: |
-          bazelisk build //libs/api:jsonschema
-      - uses: actions/upload-artifact@v4
+        run: bazel build //libs/api:jsonschema
+      - uses: actions/upload-artifact@v5
         with:
           name: jsonschema.tar
           path: dist/bin/libs/api/jsonschema
@@ -86,26 +79,30 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macOS-12]
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.13", "3.14"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: |
             - args: [--frozen-lockfile]
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}      
-      - uses: bazelbuild/setup-bazelisk@v3
+          python-version: ${{ matrix.python-version }}
+      - name: Setup Bazel toolchain
+        uses: bazel-contrib/setup-bazel@0.18.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
       - name: Build wheel
-        run: |
-          bazelisk build --stamp //libs/wrappers/python:rtbot_wheel
+        run: bazel build --stamp //libs/wrappers/python:rtbot_wheel
       - name: Rename wheel with platform tag
         run: |
           cd dist/bin/libs/wrappers/python/
           export WHEEL_FILE="rtbot.whl"
-          if [ -f "$WHEEL_FILE" ]; then            
+          if [ -f "$WHEEL_FILE" ]; then
             VERSION=$(python - <<'EOF'
               import os, zipfile
               wheel = os.environ["WHEEL_FILE"]
@@ -132,7 +129,7 @@ jobs:
             cp "$WHEEL_FILE" "$NEW_NAME"
             echo "Created wheel: $NEW_NAME"
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: wheel-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/bin/libs/wrappers/python/rtbot-*-py3-none-*.whl
@@ -144,13 +141,15 @@ jobs:
       - build_npm
     name: Publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
         with:
           version: 8
       # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: "18.x"
           registry-url: "https://registry.npmjs.org"
@@ -163,20 +162,20 @@ jobs:
           echo "version=${GIT_TAG:1}" >> $GITHUB_OUTPUT
       # Download all wheel artifacts
       - name: Download all wheel artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: wheels/
           pattern: wheel-*
           merge-multiple: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: npm-wasm.tar
           path: npm-wasm
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: npm-rtbot.tar
           path: npm-rtbot
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: jsonschema.tar
           path: jsonschema

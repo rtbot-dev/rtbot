@@ -34,6 +34,8 @@ struct PrototypeDefinition {
 class PrototypeHandler {
  public:
   static void resolve_prototypes(json& program_json) {
+    hoist_inline_prototypes(program_json);
+
     if (!program_json.contains("prototypes")) {
       return;
     }
@@ -47,15 +49,16 @@ class PrototypeHandler {
 
     // Process original operators
     for (const auto& op : program_json["operators"]) {
-      if (op.contains("prototype")) {
-        // Handle prototype instance
+      if (op.contains("prototype") && !(op.contains("type") && op["type"] == "KeyedPipeline")) {
+        // Handle prototype instance (but not KeyedPipeline - those keep their
+        // prototype for the factory and are resolved by resolve_keyed_pipelines)
         const auto& proto = prototypes.at(op["prototype"].get<std::string>());
         const std::string instance_id = op["id"].get<std::string>();
 
         expand_prototype_instance(instance_id, proto, op.value("parameters", json::object()), expanded_operators,
                                   expanded_connections, instance_mappings, prototypes);
       } else {
-        // Regular operator - add as-is
+        // Regular operator (or KeyedPipeline) - add as-is
         expanded_operators.push_back(op);
       }
     }
@@ -89,10 +92,86 @@ class PrototypeHandler {
     // Update program JSON
     program_json["operators"] = expanded_operators;
     program_json["connections"] = expanded_connections;
+
+    // Embed prototype definitions into KeyedPipeline operators before erasing prototypes
+    resolve_keyed_pipelines(program_json, prototypes);
+
     program_json.erase("prototypes");
   }
 
  private:
+  static void hoist_inline_prototypes(json& program_json) {
+    if (!program_json.contains("operators") || !program_json["operators"].is_array()) {
+      return;
+    }
+
+    if (!program_json.contains("prototypes")) {
+      program_json["prototypes"] = json::object();
+    }
+
+    if (!program_json["prototypes"].is_object()) {
+      throw std::runtime_error("Program 'prototypes' must be an object");
+    }
+
+    auto& prototypes = program_json["prototypes"];
+    size_t generated_counter = 0;
+
+    for (auto& op : program_json["operators"]) {
+      if (!op.is_object() || !op.contains("prototype") || !op["prototype"].is_object()) {
+        continue;
+      }
+      // KeyedPipeline keeps its inline prototype for the factory function
+      if (op.contains("type") && op["type"] == "KeyedPipeline") {
+        continue;
+      }
+
+      std::string base_id;
+      if (op.contains("id") && op["id"].is_string() && !op["id"].get<std::string>().empty()) {
+        base_id = op["id"].get<std::string>() + "_prototype";
+      } else {
+        generated_counter += 1;
+        base_id = "prototype_" + std::to_string(generated_counter);
+      }
+
+      std::string prototype_id = base_id;
+      size_t suffix = 1;
+      while (prototypes.contains(prototype_id)) {
+        prototype_id = base_id + "_" + std::to_string(suffix);
+        suffix += 1;
+      }
+
+      prototypes[prototype_id] = op["prototype"];
+      op["prototype"] = prototype_id;
+    }
+  }
+
+  static void resolve_keyed_pipelines(json& program_json,
+                                       const std::map<std::string, PrototypeDefinition>& prototypes) {
+    for (auto& op : program_json["operators"]) {
+      if (!op.contains("type") || op["type"] != "KeyedPipeline" || !op.contains("prototype")) {
+        continue;
+      }
+      // If the prototype is already an inline object (kept from hoist step), leave it as-is
+      if (op["prototype"].is_object()) {
+        continue;
+      }
+      // Otherwise resolve the string reference to an embedded object
+      auto proto_id = op["prototype"].get<std::string>();
+      auto it = prototypes.find(proto_id);
+      if (it == prototypes.end()) {
+        throw std::runtime_error("KeyedPipeline references unknown prototype: " + proto_id);
+      }
+      const auto& proto = it->second;
+
+      json proto_json;
+      proto_json["operators"] = proto.operators;
+      proto_json["connections"] = proto.connections;
+      proto_json["entry"] = {{"operator", proto.entry.operator_id}, {"port", proto.entry.port_id}};
+      proto_json["output"] = {{"operator", proto.output.operator_id}, {"port", proto.output.port_id}};
+      op["prototype"] = proto_json;
+    }
+  }
+
   static std::map<std::string, PrototypeDefinition> parse_prototypes(const json& prototypes) {
     std::map<std::string, PrototypeDefinition> result;
 

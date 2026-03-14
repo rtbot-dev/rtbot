@@ -131,18 +131,28 @@ class InfiniteImpulseResponse : public Operator {
 
       // Calculate new output if we have enough inputs
       if (x_.size() == b_.size()) {
-        // Calculate new output
+        // Kahan-compensated summation for y_n: the feedback terms from y_
+        // re-enter future computations, so per-sample rounding errors
+        // compound over time.  Compensated summation keeps each y_n value
+        // accurate to nearly full double precision.
         double y_n = 0.0;
+        double y_comp = 0.0;
 
         // Add input terms (b coefficients)
         for (size_t i = 0; i < b_.size(); ++i) {
-          y_n += b_[i] * x_[x_.size() - 1 - i];
+          double term = b_[i] * x_[x_.size() - 1 - i] - y_comp;
+          double t = y_n + term;
+          y_comp = (t - y_n) - term;
+          y_n = t;
         }
 
         // Subtract available output terms (a coefficients)
         size_t available_outputs = std::min(y_.size(), a_.size());
         for (size_t i = 0; i < available_outputs; ++i) {
-          y_n -= a_[i] * y_[y_.size() - 1 - i];
+          double term = -(a_[i] * y_[y_.size() - 1 - i]) - y_comp;
+          double t = y_n + term;
+          y_comp = (t - y_n) - term;
+          y_n = t;
         }
 
         // Update output buffer

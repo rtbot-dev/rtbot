@@ -43,6 +43,7 @@ class Buffer : public Operator {
     Operator::reset();
     buffer_.clear();  // Clear buffer contents
     sum_ = 0.0;       // Reset statistical accumulators
+    sum_comp_ = 0.0;  // Reset Kahan compensation term
     M2_ = 0.0;
   }
 
@@ -155,26 +156,24 @@ class Buffer : public Operator {
     // ---- Optional statistics ----
     if constexpr (Features::TRACK_SUM) {
         sum_ = 0.0;
+        sum_comp_ = 0.0;
         if (!buffer_.empty()) {
-            // First pass: compute sum
             for (const auto& msg : buffer_) {
-                sum_ += msg->data.value;
+                kahan_add(msg->data.value);
             }
         }
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
-        // Recompute statistics from buffer to ensure consistency
         sum_ = 0.0;
+        sum_comp_ = 0.0;
         M2_ = 0.0;
 
         if (!buffer_.empty()) {
-            // First pass: compute sum
             for (const auto& msg : buffer_) {
-                sum_ += msg->data.value;
+                kahan_add(msg->data.value);
             }
 
-            // Second pass: compute M2
             double mean = sum_ / buffer_.size();
             for (const auto& msg : buffer_) {
                 double delta = msg->data.value - mean;
@@ -226,20 +225,36 @@ class Buffer : public Operator {
   virtual std::vector<std::unique_ptr<Message<T>>> process_message(const Message<T>* msg) = 0;
 
  private:
+  // Kahan-compensated addition: folds the rounding error from each operation
+  // into a compensation term so that accumulated drift stays O(1·ε) instead
+  // of O(N·ε).  For sliding-window sums over large-magnitude values, naive
+  // incremental add/subtract accumulates ~|value|·2^-53 error per cycle,
+  // which can corrupt downstream derived quantities (e.g. covariance, correlation).
+  void kahan_add(double value) {
+    double y = value - sum_comp_;
+    double t = sum_ + y;
+    sum_comp_ = (t - sum_) - y;
+    sum_ = t;
+  }
+
+  void kahan_subtract(double value) {
+    kahan_add(-value);
+  }
+
   void update_statistics(double added_value, std::optional<double> removed_value) {
     if constexpr (Features::TRACK_SUM && !Features::TRACK_VARIANCE) {
       if (removed_value) {
-        sum_ -= *removed_value;
+        kahan_subtract(*removed_value);
       }
-      sum_ += added_value;
+      kahan_add(added_value);
       return;
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
       if (removed_value) {
-        sum_ -= *removed_value;
+        kahan_subtract(*removed_value);
       }
-      sum_ += added_value;
+      kahan_add(added_value);
 
       M2_ = 0.0;
 
@@ -258,6 +273,7 @@ class Buffer : public Operator {
   size_t window_size_;
   std::deque<std::unique_ptr<Message<T>>> buffer_;
   double sum_{0.0};
+  double sum_comp_{0.0};  // Kahan compensation term for sum_
   double M2_{0.0};
 };
 

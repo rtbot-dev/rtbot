@@ -1,4 +1,5 @@
 ---
+title: Design Principles
 sidebar_position: 1
 ---
 
