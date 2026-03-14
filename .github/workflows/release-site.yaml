@@ -13,27 +13,25 @@ jobs:
     name: Build and release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: |
             - args: [--no-frozen-lockfile]
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.x
           cache: pnpm
-      - name: Mount bazel caches
-        uses: actions/cache@v3
+      - name: Setup Bazel toolchain
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
-          path: |
-            "~/.cache/bazel"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
-          restore-keys: bazel-cache-
-      - uses: bazelbuild/setup-bazelisk@v2
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
       - name: Build site
         run: |
-          bazelisk run //docs/site:build
+          bazel run //docs/site:build
           cp -r /tmp/site-build build
         env:
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}

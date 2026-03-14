@@ -1,4 +1,8 @@
-name: Preview Changes
+name: CI
+
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches:
@@ -10,52 +14,32 @@ on:
       - review_requested
       - ready_for_review
 
-env:
-  NODE_OPTIONS: "--max_old_space_size=16384"
-
 jobs:
-  tests:
+  build-and-test:
     if: github.event.pull_request.draft == false
-    name: Test core
-    runs-on: ubuntu-latest
+    name: Build and test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2.2.4
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
         with:
           version: 8
           run_install: |
             - args: [--no-frozen-lockfile]
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: 18.x
           cache: pnpm
-      - uses: actions/setup-python@v4
+      - name: Setup Bazel toolchain
+        uses: bazel-contrib/setup-bazel@0.18.0
         with:
-          python-version: "3.11"
-      - name: Mount bazel caches
-        uses: actions/cache@v3
-        with:
-          path: |
-            "~/.cache/bazel"
-          key: bazel-cache-${{ hashFiles('**/BUILD.bazel', '**/*.bzl', 'WORKSPACE', '**/*.cpp', '**/*.h', '**/*.rs') }}
-          restore-keys: bazel-cache-
-      - uses: bazelbuild/setup-bazelisk@v2
-      - name: Test lib
-        run: |
-          bazelisk test //libs/core/test
-      - name: Test std
-        run: |
-          bazelisk test //libs/std/test
-      - name: Test api
-        run: |
-          bazelisk test //libs/api/test
-      - name: Test finance
-        run: |
-          bazelisk test //libs/finance/test
-      - name: Test python
-        run: |
-          # use legacy python toolchain until rules_python is adopted
-          bazel test --incompatible_use_python_toolchains=false --python_path=$(which python) //libs/wrappers/python:rtbot_test
-      - name: Test javascript
-        run: |
-          bazelisk test //libs/wrappers/javascript:test
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+      - name: Build all targets
+        run: bazel build //...
+      - name: Run test suite
+        run: bazel test //...
