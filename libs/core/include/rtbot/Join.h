@@ -16,10 +16,13 @@ namespace rtbot {
 
 class Join : public Operator {
  public:
+  virtual ~Join() noexcept = default;
+
   // Base constructor with separate input and output port specifications
   Join(std::string id, const std::vector<std::string>& input_port_types,
-       const std::vector<std::string>& output_port_types)
-      : Operator(std::move(id)) {
+       const std::vector<std::string>& output_port_types,
+       size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : Operator(std::move(id), max_size_per_port) {
     if (input_port_types.size() < 2) {
       throw std::runtime_error("Join requires at least 2 input ports");
     }
@@ -44,7 +47,9 @@ class Join : public Operator {
   }
 
   // Constructor with port types only
-  Join(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
+  Join(std::string id, const std::vector<std::string>& port_types,
+       size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : Operator(std::move(id), max_size_per_port) {
     if (port_types.size() < 2) {
       throw std::runtime_error("Join requires at least 2 input ports");
     }
@@ -61,7 +66,8 @@ class Join : public Operator {
 
   // Constructor with number of ports of the same type
   template <typename T>
-  Join(std::string id, size_t num_ports) : Operator(std::move(id)) {
+  Join(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : Operator(std::move(id), max_size_per_port) {
     if (num_ports < 2) {
       throw std::runtime_error("Join requires at least 2 input ports");
     }
@@ -126,8 +132,8 @@ class Join : public Operator {
 };
 
 // Factory functions remain unchanged
-inline std::shared_ptr<Join> make_join(std::string id, const std::vector<std::string>& port_types) {
-  return std::make_shared<Join>(std::move(id), port_types);
+inline std::shared_ptr<Join> make_join(std::string id, const std::vector<std::string>& port_types, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Join>(std::move(id), port_types, max_size_per_port);
 }
 
 template <typename T>

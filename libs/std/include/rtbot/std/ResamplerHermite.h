@@ -26,6 +26,8 @@ class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
     }
   }
 
+  ~ResamplerHermite() noexcept = default;
+
   void reset() override {
     Buffer<NumberData, ResamplerFeatures>::reset();
     initialized_ = false;

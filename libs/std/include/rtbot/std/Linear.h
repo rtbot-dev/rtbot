@@ -9,9 +9,11 @@ namespace rtbot {
 
 class Linear : public Join {
  public:
-  Linear(std::string id, const std::vector<double>& coeffs)
+  Linear(std::string id, const std::vector<double>& coeffs,
+         size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : Join(std::move(id), std::vector<std::string>(coeffs.size(), PortType::NUMBER),  // input ports
-             std::vector<std::string>{PortType::NUMBER})                                // single output port
+             std::vector<std::string>{PortType::NUMBER},                                // single output port
+             max_size_per_port)
         ,
         coeffs_(coeffs) {
     if (coeffs.size() < 2) {
@@ -84,8 +86,8 @@ class Linear : public Join {
 };
 
 // Factory function
-inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs) {
-  return std::make_shared<Linear>(std::move(id), coeffs);
+inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Linear>(std::move(id), coeffs, max_size_per_port);
 }
 
 }  // namespace rtbot

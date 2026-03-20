@@ -49,7 +49,7 @@ enum class PortKind { DATA, CONTROL };
 // Base operator class
 class Operator {
  public:
-  Operator(std::string id) : id_(std::move(id)), max_size_per_port_(MAX_SIZE_PER_PORT) {}
+  Operator(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) : id_(std::move(id)), max_size_per_port_(max_size_per_port) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
@@ -171,7 +171,7 @@ class Operator {
 #endif
     
 
-    if (data_ports_[port_index].queue.size() == max_size_per_port_) {      
+    if (data_ports_[port_index].queue.size() == max_size_per_port_) {
       data_ports_[port_index].queue.pop_front();
     }
 

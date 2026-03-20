@@ -183,6 +183,68 @@ SCENARIO("RSI calculation using Program JSON configuration", "[rsi][program]") {
   }
 }
 
+SCENARIO("RSI program maintains state through serialization with large dataset", "[rsi][program][serialization]") {
+  GIVEN("A Program initialized with RSI calculation JSON") {
+    const size_t n = 14;  // RSI period
+    auto json_program = create_rsi_program(n);
+    Program original_program(json_program);
+
+    // 100 price points simulating realistic market data
+    std::vector<std::pair<timestamp_t, double>> inputs = {
+        {1, 44.34},  {2, 44.09},  {3, 44.15},  {4, 43.61},  {5, 44.33},  {6, 44.83},  {7, 45.10},  {8, 45.15},
+        {9, 43.61},  {10, 44.33}, {11, 44.83}, {12, 45.10}, {13, 45.15}, {14, 46.92}, {15, 46.75}, {16, 46.25},
+        {17, 45.71}, {18, 46.45}, {19, 45.78}, {20, 45.35}, {21, 44.03}, {22, 44.18}, {23, 44.22}, {24, 44.57},
+        {25, 43.42}, {26, 42.66}, {27, 43.13}, {28, 43.82}, {29, 44.83}, {30, 45.00}, {31, 45.61}, {32, 46.28},
+        {33, 46.00}, {34, 45.61}, {35, 44.33}, {36, 43.61}, {37, 44.83}, {38, 45.10}, {39, 46.75}, {40, 46.25},
+        {41, 45.71}, {42, 46.45}, {43, 45.78}, {44, 46.00}, {45, 46.41}, {46, 46.22}, {47, 45.64}, {48, 46.21},
+        {49, 46.25}, {50, 45.71}, {51, 46.45}, {52, 45.78}, {53, 45.35}, {54, 44.03}, {55, 44.18}, {56, 44.22},
+        {57, 44.57}, {58, 43.42}, {59, 42.66}, {60, 43.13}, {61, 43.82}, {62, 44.83}, {63, 45.00}, {64, 45.61},
+        {65, 46.28}, {66, 46.00}, {67, 45.61}, {68, 44.33}, {69, 43.61}, {70, 44.83}, {71, 45.10}, {72, 46.75},
+        {73, 46.25}, {74, 45.71}, {75, 46.45}, {76, 45.78}, {77, 46.00}, {78, 46.41}, {79, 46.22}, {80, 45.64},
+        {81, 46.21}, {82, 46.25}, {83, 45.71}, {84, 46.45}, {85, 45.78}, {86, 45.35}, {87, 44.03}, {88, 44.18},
+        {89, 44.22}, {90, 44.57}, {91, 43.42}, {92, 42.66}, {93, 43.13}, {94, 43.82}, {95, 44.83}, {96, 45.00},
+        {97, 45.61}, {98, 46.28}, {99, 46.00}, {100, 45.61}};
+
+    WHEN("Processing 70 points, serializing, then processing remaining 30 points") {
+      const size_t split_idx = 70;
+
+      for (size_t i = 0; i < split_idx; i++) {
+        original_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+      }
+
+      Bytes serialized = original_program.serialize();
+      Program restored_program(serialized);
+
+      std::vector<std::pair<timestamp_t, double>> outputs_original;
+      std::vector<std::pair<timestamp_t, double>> outputs_restored;
+
+      for (size_t i = split_idx; i < inputs.size(); i++) {
+        auto batch_orig = original_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+        auto batch_rest = restored_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
+
+        if (!batch_orig.empty() && batch_orig.count("output") > 0 && !batch_orig["output"]["o1"].empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(batch_orig["output"]["o1"][0].get());
+          outputs_original.emplace_back(msg->time, msg->data.value);
+        }
+
+        if (!batch_rest.empty() && batch_rest.count("output") > 0 && !batch_rest["output"]["o1"].empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(batch_rest["output"]["o1"][0].get());
+          outputs_restored.emplace_back(msg->time, msg->data.value);
+        }
+      }
+
+      THEN("Both programs produce identical outputs with matching timestamps") {
+        REQUIRE(outputs_original.size() == outputs_restored.size());
+        REQUIRE(!outputs_original.empty());
+        for (size_t i = 0; i < outputs_original.size(); ++i) {
+          REQUIRE(outputs_original[i].first == outputs_restored[i].first);
+          REQUIRE(outputs_original[i].second == Approx(outputs_restored[i].second));
+        }
+      }
+    }
+  }
+}
+
 SCENARIO("RSI program maintains state through serialization", "[rsi][program][serialization]") {
   GIVEN("A Program initialized with RSI calculation JSON") {
     const size_t n = 14;  // RSI period

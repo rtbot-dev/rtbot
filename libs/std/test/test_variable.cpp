@@ -266,3 +266,29 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
     }
   }
 }
+SCENARIO("Variable operator respects custom maxSizePerPort", "[variable]") {
+  GIVEN("A Variable with max_size_per_port set to 3") {
+    size_t limit = 3;
+    auto var = make_variable("var1", 0.0, limit);
+
+    REQUIRE(var->max_size_per_port() == limit);
+
+    WHEN("More data messages than the limit are queued") {
+      for (int i = 0; i < (int)limit + 2; i++) {
+        var->receive_data(create_message<NumberData>(i, NumberData{(double)i * 10}), 0);
+      }
+
+      // Query at a time matching a data message still in the queue (after overflow)
+      var->receive_control(create_message<NumberData>(2, NumberData{0.0}), 0);
+      var->execute();
+
+      THEN("The oldest data messages are dropped and queries resolve against retained ones") {
+        const auto& output = var->get_output_queue(0);
+        REQUIRE(!output.empty());
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
+        REQUIRE(msg->time == 2);
+        REQUIRE(msg->data.value == Approx(20.0));
+      }
+    }
+  }
+}

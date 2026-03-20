@@ -11,11 +11,14 @@ namespace rtbot {
 template <typename T>
 class ArithmeticSync : public ReduceJoin<T> {
  public:
-  explicit ArithmeticSync(std::string id, size_t num_ports) : ReduceJoin<T>(std::move(id), num_ports) {}
+  explicit ArithmeticSync(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ReduceJoin<T>(std::move(id), num_ports, max_size_per_port) {}
 
-  explicit ArithmeticSync(std::string id, size_t num_ports, const T& init_value)
-      : ReduceJoin<T>(std::move(id), num_ports, init_value) {}
+  explicit ArithmeticSync(std::string id, size_t num_ports, const T& init_value,
+                          size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ReduceJoin<T>(std::move(id), num_ports, init_value, max_size_per_port) {}
 
+  virtual ~ArithmeticSync() = default;
   std::string type_name() const override = 0;
 
   bool equals(const ArithmeticSync& other) const {
@@ -26,9 +29,9 @@ class ArithmeticSync : public ReduceJoin<T> {
 
 class Addition : public ArithmeticSync<NumberData> {
  public:
-  explicit Addition(std::string id, size_t num_ports)
-      : ArithmeticSync<NumberData>(std::move(id), num_ports, NumberData{0.0}) {}
-
+  explicit Addition(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ArithmeticSync<NumberData>(std::move(id), num_ports, NumberData{0.0}, max_size_per_port) {}
+  ~Addition() noexcept = default;
   std::string type_name() const override { return "Addition"; }
 
   bool equals(const Addition& other) const {
@@ -51,8 +54,9 @@ class Addition : public ArithmeticSync<NumberData> {
 
 class Subtraction : public ArithmeticSync<NumberData> {
  public:
-  explicit Subtraction(std::string id, size_t num_ports = 2) : ArithmeticSync<NumberData>(std::move(id), num_ports) {}
-
+  explicit Subtraction(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ArithmeticSync<NumberData>(std::move(id), num_ports, max_size_per_port) {}
+  ~Subtraction() noexcept = default;
   std::string type_name() const override { return "Subtraction"; }
 
   bool equals(const Subtraction& other) const {
@@ -80,9 +84,9 @@ class Subtraction : public ArithmeticSync<NumberData> {
 
 class Multiplication : public ArithmeticSync<NumberData> {
  public:
-  explicit Multiplication(std::string id, size_t num_ports)
-      : ArithmeticSync<NumberData>(std::move(id), num_ports, NumberData{1.0}) {}
-
+  explicit Multiplication(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ArithmeticSync<NumberData>(std::move(id), num_ports, NumberData{1.0}, max_size_per_port) {}
+  ~Multiplication() noexcept = default;
   std::string type_name() const override { return "Multiplication"; }
 
   bool equals(const Multiplication& other) const {
@@ -105,8 +109,9 @@ class Multiplication : public ArithmeticSync<NumberData> {
 
 class Division : public ArithmeticSync<NumberData> {
  public:
-  explicit Division(std::string id, size_t num_ports = 2) : ArithmeticSync<NumberData>(std::move(id), num_ports) {}
-
+  explicit Division(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : ArithmeticSync<NumberData>(std::move(id), num_ports, max_size_per_port) {}
+  ~Division() noexcept = default;
   std::string type_name() const override { return "Division"; }
 
   bool equals(const Division& other) const {
@@ -138,20 +143,20 @@ class Division : public ArithmeticSync<NumberData> {
 };
 
 // Factory functions with optional num_ports parameter
-inline std::shared_ptr<Addition> make_addition(std::string id, size_t num_ports = 2) {
-  return std::make_shared<Addition>(std::move(id), num_ports);
+inline std::shared_ptr<Addition> make_addition(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Addition>(std::move(id), num_ports, max_size_per_port);
 }
 
-inline std::shared_ptr<Subtraction> make_subtraction(std::string id, size_t num_ports = 2) {
-  return std::make_shared<Subtraction>(std::move(id), num_ports);
+inline std::shared_ptr<Subtraction> make_subtraction(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Subtraction>(std::move(id), num_ports, max_size_per_port);
 }
 
-inline std::shared_ptr<Multiplication> make_multiplication(std::string id, size_t num_ports = 2) {
-  return std::make_shared<Multiplication>(std::move(id), num_ports);
+inline std::shared_ptr<Multiplication> make_multiplication(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Multiplication>(std::move(id), num_ports, max_size_per_port);
 }
 
-inline std::shared_ptr<Division> make_division(std::string id, size_t num_ports = 2) {
-  return std::make_shared<Division>(std::move(id), num_ports);
+inline std::shared_ptr<Division> make_division(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<Division>(std::move(id), num_ports, max_size_per_port);
 }
 
 }  // namespace rtbot

@@ -218,3 +218,32 @@ SCENARIO("CompareSync serialization roundtrip", "[compare_sync][State]") {
     REQUIRE(*restored == *cmp);
   }
 }
+
+SCENARIO("CompareSync operators respect custom maxSizePerPort", "[compare_sync]") {
+  GIVEN("A CompareSyncGT operator with max_size_per_port set to 3") {
+    size_t limit = 3;
+    auto cmp = make_compare_sync_gt("cmp1", limit);
+
+    REQUIRE(cmp->max_size_per_port() == limit);
+
+    WHEN("More messages than the limit are queued before execute") {
+      for (int i = 0; i < (int)limit + 2; i++) {
+        cmp->receive_data(create_message<NumberData>(i, NumberData{10.0}), 0);
+        cmp->receive_data(create_message<NumberData>(i, NumberData{5.0}), 1);
+      }
+      cmp->execute();
+
+      THEN("Only limit results are emitted") {
+        const auto& output = cmp->get_output_queue(0);
+        REQUIRE(output.size() == limit);
+
+        // All results should be true (10 > 5)
+        for (size_t i = 0; i < limit; i++) {
+          const auto* msg = dynamic_cast<const Message<BooleanData>*>(output[i].get());
+          REQUIRE(msg != nullptr);
+          REQUIRE(msg->data.value == true);
+        }
+      }
+    }
+  }
+}
