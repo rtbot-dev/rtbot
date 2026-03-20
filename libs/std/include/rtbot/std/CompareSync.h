@@ -15,10 +15,11 @@ namespace rtbot {
 // evaluate(lhs, rhs) as BooleanData. Inherits timestamp-sync machinery from Join.
 class CompareSync : public Join {
  public:
-  explicit CompareSync(std::string id)
+  explicit CompareSync(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : Join(std::move(id),
              {PortType::NUMBER, PortType::NUMBER},  // i1, i2
-             {PortType::BOOLEAN}) {}                // o1
+             {PortType::BOOLEAN},                   // o1
+             max_size_per_port) {}
 
   virtual ~CompareSync() = default;
 
@@ -67,7 +68,8 @@ class CompareSync : public Join {
 
 class CompareSyncGT : public CompareSync {
  public:
-  explicit CompareSyncGT(std::string id) : CompareSync(std::move(id)) {}
+  explicit CompareSyncGT(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port) {}
   std::string type_name() const override { return "CompareSyncGT"; }
   bool evaluate(double lhs, double rhs) const override { return lhs > rhs; }
 
@@ -78,7 +80,8 @@ class CompareSyncGT : public CompareSync {
 
 class CompareSyncLT : public CompareSync {
  public:
-  explicit CompareSyncLT(std::string id) : CompareSync(std::move(id)) {}
+  explicit CompareSyncLT(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port) {}
   std::string type_name() const override { return "CompareSyncLT"; }
   bool evaluate(double lhs, double rhs) const override { return lhs < rhs; }
 
@@ -89,7 +92,8 @@ class CompareSyncLT : public CompareSync {
 
 class CompareSyncGTE : public CompareSync {
  public:
-  explicit CompareSyncGTE(std::string id) : CompareSync(std::move(id)) {}
+  explicit CompareSyncGTE(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port) {}
   std::string type_name() const override { return "CompareSyncGTE"; }
   bool evaluate(double lhs, double rhs) const override { return lhs >= rhs; }
 
@@ -100,7 +104,8 @@ class CompareSyncGTE : public CompareSync {
 
 class CompareSyncLTE : public CompareSync {
  public:
-  explicit CompareSyncLTE(std::string id) : CompareSync(std::move(id)) {}
+  explicit CompareSyncLTE(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port) {}
   std::string type_name() const override { return "CompareSyncLTE"; }
   bool evaluate(double lhs, double rhs) const override { return lhs <= rhs; }
 
@@ -111,8 +116,9 @@ class CompareSyncLTE : public CompareSync {
 
 class CompareSyncEQ : public CompareSync {
  public:
-  explicit CompareSyncEQ(std::string id, double tolerance = 0.0)
-      : CompareSync(std::move(id)), tolerance_(tolerance) {}
+  explicit CompareSyncEQ(std::string id, double tolerance = 0.0,
+                          size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port), tolerance_(tolerance) {}
   std::string type_name() const override { return "CompareSyncEQ"; }
   bool evaluate(double lhs, double rhs) const override {
     return std::abs(lhs - rhs) <= tolerance_;
@@ -133,8 +139,9 @@ class CompareSyncEQ : public CompareSync {
 
 class CompareSyncNEQ : public CompareSync {
  public:
-  explicit CompareSyncNEQ(std::string id, double tolerance = 0.0)
-      : CompareSync(std::move(id)), tolerance_(tolerance) {}
+  explicit CompareSyncNEQ(std::string id, double tolerance = 0.0,
+                           size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : CompareSync(std::move(id), max_size_per_port), tolerance_(tolerance) {}
   std::string type_name() const override { return "CompareSyncNEQ"; }
   bool evaluate(double lhs, double rhs) const override {
     return std::abs(lhs - rhs) > tolerance_;
@@ -154,25 +161,25 @@ class CompareSyncNEQ : public CompareSync {
 };
 
 // Factory functions
-inline std::shared_ptr<CompareSyncGT>  make_compare_sync_gt(std::string id) {
-  return std::make_shared<CompareSyncGT>(std::move(id));
+inline std::shared_ptr<CompareSyncGT>  make_compare_sync_gt(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncGT>(std::move(id), max_size_per_port);
 }
-inline std::shared_ptr<CompareSyncLT>  make_compare_sync_lt(std::string id) {
-  return std::make_shared<CompareSyncLT>(std::move(id));
+inline std::shared_ptr<CompareSyncLT>  make_compare_sync_lt(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncLT>(std::move(id), max_size_per_port);
 }
-inline std::shared_ptr<CompareSyncGTE> make_compare_sync_gte(std::string id) {
-  return std::make_shared<CompareSyncGTE>(std::move(id));
+inline std::shared_ptr<CompareSyncGTE> make_compare_sync_gte(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncGTE>(std::move(id), max_size_per_port);
 }
-inline std::shared_ptr<CompareSyncLTE> make_compare_sync_lte(std::string id) {
-  return std::make_shared<CompareSyncLTE>(std::move(id));
+inline std::shared_ptr<CompareSyncLTE> make_compare_sync_lte(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncLTE>(std::move(id), max_size_per_port);
 }
 inline std::shared_ptr<CompareSyncEQ>  make_compare_sync_eq(std::string id,
-                                                             double tolerance = 0.0) {
-  return std::make_shared<CompareSyncEQ>(std::move(id), tolerance);
+                                                             double tolerance = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncEQ>(std::move(id), tolerance, max_size_per_port);
 }
 inline std::shared_ptr<CompareSyncNEQ> make_compare_sync_neq(std::string id,
-                                                              double tolerance = 0.0) {
-  return std::make_shared<CompareSyncNEQ>(std::move(id), tolerance);
+                                                              double tolerance = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_shared<CompareSyncNEQ>(std::move(id), tolerance, max_size_per_port);
 }
 
 }  // namespace rtbot

@@ -48,6 +48,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalOr
@@ -63,6 +68,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalXor
@@ -78,6 +88,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalNand
@@ -93,6 +108,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalNor
@@ -108,6 +128,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalXnor
@@ -123,6 +148,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: LogicalImplication
@@ -138,6 +168,11 @@ jsonschemas:
         minimum: 2
         default: 2
         description: "Number of input ports (default: 2)"
+      maxSizePerPort:
+        type: integer
+        minimum: 1
+        default: 17280
+        description: Maximum number of messages buffered per port
     required: ["id"]
 ---
 

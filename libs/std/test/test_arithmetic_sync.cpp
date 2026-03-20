@@ -254,3 +254,29 @@ SCENARIO("ArithmeticSync operators handle multiple inputs", "[math_sync_binary_o
     }
   }
 }
+SCENARIO("ArithmeticSync operators respect custom maxSizePerPort", "[math_sync_binary_op]") {
+  GIVEN("An Addition operator with max_size_per_port set to 3") {
+    size_t limit = 3;
+    auto add = make_addition("add1", 2, limit);
+
+    REQUIRE(add->max_size_per_port() == limit);
+
+    WHEN("More messages than the limit are queued before execute") {
+      for (int i = 0; i < (int)limit + 2; i++) {
+        add->receive_data(create_message<NumberData>(i, NumberData{(double)i}), 0);
+        add->receive_data(create_message<NumberData>(i, NumberData{1.0}), 1);
+      }
+      add->execute();
+
+      THEN("Only the last limit results are emitted") {
+        const auto& output = add->get_output_queue(0);
+        REQUIRE(output.size() == limit);
+
+        // First surviving message is index 2 (oldest 2 dropped)
+        const auto* first = dynamic_cast<const Message<NumberData>*>(output.front().get());
+        REQUIRE(first->time == 2);
+        REQUIRE(first->data.value == Approx(3.0));  // 2 + 1
+      }
+    }
+  }
+}

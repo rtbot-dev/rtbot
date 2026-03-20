@@ -229,6 +229,35 @@ SCENARIO("Join operator factory functions work correctly", "[join]") {
   }
 }
 
+SCENARIO("Join operator respects custom maxSizePerPort", "[join]") {
+  GIVEN("A binary join with max_size_per_port set to 5") {
+    size_t limit = 5;
+    auto join = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER}, limit);
+
+    REQUIRE(join->max_size_per_port() == limit);
+
+    WHEN("More messages than the limit are received") {
+      for (int i = 0; i < (int)limit + 3; i++) {
+        join->receive_data(create_message<NumberData>(i, NumberData{(double)i}), 0);
+        join->receive_data(create_message<NumberData>(i, NumberData{(double)i * 2}), 1);
+      }
+      join->execute();
+
+      THEN("Only the last limit messages are emitted") {
+        const auto& output0 = join->get_output_queue(0);
+        const auto& output1 = join->get_output_queue(1);
+        REQUIRE(output0.size() == limit);
+        REQUIRE(output1.size() == limit);
+
+        // First output should start from message index 3 (oldest 3 dropped)
+        const auto* first = dynamic_cast<const Message<NumberData>*>(output0.front().get());
+        REQUIRE(first->time == 3);
+        REQUIRE(first->data.value == 3.0);
+      }
+    }
+  }
+}
+
 SCENARIO("Join operator handles cleanup of old messages", "[join]") {
   GIVEN("A binary join with accumulated messages") {
     auto join = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});

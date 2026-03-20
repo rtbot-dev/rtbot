@@ -15,7 +15,8 @@ namespace rtbot {
 class Variable : public Operator {
  
  public:
-  Variable(std::string id, double default_value = 0.0) : Operator(std::move(id)), default_value_(default_value) {
+  Variable(std::string id, double default_value = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : Operator(std::move(id), max_size_per_port), default_value_(default_value) {
     add_data_port<NumberData>();     // For value updates
     add_control_port<NumberData>();  // For queries
     add_output_port<NumberData>();   // For responses    
@@ -147,8 +148,8 @@ class Variable : public Operator {
 };
 
 // Factory function
-inline std::unique_ptr<Variable> make_variable(std::string id, double default_value = 0.0) {
-  return std::make_unique<Variable>(std::move(id), default_value);
+inline std::unique_ptr<Variable> make_variable(std::string id, double default_value = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
+  return std::make_unique<Variable>(std::move(id), default_value, max_size_per_port);
 }
 
 }  // namespace rtbot

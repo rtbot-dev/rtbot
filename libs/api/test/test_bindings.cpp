@@ -390,3 +390,205 @@ SCENARIO("Program and operator validation", "[bindings]") {
     }
   }
 }
+
+SCENARIO("maxSizePerPort is preserved through JSON serialization round-trip", "[bindings][maxSizePerPort]") {
+  GIVEN("Operators constructed with a custom maxSizePerPort via JSON") {
+    size_t custom_limit = 42;
+
+    WHEN("A Join operator is deserialized with maxSizePerPort") {
+      std::string json_str = R"({"type":"Join","id":"j1","portTypes":["number","number"],"maxSizePerPort":42})";
+      auto op = OperatorJson::read_op(json_str);
+      THEN("max_size_per_port() returns the custom value") {
+        REQUIRE(op->max_size_per_port() == custom_limit);
+      }
+      AND_THEN("write_op round-trips the value") {
+        auto out = json::parse(OperatorJson::write_op(op));
+        REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+      }
+    }
+
+    WHEN("An Addition operator is deserialized with maxSizePerPort") {
+      std::string json_str = R"({"type":"Addition","id":"a1","numPorts":2,"maxSizePerPort":42})";
+      auto op = OperatorJson::read_op(json_str);
+      THEN("max_size_per_port() returns the custom value") {
+        REQUIRE(op->max_size_per_port() == custom_limit);
+      }
+      AND_THEN("write_op round-trips the value") {
+        auto out = json::parse(OperatorJson::write_op(op));
+        REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+      }
+    }
+
+    WHEN("A Demultiplexer operator is deserialized with maxSizePerPort") {
+      std::string json_str = R"({"type":"Demultiplexer","id":"d1","numPorts":2,"portType":"number","maxSizePerPort":42})";
+      auto op = OperatorJson::read_op(json_str);
+      THEN("max_size_per_port() returns the custom value") {
+        REQUIRE(op->max_size_per_port() == custom_limit);
+      }
+      AND_THEN("write_op round-trips the value") {
+        auto out = json::parse(OperatorJson::write_op(op));
+        REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+      }
+    }
+
+    WHEN("A Variable operator is deserialized with maxSizePerPort") {
+      std::string json_str = R"({"type":"Variable","id":"v1","default_value":0.0,"maxSizePerPort":42})";
+      auto op = OperatorJson::read_op(json_str);
+      THEN("max_size_per_port() returns the custom value") {
+        REQUIRE(op->max_size_per_port() == custom_limit);
+      }
+      AND_THEN("write_op round-trips the value") {
+        auto out = json::parse(OperatorJson::write_op(op));
+        REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+      }
+    }
+
+    WHEN("A Subtraction operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"Subtraction","id":"s1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A Multiplication operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"Multiplication","id":"m1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A Division operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"Division","id":"d1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A Linear operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"Linear","id":"l1","coefficients":[1.0,2.0],"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalAnd operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalAnd","id":"la1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalOr operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalOr","id":"lo1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalXor operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalXor","id":"lx1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalNand operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalNand","id":"ln1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalNor operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalNor","id":"lno1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A LogicalImplication operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"LogicalImplication","id":"li1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A SyncGreaterThan operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"SyncGreaterThan","id":"sgt1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A SyncLessThan operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"SyncLessThan","id":"slt1","numPorts":2,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A SyncEqual operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"SyncEqual","id":"se1","numPorts":2,"epsilon":1e-10,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A SyncNotEqual operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"SyncNotEqual","id":"sne1","numPorts":2,"epsilon":1e-10,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncGT operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncGT","id":"csgt1","maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncLT operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncLT","id":"cslt1","maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncGTE operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncGTE","id":"csgte1","maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncLTE operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncLTE","id":"cslte1","maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncEQ operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncEQ","id":"cseq1","tolerance":0.0,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("A CompareSyncNEQ operator is deserialized with maxSizePerPort") {
+      auto op = OperatorJson::read_op(R"({"type":"CompareSyncNEQ","id":"csneq1","tolerance":0.0,"maxSizePerPort":42})");
+      REQUIRE(op->max_size_per_port() == custom_limit);
+      auto out = json::parse(OperatorJson::write_op(op));
+      REQUIRE(out["maxSizePerPort"].get<size_t>() == custom_limit);
+    }
+
+    WHEN("maxSizePerPort is omitted, the default is used") {
+      std::string json_str = R"({"type":"Addition","id":"a1","numPorts":2})";
+      auto op = OperatorJson::read_op(json_str);
+      THEN("max_size_per_port() returns MAX_SIZE_PER_PORT") {
+        REQUIRE(op->max_size_per_port() == MAX_SIZE_PER_PORT);
+      }
+    }
+  }
+}

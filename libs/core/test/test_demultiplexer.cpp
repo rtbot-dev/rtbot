@@ -188,6 +188,36 @@ SCENARIO("Demultiplexer fires exception when invalid data is sent to controls", 
   }
 }
 
+SCENARIO("Demultiplexer respects custom maxSizePerPort", "[demultiplexer]") {
+  GIVEN("A demultiplexer with max_size_per_port set to 4") {
+    size_t limit = 4;
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2, limit);
+
+    REQUIRE(demux->max_size_per_port() == limit);
+
+    WHEN("More messages than the limit are queued on data and control ports") {
+      for (int i = 0; i < (int)limit + 2; i++) {
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 0);
+        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 1);
+        demux->receive_data(create_message<NumberData>(i, NumberData{(double)i}), 0);
+      }
+      demux->execute();
+
+      THEN("Only limit messages are routed to each output") {
+        const auto& out0 = demux->get_output_queue(0);
+        const auto& out1 = demux->get_output_queue(1);
+        REQUIRE(out0.size() == limit);
+        REQUIRE(out1.size() == limit);
+
+        // Oldest 2 messages dropped, first surviving is index 2
+        const auto* first = dynamic_cast<const Message<NumberData>*>(out0.front().get());
+        REQUIRE(first->time == 2);
+        REQUIRE(first->data.value == 2.0);
+      }
+    }
+  }
+}
+
 SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") {
   GIVEN("A demultiplexer with active state") {
     auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
