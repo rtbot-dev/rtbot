@@ -53,9 +53,9 @@ class ResamplerConstant : public Operator {
     return !(*this == other);
   }
 
-  Bytes collect() override {
+  Bytes collect_bytes() override {
     // First collect base state
-    Bytes bytes = Operator::collect();
+    Bytes bytes = Operator::collect_bytes();
 
     // Serialize next emission time
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&next_emit_),

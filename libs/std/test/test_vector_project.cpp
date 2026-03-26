@@ -74,10 +74,9 @@ SCENARIO("VectorProject serialization roundtrip", "[vector_project][State]") {
     proj->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0}}), 0);
     proj->execute();
 
-    Bytes state = proj->collect();
+    auto state = proj->collect();
     auto restored = make_vector_project("proj1", {0, 2});
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *proj);
   }

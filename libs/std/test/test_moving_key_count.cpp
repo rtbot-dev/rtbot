@@ -113,10 +113,9 @@ SCENARIO("MovingKeyCount serialization roundtrip", "[moving_key_count][State]") 
     mkc->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
     mkc->execute();
 
-    Bytes state = mkc->collect();
+    auto state = mkc->collect();
     auto restored = make_moving_key_count("mkc1", 3);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
     REQUIRE(*restored == *mkc);
 
     // Continue feeding — window=[1,2,1], now add key=1 → evicts oldest key=1 → count=2

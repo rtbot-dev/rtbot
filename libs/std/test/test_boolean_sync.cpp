@@ -144,14 +144,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("and is serialized and restored") {
       // Serialize state
-      Bytes state = and_op->collect();
+      auto state = and_op->collect();
 
       // Create new operator
       auto restored = make_logical_and("and1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       and_op->execute();
@@ -176,14 +175,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("or is serialized and restored") {
       // Serialize state
-      Bytes state = or_op->collect();
+      auto state = or_op->collect();
 
       // Create new operator
       auto restored = make_logical_or("or1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       or_op->execute();
@@ -208,14 +206,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("xor is serialized and restored") {
       // Serialize state
-      Bytes state = xor_op->collect();
+      auto state = xor_op->collect();
 
       // Create new operator
       auto restored = make_logical_xor("xor1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       xor_op->execute();
@@ -240,14 +237,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("nand is serialized and restored") {
       // Serialize state
-      Bytes state = nand_op->collect();
+      auto state = nand_op->collect();
 
       // Create new operator
       auto restored = make_logical_nand("nand1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       nand_op->execute();
@@ -272,14 +268,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("nor is serialized and restored") {
       // Serialize state
-      Bytes state = nor_op->collect();
+      auto state = nor_op->collect();
 
       // Create new operator
       auto restored = make_logical_nor("nor1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       nor_op->execute();
@@ -304,14 +299,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("xnor is serialized and restored") {
       // Serialize state
-      Bytes state = xnor_op->collect();
+      auto state = xnor_op->collect();
 
       // Create new operator
       auto restored = make_logical_xnor("xnor1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       xnor_op->execute();
@@ -336,14 +330,13 @@ SCENARIO("BooleanSync operators handle state serialization", "[boolean_sync_bina
 
     WHEN("impl is serialized and restored") {
       // Serialize state
-      Bytes state = impl_op->collect();
+      auto state = impl_op->collect();
 
       // Create new operator
       auto restored = make_logical_implication("impl1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       impl_op->execute();

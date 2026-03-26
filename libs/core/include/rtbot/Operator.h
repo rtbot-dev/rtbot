@@ -16,6 +16,9 @@
 #include <typeindex>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
+#include "rtbot/Base64.h"
 #include "rtbot/Message.h"
 #include "rtbot/StateSerializer.h"
 #include "rtbot/telemetry/OpenTelemetry.h"
@@ -54,8 +57,16 @@ class Operator {
 
   virtual std::string type_name() const = 0;
 
-  // Default implementations for core operator state
-  virtual Bytes collect() {
+  // Collect operator state as JSON: {"name": "TypeName", "bytes": "base64..."}
+  virtual nlohmann::json collect() {
+    return {
+      {"name", type_name()},
+      {"bytes", bytes_to_base64(collect_bytes())}
+    };
+  }
+
+  // Serialize core operator state to bytes (used internally by collect)
+  virtual Bytes collect_bytes() {
     Bytes bytes;
 
     // Serialize port counts
@@ -82,7 +93,7 @@ class Operator {
     }
     for (const auto& port : output_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
-    }    
+    }
 
     return bytes;
   }
@@ -121,6 +132,12 @@ class Operator {
         StateSerializer::deserialize_message_queue(it, port.queue);
     }
 
+  }
+
+  virtual void restore_data_from_json(const nlohmann::json& j) {
+    Bytes bytes = base64_to_bytes(j.at("bytes").get<std::string>());
+    auto it = bytes.cbegin();
+    restore(it);
   }
 
   // Dynamic port management with type information

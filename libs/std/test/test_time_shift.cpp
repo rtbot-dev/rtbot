@@ -87,12 +87,11 @@ SCENARIO("TimeShift handles state serialization", "[TimeShift]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = time_shift->collect();
+      auto state = time_shift->collect();
 
       // Create new operator and restore state
       auto restored = std::make_unique<TimeShift>("shift1", 5);
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       time_shift->execute();

@@ -112,10 +112,9 @@ SCENARIO("TopK serialization roundtrip", "[topk][State]") {
         create_message<VectorNumberData>(2, VectorNumberData{{200.0}}), 0);
     topk->execute();
 
-    Bytes state = topk->collect();
+    auto state = topk->collect();
     auto restored = make_topk("t1", 2, 0, true);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     // Feed one more to the restored instance
     restored->clear_all_output_ports();

@@ -81,10 +81,9 @@ SCENARIO("Function operator handles state serialization", "[function][State]") {
     function->execute();
     function->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
 
-    Bytes state = function->collect();
+    auto state = function->collect();
     auto restored = std::make_shared<Function>("func", points);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     SECTION("verifying deserialization") {
       REQUIRE(*function == *restored);

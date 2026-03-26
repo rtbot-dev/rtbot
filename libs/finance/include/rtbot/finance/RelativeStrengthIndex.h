@@ -40,6 +40,35 @@ class RelativeStrengthIndex : public Buffer<NumberData, RSIFeatures> {
     prev_average_loss_ = 0.0;
   }
 
+  Bytes collect_bytes() override {
+    Bytes bytes = Buffer<NumberData, RSIFeatures>::collect_bytes();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&initialized_),
+                 reinterpret_cast<const uint8_t*>(&initialized_) + sizeof(initialized_));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&average_gain_),
+                 reinterpret_cast<const uint8_t*>(&average_gain_) + sizeof(average_gain_));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&average_loss_),
+                 reinterpret_cast<const uint8_t*>(&average_loss_) + sizeof(average_loss_));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&prev_average_gain_),
+                 reinterpret_cast<const uint8_t*>(&prev_average_gain_) + sizeof(prev_average_gain_));
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&prev_average_loss_),
+                 reinterpret_cast<const uint8_t*>(&prev_average_loss_) + sizeof(prev_average_loss_));
+    return bytes;
+  }
+
+  void restore(Bytes::const_iterator& it) override {
+    Buffer<NumberData, RSIFeatures>::restore(it);
+    std::memcpy(&initialized_, &(*it), sizeof(initialized_));
+    it += sizeof(initialized_);
+    std::memcpy(&average_gain_, &(*it), sizeof(average_gain_));
+    it += sizeof(average_gain_);
+    std::memcpy(&average_loss_, &(*it), sizeof(average_loss_));
+    it += sizeof(average_loss_);
+    std::memcpy(&prev_average_gain_, &(*it), sizeof(prev_average_gain_));
+    it += sizeof(prev_average_gain_);
+    std::memcpy(&prev_average_loss_, &(*it), sizeof(prev_average_loss_));
+    it += sizeof(prev_average_loss_);
+  }
+
  protected:
   std::vector<std::unique_ptr<Message<NumberData>>> process_message(const Message<NumberData>* msg) override {
     // Only compute RSI when buffer is full

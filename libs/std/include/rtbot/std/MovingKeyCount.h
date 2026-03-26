@@ -38,8 +38,8 @@ class MovingKeyCount : public Operator {
   bool operator==(const MovingKeyCount& other) const { return equals(other); }
   bool operator!=(const MovingKeyCount& other) const { return !(*this == other); }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
 
     // Ring buffer contents
     size_t n = ring_.size();

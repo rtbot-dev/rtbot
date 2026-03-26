@@ -37,8 +37,8 @@ class Count : public Operator {
   }
 
   // Serialize count_ since it's our only state
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&count_),
                  reinterpret_cast<const uint8_t*>(&count_) + sizeof(count_));
     return bytes;

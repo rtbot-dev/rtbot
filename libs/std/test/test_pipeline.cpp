@@ -163,14 +163,13 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][State]") 
 
     WHEN("State is serialized and restored") {
       // Serialize base state
-      Bytes state = pipeline->collect();
+      auto state = pipeline->collect();
 
       // Create new pipeline and restore
       auto restored = std::make_unique<Pipeline>("serial_pipe", std::vector<std::string>{PortType::NUMBER},
                                                  std::vector<std::string>{PortType::NUMBER});
 
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Base operator state is preserved") {
         REQUIRE(restored->id() == pipeline->id());
@@ -197,14 +196,13 @@ SCENARIO("Pipeline handles state serialization correctly", "[pipeline][State]") 
     pipeline->add_output_mapping("peak1", 0, 0);
 
     WHEN("Pipeline state is serialized") {
-      Bytes state = pipeline->collect();
+      auto state = pipeline->collect();
 
       AND_WHEN("State is restored to new pipeline") {
         auto restored = std::make_unique<Pipeline>("complex_pipe", std::vector<std::string>{PortType::NUMBER},
                                                    std::vector<std::string>{PortType::NUMBER});
 
-        auto it = state.cbegin();
-        restored->restore(it);
+        restored->restore_data_from_json(state);
 
         THEN("Pipeline requires operator re-registration") {
           // Re-register operators

@@ -110,6 +110,14 @@ export class RtBot {
     return (await this.rtbot).deleteProgram(programId);
   }
 
+  async serializeProgramData(programId: string): Promise<string> {
+    return (await this.rtbot).serializeProgramData(programId);
+  }
+
+  async restoreProgramDataFromJson(programId: string, jsonState: string): Promise<void> {
+    (await this.rtbot).restoreProgramDataFromJson(programId, jsonState);
+  }
+
   async processDebug(
     programId: string,
     messages: { [portId: string]: RtBotInputMessage[] }

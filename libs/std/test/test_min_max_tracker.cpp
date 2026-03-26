@@ -106,10 +106,9 @@ SCENARIO("MinTracker serialization roundtrip", "[min_max_tracker][State]") {
 
     REQUIRE(mn->get_current_min() == Approx(3.0));
 
-    Bytes state = mn->collect();
+    auto state = mn->collect();
     auto restored = make_min_tracker("mn1");
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
     REQUIRE(*restored == *mn);
     REQUIRE(restored->get_current_min() == Approx(3.0));
 
@@ -132,10 +131,9 @@ SCENARIO("MaxTracker serialization roundtrip", "[min_max_tracker][State]") {
 
     REQUIRE(mx->get_current_max() == Approx(9.0));
 
-    Bytes state = mx->collect();
+    auto state = mx->collect();
     auto restored = make_max_tracker("mx1");
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
     REQUIRE(*restored == *mx);
     REQUIRE(restored->get_current_max() == Approx(9.0));
 

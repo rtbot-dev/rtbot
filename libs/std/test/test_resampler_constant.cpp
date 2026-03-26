@@ -87,10 +87,9 @@ SCENARIO("ResamplerConstant operator handles serialization", "[ResamplerConstant
     rc.receive_data(create_message<NumberData>(11, NumberData{11.0}), 0);
     
 
-    Bytes state = rc.collect();
+    auto state = rc.collect();
     auto restored = ResamplerConstant<NumberData>("resampler_constant", 1);
-    auto it = state.cbegin();
-    restored.restore(it);
+    restored.restore_data_from_json(state);
   
     
     SECTION("verifying deserialization") {

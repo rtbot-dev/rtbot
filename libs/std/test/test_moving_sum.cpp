@@ -82,14 +82,13 @@ SCENARIO("MovingSum operator handles state serialization", "[moving_sum][State]"
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = ms.collect();
+      auto state = ms.collect();
 
       // Create new operator
       auto restored = MovingSum("test_ms", 3);
 
       // Restore state
-      Bytes::const_iterator it = state.cbegin();
-      restored.restore(it);
+      restored.restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
         REQUIRE(restored.sum() == ms.sum());

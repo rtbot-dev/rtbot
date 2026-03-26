@@ -32,8 +32,8 @@ class WindowMinMax : public Operator {
   size_t window_size() const { return window_size_; }
   bool is_min() const { return is_min_; }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&pos_),
                  reinterpret_cast<const uint8_t*>(&pos_) + sizeof(pos_));
     size_t n = mono_.size();

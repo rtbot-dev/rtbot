@@ -111,14 +111,13 @@ SCENARIO("StandardDeviation operator handles state serialization", "[StandardDev
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = sd.collect();
+      auto state = sd.collect();
 
       // Create new operator
       auto restored = StandardDeviation("sd1", 3);
 
       // Restore state
-      auto it = state.cbegin();
-      restored.restore(it);
+      restored.restore_data_from_json(state);
 
       THEN("Statistical calculations match") {
         auto& orig_output = sd.get_output_queue(0);

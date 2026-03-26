@@ -73,10 +73,9 @@ SCENARIO("CumulativeSum handles state serialization", "[CumulativeSum]") {
     sum->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = sum->collect();
+      auto state = sum->collect();
       auto restored = std::make_unique<CumulativeSum>("sum1");
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("State is preserved correctly") {
         REQUIRE(restored->get_sum() == 30.0);

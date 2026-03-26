@@ -40,8 +40,8 @@ class CumulativeSum : public Operator {
   }
 
   // State serialization
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
                  reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_comp_),

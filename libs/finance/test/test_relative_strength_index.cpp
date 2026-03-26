@@ -120,6 +120,50 @@ SCENARIO("RelativeStrengthIndex operator handles edge cases", "[rsi]") {
   }
 }
 
+SCENARIO("RelativeStrengthIndex serialization", "[rsi][State]") {
+  GIVEN("An RSI operator with accumulated state") {
+    auto rsi = RelativeStrengthIndex("rsi", 3);
+
+    // Feed enough data to initialize and produce output
+    rsi.receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+    rsi.execute();
+    rsi.clear_all_output_ports();
+    rsi.receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
+    rsi.execute();
+    rsi.clear_all_output_ports();
+    rsi.receive_data(create_message<NumberData>(3, NumberData{11.0}), 0);
+    rsi.execute();
+    rsi.clear_all_output_ports();
+    rsi.receive_data(create_message<NumberData>(4, NumberData{14.0}), 0);
+    rsi.execute();
+    rsi.clear_all_output_ports();
+
+    WHEN("State is serialized and restored") {
+      auto state = rsi.collect();
+
+      auto restored = RelativeStrengthIndex("rsi", 3);
+      restored.restore_data_from_json(state);
+
+      THEN("Restored operator produces same output as original") {
+        rsi.receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
+        rsi.execute();
+        restored.receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
+        restored.execute();
+
+        const auto& orig_out = rsi.get_output_queue(0);
+        const auto& rest_out = restored.get_output_queue(0);
+        REQUIRE(orig_out.size() == rest_out.size());
+        REQUIRE(orig_out.size() == 1);
+
+        const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_out[0].get());
+        const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_out[0].get());
+        REQUIRE(orig_msg->time == rest_msg->time);
+        REQUIRE(std::abs(orig_msg->data.value - rest_msg->data.value) < 1e-10);
+      }
+    }
+  }
+}
+
 SCENARIO("RelativeStrengthIndex reset functionality", "[rsi]") {
   GIVEN("An RSI operator with some state") {
     auto rsi = RelativeStrengthIndex("rsi", 3);

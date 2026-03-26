@@ -3,6 +3,7 @@
 #include <nlohmann/json.hpp>
 
 #include "rtbot/Program.h"
+#include "rtbot/finance/RelativeStrengthIndex.h"
 
 using namespace rtbot;
 
@@ -212,8 +213,9 @@ SCENARIO("RSI program maintains state through serialization with large dataset",
         original_program.receive(Message<NumberData>(inputs[i].first, NumberData{inputs[i].second}));
       }
 
-      Bytes serialized = original_program.serialize();
-      Program restored_program(serialized);
+      auto serialized = original_program.serialize_data();
+      Program restored_program(json_program);
+      restored_program.restore_data_from_json(serialized);
 
       std::vector<std::pair<timestamp_t, double>> outputs_original;
       std::vector<std::pair<timestamp_t, double>> outputs_restored;
@@ -245,6 +247,62 @@ SCENARIO("RSI program maintains state through serialization with large dataset",
   }
 }
 
+SCENARIO("RSI JSON program produces same output as RelativeStrengthIndex operator", "[rsi][program][finance]") {
+  GIVEN("A JSON RSI program and a RelativeStrengthIndex operator with the same period") {
+    const size_t n = 14;
+    auto json_program = create_rsi_program(n);
+    Program program(json_program);
+    RelativeStrengthIndex rsi("rsi", n);
+
+    std::vector<std::pair<timestamp_t, double>> test_data = {
+        {1, 54.8},   {2, 56.8},   {3, 57.85},  {4, 59.85},  {5, 60.57},  {6, 61.1},   {7, 62.17},  {8, 60.6},
+        {9, 62.35},  {10, 62.15}, {11, 62.35}, {12, 61.45}, {13, 62.8},  {14, 61.37}, {15, 62.5},  {16, 62.57},
+        {17, 60.8},  {18, 59.37}, {19, 60.35}, {20, 62.35}, {21, 62.17}, {22, 62.55}, {23, 64.55}, {24, 64.37},
+        {25, 65.3},  {26, 64.42}, {27, 62.9},  {28, 61.6},  {29, 62.05}, {30, 60.05}, {31, 59.7},  {32, 60.9},
+        {33, 60.25}, {34, 58.27}, {35, 58.7},  {36, 57.72}, {37, 58.1},  {38, 58.2}};
+
+    WHEN("Processing the same data through both") {
+      std::map<timestamp_t, double> program_outputs;
+      std::map<timestamp_t, double> operator_outputs;
+
+      for (const auto& [time, price] : test_data) {
+        // Process through JSON program
+        auto batch = program.receive(Message<NumberData>(time, NumberData{price}));
+        if (!batch.empty() && batch.count("output") > 0 && !batch["output"]["o1"].empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(batch["output"]["o1"][0].get());
+          program_outputs[msg->time] = msg->data.value;
+        }
+
+        // Process through finance operator
+        rsi.receive_data(create_message<NumberData>(time, NumberData{price}), 0);
+        rsi.execute();
+        const auto& output = rsi.get_output_queue(0);
+        if (!output.empty()) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
+          operator_outputs[msg->time] = msg->data.value;
+        }
+        rsi.clear_all_output_ports();
+      }
+
+      THEN("Both produce the same RSI values for overlapping timestamps") {
+        REQUIRE(!program_outputs.empty());
+        REQUIRE(!operator_outputs.empty());
+
+        // Compare values at timestamps that both produced output for
+        size_t matched = 0;
+        for (const auto& [time, prog_value] : program_outputs) {
+          auto it = operator_outputs.find(time);
+          if (it != operator_outputs.end()) {
+            REQUIRE(prog_value == Approx(it->second).margin(0.00001));
+            matched++;
+          }
+        }
+        REQUIRE(matched == program_outputs.size());
+      }
+    }
+  }
+}
+
 SCENARIO("RSI program maintains state through serialization", "[rsi][program][serialization]") {
   GIVEN("A Program initialized with RSI calculation JSON") {
     const size_t n = 14;  // RSI period
@@ -266,8 +324,9 @@ SCENARIO("RSI program maintains state through serialization", "[rsi][program][se
       }
 
       // Serialize and restore program
-      Bytes serialized = original_program.serialize();
-      Program restored_program(serialized);
+      auto serialized = original_program.serialize_data();
+      Program restored_program(json_program);
+      restored_program.restore_data_from_json(serialized);
 
       // Process remaining data with both programs
       std::vector<double> outputs_original;

@@ -205,12 +205,11 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     WHEN("LessThan is serialized and restored") {
 
       // Serialize state
-      Bytes state = lt->collect();
+      auto state = lt->collect();
 
       // Create new operator and restore state
       auto restored = make_less_than("lt1", 3.0);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Verify restored state
       REQUIRE(*restored == *lt);
@@ -233,12 +232,11 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     WHEN("GreaterThan is serialized and restored") {
 
       // Serialize state
-      Bytes state = gt->collect();
+      auto state = gt->collect();
 
       // Create new operator and restore state
       auto restored = make_greater_than("gt1", 3.0);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Verify restored state
       REQUIRE(*restored == *gt);
@@ -258,12 +256,11 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     WHEN("EqualTo is serialized and restored") {
 
       // Serialize state
-      Bytes state = et->collect();
+      auto state = et->collect();
 
       // Create new operator and restore state
       auto restored = make_equal_to("et1", 3.0);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Verify restored state
       REQUIRE(*restored == *et);
@@ -288,12 +285,11 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     WHEN("NotEqualTo is serialized and restored") {
 
       // Serialize state
-      Bytes state = net->collect();
+      auto state = net->collect();
 
       // Create new operator and restore state
       auto restored = make_not_equal_to("net1", 3.0);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Verify restored state
       REQUIRE(*restored == *net);

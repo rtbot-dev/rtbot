@@ -64,9 +64,10 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
 
       process_batch("test_prog2", times, values, ports);
 
-      auto state = serialize_program("test_prog2");
+      auto state = serialize_program_data("test_prog2");
       delete_program("test_prog2");
-      create_program_from_bytes("test_prog2", state);
+      create_program("test_prog2", program_json);
+      restore_program_data_from_json("test_prog2", state);
 
       THEN("State is preserved") {
         std::vector<uint64_t> new_times = {3};

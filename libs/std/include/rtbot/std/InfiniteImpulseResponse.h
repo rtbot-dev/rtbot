@@ -55,8 +55,8 @@ class InfiniteImpulseResponse : public Operator {
       return !(*this == other);
   }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
 
     // Serialize x buffer
     size_t x_size = x_.size();

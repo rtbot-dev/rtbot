@@ -129,6 +129,60 @@ SCENARIO("LuaOperator implements moving average correctly", "[LuaOperator]") {
   }
 }
 
+SCENARIO("LuaOperator serialization", "[LuaOperator][State]") {
+  GIVEN("A LuaOperator with queued state") {
+    const std::string lua_code = R"(
+            add_data_port()
+            add_output_port()
+
+            function process_data(input_values, input_times)
+                if #input_values[1] == 0 then
+                    return {[0] = {}}
+                end
+
+                local results = {}
+                for i = 1, #input_values[1] do
+                    table.insert(results, {
+                        time = input_times[1][i],
+                        value = input_values[1][i] * 2
+                    })
+                end
+                return {[0] = results}
+            end
+        )";
+
+    auto op = std::make_unique<LuaOperator>("lua1", lua_code);
+
+    op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
+    op->execute();
+    op->clear_all_output_ports();
+
+    WHEN("State is serialized and restored") {
+      auto state = op->collect();
+
+      auto restored = std::make_unique<LuaOperator>("lua1", lua_code);
+      restored->restore_data_from_json(state);
+
+      THEN("Restored operator produces correct output") {
+        op->receive_data(create_message<NumberData>(2, NumberData{10.0}), 0);
+        op->execute();
+        restored->receive_data(create_message<NumberData>(2, NumberData{10.0}), 0);
+        restored->execute();
+
+        const auto& orig_out = op->get_output_queue(0);
+        const auto& rest_out = restored->get_output_queue(0);
+        REQUIRE(orig_out.size() == rest_out.size());
+        REQUIRE(orig_out.size() == 1);
+
+        const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_out[0].get());
+        const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_out[0].get());
+        REQUIRE(orig_msg->time == rest_msg->time);
+        REQUIRE(orig_msg->data.value == rest_msg->data.value);
+      }
+    }
+  }
+}
+
 SCENARIO("LuaOperator handles error conditions", "[LuaOperator]") {
   SECTION("Invalid Lua syntax") {
     const std::string invalid_code = R"(

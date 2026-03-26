@@ -86,12 +86,11 @@ SCENARIO("ReplaceOp handles serialization", "[replace_op][State]") {
     ltR->execute();
 
     // Serialize state
-    Bytes state = ltR->collect();
+    auto state = ltR->collect();
 
     // Create new operator and restore state
     auto restored = make_less_than_or_equal_to_replace("ltR", 3.0, 2.0);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     // Verify restored state
     REQUIRE(*restored == *ltR);

@@ -152,21 +152,17 @@ SCENARIO("PPG Pipeline handles state serialization", "[PPG][Integration]") {
 
     WHEN("Pipeline state is serialized and restored") {
       // Serialize each component
-      Bytes ma_short_state = pipeline.ma_short->collect();
-      Bytes ma_long_state = pipeline.ma_long->collect();
-      Bytes peak_state = pipeline.peak->collect();
+      auto ma_short_state = pipeline.ma_short->collect();
+      auto ma_long_state = pipeline.ma_long->collect();
+      auto peak_state = pipeline.peak->collect();
 
       // Create new pipeline
       PPGPipeline restored(dt, short_window, long_window);
 
       // Restore state
-      auto it_short = ma_short_state.cbegin();
-      auto it_long = ma_long_state.cbegin();
-      auto it_peak = peak_state.cbegin();
-
-      restored.ma_short->restore(it_short);
-      restored.ma_long->restore(it_long);
-      restored.peak->restore(it_peak);
+      restored.ma_short->restore_data_from_json(ma_short_state);
+      restored.ma_long->restore_data_from_json(ma_long_state);
+      restored.peak->restore_data_from_json(peak_state);
 
       THEN("Moving average buffers are preserved") {
         REQUIRE(restored.ma_short->buffer_size() == pipeline.ma_short->buffer_size());

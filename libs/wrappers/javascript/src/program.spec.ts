@@ -1,4 +1,4 @@
-import { Program, MovingAverage, Input, Output, RtBotRun, RtBotRunOutputFormat } from "@rtbot-dev/rtbot";
+import { Program, MovingAverage, Input, Output, RtBot, RtBotRun, RtBotRunOutputFormat } from "@rtbot-dev/rtbot";
 
 const data = [
   [1, 10.0],
@@ -232,5 +232,46 @@ describe("Program", () => {
       program.validate();
     };
     expect(wrap).not.toThrow();
+  });
+
+  it("can serialize and restore program data", async () => {
+    const programId = "test_serialize_restore";
+    const plainProgram = JSON.stringify(program.toPlain());
+
+    const rtbot = RtBot.getInstance();
+
+    // Create and feed data
+    await rtbot.createProgram(programId, plainProgram);
+    for (const [time, value] of data) {
+      await rtbot.processDebug(programId, { i1: [{ time, value }] });
+    }
+
+    // Serialize state
+    const state = await rtbot.serializeProgramData(programId);
+    expect(state).toBeDefined();
+    const parsed = JSON.parse(state);
+    expect(parsed).toHaveProperty("ma1");
+
+    // Delete and recreate, then restore
+    await rtbot.deleteProgram(programId);
+    await rtbot.createProgram(programId, plainProgram);
+    await rtbot.restoreProgramDataFromJson(programId, state);
+
+    // Process one more data point on restored program
+    const restoredResult = await rtbot.processDebug(programId, { i1: [{ time: 7, value: 10.0 }] });
+
+    // Do the same on a fresh program with all data
+    const freshId = "test_serialize_fresh";
+    await rtbot.createProgram(freshId, plainProgram);
+    for (const [time, value] of data) {
+      await rtbot.processDebug(freshId, { i1: [{ time, value }] });
+    }
+    const freshResult = await rtbot.processDebug(freshId, { i1: [{ time: 7, value: 10.0 }] });
+
+    // Both should produce the same output
+    expect(restoredResult).toEqual(freshResult);
+
+    await rtbot.deleteProgram(programId);
+    await rtbot.deleteProgram(freshId);
   });
 });

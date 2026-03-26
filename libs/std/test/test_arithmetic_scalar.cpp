@@ -47,15 +47,14 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = add->collect();
+      auto state = add->collect();
 
       REQUIRE(add->get_output_queue(0).size() == 3);
       
       auto restored = make_add("add1", 2.0);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *add);
@@ -89,15 +88,14 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = scale->collect();
+      auto state = scale->collect();
 
       REQUIRE(scale->get_output_queue(0).size() == 3);
       
       auto restored = make_scale("scale1", 2.0);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *scale);
@@ -131,15 +129,14 @@ SCENARIO("ArithmeticScalar derived classes handle basic operations", "[math_scal
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = power->collect();
+      auto state = power->collect();
 
       REQUIRE(power->get_output_queue(0).size() == 3);
       
       auto restored = make_power("pow1", 2.0);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *power);
@@ -173,15 +170,14 @@ SCENARIO("ArithmeticScalar handles trigonometric functions", "[math_scalar_op]")
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = sin->collect();
+      auto state = sin->collect();
 
       REQUIRE(sin->get_output_queue(0).size() == 3);
       
       auto restored = make_sin("sin1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *sin);
@@ -216,15 +212,14 @@ SCENARIO("ArithmeticScalar handles exponential and logarithmic functions", "[mat
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = exp->collect();
+      auto state = exp->collect();
 
       REQUIRE(exp->get_output_queue(0).size() == 3);
       
       auto restored = make_exp("exp1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *exp);
@@ -261,15 +256,14 @@ SCENARIO("ArithmeticScalar handles rounding functions", "[math_scalar_op]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = round->collect();
+      auto state = round->collect();
 
       REQUIRE(round->get_output_queue(0).size() == 4);
       
       auto restored = make_round("round1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(*restored == *round);
@@ -291,14 +285,13 @@ SCENARIO("ArithmeticScalar handles serialization", "[math_scalar_op][State]") {
     add->execute();
 
     // Serialize state
-    Bytes state = add->collect();
+    auto state = add->collect();
 
     // Create new operator
     auto restored = make_add("add1", 2.0);
 
     // Restore state
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     // Verify restored state
     REQUIRE(restored->type_name() == add->type_name());

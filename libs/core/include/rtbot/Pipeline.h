@@ -114,6 +114,34 @@ class Pipeline : public Operator {
     }
   }
 
+  nlohmann::json collect() override {
+    nlohmann::json result = {
+      {"name", type_name()},
+      {"bytes", bytes_to_base64(Operator::collect_bytes())}
+    };
+
+    nlohmann::json content;
+    for (const auto& [op_id, op] : operators_) {
+      content[op_id] = op->collect();
+    }
+    result["content"] = content;
+
+    return result;
+  }
+
+  void restore_data_from_json(const nlohmann::json& j) override {
+    // Restore base Operator state (non-virtual to avoid Pipeline::restore)
+    Bytes bytes = base64_to_bytes(j.at("bytes").get<std::string>());
+    auto it = bytes.cbegin();
+    Operator::restore(it);
+
+    // Restore child operators from "content"
+    const auto& content = j.at("content");
+    for (auto& [op_id, op] : operators_) {
+      op->restore_data_from_json(content.at(op_id));
+    }
+  }
+
   std::string type_name() const override { return "Pipeline"; }
 
   bool equals(const Pipeline& other) const {

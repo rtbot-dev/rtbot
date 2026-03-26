@@ -32,6 +32,12 @@ PYBIND11_MODULE(rtbotapi, m) {
   m.def("get_program_entry_operator_id", &rtbot::get_program_entry_operator_id, "Get program entry operator ID",
         py::arg("program_id"));
 
+  // State management
+  m.def("serialize_program_data", &rtbot::serialize_program_data, "Serialize program state to JSON",
+        py::arg("program_id"));
+  m.def("restore_program_data_from_json", &rtbot::restore_program_data_from_json,
+        "Restore program state from JSON", py::arg("program_id"), py::arg("json_state"));
+
   // Pretty printing
   m.def("pretty_print", py::overload_cast<const std::string&>(&rtbot::pretty_print), "Pretty print JSON output",
         py::arg("json_output"));

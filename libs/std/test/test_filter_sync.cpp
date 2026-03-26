@@ -93,10 +93,9 @@ SCENARIO("SyncGreaterThan state serialization", "[filter_sync][state]") {
     op->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = op->collect();
+      auto state = op->collect();
       auto restored = make_sync_greater_than("sgt1");
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The restored operator equals the original") { REQUIRE(*restored == *op); }
     }
@@ -160,10 +159,9 @@ SCENARIO("SyncLessThan state serialization", "[filter_sync][state]") {
     op->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = op->collect();
+      auto state = op->collect();
       auto restored = make_sync_less_than("slt1");
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The restored operator equals the original") { REQUIRE(*restored == *op); }
     }
@@ -262,10 +260,9 @@ SCENARIO("SyncEqual state serialization", "[filter_sync][state]") {
     op->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = op->collect();
+      auto state = op->collect();
       auto restored = make_sync_equal("seq1", 2, 0.5);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The restored operator equals the original") { REQUIRE(*restored == *op); }
     }
@@ -352,10 +349,9 @@ SCENARIO("SyncNotEqual state serialization", "[filter_sync][state]") {
     op->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = op->collect();
+      auto state = op->collect();
       auto restored = make_sync_not_equal("sne1");
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The restored operator equals the original") { REQUIRE(*restored == *op); }
     }

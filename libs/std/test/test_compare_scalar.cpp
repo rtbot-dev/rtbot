@@ -150,10 +150,9 @@ SCENARIO("CompareScalar serialization roundtrip", "[compare_scalar][State]") {
     cmp->receive_data(create_message<NumberData>(1, NumberData{31.0}), 0);
     cmp->execute();
 
-    Bytes state = cmp->collect();
+    auto state = cmp->collect();
     auto restored = make_compare_gt("cmp1", 30.0);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *cmp);
 
@@ -171,10 +170,9 @@ SCENARIO("CompareScalar serialization roundtrip", "[compare_scalar][State]") {
     cmp->receive_data(create_message<NumberData>(1, NumberData{10.3}), 0);
     cmp->execute();
 
-    Bytes state = cmp->collect();
+    auto state = cmp->collect();
     auto restored = make_compare_eq("cmp1", 10.0, 0.5);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *cmp);
   }

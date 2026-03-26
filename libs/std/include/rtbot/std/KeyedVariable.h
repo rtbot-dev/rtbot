@@ -65,8 +65,8 @@ class KeyedVariable : public Operator {
     data_time_ = std::numeric_limits<timestamp_t>::min();
   }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
 
     // Serialize HashMap
     size_t map_size = hashmap_.size();

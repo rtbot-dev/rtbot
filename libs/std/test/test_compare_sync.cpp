@@ -189,10 +189,9 @@ SCENARIO("CompareSync serialization roundtrip", "[compare_sync][State]") {
     cmp->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
     cmp->execute();
 
-    Bytes state = cmp->collect();
+    auto state = cmp->collect();
     auto restored = make_compare_sync_gt("cmp1");
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
     REQUIRE(*restored == *cmp);
 
     restored->clear_all_output_ports();
@@ -211,10 +210,9 @@ SCENARIO("CompareSync serialization roundtrip", "[compare_sync][State]") {
     cmp->receive_data(create_message<NumberData>(1, NumberData{3.2}), 1);
     cmp->execute();
 
-    Bytes state = cmp->collect();
+    auto state = cmp->collect();
     auto restored = make_compare_sync_eq("cmp1", 0.5);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
     REQUIRE(*restored == *cmp);
   }
 }

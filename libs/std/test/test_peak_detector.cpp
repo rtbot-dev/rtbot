@@ -87,12 +87,11 @@ SCENARIO("PeakDetector handles state serialization", "[PeakDetector][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = detector->collect();
+      auto state = detector->collect();
 
       // Create new detector and restore state
       auto restored = std::make_unique<PeakDetector>("test", 3);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Buffer state is preserved") {
         const auto& orig_buf = detector->buffer();

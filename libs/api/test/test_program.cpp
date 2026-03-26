@@ -109,8 +109,9 @@ SCENARIO("Program handles serialization and deserialization", "[program]") {
     original_program.receive(Message<NumberData>(2, NumberData{6.0}));
 
     WHEN("Serializing and deserializing") {
-      Bytes serialized = original_program.serialize();
-      Program restored_program(serialized);
+      auto serialized = original_program.serialize_data();
+      Program restored_program(program_json);
+      restored_program.restore_data_from_json(serialized);
 
       THEN("State is preserved") {
         auto original_batch = original_program.receive(Message<NumberData>(3, NumberData{9.0}));
@@ -773,8 +774,9 @@ SCENARIO("Program handles Pipeline serialization", "[program][pipeline]") {
       REQUIRE(batch.empty());
 
       // Serialize at critical state (MA2 has first value but hasn't emitted)
-      Bytes serialized = original_program.serialize();
-      Program restored_program(serialized);
+      auto serialized = original_program.serialize_data();
+      Program restored_program(program_json);
+      restored_program.restore_data_from_json(serialized);
 
       // Send 4th message to both programs
       auto original_batch = original_program.receive(Message<NumberData>(4, NumberData{40.0}));
@@ -899,8 +901,9 @@ SCENARIO("Pipeline reset and emission behavior", "[program][pipeline]") {
       REQUIRE(second_output->data.value == Approx(65.0));  // Average of first two MA1 outputs after reset (60,70)
 
       // Now serialize and restore
-      Bytes serialized = original_program.serialize();
-      Program restored_program(serialized);
+      auto serialized = original_program.serialize_data();
+      Program restored_program(program_json);
+      restored_program.restore_data_from_json(serialized);
 
       // Process another sequence on both programs - need 4 messages for output
       std::vector<std::pair<int64_t, double>> sequence3 = {
@@ -1000,8 +1003,9 @@ SCENARIO("Program handles prototypes", "[program][prototypes]") {
       program.receive(Message<NumberData>(1, NumberData{3.0}));
       program.receive(Message<NumberData>(2, NumberData{6.0}));
 
-      Bytes serialized = program.serialize();
-      Program restored(serialized);
+      auto serialized = program.serialize_data();
+      Program restored(program_json);
+      restored.restore_data_from_json(serialized);
 
       auto original_batch = program.receive(Message<NumberData>(3, NumberData{9.0}));
       auto restored_batch = restored.receive(Message<NumberData>(3, NumberData{9.0}));
@@ -1174,8 +1178,9 @@ SCENARIO("Program handles Pipeline prototypes", "[program][prototypes][pipeline]
         program.receive(Message<NumberData>(i, NumberData{i * 3.0}));
       }
 
-      Bytes serialized = program.serialize();
-      Program restored(serialized);
+      auto serialized = program.serialize_data();
+      Program restored(program_json);
+      restored.restore_data_from_json(serialized);
 
       auto orig_batch = program.receive(Message<NumberData>(5, NumberData{15.0}));
       auto rest_batch = restored.receive(Message<NumberData>(5, NumberData{15.0}));
@@ -1316,8 +1321,9 @@ SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prot
         program.receive(Message<NumberData>(i, NumberData{i * 10.0}));
       }
 
-      Bytes serialized = program.serialize();
-      Program restored(serialized);
+      auto serialized = program.serialize_data();
+      Program restored(program_json);
+      restored.restore_data_from_json(serialized);
 
       // Send message that will produce first STD output
       auto orig_batch = program.receive(Message<NumberData>(6, NumberData{60.0}));

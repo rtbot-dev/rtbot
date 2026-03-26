@@ -166,10 +166,9 @@ SCENARIO("Buffer operator handles state serialization and restoration", "[Buffer
     buffer.execute();
 
     WHEN("State is serialized and restored to a new buffer") {
-      Bytes state = buffer.collect();
+      auto state = buffer.collect();
       auto restored_buffer = TestBuffer<FullStats>("test", 3);
-      Bytes::const_iterator it = state.begin();
-      restored_buffer.restore(it);
+      restored_buffer.restore_data_from_json(state);
 
       THEN("All statistics match the original buffer") {
         REQUIRE(restored_buffer.buffer_size() == buffer.buffer_size());

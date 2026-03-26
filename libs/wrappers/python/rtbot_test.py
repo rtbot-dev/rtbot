@@ -306,6 +306,46 @@ class RtBotTest(unittest.TestCase):
             program.instantiate_prototype("instance3", "nonexistent", {})
         self.assertIn("not found", str(ctx.exception))
 
+    def test_serialize_and_restore_program_data(self):
+        """Test serialize_program_data and restore_program_data_from_json round-trip"""
+        program_id = self.get_unique_program_id()
+        api.create_program(program_id, self.base_program_json)
+
+        # Feed data to build up state (MA window_size=3 needs 3 points)
+        for t, v in self.test_data[:3]:
+            api.add_to_message_buffer(program_id, "i1", t, v)
+        api.process_message_buffer(program_id)
+
+        # Serialize state
+        state = api.serialize_program_data(program_id)
+        self.assertIsInstance(state, str)
+        state_json = json.loads(state)
+        self.assertIn("ma1", state_json)
+
+        # Delete and recreate program, then restore state
+        api.delete_program(program_id)
+        api.create_program(program_id, self.base_program_json)
+        api.restore_program_data_from_json(program_id, state)
+
+        # Process more data on the restored program
+        api.add_to_message_buffer(program_id, "i1", 4, 25.0)
+        result_restored = json.loads(api.process_message_buffer(program_id))
+
+        # Do the same on a fresh program with all data
+        program_id2 = self.get_unique_program_id()
+        api.create_program(program_id2, self.base_program_json)
+        for t, v in self.test_data[:3]:
+            api.add_to_message_buffer(program_id2, "i1", t, v)
+        api.process_message_buffer(program_id2)
+        api.add_to_message_buffer(program_id2, "i1", 4, 25.0)
+        result_fresh = json.loads(api.process_message_buffer(program_id2))
+
+        # Both should produce the same output
+        self.assertEqual(result_restored, result_fresh)
+
+        api.delete_program(program_id)
+        api.delete_program(program_id2)
+
     def test_prototype_execution(self):
         """Test execution of a program using prototypes"""
         program_json = {
