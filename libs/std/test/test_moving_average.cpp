@@ -82,14 +82,13 @@ SCENARIO("MovingAverage operator handles state serialization", "[moving_average]
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = ma.collect();
+      auto state = ma.collect();
 
       // Create new operator
       auto restored = MovingAverage("test_ma", 3);
 
       // Restore state
-      Bytes::const_iterator it = state.cbegin();
-      restored.restore(it);
+      restored.restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
         REQUIRE(restored.mean() == ma.mean());

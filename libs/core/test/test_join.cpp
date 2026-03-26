@@ -166,14 +166,13 @@ SCENARIO("Join operator handles state serialization", "[join][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = join->collect();
+      auto state = join->collect();
 
       // Create new join with same configuration
       auto restored = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       AND_WHEN("New synchronized messages are received") {
         REQUIRE(*restored == *join);

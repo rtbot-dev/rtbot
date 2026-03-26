@@ -51,15 +51,14 @@ SCENARIO("ArithmeticSync operators handle basic synchronization", "[math_sync_bi
       add->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
       add->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       add->execute();
-      Bytes state = add->collect();
+      auto state = add->collect();
 
       REQUIRE(add->get_output_queue(0).size() == 1);
       
       auto restored = make_addition("add1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(restored->get_output_queue(0).size() == 1);
@@ -72,15 +71,14 @@ SCENARIO("ArithmeticSync operators handle basic synchronization", "[math_sync_bi
       sub->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
       sub->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       sub->execute();
-      Bytes state = sub->collect();
+      auto state = sub->collect();
 
       REQUIRE(sub->get_output_queue(0).size() == 1);
       
       auto restored = make_subtraction("sub1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(restored->get_output_queue(0).size() == 1);
@@ -93,15 +91,14 @@ SCENARIO("ArithmeticSync operators handle basic synchronization", "[math_sync_bi
       mul->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
       mul->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       mul->execute();
-      Bytes state = mul->collect();
+      auto state = mul->collect();
 
       REQUIRE(mul->get_output_queue(0).size() == 1);
       
       auto restored = make_multiplication("mul1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(restored->get_output_queue(0).size() == 1);
@@ -114,15 +111,14 @@ SCENARIO("ArithmeticSync operators handle basic synchronization", "[math_sync_bi
       div->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
       div->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       div->execute();
-      Bytes state = div->collect();
+      auto state = div->collect();
 
       REQUIRE(div->get_output_queue(0).size() == 1);
       
       auto restored = make_division("div1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("The operators match") {
         REQUIRE(restored->get_output_queue(0).size() == 1);
@@ -174,14 +170,13 @@ SCENARIO("ArithmeticSync operators handle state serialization", "[math_sync_bina
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = add->collect();
+      auto state = add->collect();
 
       // Create new operator
       auto restored = make_addition("add1");
 
       // Restore state
-      Bytes::const_iterator it = state.begin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Execute both operators
       add->execute();

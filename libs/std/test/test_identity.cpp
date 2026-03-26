@@ -58,14 +58,13 @@ SCENARIO("Identity operator handles state serialization", "[identity][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = identity->collect();
+      auto state = identity->collect();
 
       // Create new operator
       auto restored = make_identity("id1");
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Behavior is preserved") {
         REQUIRE(*restored == *identity);

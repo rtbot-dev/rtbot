@@ -40,12 +40,12 @@ void to_json(json& j, const ProgramMsgBatch& batch) {
   }
 }
 
-Bytes serialize_program(const std::string& program_id) {
-  return ProgramManager::instance().serialize_program(program_id);
+std::string serialize_program_data(const std::string& program_id) {
+  return ProgramManager::instance().serialize_program_data(program_id);
 }
 
-void create_program_from_bytes(const std::string& program_id, const Bytes& bytes) {
-  ProgramManager::instance().create_program_from_bytes(program_id, bytes);
+void restore_program_data_from_json(const std::string& program_id, const std::string& json_state) {
+  ProgramManager::instance().restore_program_data_from_json(program_id, json_state);
 }
 
 std::string validate_program(const std::string& json_program) {

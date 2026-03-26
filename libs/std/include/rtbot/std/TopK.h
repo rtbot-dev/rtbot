@@ -34,8 +34,8 @@ class TopK : public Operator {
   int score_index() const { return score_index_; }
   bool descending() const { return descending_; }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     size_t n = top_k_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&n),
                  reinterpret_cast<const uint8_t*>(&n) + sizeof(n));

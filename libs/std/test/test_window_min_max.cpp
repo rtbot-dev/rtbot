@@ -95,10 +95,9 @@ SCENARIO("WindowMinMax serialization roundtrip", "[window_min_max][State]") {
     wmm->execute();
     REQUIRE(wmm->get_output_queue(0).empty());
 
-    Bytes state = wmm->collect();
+    auto state = wmm->collect();
     auto restored = make_window_min_max("w1", 3, "min");
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     // Feed 3rd value → window full → min of [5,3,7]=3
     restored->receive_data(create_message<NumberData>(3, NumberData{7.0}), 0);
@@ -123,10 +122,9 @@ SCENARIO("WindowMinMax serialization roundtrip", "[window_min_max][State]") {
     REQUIRE(out1.size() == 1);
     REQUIRE(dynamic_cast<const Message<NumberData>*>(out1[0].get())->data.value == Approx(7.0));
 
-    Bytes state = wmm->collect();
+    auto state = wmm->collect();
     auto restored = make_window_min_max("w1", 3, "max");
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     restored->clear_all_output_ports();
     // Feed [2]: window=[3,7,2] → max=7

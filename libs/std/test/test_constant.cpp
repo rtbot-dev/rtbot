@@ -93,10 +93,9 @@ SCENARIO("Constant operator handles state serialization", "[Constant][State]") {
     constant->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = constant->collect();
+      auto state = constant->collect();
       auto restored = make_constant_boolean("const2", true);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Continues counting from previous state") {
         REQUIRE(*constant == *restored);

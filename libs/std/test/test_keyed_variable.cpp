@@ -290,11 +290,10 @@ SCENARIO("KeyedVariable serialization roundtrip", "[keyed_variable][State]") {
     kv->clear_all_output_ports();
 
     WHEN("State is serialized and restored") {
-      Bytes state = kv->collect();
+      auto state = kv->collect();
 
       auto restored = make_keyed_variable("kv6", "lookup", 0.0);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Query all three keys on the restored operator
       restored->receive_control(create_message<NumberData>(40, NumberData{42.0}), 0);

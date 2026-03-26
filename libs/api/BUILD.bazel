@@ -93,6 +93,8 @@ genrule(
     echo "  getProgramOutputFilter(programId: string): string;" >> $@
     echo "  diagnoseProgram(programStr: string): string;" >> $@
     echo "  processBatch(programId: string, times: number[], values: number[], ports: string[]): string;" >> $@
+    echo "  serializeProgramData(programId: string): string;" >> $@
+    echo "  restoreProgramDataFromJson(programId: string, jsonState: string): void;" >> $@
     echo "}" >> $@
     echo "declare function factory(): Promise<RtBotEmbindModule>;" >> $@
     echo "export default factory;" >> $@

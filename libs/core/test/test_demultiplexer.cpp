@@ -228,10 +228,9 @@ SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") 
     demux->receive_data(create_message<NumberData>(100, NumberData{42.0}), 0);
 
     WHEN("State is serialized and restored") {
-      Bytes state = demux->collect();
+      auto state = demux->collect();
       auto restored = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Behavior matches original") {
         demux->execute();

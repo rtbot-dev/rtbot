@@ -144,12 +144,11 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][Sta
       resampler->execute();
 
       // Serialize state
-      Bytes state = resampler->collect();
+      auto state = resampler->collect();
 
       // Create new resampler and restore state
       auto restored = make_resampler_hermite("test", 4);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Restored resampler maintains same properties") {
         REQUIRE(restored->get_interval() == resampler->get_interval());

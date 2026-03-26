@@ -68,14 +68,13 @@ SCENARIO("Variable operator handles state serialization", "[variable][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = var->collect();
+      auto state = var->collect();
 
       // Create new operator
       auto restored = make_variable("var1", 42.0);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Test with same queries
       var->clear_all_output_ports();

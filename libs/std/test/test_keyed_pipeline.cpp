@@ -152,13 +152,12 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
     kp->execute();
     kp->clear_all_output_ports();
 
-    // Collect state
-    Bytes state = kp->collect();
+    // Collect state as JSON
+    auto state = kp->collect();
 
     // Restore into a new instance
     auto kp2 = make_keyed_pipeline("kp1", 0, factory);
-    auto it = state.cbegin();
-    kp2->restore(it);
+    kp2->restore_data_from_json(state);
 
     REQUIRE(kp2->num_keys() == 2);
 

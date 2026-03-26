@@ -136,14 +136,13 @@ SCENARIO("InfiniteImpulseResponse operator handles serialization", "[iir]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = iir->collect();
+      auto state = iir->collect();
 
       // Create new operator with same configuration
       auto restored = std::make_unique<InfiniteImpulseResponse>("iir2", b, a);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       // Process new data on both operators
       iir->receive_data(create_message<NumberData>(4, NumberData{0.7}), 0);

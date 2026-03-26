@@ -23,8 +23,8 @@ using ProgramMsgBatch = std::unordered_map<std::string, OperatorMsgBatch>;
 void to_json(json& j, const ProgramMsgBatch& batch);
 
 // Program serialization and lifecycle
-Bytes serialize_program(const std::string& program_id);
-void create_program_from_bytes(const std::string& program_id, const Bytes& bytes);
+std::string serialize_program_data(const std::string& program_id);
+void restore_program_data_from_json(const std::string& program_id, const std::string& json_state);
 std::string create_program(const std::string& program_id, const std::string& json_program);
 std::string delete_program(const std::string& program_id);
 std::string get_program_entry_operator_id(const std::string& program_id);

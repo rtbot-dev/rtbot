@@ -70,14 +70,13 @@ SCENARIO("Difference operator handles state serialization", "[Difference][State]
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = diff->collect();
+      auto state = diff->collect();
 
       // Create new operator
       auto restored = std::make_unique<Difference>("diff3", true);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Buffer content matches") {
         REQUIRE(*diff == *restored);

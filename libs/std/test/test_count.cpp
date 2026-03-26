@@ -38,10 +38,9 @@ SCENARIO("Count operator handles state serialization", "[Count][State]") {
     counter->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = counter->collect();
+      auto state = counter->collect();
       auto restored = std::make_unique<Count<BooleanData>>("counter");
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Continues counting from previous state") {
         REQUIRE(*counter == *restored);

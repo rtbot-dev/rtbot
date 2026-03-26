@@ -36,10 +36,9 @@ SCENARIO("FIR operator processes signals correctly", "[fir]") {
     fir->execute();
 
     WHEN("State is serialized and restored") {
-      Bytes state = fir->collect();
+      auto state = fir->collect();
       auto restored = make_fir("fir3", coeffs);
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Restored filter produces same output") {
         fir->receive_data(create_message<NumberData>(4, NumberData{4.0}), 0);

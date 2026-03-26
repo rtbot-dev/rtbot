@@ -135,14 +135,13 @@ SCENARIO("Multiplexer state serialization", "[multiplexer][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = mult->collect();
+      auto state = mult->collect();
 
       // Create new multiplexer
       auto restored = std::make_unique<Multiplexer<NumberData>>("mult", 2);
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("Behavior is preserved") {
         // Send same data to both multiplexers

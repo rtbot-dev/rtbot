@@ -153,15 +153,14 @@ SCENARIO("Input operator handles state serialization", "[input][State]") {
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      Bytes state = input->collect();
+      auto state = input->collect();
 
       // Create new operator with same configuration
       auto restored =
           std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
 
       // Restore state
-      auto it = state.cbegin();
-      restored->restore(it);
+      restored->restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
         REQUIRE(*restored == *input);        
@@ -183,15 +182,14 @@ SCENARIO("Input operator handles state serialization", "[input][State]") {
     }
 
     WHEN("Restoring with mismatched configuration") {
-      Bytes state = input->collect();
+      auto state = input->collect();
 
       // Create new operator with different configuration
       auto mismatched = std::make_unique<Input>(
           "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});
 
       THEN("Type mismatch is detected") {
-        auto it = state.cbegin();
-        mismatched->restore(it);
+        mismatched->restore_data_from_json(state);
         REQUIRE(*input != *mismatched);
       }
     }

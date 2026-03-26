@@ -32,8 +32,8 @@ class MinTracker : public Operator {
   bool operator==(const MinTracker& other) const { return equals(other); }
   bool operator!=(const MinTracker& other) const { return !(*this == other); }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&min_),
                  reinterpret_cast<const uint8_t*>(&min_) + sizeof(min_));
     return bytes;
@@ -88,8 +88,8 @@ class MaxTracker : public Operator {
   bool operator==(const MaxTracker& other) const { return equals(other); }
   bool operator!=(const MaxTracker& other) const { return !(*this == other); }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&max_),
                  reinterpret_cast<const uint8_t*>(&max_) + sizeof(max_));
     return bytes;

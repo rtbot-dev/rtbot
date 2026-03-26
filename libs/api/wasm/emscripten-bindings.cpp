@@ -109,5 +109,6 @@ EMSCRIPTEN_BINDINGS(RtBot) {
   function("processBatchDebug", &processBatch32Debug);
 
   // State management
-  // TODO: Serialize and deserialize program state
+  function("serializeProgramData", &rtbot::serialize_program_data);
+  function("restoreProgramDataFromJson", &rtbot::restore_program_data_from_json);
 }

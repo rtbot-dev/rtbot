@@ -103,8 +103,8 @@ class Buffer : public Operator {
     return Operator::equals(other);
   }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();    
+  Bytes collect_bytes() override {
+    Bytes bytes = Operator::collect_bytes();
 
     size_t buffer_size = buffer_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&buffer_size),

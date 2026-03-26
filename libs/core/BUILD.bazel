@@ -30,7 +30,9 @@ cc_library(
     ],
     includes = ["include"],
     visibility = ["//visibility:public"],
-    deps = select({
+    deps = [
+        "@json-cpp//:lib",
+    ] + select({
         "//:enable_telemetry": [
             "@io_opentelemetry_cpp//api",
             "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",

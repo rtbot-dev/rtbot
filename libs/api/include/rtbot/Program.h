@@ -10,6 +10,7 @@
 #include <queue>
 #include <string>
 #include <vector>
+#include <variant>
 
 #include "OperatorJson.h"
 #include "Prototype.h"
@@ -22,17 +23,6 @@ namespace rtbot {
 using json = nlohmann::json;
 
 using namespace std;
-
-static void build_operator_tree(const std::map<std::string, std::shared_ptr<Operator>>& ops,
-                                std::vector<std::shared_ptr<Operator>>& tree) {
-  for (const auto& [_, op] : ops) {
-    tree.push_back(op);
-
-    if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
-      build_operator_tree(pipeline->get_operators(), tree);
-    }
-  }
-}
 
 class Program {
  public:
@@ -54,62 +44,19 @@ class Program {
     init_from_json();
   }
 
-  // Constructor from serialized bytes
-  explicit Program(const Bytes& bytes) {
-    auto it = bytes.begin();
-
-    // Deserialize program JSON
-    size_t json_size = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-    program_json_ = string(it, it + json_size);
-    it += json_size;
-
-    init_from_json();
-
-    // Read operator count
-    size_t op_count = *reinterpret_cast<const size_t*>(&(*it));
-    it += sizeof(size_t);
-
-    // Build operator tree
-    std::vector<std::shared_ptr<Operator>> operator_tree;
-    build_operator_tree(operators_, operator_tree);
-
-    if (op_count != operator_tree.size()) {
-      throw std::runtime_error("Operator count mismatch in restore: stored=" + std::to_string(op_count) +
-                               ", actual=" + std::to_string(operator_tree.size()));
+  string serialize_data() {
+    json result;
+    for (auto& [name, op] : operators_) {
+      result[name] = op->collect();
     }
-
-    // Restore each operator's state
-    for (auto& op : operator_tree) {
-      op->restore(it);
-    }
+    return result.dump();
   }
 
-  Bytes serialize() {
-    Bytes bytes;
-
-    // Serialize program JSON
-    size_t size = program_json_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
-                 reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
-    bytes.insert(bytes.end(), program_json_.begin(), program_json_.end());
-
-    // Build complete operator tree
-    std::vector<std::shared_ptr<Operator>> operator_tree;
-    build_operator_tree(operators_, operator_tree);
-
-    // Store operator count
-    size_t op_count = operator_tree.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&op_count),
-                 reinterpret_cast<const uint8_t*>(&op_count) + sizeof(op_count));
-
-    // Serialize each operator's state
-    for (const auto& op : operator_tree) {
-      Bytes op_state = op->collect();
-      bytes.insert(bytes.end(), op_state.begin(), op_state.end());
+  void restore_data_from_json(const string& json_state) {
+    auto j = json::parse(json_state);
+    for (auto& [name, op] : operators_) {
+      op->restore_data_from_json(j.at(name));
     }
-
-    return bytes;
   }
 
   // Message processing
@@ -367,15 +314,6 @@ class ProgramManager {
     }
   }
 
-  void create_program_from_bytes(const std::string& id, const Bytes& bytes) {
-    if (programs_.count(id) > 0) {
-      throw std::runtime_error("Program " + id + " already exists");
-    }
-    programs_.emplace(id, Program(bytes));
-    vector_builders_.erase(id);
-    return;
-  }
-
   bool add_to_message_buffer(const string& program_id, const string& port_id, const Message<NumberData>& msg) {
     if (programs_.count(program_id) == 0) return false;
     message_buffer_[program_id][port_id].push_back(create_message<NumberData>(msg.time, msg.data));
@@ -476,7 +414,11 @@ class ProgramManager {
     }
   }
 
-  Bytes serialize_program(const string& program_id) { return get_program(program_id).serialize(); }
+  string serialize_program_data(const string& program_id) { return get_program(program_id).serialize_data(); }
+
+  void restore_program_data_from_json(const string& program_id, const string& json_state) {
+    get_program(program_id).restore_data_from_json(json_state);
+  }
 
   bool delete_program(const string& program_id) {
     vector_builders_.erase(program_id);

@@ -92,10 +92,9 @@ SCENARIO("VectorCompose serialization roundtrip", "[vector_compose][State]") {
     // Send to only one port — creates buffered state
     comp->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
 
-    Bytes state = comp->collect();
+    auto state = comp->collect();
     auto restored = make_vector_compose("comp1", 2);
-    auto it = state.cbegin();
-    restored->restore(it);
+    restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *comp);
 

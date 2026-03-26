@@ -53,46 +53,41 @@ class KeyedPipeline : public Operator {
     }
   }
 
-  Bytes collect() override {
-    Bytes bytes = Operator::collect();
+  nlohmann::json collect() override {
+    nlohmann::json result = {
+      {"name", type_name()},
+      {"bytes", bytes_to_base64(Operator::collect_bytes())}
+    };
 
-    // Number of keys
-    size_t nk = sub_graphs_.size();
-    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&nk),
-                 reinterpret_cast<const uint8_t*>(&nk) + sizeof(nk));
-
-    // For each key (sorted by key value — deterministic order)
+    // Nested content: each key maps to its sub-graph operators
+    nlohmann::json content;
     for (const auto& [key, sg] : sub_graphs_) {
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&key),
-                   reinterpret_cast<const uint8_t*>(&key) + sizeof(key));
-
-      // Serialize each operator's state (sorted by id — deterministic order)
+      nlohmann::json key_ops;
       for (const auto& [op_id, op] : sg.operators) {
-        Bytes op_bytes = op->collect();
-        bytes.insert(bytes.end(), op_bytes.begin(), op_bytes.end());
+        key_ops[op_id] = op->collect();
       }
+      content[std::to_string(key)] = key_ops;
     }
+    result["content"] = content;
 
-    return bytes;
+    return result;
   }
 
-  void restore(Bytes::const_iterator& it) override {
+  void restore_data_from_json(const nlohmann::json& j) override {
+    // Restore base Operator state
+    Bytes bytes = base64_to_bytes(j.at("bytes").get<std::string>());
+    auto it = bytes.cbegin();
     Operator::restore(it);
 
-    size_t nk;
-    std::memcpy(&nk, &(*it), sizeof(nk));
-    it += sizeof(nk);
-
+    // Restore sub-graphs from "content"
+    const auto& content = j.at("content");
     sub_graphs_.clear();
-    for (size_t i = 0; i < nk; i++) {
-      double key;
-      std::memcpy(&key, &(*it), sizeof(key));
-      it += sizeof(key);
-
+    for (auto& [key_str, key_ops] : content.items()) {
+      double key = std::stod(key_str);
       sub_graphs_[key] = factory_();
       auto& sg = sub_graphs_[key];
       for (auto& [op_id, op] : sg.operators) {
-        op->restore(it);
+        op->restore_data_from_json(key_ops.at(op_id));
       }
     }
   }
