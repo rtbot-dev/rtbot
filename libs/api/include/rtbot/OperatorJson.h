@@ -47,6 +47,7 @@
 #include "rtbot/std/VectorProject.h"
 #include "rtbot/std/CompareSync.h"
 #include "rtbot/std/MovingKeyCount.h"
+#include "rtbot/std/BooleanToNumber.h"
 #include "rtbot/std/MinMaxTracker.h"
 #include "rtbot/std/TopK.h"
 #include "rtbot/std/WindowMinMax.h"
@@ -248,6 +249,8 @@ class OperatorJson {
     } else if (type == "WindowMinMax") {
       return make_window_min_max(id, parsed["window_size"].get<size_t>(),
                                  parsed.value("mode", "min"));
+    } else if (type == "BooleanToNumber") {
+      return make_boolean_to_number(id);
     } else if (type == "KeyedPipeline") {
       auto key_index = parsed["key_index"].get<int>();
 
@@ -292,10 +295,6 @@ class OperatorJson {
         if (t != "number" && t != "boolean" && t != "vector_number" && t != "vector_boolean") {
           throw std::runtime_error("Invalid output port type: " + t);
         }
-      }
-
-      if (input_types.empty() || output_types.empty()) {
-        throw std::runtime_error("Pipeline must have at least one input and output port");
       }
 
       if (input_types.empty() || output_types.empty()) {
@@ -498,6 +497,8 @@ class OperatorJson {
       auto wmm = std::dynamic_pointer_cast<WindowMinMax>(op);
       j["window_size"] = wmm->window_size();
       j["mode"] = wmm->is_min() ? "min" : "max";
+    } else if (type == "BooleanToNumber") {
+      // No parameters beyond id
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
       j["key_index"] = kp->get_key_index();
@@ -507,7 +508,6 @@ class OperatorJson {
       j["id"] = op->id();
       j["input_port_types"] = pipeline->get_input_port_types();
       j["output_port_types"] = pipeline->get_output_port_types();
-
       // Store operators
       j["operators"] = json::array();
       for (const auto& [op_id, internal_op] : pipeline->get_operators()) {
