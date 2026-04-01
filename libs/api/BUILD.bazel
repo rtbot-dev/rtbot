@@ -81,8 +81,8 @@ genrule(
     echo "  validateOperator(type: string, operatorStr: string): string;" >> $@
     echo "  createProgram(programId: string, programStr: string): string;" >> $@
     echo "  deleteProgram(programId: string): string;" >> $@
-    echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number): string;" >> $@
-    echo "  beginVectorMessage(programId: string, port:string, time: number): string;" >> $@
+    echo "  addToMessageBuffer(programId: string, port:string, time: number, value: number, id: number): string;" >> $@
+    echo "  beginVectorMessage(programId: string, port:string, time: number, id: number): string;" >> $@
     echo "  pushVectorMessageValue(programId: string, port:string, value: number): string;" >> $@
     echo "  endVectorMessage(programId: string, port:string): string;" >> $@
     echo "  abortVectorMessage(programId: string, port:string): string;" >> $@

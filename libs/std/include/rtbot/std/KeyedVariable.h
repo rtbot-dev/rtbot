@@ -17,9 +17,10 @@ namespace rtbot {
 // KeyedVariable — HashMap variant of Variable for reference data lookups.
 //
 // Ports:
-//   i1 (data port 0):    VectorNumberData [key, value]
-//                        Updates map[key] = value. NaN value deletes the key.
-//   c1 (control port 0): NumberData — key to look up.
+//   i1 (data port 0):    VectorNumberData [value]
+//                        Key comes from msg->id. Updates map[id] = value.
+//                        NaN value deletes the key.
+//   c1 (control port 0): NumberData — key to look up (via msg->id).
 //                        Emits BooleanData (exists mode) or NumberData (lookup mode).
 //   c2 (control port 1): NumberData — heartbeat.
 //                        Advances the timeline to this timestamp without changing state.
@@ -98,7 +99,8 @@ class KeyedVariable : public Operator {
 
     hashmap_.clear();
     for (size_t i = 0; i < map_size; ++i) {
-      double k, v;
+      uint64_t k;
+      double v;
       std::memcpy(&k, &(*it), sizeof(k));
       it += sizeof(k);
       std::memcpy(&v, &(*it), sizeof(v));
@@ -165,12 +167,12 @@ class KeyedVariable : public Operator {
       if (!msg) {
         throw std::runtime_error("Invalid data message type in KeyedVariable");
       }
-      if (msg->data.values.size() < 2) {
-        throw std::runtime_error("KeyedVariable i1 message must have 2 values: [key, value]");
+      if (msg->data.values.empty()) {
+        throw std::runtime_error("KeyedVariable i1 message must have at least 1 value");
       }
 
-      double key = msg->data.values[0];
-      double val = msg->data.values[1];
+      uint64_t key = msg->id;
+      double val = msg->data.values[0];
 
       if (std::isnan(val)) {
         hashmap_.erase(key);
@@ -192,7 +194,7 @@ class KeyedVariable : public Operator {
       }
       if (query->time > resolve_up_to) break;
 
-      double lookup_key = query->data.value;
+      uint64_t lookup_key = query->id;
       timestamp_t query_time = query->time;
 
       if (mode_ == "exists") {
@@ -211,7 +213,7 @@ class KeyedVariable : public Operator {
  private:
   std::string mode_;
   double default_value_;
-  std::unordered_map<double, double> hashmap_;
+  std::unordered_map<uint64_t, double> hashmap_;
   timestamp_t heartbeat_time_;
   timestamp_t data_time_;
 };

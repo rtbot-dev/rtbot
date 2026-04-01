@@ -173,13 +173,14 @@ std::string delete_program(const std::string& program_id) {
 }
 
 std::string add_to_message_buffer(const std::string& program_id, const std::string& port_id, uint64_t time,
-                                  double value) {
+                                  double value, uint64_t id) {
   return std::to_string(ProgramManager::instance().add_to_message_buffer(program_id, port_id,
-                                                                         Message<NumberData>(time, NumberData{value})));
+                                                                         Message<NumberData>(time, NumberData{value}), id));
 }
 
-std::string begin_vector_message(const std::string& program_id, const std::string& port_id, uint64_t time) {
-  return std::to_string(ProgramManager::instance().begin_vector_message(program_id, port_id, time));
+std::string begin_vector_message(const std::string& program_id, const std::string& port_id, uint64_t time,
+                                 uint64_t id) {
+  return std::to_string(ProgramManager::instance().begin_vector_message(program_id, port_id, time, id));
 }
 
 std::string push_vector_message_value(const std::string& program_id, const std::string& port_id, double value) {

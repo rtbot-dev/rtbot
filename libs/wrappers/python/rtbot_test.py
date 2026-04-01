@@ -406,5 +406,85 @@ class RtBotTest(unittest.TestCase):
         
         api.delete_program(program_id)
 
+    def test_message_id_parameter(self):
+        """Test that add_to_message_buffer accepts the id parameter"""
+        program_id = self.get_unique_program_id()
+        api.create_program(program_id, self.base_program_json)
+
+        api.add_to_message_buffer(program_id, "i1", 1, 10.0, 0)
+        api.add_to_message_buffer(program_id, "i1", 2, 20.0, 0)
+        api.add_to_message_buffer(program_id, "i1", 3, 30.0, 0)
+
+        result = json.loads(api.process_message_buffer(program_id))
+        self.assertIn("out1", result)
+
+        api.delete_program(program_id)
+
+    def test_vector_message_api(self):
+        """Test begin_vector_message, push_vector_message_value, end_vector_message"""
+        vector_program_json = """{
+            "apiVersion": "v1",
+            "entryOperator": "in1",
+            "output": {"out1": ["o1"]},
+            "operators": [
+                {"id": "in1", "type": "Input", "portTypes": ["vector_number"]},
+                {"id": "out1", "type": "Output", "portTypes": ["vector_number"]}
+            ],
+            "connections": [
+                {"from": "in1", "to": "out1", "fromPort": "o1", "toPort": "i1"}
+            ]
+        }"""
+        program_id = self.get_unique_program_id()
+        api.create_program(program_id, vector_program_json)
+
+        # Build a vector message [10.0, 20.0, 30.0] with id=0
+        self.assertEqual(api.begin_vector_message(program_id, "i1", 1, 0), "1")
+        self.assertEqual(api.push_vector_message_value(program_id, "i1", 10.0), "1")
+        self.assertEqual(api.push_vector_message_value(program_id, "i1", 20.0), "1")
+        self.assertEqual(api.push_vector_message_value(program_id, "i1", 30.0), "1")
+        self.assertEqual(api.end_vector_message(program_id, "i1"), "1")
+
+        result = json.loads(api.process_message_buffer(program_id))
+        self.assertIn("out1", result)
+        self.assertEqual(result["out1"]["o1"][0]["time"], 1)
+        self.assertEqual(result["out1"]["o1"][0]["value"], [10.0, 20.0, 30.0])
+
+        api.delete_program(program_id)
+
+    def test_abort_vector_message(self):
+        """Test abort_vector_message discards an in-progress vector message"""
+        vector_program_json = """{
+            "apiVersion": "v1",
+            "entryOperator": "in1",
+            "output": {"out1": ["o1"]},
+            "operators": [
+                {"id": "in1", "type": "Input", "portTypes": ["vector_number"]},
+                {"id": "out1", "type": "Output", "portTypes": ["vector_number"]}
+            ],
+            "connections": [
+                {"from": "in1", "to": "out1", "fromPort": "o1", "toPort": "i1"}
+            ]
+        }"""
+        program_id = self.get_unique_program_id()
+        api.create_program(program_id, vector_program_json)
+
+        # Start a vector message then abort it
+        self.assertEqual(api.begin_vector_message(program_id, "i1", 1, 0), "1")
+        self.assertEqual(api.push_vector_message_value(program_id, "i1", 99.0), "1")
+        self.assertEqual(api.abort_vector_message(program_id, "i1"), "1")
+
+        # Process should produce no output since the message was aborted
+        result = json.loads(api.process_message_buffer(program_id))
+        self.assertEqual(result, {})
+
+        api.delete_program(program_id)
+
+    def test_diagnose_program(self):
+        """Test diagnose_program returns diagnostic info"""
+        result = api.diagnose_program(self.base_program_json)
+        self.assertIsInstance(result, str)
+        parsed = json.loads(result)
+        self.assertIsInstance(parsed, dict)
+
 if __name__ == "__main__":
     unittest.main()

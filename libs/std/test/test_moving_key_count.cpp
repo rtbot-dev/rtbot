@@ -7,17 +7,17 @@ using namespace rtbot;
 
 SCENARIO("MovingKeyCount counts key occurrences in a sliding window", "[moving_key_count]") {
   SECTION("Basic window counting") {
-    // window_size=5, sequence [1, 2, 1, 1, 2, 3, 1, 2, 1, 1]
-    // From roadmap test case
+    // window_size=5, sequence of keys [1, 2, 1, 1, 2, 3, 1, 2, 1, 1]
+    // Key now comes from msg->id
     auto mkc = make_moving_key_count("mkc1", 5);
     REQUIRE(mkc->type_name() == "MovingKeyCount");
     REQUIRE(mkc->get_window_size() == 5);
 
-    std::vector<double> keys = {1, 2, 1, 1, 2, 3, 1, 2, 1, 1};
+    std::vector<uint64_t> keys = {1, 2, 1, 1, 2, 3, 1, 2, 1, 1};
     for (size_t i = 0; i < keys.size(); i++) {
       mkc->receive_data(
           create_message<NumberData>(static_cast<timestamp_t>(i + 1),
-                                     NumberData{keys[i]}),
+                                     keys[i], NumberData{0.0}),
           0);
     }
     mkc->execute();
@@ -41,6 +41,7 @@ SCENARIO("MovingKeyCount counts key occurrences in a sliding window", "[moving_k
           dynamic_cast<const Message<NumberData>*>(out[i].get());
       REQUIRE(msg->time == static_cast<timestamp_t>(i + 1));
       REQUIRE(msg->data.value == Approx(expected[i]));
+      REQUIRE(msg->id == keys[i]);  // output carries the key id
     }
   }
 }
@@ -49,10 +50,10 @@ SCENARIO("MovingKeyCount emits current key count, not window total", "[moving_ke
   SECTION("Same key every message") {
     auto mkc = make_moving_key_count("mkc1", 3);
     // Send key=42 four times — window fills then slides
-    mkc->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
-    mkc->receive_data(create_message<NumberData>(2, NumberData{42.0}), 0);
-    mkc->receive_data(create_message<NumberData>(3, NumberData{42.0}), 0);
-    mkc->receive_data(create_message<NumberData>(4, NumberData{42.0}), 0);
+    mkc->receive_data(create_message<NumberData>(1, 42, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(2, 42, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(3, 42, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(4, 42, NumberData{0.0}), 0);
     mkc->execute();
 
     auto& out = mkc->get_output_queue(0);
@@ -70,10 +71,10 @@ SCENARIO("MovingKeyCount emits current key count, not window total", "[moving_ke
   SECTION("Key drops to zero after eviction") {
     auto mkc = make_moving_key_count("mkc1", 2);
     // key=1 at t=1, then key=2 at t=2, t=3 — key=1 evicted after t=3
-    mkc->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
-    mkc->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
-    mkc->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
-    mkc->receive_data(create_message<NumberData>(4, NumberData{1.0}), 0);
+    mkc->receive_data(create_message<NumberData>(1, 1, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(2, 2, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(3, 2, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(4, 1, NumberData{0.0}), 0);
     mkc->execute();
 
     auto& out = mkc->get_output_queue(0);
@@ -92,9 +93,9 @@ SCENARIO("MovingKeyCount emits current key count, not window total", "[moving_ke
 SCENARIO("MovingKeyCount window_size=1 always returns 1", "[moving_key_count]") {
   SECTION("Every message is its own window") {
     auto mkc = make_moving_key_count("mkc1", 1);
-    mkc->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
-    mkc->receive_data(create_message<NumberData>(2, NumberData{5.0}), 0);
-    mkc->receive_data(create_message<NumberData>(3, NumberData{9.0}), 0);
+    mkc->receive_data(create_message<NumberData>(1, 5, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(2, 5, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(3, 9, NumberData{0.0}), 0);
     mkc->execute();
 
     auto& out = mkc->get_output_queue(0);
@@ -108,9 +109,9 @@ SCENARIO("MovingKeyCount window_size=1 always returns 1", "[moving_key_count]") 
 SCENARIO("MovingKeyCount serialization roundtrip", "[moving_key_count][State]") {
   SECTION("Collect and restore mid-stream") {
     auto mkc = make_moving_key_count("mkc1", 3);
-    mkc->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
-    mkc->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
-    mkc->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
+    mkc->receive_data(create_message<NumberData>(1, 1, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(2, 2, NumberData{0.0}), 0);
+    mkc->receive_data(create_message<NumberData>(3, 1, NumberData{0.0}), 0);
     mkc->execute();
 
     auto state = mkc->collect();
@@ -120,7 +121,7 @@ SCENARIO("MovingKeyCount serialization roundtrip", "[moving_key_count][State]") 
 
     // Continue feeding — window=[1,2,1], now add key=1 → evicts oldest key=1 → count=2
     restored->clear_all_output_ports();
-    restored->receive_data(create_message<NumberData>(4, NumberData{1.0}), 0);
+    restored->receive_data(create_message<NumberData>(4, 1, NumberData{0.0}), 0);
     restored->execute();
 
     auto& out = restored->get_output_queue(0);

@@ -314,18 +314,21 @@ class ProgramManager {
     }
   }
 
-  bool add_to_message_buffer(const string& program_id, const string& port_id, const Message<NumberData>& msg) {
+  bool add_to_message_buffer(const string& program_id, const string& port_id, const Message<NumberData>& msg,
+                             uint64_t id = 0) {
     if (programs_.count(program_id) == 0) return false;
-    message_buffer_[program_id][port_id].push_back(create_message<NumberData>(msg.time, msg.data));
+    message_buffer_[program_id][port_id].push_back(create_message<NumberData>(msg.time, id, msg.data));
     return true;
   }
 
-  bool begin_vector_message(const string& program_id, const string& port_id, timestamp_t time) {
+  bool begin_vector_message(const string& program_id, const string& port_id, timestamp_t time,
+                            uint64_t id = 0) {
     if (programs_.count(program_id) == 0) return false;
     auto& builder = vector_builders_[program_id][port_id];
     if (builder.active) return false;
     builder.active = true;
     builder.time = time;
+    builder.id = id;
     builder.values.clear();
     return true;
   }
@@ -348,7 +351,7 @@ class ProgramManager {
 
     auto& builder = port_it->second;
     message_buffer_[program_id][port_id].push_back(
-        create_message<VectorNumberData>(builder.time, VectorNumberData{builder.values}));
+        create_message<VectorNumberData>(builder.time, builder.id, VectorNumberData{builder.values}));
     builder.active = false;
     builder.values.clear();
     return true;
@@ -449,6 +452,7 @@ class ProgramManager {
   struct VectorBuilderState {
     bool active = false;
     timestamp_t time = 0;
+    uint64_t id = 0;
     std::vector<double> values;
   };
 

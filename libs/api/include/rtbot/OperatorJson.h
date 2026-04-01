@@ -249,8 +249,6 @@ class OperatorJson {
       return make_window_min_max(id, parsed["window_size"].get<size_t>(),
                                  parsed.value("mode", "min"));
     } else if (type == "KeyedPipeline") {
-      auto key_index = parsed["key_index"].get<int>();
-
       // Build factory from embedded prototype definition
       const auto& proto = parsed["prototype"];
       json proto_operators = proto["operators"];
@@ -276,7 +274,7 @@ class OperatorJson {
         return sg;
       };
 
-      return make_keyed_pipeline(id, key_index, factory);
+      return make_keyed_pipeline(id, factory);
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -499,8 +497,7 @@ class OperatorJson {
       j["window_size"] = wmm->window_size();
       j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "KeyedPipeline") {
-      auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
-      j["key_index"] = kp->get_key_index();
+      // No additional fields needed — key comes from msg->id
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";

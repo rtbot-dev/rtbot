@@ -44,12 +44,15 @@ std::string processBatch32Debug(const std::string& programId, const std::vector<
 }
 
 // Helper to add a single message to the buffer
-std::string addMessage(const std::string& programId, const std::string& portId, uint32_t time, double value) {
-  return rtbot::add_to_message_buffer(programId, portId, static_cast<uint64_t>(time), value);
+std::string addMessage(const std::string& programId, const std::string& portId, uint32_t time, double value,
+                       uint32_t id) {
+  return rtbot::add_to_message_buffer(programId, portId, static_cast<uint64_t>(time), value,
+                                      static_cast<uint64_t>(id));
 }
 
-std::string beginVectorMessage(const std::string& programId, const std::string& portId, uint32_t time) {
-  return rtbot::begin_vector_message(programId, portId, static_cast<uint64_t>(time));
+std::string beginVectorMessage(const std::string& programId, const std::string& portId, uint32_t time,
+                               uint32_t id) {
+  return rtbot::begin_vector_message(programId, portId, static_cast<uint64_t>(time), static_cast<uint64_t>(id));
 }
 
 namespace {

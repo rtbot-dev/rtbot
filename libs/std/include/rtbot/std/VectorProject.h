@@ -57,7 +57,7 @@ class VectorProject : public Operator {
         result.values.push_back(msg->data.values[idx]);
       }
 
-      output_queue.push_back(create_message<VectorNumberData>(msg->time, result));
+      output_queue.push_back(create_message<VectorNumberData>(msg->time, msg->id, result));
       input_queue.pop_front();
     }
   }

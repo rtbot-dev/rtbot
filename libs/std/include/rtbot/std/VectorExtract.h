@@ -44,7 +44,7 @@ class VectorExtract : public Operator {
         throw std::runtime_error("VectorExtract index " + std::to_string(index_) +
                                  " out of bounds for vector of size " + std::to_string(msg->data.values.size()));
       }
-      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{msg->data.values[index_]}));
+      output_queue.push_back(create_message<NumberData>(msg->time, msg->id, NumberData{msg->data.values[index_]}));
       input_queue.pop_front();
     }
   }

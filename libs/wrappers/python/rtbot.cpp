@@ -16,9 +16,20 @@ PYBIND11_MODULE(rtbotapi, m) {
   m.def("validate_program", &rtbot::validate_program, "Validate a program JSON", py::arg("json_program"));
   m.def("validate_operator", &rtbot::validate_operator, "Validate an operator", py::arg("type"), py::arg("json_op"));
 
+  // Validation
+  m.def("diagnose_program", &rtbot::diagnose_program, "Diagnose a program JSON", py::arg("json_program"));
+
   // Message handling
   m.def("add_to_message_buffer", &rtbot::add_to_message_buffer, "Add message to buffer", py::arg("program_id"),
-        py::arg("port_id"), py::arg("time"), py::arg("value"));
+        py::arg("port_id"), py::arg("time"), py::arg("value"), py::arg("id") = 0);
+  m.def("begin_vector_message", &rtbot::begin_vector_message, "Begin a vector message", py::arg("program_id"),
+        py::arg("port_id"), py::arg("time"), py::arg("id") = 0);
+  m.def("push_vector_message_value", &rtbot::push_vector_message_value, "Push value to vector message",
+        py::arg("program_id"), py::arg("port_id"), py::arg("value"));
+  m.def("end_vector_message", &rtbot::end_vector_message, "End vector message", py::arg("program_id"),
+        py::arg("port_id"));
+  m.def("abort_vector_message", &rtbot::abort_vector_message, "Abort vector message", py::arg("program_id"),
+        py::arg("port_id"));
   m.def("process_message_buffer", &rtbot::process_message_buffer, "Process message buffer", py::arg("program_id"));
   m.def("process_message_buffer_debug", &rtbot::process_message_buffer_debug, "Process message buffer in debug mode",
         py::arg("program_id"));

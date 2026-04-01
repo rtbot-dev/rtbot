@@ -219,10 +219,12 @@ struct VectorBooleanData {
 // Base message class
 class BaseMessage {
  public:
-  BaseMessage(timestamp_t t) : time(t) {}
+  BaseMessage(timestamp_t t) : time(t), id(0) {}
+  BaseMessage(timestamp_t t, uint64_t id) : time(t), id(id) {}
   virtual ~BaseMessage() = default;
 
   timestamp_t time;
+  uint64_t id;
   virtual std::type_index type() const = 0;
   virtual std::unique_ptr<BaseMessage> clone() const = 0;
   virtual std::string to_string() const = 0;
@@ -234,6 +236,10 @@ class BaseMessage {
     // Serialize timestamp
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&time),
                  reinterpret_cast<const uint8_t*>(&time) + sizeof(time));
+
+    // Serialize id
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&id),
+                 reinterpret_cast<const uint8_t*>(&id) + sizeof(id));
 
     // Serialize type information
     std::string type_name = type().name();
@@ -256,10 +262,11 @@ template <typename T>
 class Message : public BaseMessage {
  public:
   Message(timestamp_t t, const T& d) : BaseMessage(t), data(d) {}
+  Message(timestamp_t t, uint64_t id, const T& d) : BaseMessage(t, id), data(d) {}
 
   std::type_index type() const override { return typeid(T); }
 
-  std::unique_ptr<BaseMessage> clone() const override { return std::make_unique<Message<T>>(time, data); }
+  std::unique_ptr<BaseMessage> clone() const override { return std::make_unique<Message<T>>(time, id, data); }
 
   std::string to_string() const override {
     std::ostringstream ss;
@@ -300,10 +307,11 @@ class Message : public BaseMessage {
     return bytes;
   }
 
-  static std::unique_ptr<Message<T>> deserialize_data(timestamp_t time, Bytes::const_iterator& it,
+  static std::unique_ptr<Message<T>> deserialize_data(timestamp_t time, uint64_t id,
+                                                      Bytes::const_iterator& it,
                                                       Bytes::const_iterator end) {
     T data = T::deserialize(it);
-    return std::make_unique<Message<T>>(time, data);
+    return std::make_unique<Message<T>>(time, id, data);
   }
 
   std::uint64_t hash() const override {
@@ -322,6 +330,11 @@ inline std::unique_ptr<BaseMessage> BaseMessage::deserialize(const Bytes& bytes)
   std::memcpy(&time, &(*it), sizeof(time));
   it += sizeof(timestamp_t);
 
+  // ---- Read id ----
+  uint64_t id;
+  std::memcpy(&id, &(*it), sizeof(id));
+  it += sizeof(uint64_t);
+
   // ---- Read type string length ----
   size_t type_length;
   std::memcpy(&type_length, &(*it), sizeof(type_length));
@@ -333,16 +346,16 @@ inline std::unique_ptr<BaseMessage> BaseMessage::deserialize(const Bytes& bytes)
 
   // ---- Dispatch based on type name ----
   if (type_name == typeid(NumberData).name()) {
-      return Message<NumberData>::deserialize_data(time, it, bytes.end());
+      return Message<NumberData>::deserialize_data(time, id, it, bytes.end());
   }
   else if (type_name == typeid(BooleanData).name()) {
-      return Message<BooleanData>::deserialize_data(time, it, bytes.end());
+      return Message<BooleanData>::deserialize_data(time, id, it, bytes.end());
   }
   else if (type_name == typeid(VectorNumberData).name()) {
-      return Message<VectorNumberData>::deserialize_data(time, it, bytes.end());
+      return Message<VectorNumberData>::deserialize_data(time, id, it, bytes.end());
   }
   else if (type_name == typeid(VectorBooleanData).name()) {
-      return Message<VectorBooleanData>::deserialize_data(time, it, bytes.end());
+      return Message<VectorBooleanData>::deserialize_data(time, id, it, bytes.end());
   }
 
   throw std::runtime_error("Unknown message type: " + type_name);
@@ -366,6 +379,11 @@ inline std::unique_ptr<Message<T>> BaseMessage::deserialize_as(const Bytes& byte
 template <typename T>
 std::unique_ptr<Message<T>> create_message(timestamp_t time, const T& data) {
   return std::make_unique<Message<T>>(time, data);
+}
+
+template <typename T>
+std::unique_ptr<Message<T>> create_message(timestamp_t time, uint64_t id, const T& data) {
+  return std::make_unique<Message<T>>(time, id, data);
 }
 
 using PortMsgBatch = std::vector<std::unique_ptr<BaseMessage>>;
