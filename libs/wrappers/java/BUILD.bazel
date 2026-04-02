@@ -1,0 +1,50 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# ---------------------------------------------------------------------------
+# JNI shared library
+#
+# Compiles rtbot_jni.cpp against the RTBot C++ API and JNI headers,
+# producing librtbot_jni.so (Linux) / librtbot_jni.dylib (macOS).
+#
+# The Java side (RtBotEngine) loads this library either:
+#   - From /native/<platform>/ inside a JAR (production deployment)
+#   - Via java.library.path (development / Bazel test environments)
+# ---------------------------------------------------------------------------
+cc_binary(
+    name = "rtbot_jni",
+    srcs = ["rtbot_jni.cpp"],
+    linkshared = True,
+    deps = [
+        "//libs/api:rtbot-api",
+        "@bazel_tools//tools/jdk:jni",
+    ],
+)
+
+# ---------------------------------------------------------------------------
+# Java library — the reusable RTBot Java wrapper
+# Package: dev.rtbot
+# ---------------------------------------------------------------------------
+java_library(
+    name = "rtbot-java",
+    srcs = glob(["src/main/java/**/*.java"]),
+    visibility = ["//visibility:public"],
+)
+
+# ---------------------------------------------------------------------------
+# Integration test — exercises the full JNI bridge
+# ---------------------------------------------------------------------------
+java_test(
+    name = "rtbot-java-test",
+    srcs = glob(["src/test/java/**/*.java"]),
+    test_class = "dev.rtbot.RtBotEngineTest",
+    jvm_flags = ["-Djava.library.path=libs/wrappers/java"],
+    data = [":rtbot_jni"],
+    deps = [
+        ":rtbot-java",
+        "@maven//:junit_junit",
+        "@maven//:com_google_code_gson_gson",
+    ],
+)
