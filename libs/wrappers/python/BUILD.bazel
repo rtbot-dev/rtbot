@@ -34,8 +34,10 @@ cc_binary(
         "//libs/api:rtbot-api",
         "@pybind11",
         "@python_3_11//:python_headers",
-        "@python_3_11//:libpython",
-    ],
+    ] + select({
+        "@pybind11//:osx": ["@python_3_11//:libpython"],
+        "//conditions:default": [],
+    }),
 )
 
 py_library(
