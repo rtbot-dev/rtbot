@@ -542,11 +542,7 @@ class ProgramDiagnostics {
       try {
         auto from_port = OperatorJson::parse_port_name(conn.value("fromPort", "o1"));
         auto to_port = OperatorJson::parse_port_name(conn.value("toPort", "i1"));
-        PortKind to_kind = to_port.kind;
-        if (conn.contains("toPortType")) {
-          to_kind = conn["toPortType"] == "control" ? PortKind::CONTROL : PortKind::DATA;
-        }
-        from_op->connect(to_op, from_port.index, to_port.index, to_kind);
+        from_op->connect(to_op, from_port.index, to_port.index, to_port.kind);
       } catch (const std::exception& e) {
         std::string msg = e.what();
         DiagnosticCode code = DiagnosticCode::PORT_TYPE_MISMATCH;

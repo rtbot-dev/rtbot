@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 #include "rtbot/Base64.h"

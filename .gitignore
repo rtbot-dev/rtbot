@@ -44,3 +44,4 @@ settings.json
 .firebase
 .envrc
 compile_commands.json
+.worktrees/

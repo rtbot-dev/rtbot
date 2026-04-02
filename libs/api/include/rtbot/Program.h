@@ -154,10 +154,6 @@ class Program {
     auto from_port = OperatorJson::parse_port_name(conn.value("fromPort", "o1"));
     auto to_port = OperatorJson::parse_port_name(conn.value("toPort", "i1"));
 
-    if (conn.contains("toPortType")) {
-      to_port.kind = conn["toPortType"] == "control" ? PortKind::CONTROL : PortKind::DATA;
-    }
-
     if (!operators_[from_qual_id] || !operators_[to_qual_id]) {
       throw runtime_error("Invalid operator reference in connection from " + from_qual_id + " to " + to_qual_id);
     }

@@ -593,3 +593,30 @@ SCENARIO("maxSizePerPort is preserved through JSON serialization round-trip", "[
     }
   }
 }
+
+SCENARIO("BooleanToNumber JSON round-trip", "[bindings][BooleanToNumber]") {
+  GIVEN("A BooleanToNumber operator created via read_op") {
+    std::string json_str = R"({"type":"BooleanToNumber","id":"b2n1"})";
+    auto op = OperatorJson::read_op(json_str);
+
+    THEN("The operator has the correct type and id") {
+      REQUIRE(op->type_name() == "BooleanToNumber");
+      REQUIRE(op->id() == "b2n1");
+    }
+
+    WHEN("Serialized via write_op") {
+      auto out = json::parse(OperatorJson::write_op(op));
+
+      THEN("Round-trip preserves type and id") {
+        REQUIRE(out["type"].get<std::string>() == "BooleanToNumber");
+        REQUIRE(out["id"].get<std::string>() == "b2n1");
+      }
+
+      AND_THEN("Re-reading the serialized JSON produces an equivalent operator") {
+        auto op2 = OperatorJson::read_op(out.dump());
+        REQUIRE(op2->type_name() == "BooleanToNumber");
+        REQUIRE(op2->id() == "b2n1");
+      }
+    }
+  }
+}

@@ -77,118 +77,138 @@ jsonschema:
 
 # Pipeline
 
-The Pipeline operator encapsulates a mesh of interconnected operators, acting as a composite operator that can be used like any other operator in the system. It maintains internal state isolation by resetting its internal operator mesh whenever output is produced.
+The Pipeline operator implements **segment-scoped computation**. It encapsulates a mesh of interconnected operators and uses an external control signal to define segments. Data accumulates within a segment (while the control key is stable), and output is emitted only when the key changes — at the segment boundary.
 
-## Operator Configuration
+## Control Port
 
-### Input/Output Ports
+The Pipeline has a single control port that receives `NumberData` messages. The numeric value carried by each control message is interpreted as a **segment key**. The key can be any numeric value, enabling expressions like:
 
-Both input and output ports are configured through port type arrays:
+- `FLOOR(ts / 86400)` for day-scoped segments
+- `SUM(DIFF(is_on) > 0)` for cycle-scoped segments
+- A constant `1.0` for single-segment accumulation (output only on key change)
 
-```json
-{
-  "id": "my_pipeline",
-  "input_port_types": ["number", "boolean"],
-  "output_port_types": ["number", "vector_number"]
-}
-```
-
-### Internal Configuration
-
-The pipeline's internal operator mesh is configured through the following methods:
-
-- `register_operator(id, operator)`: Adds an operator to the pipeline
-- `set_entry(operator_id, port)`: Designates the entry point operator and port
-- `add_output_mapping(operator_id, operator_port, pipeline_port)`: Maps internal operator outputs to pipeline outputs
-- `connect(from_id, to_id, from_port, to_port)`: Creates connections between internal operators
+Control messages must be paired with data messages at the same timestamp. The Pipeline synchronizes data and control by timestamp, discarding unpaired messages from whichever side is ahead.
 
 ## Operation
 
-1. **Message Reception**
+### 1. Timestamp Pairing
 
-   - Messages received on input ports are forwarded to the designated entry operator
-   - Message types are preserved during forwarding
+Each processing step requires both a data message and a control message with matching timestamps. If timestamps don't match, the Pipeline discards the older message (data or control) and retries until a pair is found.
 
-2. **Internal Processing**
+### 2. Key Tracking
 
-   - Messages flow through the internal operator mesh
-   - Each internal operator processes messages according to its own rules
-   - Connections determine the message flow path
+The control message value is the current segment key. The Pipeline tracks the current key across processing steps:
 
-3. **Output Collection**
+- **First message**: establishes the initial key.
+- **Same key**: data is forwarded to internal operators, and their output (if any) is buffered.
+- **Different key (key change)**: a segment boundary is detected.
 
-   - Output mappings define which internal operator outputs map to pipeline outputs
-   - Messages are copied from mapped internal outputs to pipeline outputs
+### 3. Segment Boundary (Key Change)
 
-4. **State Reset**
-   - Whenever the `Pipeline` produces any output, the pipeline resets all internal operators
-   - Reset occurs before the next processing cycle
-   - Ensures state isolation between processing cycles
+When the key changes:
 
-## Example
+1. **Emit**: the most recently buffered output is placed on the Pipeline's output ports, stamped with the boundary timestamp (the timestamp of the key-change message).
+2. **Reset**: all internal operators are reset to their initial state.
+3. **Continue**: the current data message is forwarded to the freshly reset internal operators, starting a new segment with the new key.
 
-```cpp
-// Create a pipeline with number input and output
-auto pipeline = std::make_shared<Pipeline>(
-    "my_pipeline",
-    std::vector<std::string>{PortType::NUMBER},
-    std::vector<std::string>{PortType::NUMBER}
-);
+### 4. Internal Forwarding and Buffering
 
-// Configure internal operators
-auto ma = std::make_shared<MovingAverage>("ma1", 10);
-auto peak = std::make_shared<PeakDetector>("peak1", 5);
+Within a segment (stable key), each data message is forwarded to the entry operator. The internal mesh executes, and if any mapped output operator produces output, it is stored in the output buffer (overwriting any previous buffer for that port). The buffer is **not** emitted to the Pipeline's output ports until a key change occurs.
 
-pipeline->register_operator(ma);
-pipeline->register_operator(peak);
+### 5. Output
 
-// Set entry point
-pipeline->set_entry("ma1");
+The Pipeline only produces output at segment boundaries (key changes). The emitted message carries the boundary timestamp, not the timestamp of the internal computation that produced the buffered value.
 
-// Connect operators
-pipeline->connect("ma1", "peak1");
+## JSON Configuration
 
-// Map peak detector output to pipeline output
-pipeline->add_output_mapping("peak1", 0, 0);
+```json
+{
+  "type": "Pipeline",
+  "id": "my_pipeline",
+  "input_port_types": ["number"],
+  "output_port_types": ["number"],
+  "operators": [
+    {"type": "MovingAverage", "id": "ma1", "window_size": 3}
+  ],
+  "connections": [],
+  "entryOperator": "ma1",
+  "outputMappings": {
+    "ma1": {"o1": "o1"}
+  }
+}
 ```
+
+### Connecting the Control Port
+
+In the program-level connections array, use port name `c1` to route a signal to the Pipeline's control port (control ports use the `c` prefix):
+
+```json
+{
+  "connections": [
+    {"from": "input1", "to": "pipeline1", "fromPort": "o1", "toPort": "i1"},
+    {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "c1"},
+    {"from": "pipeline1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+  ]
+}
+```
+
+## Example: Day-Scoped Moving Average
+
+```json
+{
+  "operators": [
+    {"type": "Input", "id": "input1", "portTypes": ["number", "number"]},
+    {
+      "type": "Pipeline",
+      "id": "daily_ma",
+      "input_port_types": ["number"],
+      "output_port_types": ["number"],
+      "operators": [
+        {"type": "MovingAverage", "id": "ma", "window_size": 10}
+      ],
+      "connections": [],
+      "entryOperator": "ma",
+      "outputMappings": {
+        "ma": {"o1": "o1"}
+      }
+    },
+    {"type": "Output", "id": "output1", "portTypes": ["number"]}
+  ],
+  "connections": [
+    {"from": "input1", "to": "daily_ma", "fromPort": "o1", "toPort": "i1"},
+    {"from": "input1", "to": "daily_ma", "fromPort": "o2", "toPort": "c1"},
+    {"from": "daily_ma", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+  ],
+  "entryOperator": "input1",
+  "output": { "output1": ["o1"] }
+}
+```
+
+Input port `o1` carries data values. Input port `o2` carries a day index (e.g., `FLOOR(ts / 86400)`). When the day index changes, the Pipeline emits the last buffered MA output and resets the MA for the new day.
+
+## Serialization
+
+The Pipeline serializes:
+
+- Its own segment state (current key, whether a key has been established)
+- The output buffer (port → message mapping)
+- All internal operators' state (recursively)
+
+After deserialization, the Pipeline resumes from the exact same segment state, including any buffered but not-yet-emitted output.
 
 ## Error Handling
 
 The operator throws exceptions for:
 
 - Invalid port type specifications
-- Missing entry point configuration
+- Missing entry point configuration (`entryOperator` not found)
 - Invalid operator references in connections
-- Invalid port indices in mappings
-- Type mismatches in connections
-
-## State Management
-
-The Pipeline operator manages:
-
-1. Internal operator registry
-2. mesh topology
-3. Entry point configuration
-4. Output mappings
-5. Reset state tracking
-
-All internal state is automatically reset when:
-
-- The pipeline produces output
-- Before the next processing cycle begins
+- Invalid port indices in output mappings
+- Entry operator having fewer data ports than the Pipeline
 
 ## Performance Considerations
 
-- Message copying occurs at input and output boundaries
-- Internal message passing uses standard operator mechanisms
-- State reset may impact performance when frequent outputs occur
-- Consider grouping operations to minimize reset frequency
-
-## Use Cases
-
-Ideal for:
-
-- Encapsulating complex processing logic
-- Creating reusable operator meshs
-- Isolating processing state
-- Building hierarchical processing systems
+- Internal output is buffered, not copied on every step — only the latest output per port is retained.
+- Emission happens only at segment boundaries, reducing output frequency.
+- State reset on key change may impact performance if segments are very short.
+- Message synchronization (timestamp pairing) discards unmatched messages, so data and control must arrive in lockstep.
