@@ -51,8 +51,11 @@ bazel_dep(name = "aspect_rules_jest", version = "0.22.0")
 bazel_dep(name = "aspect_rules_swc", version = "2.0.1")
 bazel_dep(name = "aspect_bazel_lib", version = "2.21.1")
 
-# Proto
-bazel_dep(name = "protobuf", version = "29.0", repo_name = "com_google_protobuf")
+# Proto — pinned with single_version_override so transitive deps cannot silently
+# bump the version. When upgrading, update both this AND libs/api/proto/buf.gen.yaml
+# to keep generated code and runtime in sync.
+bazel_dep(name = "protobuf", version = "32.1", repo_name = "com_google_protobuf")
+single_version_override(module_name = "protobuf", version = "32.1")
 
 # Emscripten SDK
 emsdk_version = "4.0.15"
