@@ -140,13 +140,13 @@ The Pipeline only produces output at segment boundaries (key changes). The emitt
 
 ### Connecting the Control Port
 
-In the program-level connections array, use `toPortType: "control"` to route a signal to the Pipeline's control port:
+In the program-level connections array, use port name `c1` to route a signal to the Pipeline's control port (control ports use the `c` prefix):
 
 ```json
 {
   "connections": [
     {"from": "input1", "to": "pipeline1", "fromPort": "o1", "toPort": "i1"},
-    {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+    {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "c1"},
     {"from": "pipeline1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
   ]
 }
@@ -176,7 +176,7 @@ In the program-level connections array, use `toPortType: "control"` to route a s
   ],
   "connections": [
     {"from": "input1", "to": "daily_ma", "fromPort": "o1", "toPort": "i1"},
-    {"from": "input1", "to": "daily_ma", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+    {"from": "input1", "to": "daily_ma", "fromPort": "o2", "toPort": "c1"},
     {"from": "daily_ma", "to": "output1", "fromPort": "o1", "toPort": "i1"}
   ],
   "entryOperator": "input1",

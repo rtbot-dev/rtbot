@@ -87,12 +87,7 @@
                   "from": { "type": "string" },
                   "to": { "type": "string" },
                   "fromPort": { "type": "string" },
-                  "toPort": { "type": "string" },
-                  "toPortType": { 
-                    "type": "string",
-                    "enum": ["data", "control"],
-                    "default": "data"
-                  }
+                  "toPort": { "type": "string" }
                 },
                 "required": ["from", "to"]
               }
@@ -157,11 +152,6 @@
           "toPort": {
             "type": "string",
             "examples": ["i1"]
-          },
-          "toPortType": {
-            "type": "string",
-            "enum": ["data", "control"],
-            "default": "data"
           }
         },
         "required": ["from", "to"],

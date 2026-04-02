@@ -238,7 +238,7 @@ SCENARIO("Program handles Pipeline operators", "[program][pipeline]") {
             ],
             "connections": [
                 {"from": "input1", "to": "pipeline1", "fromPort": "o1", "toPort": "i1"},
-                {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+                {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "c1"},
                 {"from": "pipeline1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input1",
@@ -370,7 +370,7 @@ SCENARIO("Program handles Pipeline operators and resets", "[program][pipeline]")
             ],
             "connections": [
                 {"from": "input", "to": "pipeline", "fromPort": "o1", "toPort": "i1"},
-                {"from": "input", "to": "pipeline", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+                {"from": "input", "to": "pipeline", "fromPort": "o2", "toPort": "c1"},
                 {"from": "pipeline", "to": "output", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input",
@@ -692,8 +692,7 @@ SCENARIO("Program handles complex Pipeline operators and resets", "[program][pip
             "from": "input",
             "to": "hourly",
             "fromPort": "o3",
-            "toPort": "i1",
-            "toPortType": "control"
+            "toPort": "c1"
         },
         {
             "from": "hourly",
@@ -787,7 +786,7 @@ SCENARIO("Program handles Pipeline serialization", "[program][pipeline]") {
             ],
             "connections": [
                 {"from": "input1", "to": "pipeline1", "fromPort": "o1", "toPort": "i1"},
-                {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+                {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "c1"},
                 {"from": "pipeline1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input1",
@@ -886,7 +885,7 @@ SCENARIO("Pipeline reset and emission behavior", "[program][pipeline]") {
       ],
       "connections": [
         {"from": "input1", "to": "pipeline1", "fromPort": "o1", "toPort": "i1"},
-        {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+        {"from": "input1", "to": "pipeline1", "fromPort": "o2", "toPort": "c1"},
         {"from": "pipeline1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
@@ -1198,7 +1197,7 @@ SCENARIO("Program handles Pipeline prototypes", "[program][prototypes][pipeline]
       ],
       "connections": [
         {"from": "input1", "to": "proc1", "fromPort": "o1", "toPort": "i1"},
-        {"from": "input1", "to": "proc1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+        {"from": "input1", "to": "proc1", "fromPort": "o2", "toPort": "c1"},
         {"from": "proc1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
@@ -1332,7 +1331,7 @@ SCENARIO("Program handles nested Pipeline prototypes correctly", "[program][prot
       ],
       "connections": [
         {"from": "input1", "to": "proc1", "fromPort": "o1", "toPort": "i1"},
-        {"from": "input1", "to": "proc1", "fromPort": "o2", "toPort": "i1", "toPortType": "control"},
+        {"from": "input1", "to": "proc1", "fromPort": "o2", "toPort": "c1"},
         {"from": "proc1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
       ],
       "entryOperator": "input1",
