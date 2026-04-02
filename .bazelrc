@@ -36,6 +36,10 @@ build:windows --repo_env=BAZEL_WINSDK_FULL_VERSION
 test:windows --repo_env=BAZEL_SH=C:/Progra~1/Git/bin/bash.exe
 test:windows --enable_runfiles
 
+# Java: use Bazel-managed remote JDK (no local JDK required)
+build --java_runtime_version=remotejdk_21
+build --tool_java_runtime_version=remotejdk_21
+
 # Telemetry disabled by default
 build --define enable_telemetry=false
 
