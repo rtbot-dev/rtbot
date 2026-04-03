@@ -159,7 +159,6 @@ SCENARIO("Bindings accept inline KeyedPipeline prototypes", "[bindings][prototyp
       {
         "type": "KeyedPipeline",
         "id": "keyed1",
-        "key_index": 1,
         "prototype": {
           "operators": [
             {"type": "Input", "id": "proto_in", "portTypes": ["vector_number"]},
@@ -196,11 +195,97 @@ SCENARIO("Bindings accept inline KeyedPipeline prototypes", "[bindings][prototyp
   REQUIRE(result["output1"]["o1"].size() == 1);
   REQUIRE(result["output1"]["o1"][0]["time"] == 123);
   REQUIRE(result["output1"]["o1"][0]["value"].is_array());
-  // KeyedPipeline prepends the key (42.5) to the sub-graph output [7001.0, 42.5]
-  REQUIRE(result["output1"]["o1"][0]["value"].size() == 3);
-  REQUIRE(result["output1"]["o1"][0]["value"][0] == Approx(42.5));
-  REQUIRE(result["output1"]["o1"][0]["value"][1] == Approx(7001.0));
-  REQUIRE(result["output1"]["o1"][0]["value"][2] == Approx(42.5));
+  // Key comes from msg->id (default 0), output is the sub-graph output without key prepended
+  REQUIRE(result["output1"]["o1"][0]["value"].size() == 2);
+  REQUIRE(result["output1"]["o1"][0]["value"][0] == Approx(7001.0));
+  REQUIRE(result["output1"]["o1"][0]["value"][1] == Approx(42.5));
+}
+
+SCENARIO("Bindings support message id for keyed routing", "[bindings][id]") {
+  auto& manager = ProgramManager::instance();
+  manager.clear_all_programs();
+
+  // KeyedPipeline with CumulativeSum sub-graph — state accumulates per key
+  // VectorExtract(0) → CumulativeSum gives us a stateful sub-graph where
+  // we can verify that messages with the same id share state.
+  std::string keyed_cumsum_json = R"({
+    "operators": [
+      {"type": "Input", "id": "input1", "portTypes": ["vector_number"]},
+      {
+        "type": "KeyedPipeline",
+        "id": "keyed1",
+        "prototype": {
+          "operators": [
+            {"type": "VectorExtract", "id": "ext", "index": 0},
+            {"type": "CumulativeSum", "id": "sum"}
+          ],
+          "connections": [
+            {"from": "ext", "to": "sum", "fromPort": "o1", "toPort": "i1"}
+          ],
+          "entry": {"operator": "ext"},
+          "output": {"operator": "sum"}
+        }
+      },
+      {"type": "Output", "id": "output1", "portTypes": ["vector_number"]}
+    ],
+    "connections": [
+      {"from": "input1", "to": "keyed1", "fromPort": "o1", "toPort": "i1"},
+      {"from": "keyed1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+    ],
+    "entryOperator": "input1",
+    "output": { "output1": ["o1"] }
+  })";
+
+  SECTION("Messages with different ids accumulate independently") {
+    REQUIRE(create_program("id_keyed_test", keyed_cumsum_json).empty());
+
+    // id=1: [100.0] → cumsum=100
+    REQUIRE(begin_vector_message("id_keyed_test", "i1", 1, 1) == "1");
+    REQUIRE(push_vector_message_value("id_keyed_test", "i1", 100.0) == "1");
+    REQUIRE(end_vector_message("id_keyed_test", "i1") == "1");
+    auto r1 = json::parse(process_message_buffer("id_keyed_test"));
+    REQUIRE(r1["output1"]["o1"][0]["value"][0] == Approx(100.0));
+
+    // id=2: [200.0] → cumsum=200 (separate key, fresh sub-graph)
+    REQUIRE(begin_vector_message("id_keyed_test", "i1", 2, 2) == "1");
+    REQUIRE(push_vector_message_value("id_keyed_test", "i1", 200.0) == "1");
+    REQUIRE(end_vector_message("id_keyed_test", "i1") == "1");
+    auto r2 = json::parse(process_message_buffer("id_keyed_test"));
+    REQUIRE(r2["output1"]["o1"][0]["value"][0] == Approx(200.0));
+
+    // id=1 again: [50.0] → cumsum=150 (accumulates with first id=1 message)
+    REQUIRE(begin_vector_message("id_keyed_test", "i1", 3, 1) == "1");
+    REQUIRE(push_vector_message_value("id_keyed_test", "i1", 50.0) == "1");
+    REQUIRE(end_vector_message("id_keyed_test", "i1") == "1");
+    auto r3 = json::parse(process_message_buffer("id_keyed_test"));
+    REQUIRE(r3["output1"]["o1"][0]["value"][0] == Approx(150.0));  // 100 + 50
+
+    // id=2 again: [300.0] → cumsum=500 (accumulates with first id=2 message)
+    REQUIRE(begin_vector_message("id_keyed_test", "i1", 4, 2) == "1");
+    REQUIRE(push_vector_message_value("id_keyed_test", "i1", 300.0) == "1");
+    REQUIRE(end_vector_message("id_keyed_test", "i1") == "1");
+    auto r4 = json::parse(process_message_buffer("id_keyed_test"));
+    REQUIRE(r4["output1"]["o1"][0]["value"][0] == Approx(500.0));  // 200 + 300
+  }
+
+  SECTION("Scalar add_to_message_buffer with explicit id=0") {
+    std::string simple_json = R"({
+      "operators": [
+        {"type": "Input", "id": "in1", "portTypes": ["number"]},
+        {"type": "Output", "id": "out1", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "in1", "to": "out1", "fromPort": "o1", "toPort": "i1"}
+      ],
+      "entryOperator": "in1",
+      "output": { "out1": ["o1"] }
+    })";
+    REQUIRE(create_program("id_scalar_test", simple_json).empty());
+    REQUIRE(add_to_message_buffer("id_scalar_test", "i1", 1, 99.0, 0) == "1");
+    auto result = json::parse(process_message_buffer("id_scalar_test"));
+    REQUIRE(result["out1"]["o1"][0]["time"] == 1);
+    REQUIRE(result["out1"]["o1"][0]["value"] == Approx(99.0));
+  }
 }
 
 SCENARIO("Program and operator validation", "[bindings]") {

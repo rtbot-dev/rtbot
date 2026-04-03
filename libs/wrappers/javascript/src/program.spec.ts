@@ -1,4 +1,5 @@
 import { Program, MovingAverage, Input, Output, RtBot, RtBotRun, RtBotRunOutputFormat } from "@rtbot-dev/rtbot";
+import bindings from "@rtbot-dev/wasm";
 
 const data = [
   [1, 10.0],
@@ -273,5 +274,74 @@ describe("Program", () => {
 
     await rtbot.deleteProgram(programId);
     await rtbot.deleteProgram(freshId);
+  });
+
+  it("can call WASM addToMessageBuffer and beginVectorMessage with explicit id=0", async () => {
+    const wasm = await bindings();
+
+    const simpleProgram = JSON.stringify({
+      operators: [
+        { id: "in1", type: "Input", portTypes: ["number"] },
+        { id: "out1", type: "Output", portTypes: ["number"] },
+      ],
+      connections: [{ from: "in1", to: "out1", fromPort: "o1", toPort: "i1" }],
+      entryOperator: "in1",
+      output: { out1: ["o1"] },
+    });
+
+    const created = wasm.createProgram("wasm_id_test", simpleProgram);
+    expect(created).toBe("");
+
+    // Call addToMessageBuffer directly with id=0 as 5th arg
+    const added = wasm.addToMessageBuffer("wasm_id_test", "i1", 1, 42.0, 0);
+    expect(added).toBe("1");
+
+    const result = JSON.parse(wasm.processMessageBuffer("wasm_id_test"));
+    expect(result["out1"]["o1"][0]["time"]).toBe(1);
+    expect(result["out1"]["o1"][0]["value"]).toBeCloseTo(42.0);
+
+    wasm.deleteProgram("wasm_id_test");
+
+    // Test beginVectorMessage with id=0
+    const vectorProgram = JSON.stringify({
+      operators: [
+        { id: "in1", type: "Input", portTypes: ["vector_number"] },
+        { id: "out1", type: "Output", portTypes: ["vector_number"] },
+      ],
+      connections: [{ from: "in1", to: "out1", fromPort: "o1", toPort: "i1" }],
+      entryOperator: "in1",
+      output: { out1: ["o1"] },
+    });
+
+    wasm.createProgram("wasm_vec_id_test", vectorProgram);
+
+    // Call beginVectorMessage directly with id=0 as 4th arg
+    const started = wasm.beginVectorMessage("wasm_vec_id_test", "i1", 10, 0);
+    expect(started).toBe("1");
+    expect(wasm.pushVectorMessageValue("wasm_vec_id_test", "i1", 100.0)).toBe("1");
+    expect(wasm.pushVectorMessageValue("wasm_vec_id_test", "i1", 200.0)).toBe("1");
+    expect(wasm.endVectorMessage("wasm_vec_id_test", "i1")).toBe("1");
+
+    const vecResult = JSON.parse(wasm.processMessageBuffer("wasm_vec_id_test"));
+    expect(vecResult["out1"]["o1"][0]["time"]).toBe(10);
+    expect(vecResult["out1"]["o1"][0]["value"]).toEqual([100.0, 200.0]);
+
+    wasm.deleteProgram("wasm_vec_id_test");
+  });
+
+  it("can pass explicit id=0 to message buffer", async () => {
+    const programId = "test_message_id";
+    const plainProgram = JSON.stringify(program.toPlain());
+
+    const rtbot = RtBot.getInstance();
+    await rtbot.createProgram(programId, plainProgram);
+
+    // MA window_size=2, need 2 messages before output appears
+    await rtbot.processDebug(programId, { i1: [{ time: 1, value: 10.0, id: 0 }] });
+    const result = await rtbot.processDebug(programId, { i1: [{ time: 2, value: 20.0, id: 0 }] });
+    expect(result).toBeDefined();
+    expect(result["out1"]).toBeDefined();
+
+    await rtbot.deleteProgram(programId);
   });
 });

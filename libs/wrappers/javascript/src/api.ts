@@ -13,6 +13,7 @@ export interface RtBotMessage {
 type RtBotInputMessage = {
   time: number;
   value: number | number[];
+  id?: number;
 };
 
 type ProgramOperator = {
@@ -140,9 +141,10 @@ export class RtBot {
     rtbot: RtBotEmbindModule
   ) {
     Object.entries(messages).forEach(([port, msgs]) => {
-      msgs.forEach(({ time, value }) => {
+      msgs.forEach(({ time, value, id }) => {
+        const msgId = id ?? 0;
         if (Array.isArray(value)) {
-          const started = rtbot.beginVectorMessage(programId, port, time);
+          const started = rtbot.beginVectorMessage(programId, port, time, msgId);
           if (started !== "1") {
             throw new Error(`Failed to start vector message for ${port}`);
           }
@@ -170,7 +172,7 @@ export class RtBot {
             }
           }
         } else {
-          const added = rtbot.addToMessageBuffer(programId, port, time, value);
+          const added = rtbot.addToMessageBuffer(programId, port, time, value, msgId);
           if (added !== "1") {
             throw new Error(`Failed to queue scalar message for ${port}`);
           }

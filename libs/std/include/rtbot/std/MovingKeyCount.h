@@ -45,7 +45,7 @@ class MovingKeyCount : public Operator {
     size_t n = ring_.size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&n),
                  reinterpret_cast<const uint8_t*>(&n) + sizeof(n));
-    for (double k : ring_) {
+    for (uint64_t k : ring_) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&k),
                    reinterpret_cast<const uint8_t*>(&k) + sizeof(k));
     }
@@ -72,7 +72,7 @@ class MovingKeyCount : public Operator {
     it += sizeof(n);
     ring_.clear();
     for (size_t i = 0; i < n; i++) {
-      double k;
+      uint64_t k;
       std::memcpy(&k, &(*it), sizeof(k));
       it += sizeof(k);
       ring_.push_back(k);
@@ -83,7 +83,7 @@ class MovingKeyCount : public Operator {
     it += sizeof(m);
     counts_.clear();
     for (size_t i = 0; i < m; i++) {
-      double k;
+      uint64_t k;
       size_t v;
       std::memcpy(&k, &(*it), sizeof(k));
       it += sizeof(k);
@@ -105,11 +105,11 @@ class MovingKeyCount : public Operator {
         throw std::runtime_error("Invalid message type in MovingKeyCount");
       }
 
-      double key = msg->data.value;
+      uint64_t key = msg->id;
 
       // Evict oldest key from window if at capacity
       if (ring_.size() >= window_size_) {
-        double old_key = ring_.front();
+        uint64_t old_key = ring_.front();
         ring_.pop_front();
         auto it = counts_.find(old_key);
         if (it != counts_.end()) {
@@ -127,15 +127,15 @@ class MovingKeyCount : public Operator {
 
       // Emit count of this key in the current window
       output_queue.push_back(create_message<NumberData>(
-          msg->time, NumberData{static_cast<double>(counts_[key])}));
+          msg->time, key, NumberData{static_cast<double>(counts_[key])}));
       input_queue.pop_front();
     }
   }
 
  private:
   size_t window_size_;
-  std::deque<double> ring_;
-  std::unordered_map<double, size_t> counts_;
+  std::deque<uint64_t> ring_;
+  std::unordered_map<uint64_t, size_t> counts_;
 };
 
 inline std::shared_ptr<MovingKeyCount> make_moving_key_count(std::string id,
