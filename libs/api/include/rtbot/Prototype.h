@@ -214,6 +214,16 @@ class PrototypeHandler {
           resolve_parameter_references(op["outputMappings"], params);
         }
       }
+      if (op["type"] == "TriggerSet") {
+        // Recursively resolve parameters in nested TriggerSet operators
+        if (op.contains("operators")) {
+          resolve_pipeline_operators(op["operators"], params);
+        }
+        // Handle outputOperator (single output mapping for TriggerSet)
+        if (op.contains("outputOperator")) {
+          resolve_parameter_references(op["outputOperator"], params);
+        }
+      }
       // Always resolve parameters in the operator itself
       resolve_parameter_references(op, params);
     }

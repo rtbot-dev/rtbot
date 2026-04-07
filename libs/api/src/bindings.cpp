@@ -128,6 +128,57 @@ std::string validate_operator(const std::string& type, const std::string& json_o
     }
   }
 
+  // TriggerSet: single-input/single-output composite operator. Recursively validate internal operators.
+  if (type == "TriggerSet") {
+    try {
+      auto j = json::parse(json_op);
+
+      std::vector<std::string> required = {"id", "input_port_type", "output_port_type", "operators",
+                                           "entryOperator", "outputOperator"};
+      for (const auto& field : required) {
+        if (!j.contains(field)) {
+          return R"({"valid":false,"error":"Missing required field: )" + field + "\"}";
+        }
+      }
+
+      auto check_port_type = [](const std::string& t) {
+        return t == "number" || t == "boolean" || t == "vector_number" || t == "vector_boolean";
+      };
+
+      std::string in_t = j["input_port_type"].get<std::string>();
+      if (!check_port_type(in_t)) {
+        return R"({"valid":false,"error":"Invalid input port type: )" + in_t + "\"}";
+      }
+      std::string out_t = j["output_port_type"].get<std::string>();
+      if (!check_port_type(out_t)) {
+        return R"({"valid":false,"error":"Invalid output port type: )" + out_t + "\"}";
+      }
+
+      for (const auto& op : j["operators"]) {
+        if (!op.contains("id") || !op.contains("type")) {
+          return R"({"valid":false,"error":"TriggerSet operators must have id and type fields"})";
+        }
+        auto validation = validate_operator(op["type"], op.dump());
+        auto validation_result = json::parse(validation);
+        if (!validation_result["valid"]) {
+          return validation;
+        }
+      }
+
+      if (j.contains("connections")) {
+        for (const auto& conn : j["connections"]) {
+          if (!conn.contains("from") || !conn.contains("to")) {
+            return R"({"valid":false,"error":"TriggerSet connections must specify from and to operators"})";
+          }
+        }
+      }
+
+      return R"({"valid":true})";
+    } catch (const json::exception& e) {
+      return R"({"valid":false,"error":"Invalid JSON: )" + std::string(e.what()) + "\"}";
+    }
+  }
+
   try {
     std::optional<json> schema;
     for (const auto& it : rtbot_schema["properties"]["operators"]["items"]["oneOf"]) {

@@ -145,6 +145,16 @@ class Program {
         }
       }
     }
+
+    // If this is a TriggerSet, recursively create its internal operators
+    if (auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op)) {
+      auto ts_json = json::parse(op_json.dump());
+      if (ts_json.contains("operators")) {
+        for (const auto& internal_op : ts_json["operators"]) {
+          create_operator(qualified_id, internal_op);
+        }
+      }
+    }
   }
 
   void create_connection(const json& conn) {
@@ -235,6 +245,33 @@ class Program {
 
               if (has_messages) {
                 batch[qualified_id] = std::move(op_batch);
+              }
+
+              // Recursively handle TriggerSet operators
+              if (auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op)) {
+                for (const auto& [internal_id, internal_op] : trigger_set->get_operators()) {
+                  collect_operator_outputs(internal_id, internal_op, qualified_id);
+                }
+
+                // In debug mode, also surface the trigger set's single output operator/port
+                if (debug_mode) {
+                  const auto& out_op_id = trigger_set->get_output_operator_id();
+                  auto mapped_qualified_id = qualified_id + "::" + out_op_id;
+                  auto mapped_op = trigger_set->get_operators().find(out_op_id);
+                  if (mapped_op != trigger_set->get_operators().end()) {
+                    size_t out_port = trigger_set->get_output_operator_port();
+                    const auto& queue = mapped_op->second->get_output_queue(out_port);
+                    if (!queue.empty()) {
+                      if (batch[mapped_qualified_id].empty()) {
+                        batch[mapped_qualified_id] = OperatorMsgBatch();
+                      }
+                      PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(out_port + 1)];
+                      for (const auto& msg : queue) {
+                        port_msgs.push_back(msg->clone());
+                      }
+                    }
+                  }
+                }
               }
 
               // Recursively handle Pipeline operators

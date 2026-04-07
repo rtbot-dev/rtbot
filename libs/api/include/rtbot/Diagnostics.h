@@ -286,7 +286,7 @@ class ProgramDiagnostics {
       case DiagnosticCode::UNKNOWN_OPERATOR_TYPE:
         return "Available types include: Input, Output, MovingAverage, StandardDeviation, "
                "FiniteImpulseResponse, InfiniteImpulseResponse, PeakDetector, Linear, "
-               "Scale, Add, Power, Pipeline, Join, Function, Identity, Difference, etc.";
+               "Scale, Add, Power, Pipeline, TriggerSet, Join, Function, Identity, Difference, etc.";
       case DiagnosticCode::INVALID_PORT_TYPE:
         return "Valid port types: number, boolean, vector_number, vector_boolean";
       case DiagnosticCode::INVALID_PARAMETER_VALUE:
@@ -480,6 +480,11 @@ class ProgramDiagnostics {
         if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
           register_pipeline_operators(qualified_id, pipeline, operators);
         }
+
+        // Same for TriggerSets
+        if (auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op)) {
+          register_trigger_set_operators(qualified_id, trigger_set, operators);
+        }
       } catch (const std::exception& e) {
         std::string msg = e.what();
         DiagnosticCode code = classify_operator_error(msg);
@@ -500,6 +505,25 @@ class ProgramDiagnostics {
 
       if (auto nested_pipeline = std::dynamic_pointer_cast<Pipeline>(kv.second)) {
         register_pipeline_operators(qualified_id, nested_pipeline, operators);
+      }
+      if (auto nested_trigger_set = std::dynamic_pointer_cast<TriggerSet>(kv.second)) {
+        register_trigger_set_operators(qualified_id, nested_trigger_set, operators);
+      }
+    }
+  }
+
+  static void register_trigger_set_operators(const std::string& parent_prefix,
+                                             const std::shared_ptr<TriggerSet>& trigger_set,
+                                             std::map<std::string, std::shared_ptr<Operator>>& operators) {
+    for (const auto& kv : trigger_set->get_operators()) {
+      std::string qualified_id = parent_prefix + "::" + kv.first;
+      operators[qualified_id] = kv.second;
+
+      if (auto nested_pipeline = std::dynamic_pointer_cast<Pipeline>(kv.second)) {
+        register_pipeline_operators(qualified_id, nested_pipeline, operators);
+      }
+      if (auto nested_trigger_set = std::dynamic_pointer_cast<TriggerSet>(kv.second)) {
+        register_trigger_set_operators(qualified_id, nested_trigger_set, operators);
       }
     }
   }

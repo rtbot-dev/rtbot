@@ -16,6 +16,7 @@
 #include "rtbot/Operator.h"
 #include "rtbot/Output.h"
 #include "rtbot/Pipeline.h"
+#include "rtbot/TriggerSet.h"
 #include "rtbot/std/ArithmeticScalar.h"
 #include "rtbot/std/ArithmeticSync.h"
 #include "rtbot/std/BooleanSync.h"
@@ -343,6 +344,84 @@ class OperatorJson {
       }
 
       return pipeline;
+    } else if (type == "TriggerSet") {
+      // Validate single input/output port types
+      if (!parsed.contains("input_port_type") || !parsed["input_port_type"].is_string()) {
+        throw std::runtime_error("TriggerSet requires a string 'input_port_type' field");
+      }
+      if (!parsed.contains("output_port_type") || !parsed["output_port_type"].is_string()) {
+        throw std::runtime_error("TriggerSet requires a string 'output_port_type' field");
+      }
+
+      auto input_type = parsed["input_port_type"].get<std::string>();
+      auto output_type = parsed["output_port_type"].get<std::string>();
+
+      auto valid_type = [](const std::string& t) {
+        return t == "number" || t == "boolean" || t == "vector_number" || t == "vector_boolean";
+      };
+      if (!valid_type(input_type)) {
+        throw std::runtime_error("Invalid input port type: " + input_type);
+      }
+      if (!valid_type(output_type)) {
+        throw std::runtime_error("Invalid output port type: " + output_type);
+      }
+
+      if (!parsed.contains("operators") || !parsed["operators"].is_array() || parsed["operators"].empty()) {
+        throw std::runtime_error("TriggerSet must contain at least one operator");
+      }
+
+      auto trigger_set = std::make_shared<TriggerSet>(id, input_type, output_type);
+
+      // Configure internal operators
+      for (const auto& op_json : parsed["operators"]) {
+        if (!op_json.contains("id") || !op_json.contains("type")) {
+          throw std::runtime_error("TriggerSet operators must have id and type fields");
+        }
+        trigger_set->register_operator(read_op(op_json.dump()));
+      }
+
+      // Configure connections (optional — a trigger set may consist of a single operator)
+      if (parsed.contains("connections")) {
+        if (!parsed["connections"].is_array()) {
+          throw std::runtime_error("TriggerSet 'connections' must be an array");
+        }
+        for (const auto& conn : parsed["connections"]) {
+          if (!conn.contains("from") || !conn.contains("to")) {
+            throw std::runtime_error("TriggerSet connections must specify from and to operators");
+          }
+          std::string from = conn["from"].get<std::string>();
+          std::string to = conn["to"].get<std::string>();
+          size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
+          size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
+          trigger_set->connect(from, to, from_port, to_port);
+        }
+      }
+
+      // Set entry operator
+      if (!parsed.contains("entryOperator") || !parsed["entryOperator"].is_string()) {
+        throw std::runtime_error("TriggerSet requires a string 'entryOperator' field");
+      }
+      trigger_set->set_entry(parsed["entryOperator"].get<std::string>());
+
+      // Set output operator (single op + optional port; defaults to port o1)
+      if (!parsed.contains("outputOperator")) {
+        throw std::runtime_error("TriggerSet requires an 'outputOperator' field");
+      }
+      const auto& output_op_json = parsed["outputOperator"];
+      if (output_op_json.is_string()) {
+        trigger_set->set_output(output_op_json.get<std::string>(), 0);
+      } else if (output_op_json.is_object()) {
+        if (!output_op_json.contains("id") || !output_op_json["id"].is_string()) {
+          throw std::runtime_error("TriggerSet 'outputOperator' object must contain a string 'id' field");
+        }
+        std::string out_id = output_op_json["id"].get<std::string>();
+        size_t out_port = output_op_json.contains("port") ? parse_port_name(output_op_json["port"]).index : 0;
+        trigger_set->set_output(out_id, out_port);
+      } else {
+        throw std::runtime_error("TriggerSet 'outputOperator' must be a string or an object");
+      }
+
+      return trigger_set;
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }
@@ -518,7 +597,7 @@ class OperatorJson {
 
       // Store connections
       j["connections"] = json::array();
-      for (const auto& conn : pipeline->get_pipeline_connections()) {
+      for (const auto& conn : pipeline->get_connections()) {
         json conn_json;
         conn_json["from"] = conn.from_id;
         conn_json["to"] = conn.to_id;
@@ -539,6 +618,38 @@ class OperatorJson {
         }
         j["outputMappings"][op_id] = mapping_json;
       }
+    } else if (type == "TriggerSet") {
+      auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op);
+      j["type"] = "TriggerSet";
+      j["id"] = op->id();
+      j["input_port_type"] = trigger_set->get_input_port_type();
+      j["output_port_type"] = trigger_set->get_output_port_type();
+
+      // Store internal operators
+      j["operators"] = json::array();
+      for (const auto& [op_id, internal_op] : trigger_set->get_operators()) {
+        json op_json = json::parse(write_op(internal_op));
+        op_json["id"] = op_id;
+        j["operators"].push_back(op_json);
+      }
+
+      // Store internal connections
+      j["connections"] = json::array();
+      for (const auto& conn : trigger_set->get_connections()) {
+        json conn_json;
+        conn_json["from"] = conn.from_id;
+        conn_json["to"] = conn.to_id;
+        conn_json["fromPort"] = "o" + std::to_string(conn.from_port + 1);
+        conn_json["toPort"] = "i" + std::to_string(conn.to_port + 1);
+        j["connections"].push_back(conn_json);
+      }
+
+      // Store entry and output operators
+      j["entryOperator"] = trigger_set->get_entry_operator_id();
+      json output_op_json;
+      output_op_json["id"] = trigger_set->get_output_operator_id();
+      output_op_json["port"] = "o" + std::to_string(trigger_set->get_output_operator_port() + 1);
+      j["outputOperator"] = output_op_json;
     } else {
       throw std::runtime_error("Unknown operator type: " + type);
     }

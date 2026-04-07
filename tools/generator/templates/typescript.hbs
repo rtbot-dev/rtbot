@@ -36,7 +36,7 @@ export const programSchema = z.object({
 
 export type {{ name }} = {
 {{#each entries}}
-  {{ name }}: {{ type }},
+  {{ name }}: {{{ type }}},
 {{/each}}
 }
 {{/each}}
@@ -44,7 +44,7 @@ export type {{ name }} = {
 export class {{ type }} extends Operator {
   readonly type = "{{ type }}";
   constructor(
-{{ parametersBlock }}
+{{{ parametersBlock }}}
   ) {
     super(id);
     const schema = {{{ schema }}}

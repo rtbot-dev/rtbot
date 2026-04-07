@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "Logger.h"
+#include "rtbot/CompositeConnection.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 #include "rtbot/PortType.h"
@@ -15,12 +16,6 @@ namespace rtbot {
 
 class Pipeline : public Operator {
  public:
-  struct PipelineConnection {
-    std::string from_id;
-    std::string to_id;
-    size_t from_port{0};
-    size_t to_port{0};
-  };
 
   Pipeline(std::string id, const std::vector<std::string>& input_port_types,
            const std::vector<std::string>& output_port_types)
@@ -52,7 +47,7 @@ class Pipeline : public Operator {
   const std::vector<std::string>& get_input_port_types() const { return input_port_types_; }
   const std::vector<std::string>& get_output_port_types() const { return output_port_types_; }
   const std::map<std::string, std::shared_ptr<Operator>>& get_operators() const { return operators_; }
-  const std::vector<PipelineConnection>& get_pipeline_connections() const { return pipeline_connections_; }
+  const std::vector<CompositeConnection>& get_connections() const { return connections_; }
   const std::string& get_entry_operator_id() const { return entry_operator_->id(); }
   const std::map<std::string, std::vector<std::pair<size_t, size_t>>>& get_output_mappings() const {
     return output_mappings_;
@@ -96,7 +91,7 @@ class Pipeline : public Operator {
 
     RTBOT_LOG_DEBUG("Connecting operators: ", from_id, " -> ", to_id);
     from_it->second->connect(to_it->second, from_port, to_port);
-    pipeline_connections_.push_back({from_id, to_id, from_port, to_port});
+    connections_.push_back({from_id, to_id, from_port, to_port});
   }
 
   void reset() override {
@@ -366,7 +361,7 @@ class Pipeline : public Operator {
 
   std::vector<std::string> input_port_types_;
   std::vector<std::string> output_port_types_;
-  std::vector<PipelineConnection> pipeline_connections_;
+  std::vector<CompositeConnection> connections_;
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> output_mappings_;
