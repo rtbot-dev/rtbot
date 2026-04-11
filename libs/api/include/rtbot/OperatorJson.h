@@ -50,6 +50,7 @@
 #include "rtbot/std/BooleanToNumber.h"
 #include "rtbot/std/MinMaxTracker.h"
 #include "rtbot/std/TopK.h"
+#include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
 
 using json = nlohmann::json;
@@ -180,6 +181,8 @@ class OperatorJson {
       return make_ceil(id);
     } else if (type == "Round") {
       return make_round(id);
+    } else if (type == "TimestampExtract") {
+      return make_timestamp_extract(id);
     } else if (type == "Variable") {
       return make_variable(id, parsed.value("default_value", 0.0), max_size_per_port);
     } else if (type == "KeyedVariable") {
