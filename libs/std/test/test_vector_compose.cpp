@@ -1,6 +1,8 @@
 #include <catch2/catch.hpp>
 #include <memory>
+#include <type_traits>
 
+#include "rtbot/Join.h"
 #include "rtbot/std/VectorCompose.h"
 
 using namespace rtbot;
@@ -82,6 +84,16 @@ SCENARIO("VectorCompose validation", "[vector_compose]") {
   }
   SECTION("One port is valid (single-element vector)") {
     REQUIRE_NOTHROW(make_vector_compose("comp1", 1));
+  }
+}
+
+SCENARIO("VectorCompose is Join-based synchronizer", "[vector_compose]") {
+  SECTION("Type hierarchy and runtime polymorphism") {
+    STATIC_REQUIRE(std::is_base_of_v<Join, VectorCompose>);
+
+    auto comp = make_vector_compose("comp1", 2);
+    std::shared_ptr<Join> as_join = std::dynamic_pointer_cast<Join>(comp);
+    REQUIRE(as_join != nullptr);
   }
 }
 
