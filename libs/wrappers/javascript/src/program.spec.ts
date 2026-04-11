@@ -234,6 +234,127 @@ describe("Program", () => {
     expect(wrap).not.toThrow();
   });
 
+  it("toInstance → toPlain roundtrip preserves deeply nested operator properties", () => {
+    // This test documents the class-transformer lossy roundtrip for complex
+    // operators like KeyedPipeline that contain a deeply nested `prototype`
+    // field with its own operators, connections, and entry/output definitions.
+    //
+    // plainToInstance(Program, obj) creates generic Operator instances.
+    // For simple properties (window_size: number), they survive the roundtrip.
+    // For deeply nested objects (prototype: {operators: [...], ...}), they
+    // may be corrupted or lost by class-transformer.
+    const complexProgramJson = {
+      entryOperator: "in1",
+      operators: [
+        { id: "in1", type: "Input", portTypes: ["vector_number"] },
+        {
+          id: "kp1",
+          type: "KeyedPipeline",
+          key_index: 0,
+          prototype: {
+            entryOperator: "proto_in",
+            operators: [
+              { id: "proto_in", type: "Input", portTypes: ["vector_number"] },
+              { id: "ve1", type: "VectorExtract", index: 1 },
+              { id: "ma1", type: "MovingAverage", window_size: 5 },
+              { id: "proto_out", type: "Output", portTypes: ["number"] },
+            ],
+            connections: [
+              { from: "proto_in", to: "ve1", fromPort: "o1", toPort: "i1" },
+              { from: "ve1", to: "ma1", fromPort: "o1", toPort: "i1" },
+              { from: "ma1", to: "proto_out", fromPort: "o1", toPort: "i1" },
+            ],
+            output: { proto_out: ["o1"] },
+          },
+        },
+        { id: "out1", type: "Output", portTypes: ["vector_number"] },
+      ],
+      connections: [
+        { from: "in1", to: "kp1", fromPort: "o1", toPort: "i1" },
+        { from: "kp1", to: "out1", fromPort: "o1", toPort: "i1" },
+      ],
+      output: { out1: ["o1"] },
+    };
+
+    const instance = Program.toInstance(complexProgramJson as Record<string, unknown>);
+    const roundtripped = instance.toPlain() as Record<string, unknown>;
+
+    // Check that the top-level KeyedPipeline properties survive
+    const originalKp = complexProgramJson.operators.find((op) => op.id === "kp1");
+    const roundtrippedKp = (roundtripped.operators as any[])?.find((op: any) => op.id === "kp1");
+
+    // key_index should survive (simple number property)
+    expect(roundtrippedKp?.key_index).toBe(0);
+
+    // The deeply nested prototype should survive the roundtrip
+    expect(roundtrippedKp?.prototype).toBeDefined();
+    expect(roundtrippedKp?.prototype?.operators).toBeDefined();
+    expect(roundtrippedKp?.prototype?.operators?.length).toBe(
+      originalKp!.prototype.operators.length,
+    );
+
+    // Check inner operator properties survive
+    const innerMa = roundtrippedKp?.prototype?.operators?.find(
+      (op: any) => op.id === "ma1",
+    );
+    expect(innerMa?.window_size).toBe(5);
+
+    // Check connections survive
+    expect(roundtrippedKp?.prototype?.connections?.length).toBe(
+      originalKp!.prototype.connections.length,
+    );
+
+    // The overall JSON size should be preserved (not lose half the content)
+    const originalSize = JSON.stringify(complexProgramJson).length;
+    const roundtrippedSize = JSON.stringify(roundtripped).length;
+    // Allow 20% size difference for formatting/metadata, but not 50%+ loss
+    expect(roundtrippedSize).toBeGreaterThan(originalSize * 0.8);
+  });
+
+  it("RtBotRun constructed from JSON string produces correct output", async () => {
+    // When RtBotRun receives a string, it does:
+    //   Program.toInstance(JSON.parse(str)) → store as this.program
+    //   run() → this.program.toPlain() → JSON.stringify → createProgram
+    // If the roundtrip is lossy, operator properties like window_size are
+    // dropped and the WASM program behaves incorrectly (or crashes).
+    //
+    // A simple MovingAverage(window_size=2) program should produce
+    // the running average. If window_size is lost, the output will differ.
+    const simpleProgram = JSON.stringify({
+      operators: [
+        { id: "in1", type: "Input", portTypes: ["number"] },
+        { id: "ma1", type: "MovingAverage", window_size: 2 },
+        { id: "out1", type: "Output", portTypes: ["number"] },
+      ],
+      connections: [
+        { from: "in1", to: "ma1", fromPort: "o1", toPort: "i1" },
+        { from: "ma1", to: "out1", fromPort: "o1", toPort: "i1" },
+      ],
+      entryOperator: "in1",
+      output: { out1: ["o1"] },
+    });
+
+    const rtbotRun = new RtBotRun(
+      simpleProgram,
+      data,
+      RtBotRunOutputFormat.EXTENDED,
+    );
+    await rtbotRun.run();
+    const result = rtbotRun.getOutputs();
+    expect(result).toBeDefined();
+    expect(result.length).toBe(data.length);
+
+    // Verify the moving average is actually computed with window_size=2.
+    // data = [10, 20, 30, 25, 20, 15]
+    // MA(2): [10, 15, 25, 27.5, 22.5, 17.5]
+    const outputs = result as Array<{
+      out?: Record<string, Record<string, Array<{ time: number; value: number }>>>;
+    }>;
+    // The second output should be the average of 10 and 20 = 15
+    const secondOutput = outputs[1]?.out?.out1?.o1?.[0]?.value;
+    expect(secondOutput).toBeCloseTo(15, 5);
+  });
+
   it("can serialize and restore program data", async () => {
     const programId = "test_serialize_restore";
     const plainProgram = JSON.stringify(program.toPlain());

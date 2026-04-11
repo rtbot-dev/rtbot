@@ -200,6 +200,12 @@ export class RtBotRun {
   // of the operator output, and so on.
   private readonly outputs: CollapsedFormat | ExtendedFormat;
   private readonly program: Program;
+  // When constructed from a raw JSON string, keep it verbatim so that
+  // `run()` can send it to the WASM engine without an intermediate
+  // class-transformer roundtrip (toInstance → toPlain).  The roundtrip
+  // is functionally correct for known operator types, but bypassing it
+  // is safer, faster, and consistent with the live-session code path.
+  private readonly _rawProgramJson: string | undefined;
 
   constructor(
     program: Program | string,
@@ -208,16 +214,23 @@ export class RtBotRun {
     private readonly progressCb: ((progress: number) => void) | undefined = undefined,
     private readonly verbose: boolean = false
   ) {
-    if (typeof program === "string") this.program = Program.toInstance(JSON.parse(program));
-    else this.program = program;
+    if (typeof program === "string") {
+      this._rawProgramJson = program;
+      this.program = Program.toInstance(JSON.parse(program));
+    } else {
+      this._rawProgramJson = undefined;
+      this.program = program;
+    }
     if (format === RtBotRunOutputFormat.COLLAPSED) this.outputs = {};
     else this.outputs = [];
   }
 
   async run() {
-    // const { success } = this.program.safeValidate();
-    // if (!success) throw new Error(`Program is invalid`);
-    const plainProgram = this.program.toPlain() as ProgramPlain;
+    // When raw JSON is available, use it directly — avoids the
+    // toInstance → toPlain serialization roundtrip entirely.
+    const plainProgram = this._rawProgramJson
+      ? (JSON.parse(this._rawProgramJson) as ProgramPlain)
+      : (this.program.toPlain() as ProgramPlain);
     const programStr = JSON.stringify(plainProgram, null, 2);
     try {
       if (this.verbose) console.log("Sending", programStr);
