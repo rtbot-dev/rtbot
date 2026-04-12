@@ -12,8 +12,11 @@ namespace rtbot {
 template <typename T>
 class ResamplerConstant : public Operator {
  public:
-  explicit ResamplerConstant(std::string id, timestamp_t interval, std::optional<timestamp_t> t0 = std::nullopt)
-      : Operator(std::move(id)), dt_(interval), t0_(t0), next_emit_(0), initialized_(false) {
+  explicit ResamplerConstant(std::string id, timestamp_t interval,
+                             std::optional<timestamp_t> t0 = std::nullopt,
+                             bool snap_first = false)
+      : Operator(std::move(id)), dt_(interval), t0_(t0), next_emit_(0), initialized_(false),
+        snap_first_(snap_first) {
     if (interval <= 0) {
       throw std::runtime_error("Time interval must be positive");
     }
@@ -33,9 +36,10 @@ class ResamplerConstant : public Operator {
   std::string type_name() const override { return "ResamplerConstant"; }
 
   bool equals(const ResamplerConstant& other) const {
-      
+
       if (dt_ != other.dt_) return false;
       if (t0_ != other.t0_) return false;
+      if (snap_first_ != other.snap_first_) return false;
       if (initialized_ != other.initialized_) return false;
       if (next_emit_ != other.next_emit_) return false;
       if (last_value_ != other.last_value_) return false;
@@ -69,6 +73,10 @@ class ResamplerConstant : public Operator {
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&last_value_),
                 reinterpret_cast<const uint8_t*>(&last_value_) + sizeof(last_value_));
 
+    // Serialize snap_first
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&snap_first_),
+                 reinterpret_cast<const uint8_t*>(&snap_first_) + sizeof(snap_first_));
+
     return bytes;
   }
 
@@ -87,11 +95,16 @@ class ResamplerConstant : public Operator {
     // ---- Restore last_value_ safely ----
     std::memcpy(&last_value_, &(*it), sizeof(last_value_));
     it += sizeof(last_value_);
+
+    // ---- Restore snap_first_ safely ----
+    std::memcpy(&snap_first_, &(*it), sizeof(snap_first_));
+    it += sizeof(snap_first_);
   }
 
   timestamp_t get_interval() const { return dt_; }
   timestamp_t get_next_emission_time() const { return next_emit_; }
   std::optional<timestamp_t> get_t0() const { return t0_; }
+  bool get_snap_first() const { return snap_first_; }
 
  protected:
   void process_data(bool debug=false) override {
@@ -112,15 +125,31 @@ class ResamplerConstant : public Operator {
             next_emit_ = *t0_;
           } else {
             timestamp_t k = (msg->time - *t0_) / dt_;  // integer division
-            next_emit_ = *t0_ + (k + 1) * dt_;
+            if (snap_first_) {
+              // Snap to current grid point and fall through to normal processing
+              next_emit_ = *t0_ + k * dt_;
+            } else {
+              next_emit_ = *t0_ + (k + 1) * dt_;
+            }
           }
         } else {
           next_emit_ = msg->time + dt_;
         }
         last_value_ = msg->data;
         initialized_ = true;
-        input_queue.pop_front();
-        continue;
+        if (!snap_first_) {
+          input_queue.pop_front();
+          continue;
+        }
+        // snap_first: fall through to normal emit logic
+      }
+
+      // In snap_first mode, update value before emitting at grid points.
+      // This is correct for aligned stream aggregates that arrive just
+      // after the grid boundary — the message represents the completed bin,
+      // so its value should be used at the current grid point.
+      if (snap_first_) {
+        last_value_ = msg->data;
       }
 
       // While current message is past next emit time, emit at fixed intervals
@@ -146,11 +175,13 @@ class ResamplerConstant : public Operator {
   timestamp_t next_emit_;          // Next emission time
   bool initialized_;               // Whether first message received
   T last_value_;                   // Last value for causal consistency
+  bool snap_first_;                // Snap to current grid point on init
 };
 
 inline std::shared_ptr<Operator> make_resampler_constant(const std::string& id, timestamp_t interval,
-                                                         std::optional<timestamp_t> t0 = std::nullopt) {
-  return std::make_shared<ResamplerConstant<NumberData>>(id, interval, t0);
+                                                         std::optional<timestamp_t> t0 = std::nullopt,
+                                                         bool snap_first = false) {
+  return std::make_shared<ResamplerConstant<NumberData>>(id, interval, t0, snap_first);
 }
 
 }  // namespace rtbot
