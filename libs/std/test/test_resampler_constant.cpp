@@ -127,6 +127,63 @@ SCENARIO("ResamplerConstant with fixed t0", "[ResamplerConstant]") {
   }
 }
 
+SCENARIO("ResamplerConstant with snap_first and t0=0", "[ResamplerConstant]") {
+  auto resampler = ResamplerConstant<NumberData>("test", 10, 0, true);  // Grid: 0,10,20,... snap_first
+
+  WHEN("First message arrives mid-grid") {
+    // snap_first updates value BEFORE emitting at grid points, so each
+    // message's value is immediately used at the next grid point.
+    std::vector<std::pair<timestamp_t, double>> inputs = {
+        {8, 10.0},   // Snaps to grid point 0, emits t=0 with value=10.0
+        {15, 20.0},  // Updates value first, emits t=10 with value=20.0
+        {25, 30.0},  // Updates value first, emits t=20 with value=30.0
+    };
+
+    for (const auto& [time, value] : inputs) {
+      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+    }
+
+    resampler.execute();
+    const auto& output = resampler.get_output_queue(0);
+    REQUIRE(output.size() == 3);
+
+    std::vector<std::pair<timestamp_t, double>> expected = {{0, 10.0}, {10, 20.0}, {20, 30.0}};
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+      const auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
+      REQUIRE(msg->time == expected[i].first);
+      REQUIRE(msg->data.value == expected[i].second);
+    }
+  }
+}
+
+SCENARIO("ResamplerConstant snap_first on exact grid point", "[ResamplerConstant]") {
+  auto resampler = ResamplerConstant<NumberData>("test", 10, 0, true);  // Grid: 0,10,20,...
+
+  WHEN("First message arrives exactly on grid point") {
+    std::vector<std::pair<timestamp_t, double>> inputs = {
+        {10, 10.0},  // Snaps to grid point 10, emits t=10 with value=10.0
+        {25, 20.0},  // Updates value first, emits t=20 with value=20.0
+    };
+
+    for (const auto& [time, value] : inputs) {
+      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+    }
+
+    resampler.execute();
+    const auto& output = resampler.get_output_queue(0);
+    REQUIRE(output.size() == 2);
+
+    std::vector<std::pair<timestamp_t, double>> expected = {{10, 10.0}, {20, 20.0}};
+
+    for (size_t i = 0; i < expected.size(); ++i) {
+      const auto* msg = dynamic_cast<const Message<NumberData>*>(output[i].get());
+      REQUIRE(msg->time == expected[i].first);
+      REQUIRE(msg->data.value == expected[i].second);
+    }
+  }
+}
+
 SCENARIO("ResamplerConstant with t0 after first message", "[ResamplerConstant]") {
   auto resampler = ResamplerConstant<NumberData>("test", 10, 50);  // Grid: 50,60,70,...
 
