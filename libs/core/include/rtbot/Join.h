@@ -21,9 +21,10 @@ class Join : public Operator {
   // Base constructor with separate input and output port specifications
   Join(std::string id, const std::vector<std::string>& input_port_types,
        const std::vector<std::string>& output_port_types,
-       size_t max_size_per_port = MAX_SIZE_PER_PORT)
+       size_t max_size_per_port = MAX_SIZE_PER_PORT,
+       bool allow_single_port = false)
       : Operator(std::move(id), max_size_per_port) {
-    if (input_port_types.size() < 2) {
+    if (input_port_types.size() < (allow_single_port ? 1 : 2)) {
       throw std::runtime_error("Join requires at least 2 input ports");
     }
 

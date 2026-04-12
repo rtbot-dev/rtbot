@@ -6,30 +6,30 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/Join.h"
 #include "rtbot/Message.h"
-#include "rtbot/Operator.h"
+#include "rtbot/PortType.h"
 
 namespace rtbot {
 
-class VectorCompose : public Operator {
+class VectorCompose : public Join {
  public:
-  VectorCompose(std::string id, size_t num_ports) : Operator(std::move(id)), num_ports_(num_ports) {
+  VectorCompose(std::string id, size_t num_ports,
+                size_t max_size_per_port = MAX_SIZE_PER_PORT)
+      : Join(std::move(id), std::vector<std::string>(num_ports, PortType::NUMBER),
+             {PortType::VECTOR_NUMBER}, max_size_per_port,
+             /*allow_single_port=*/true),
+        num_ports_(num_ports) {
     if (num_ports < 1) {
       throw std::runtime_error("VectorCompose requires at least 1 input port");
     }
-    // SQL compiler emits scalar NumberData streams and uses VectorCompose to build
-    // a row vector. Each input port therefore consumes NumberData.
-    for (size_t i = 0; i < num_ports; ++i) {
-      add_data_port<NumberData>();
-    }
-    add_output_port<VectorNumberData>();
   }
 
   std::string type_name() const override { return "VectorCompose"; }
   size_t get_num_ports() const { return num_ports_; }
 
   bool equals(const VectorCompose& other) const {
-    return num_ports_ == other.num_ports_ && Operator::equals(other);
+    return num_ports_ == other.num_ports_ && Join::equals(other);
   }
 
   bool operator==(const VectorCompose& other) const { return equals(other); }
