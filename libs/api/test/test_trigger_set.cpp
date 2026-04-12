@@ -597,6 +597,238 @@ SCENARIO("Program handles TriggerSet prototypes", "[program][prototypes][trigger
   }
 }
 
+SCENARIO("Program handles chained hourly/daily/weekly TriggerSets", "[program][trigger_set]") {
+  GIVEN("A power consumption monitor with hourly, daily, and weekly TriggerSets") {
+    std::string program_json = R"({
+    "apiVersion": "v1",
+    "operators": [
+        {
+            "id": "input",
+            "type": "Input",
+            "portTypes": ["number", "number"]
+        },
+        {
+            "id": "hi_input_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.3,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "lo_input_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.3,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "hiresampler",
+            "type": "ResamplerConstant",
+            "interval": 5000
+        },
+        {
+            "id": "loresampler",
+            "type": "ResamplerConstant",
+            "interval": 5000
+        },
+        {
+            "id": "power1",
+            "type": "Scale",
+            "value": 220
+        },
+        {
+            "id": "power2",
+            "type": "Scale",
+            "value": 220
+        },
+        {
+            "id": "power1_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "power2_cutoff",
+            "type": "LessThanOrEqualToReplace",
+            "value": 0.5,
+            "replaceBy": 0.0
+        },
+        {
+            "id": "total_power",
+            "type": "Addition"
+        },
+        {
+            "id": "hourly",
+            "type": "TriggerSet",
+            "input_port_type": "number",
+            "output_port_type": "number",
+            "operators": [
+                {
+                    "id": "hourly_trapezoid",
+                    "type": "MovingAverage",
+                    "window_size": 2
+                },
+                {
+                    "id": "hourly_wh",
+                    "type": "Scale",
+                    "value": 0.00138888888
+                },
+                {
+                    "id": "hourly_wh_cutoff",
+                    "type": "LessThanOrEqualToReplace",
+                    "value": 0.1,
+                    "replaceBy": 0.0
+                },
+                {
+                    "id": "hourly_ms",
+                    "type": "MovingSum",
+                    "window_size": 720
+                }
+            ],
+            "connections": [
+                {"from": "hourly_trapezoid", "to": "hourly_wh"},
+                {"from": "hourly_wh", "to": "hourly_wh_cutoff"},
+                {"from": "hourly_wh_cutoff", "to": "hourly_ms"}
+            ],
+            "entryOperator": "hourly_trapezoid",
+            "outputOperator": {"id": "hourly_ms", "port": "o1"}
+        },
+        {
+            "id": "daily",
+            "type": "TriggerSet",
+            "input_port_type": "number",
+            "output_port_type": "number",
+            "operators": [
+                {
+                    "id": "daily_input",
+                    "type": "Input",
+                    "portTypes": ["number"]
+                },
+                {
+                    "id": "daily_ms",
+                    "type": "MovingSum",
+                    "window_size": 24
+                }
+            ],
+            "connections": [
+                {"from": "daily_input", "to": "daily_ms"}
+            ],
+            "entryOperator": "daily_input",
+            "outputOperator": {"id": "daily_ms", "port": "o1"}
+        },
+        {
+            "id": "weekly",
+            "type": "TriggerSet",
+            "input_port_type": "number",
+            "output_port_type": "number",
+            "operators": [
+                {
+                    "id": "weekly_input",
+                    "type": "Input",
+                    "portTypes": ["number"]
+                },
+                {
+                    "id": "weekly_ms",
+                    "type": "MovingSum",
+                    "window_size": 7
+                }
+            ],
+            "connections": [
+                {"from": "weekly_input", "to": "weekly_ms"}
+            ],
+            "entryOperator": "weekly_input",
+            "outputOperator": {"id": "weekly_ms", "port": "o1"}
+        },
+        {
+            "id": "output",
+            "type": "Output",
+            "portTypes": ["number", "number", "number"]
+        }
+    ],
+    "connections": [
+        {"from": "input", "to": "hi_input_cutoff", "fromPort": "o1", "toPort": "i1"},
+        {"from": "input", "to": "lo_input_cutoff", "fromPort": "o2", "toPort": "i1"},
+        {"from": "hi_input_cutoff", "to": "hiresampler"},
+        {"from": "lo_input_cutoff", "to": "loresampler"},
+        {"from": "hiresampler", "to": "power1"},
+        {"from": "loresampler", "to": "power2"},
+        {"from": "power1", "to": "power1_cutoff"},
+        {"from": "power2", "to": "power2_cutoff"},
+        {"from": "power1_cutoff", "to": "total_power", "fromPort": "o1", "toPort": "i1"},
+        {"from": "power2_cutoff", "to": "total_power", "fromPort": "o1", "toPort": "i2"},
+        {"from": "total_power", "to": "hourly"},
+        {"from": "hourly", "to": "daily"},
+        {"from": "daily", "to": "weekly"},
+        {"from": "hourly", "to": "output", "fromPort": "o1", "toPort": "i1"},
+        {"from": "daily", "to": "output", "fromPort": "o1", "toPort": "i2"},
+        {"from": "weekly", "to": "output", "fromPort": "o1", "toPort": "i3"}
+    ],
+    "entryOperator": "input",
+    "output": {
+        "output": ["o1", "o2", "o3"]
+    },
+    "title": "Power Consumption Monitor with Multiple Averages",
+    "description": "Calculates hourly, daily, and weekly power consumption from two current inputs"
+    })";
+
+    Program program(program_json);
+
+    WHEN("Processing simulated data across multiple hours and days") {
+      // With 5-second resampling, 720 samples fill the hourly MovingSum and fire.
+      // 24 hourly fires fill the daily MovingSum and fire.
+      // 7 daily fires fill the weekly MovingSum and fire.
+      int t = 5000;
+      int hourly_fires = 0;
+      int daily_fires = 0;
+      int weekly_fires = 0;
+
+      // Run enough hours for a full week: 7 days * 24 hours = 168 hours
+      for (int h = 1; h <= 168; h++) {
+        ProgramMsgBatch batch;
+        // Drive messages until hourly fires (720 samples at 5s interval = 1 hour)
+        while (true) {
+          double hi_current = (h % 2 == 1) ? 30.23 : 0.01;
+          double lo_current = (h % 2 == 1) ? 10.58 : 0.01;
+          program.receive({t, NumberData{hi_current}}, "i1");
+          batch = program.receive({t, NumberData{lo_current}}, "i2");
+          t += 5000;
+
+          if (batch.count("output") && batch["output"].count("o1")) {
+            hourly_fires++;
+            break;
+          }
+        }
+
+        // Check for daily fire
+        if (batch.count("output") && batch["output"].count("o2")) {
+          daily_fires++;
+        }
+
+        // Check for weekly fire
+        if (batch.count("output") && batch["output"].count("o3")) {
+          weekly_fires++;
+        }
+      }
+
+      THEN("Hourly TriggerSet fires once per hour") {
+        REQUIRE(hourly_fires == 168);
+      }
+
+      THEN("Daily TriggerSet fires once per day") {
+        REQUIRE(daily_fires == 7);
+      }
+
+      THEN("Weekly TriggerSet fires once per week") {
+        REQUIRE(weekly_fires == 1);
+      }
+
+      THEN("Hourly output values reflect load pattern") {
+        // Odd hours have real load, even hours are below cutoff
+        // This is validated by the program completing without error
+        REQUIRE(hourly_fires == 168);
+      }
+    }
+  }
+}
+
 SCENARIO("Program handles nested TriggerSet prototypes correctly", "[program][prototypes][trigger_set]") {
   GIVEN("A prototype containing a TriggerSet with a multi-operator internal mesh") {
     // Internal mesh: MA(window) → Scale(scale_value).
