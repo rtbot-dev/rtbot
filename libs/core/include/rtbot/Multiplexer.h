@@ -104,14 +104,14 @@ class Multiplexer : public Operator {
 
       if (!are_control_inputs_sync) return;
 
-      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
+      auto* ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
 
       int64_t port_to_emit = find_port_to_emit(ctrl_msg->time);
       if (port_to_emit >= 0) {
         bool message_found = false;        
         for (int i = 0; i < num_data_ports(); i++) {
           if (!get_data_queue(i).empty()) {
-            auto* msg = dynamic_cast<const Message<T>*>(get_data_queue(i).front().get());
+            auto* msg = static_cast<const Message<T>*>(get_data_queue(i).front().get());
             if (i == port_to_emit && msg->time == ctrl_msg->time) {
               get_output_queue(0).push_back(create_message<T>(msg->time, msg->data));
               get_data_queue(i).pop_front();
@@ -142,7 +142,7 @@ class Multiplexer : public Operator {
   void clean_data_input_queue_fronts(timestamp_t time) {
     for (int i = 0; i < num_data_ports(); i++) {
       if (!get_data_queue(i).empty()) {
-        auto* msg = dynamic_cast<const Message<T>*>(get_data_queue(i).front().get());
+        auto* msg = static_cast<const Message<T>*>(get_data_queue(i).front().get());
         if (msg && msg->time <= time) get_data_queue(i).pop_front();        
       }
     }
@@ -153,7 +153,7 @@ class Multiplexer : public Operator {
     int64_t selected_port = -1;
 
     for (size_t i = 0; i < num_control_ports(); i++) {
-      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());
+      auto* ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());
       if ((ctrl_msg->time == time) && ctrl_msg->data.value) {
         active_count++;
         selected_port = static_cast<int64_t>(i);

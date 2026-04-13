@@ -55,7 +55,7 @@ class VectorCompose : public Join {
       timestamp_t time = 0;
 
       for (size_t i = 0; i < num_ports_; i++) {
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
+        const auto* msg = static_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
         if (!msg) {
           throw std::runtime_error("Invalid message type in VectorCompose");
         }

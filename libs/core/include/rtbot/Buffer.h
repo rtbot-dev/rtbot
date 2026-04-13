@@ -188,7 +188,7 @@ class Buffer : public Operator {
     auto& input_queue = get_data_queue(0);
 
     while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<T>*>(input_queue.front().get());
+      const auto* msg = static_cast<const Message<T>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in Buffer");
       }
@@ -201,7 +201,7 @@ class Buffer : public Operator {
 
       // Add new message to buffer
       auto cloned = input_queue.front()->clone();
-      auto* typed_clone = dynamic_cast<Message<T>*>(cloned.get());
+      auto* typed_clone = static_cast<Message<T>*>(cloned.get());
       if (!typed_clone) {
         throw std::runtime_error("Failed to cast cloned message in Buffer");
       }

@@ -282,7 +282,7 @@ class Pipeline : public Operator {
       }
 
       // Timestamps match: process this pair
-      double new_key = dynamic_cast<const Message<NumberData>*>(control_queue.front().get())->data.value;
+      double new_key = static_cast<const Message<NumberData>*>(control_queue.front().get())->data.value;
       timestamp_t boundary_time = ctrl_time;
 
       if (has_key_ && new_key != current_key_) {

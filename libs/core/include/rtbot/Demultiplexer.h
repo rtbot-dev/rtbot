@@ -72,11 +72,11 @@ class Demultiplexer : public Operator {
 
       auto& data_queue = get_data_queue(0);
       if (data_queue.empty()) return;
-      auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
-      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
+      auto* msg = static_cast<const Message<T>*>(data_queue.front().get());
+      auto* ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
       if (msg && ctrl_msg && msg->time == ctrl_msg->time) {
         for (int i = 0; i < num_control_ports(); i++) {
-          ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());          
+          ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());          
           if (ctrl_msg->data.value) {
             get_output_queue(i).push_back(data_queue.front()->clone());
           }

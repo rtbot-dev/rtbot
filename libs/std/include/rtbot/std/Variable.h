@@ -64,7 +64,7 @@ class Variable : public Operator {
     if (data_queue.empty() || control_queue.empty()) return;
 
     while (!control_queue.empty()) {
-      const auto* query = dynamic_cast<const Message<NumberData>*>(control_queue.front().get());
+      const auto* query = static_cast<const Message<NumberData>*>(control_queue.front().get());
       if (!query) {
         throw std::runtime_error("Invalid control message type in Variable");
       }
@@ -80,7 +80,7 @@ class Variable : public Operator {
       timestamp_t result_time = 0;
 
       if (data_queue.size() == 1) {
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(data_queue.front().get());
+        const auto* msg = static_cast<const Message<NumberData>*>(data_queue.front().get());
         if (msg->time == query_time) {
           result_value = msg->data.value;
           result_time = query_time;
@@ -91,8 +91,8 @@ class Variable : public Operator {
         auto prev = data_queue.begin();
         auto next = std::next(prev);
         while (next != data_queue.end()) {
-          const auto* prev_msg = dynamic_cast<const Message<NumberData>*>((*prev).get());
-          const auto* next_msg = dynamic_cast<const Message<NumberData>*>((*next).get());
+          const auto* prev_msg = static_cast<const Message<NumberData>*>((*prev).get());
+          const auto* next_msg = static_cast<const Message<NumberData>*>((*next).get());
           if (!prev_msg || !next_msg)
             throw std::runtime_error("Invalid data message type in Variable");
 
@@ -116,8 +116,8 @@ class Variable : public Operator {
       }
 
       // Stop if query time is before the first or after the last
-      const auto* first_msg = dynamic_cast<const Message<NumberData>*>(data_queue.front().get());
-      const auto* last_msg =  dynamic_cast<const Message<NumberData>*>(data_queue.back().get());
+      const auto* first_msg = static_cast<const Message<NumberData>*>(data_queue.front().get());
+      const auto* last_msg =  static_cast<const Message<NumberData>*>(data_queue.back().get());
 
       if (!found) {
         if (query_time < first_msg->time) {
@@ -134,7 +134,7 @@ class Variable : public Operator {
         output_queue.push_back(create_message<NumberData>(result_time, NumberData{result_value}));
         control_queue.pop_front();        
         while (!data_queue.empty()) {
-          const auto* msg = dynamic_cast<const Message<NumberData>*>(data_queue.front().get());
+          const auto* msg = static_cast<const Message<NumberData>*>(data_queue.front().get());
           if (msg->time < match_on) {
             data_queue.pop_front();
           } else {

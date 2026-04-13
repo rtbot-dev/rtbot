@@ -58,7 +58,7 @@ class LuaOperator : public Operator {
       auto& queue = get_data_queue(i);
 
       for (const auto& msg : queue) {
-        if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
+        if (auto* num_msg = static_cast<const Message<NumberData>*>(msg.get())) {
           port_values.push_back(num_msg->data.value);
           port_times.push_back(num_msg->time);
         }

@@ -52,7 +52,7 @@ class MinTracker : public Operator {
 
     while (!input_queue.empty()) {
       const auto* msg =
-          dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+          static_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in MinTracker");
       }
@@ -108,7 +108,7 @@ class MaxTracker : public Operator {
 
     while (!input_queue.empty()) {
       const auto* msg =
-          dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+          static_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in MaxTracker");
       }

@@ -139,7 +139,7 @@ class KeyedVariable : public Operator {
     auto& c2_queue = get_control_queue(1);
 
     while (!c2_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<NumberData>*>(c2_queue.front().get());
+      const auto* msg = static_cast<const Message<NumberData>*>(c2_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid heartbeat message type in KeyedVariable");
       }
@@ -161,7 +161,7 @@ class KeyedVariable : public Operator {
 
     // Step 1: apply all pending i1 updates
     while (!i1_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(i1_queue.front().get());
+      const auto* msg = static_cast<const Message<VectorNumberData>*>(i1_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid data message type in KeyedVariable");
       }
@@ -186,7 +186,7 @@ class KeyedVariable : public Operator {
     timestamp_t resolve_up_to = std::max(heartbeat_time_, data_time_);
 
     while (!c1_queue.empty()) {
-      const auto* query = dynamic_cast<const Message<NumberData>*>(c1_queue.front().get());
+      const auto* query = static_cast<const Message<NumberData>*>(c1_queue.front().get());
       if (!query) {
         throw std::runtime_error("Invalid query message type in KeyedVariable");
       }

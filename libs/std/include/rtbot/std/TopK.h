@@ -77,7 +77,7 @@ class TopK : public Operator {
     auto& output_queue = get_output_queue(0);
 
     while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(
+      const auto* msg = static_cast<const Message<VectorNumberData>*>(
           input_queue.front().get());
       if (!msg) throw std::runtime_error("TopK: invalid message type");
 

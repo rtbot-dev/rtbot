@@ -120,7 +120,7 @@ class KeyedPipeline : public Operator {
     auto& output_queue = get_output_queue(0);
 
     while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(input_queue.front().get());
+      const auto* msg = static_cast<const Message<VectorNumberData>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in KeyedPipeline");
       }
@@ -158,11 +158,11 @@ class KeyedPipeline : public Operator {
         result.values->push_back(key);
 
         if (out_msg->type() == std::type_index(typeid(VectorNumberData))) {
-          const auto* vec_msg = dynamic_cast<const Message<VectorNumberData>*>(out_msg.get());
+          const auto* vec_msg = static_cast<const Message<VectorNumberData>*>(out_msg.get());
           result.values->insert(result.values->end(), vec_msg->data.values->begin(),
                                vec_msg->data.values->end());
         } else if (out_msg->type() == std::type_index(typeid(NumberData))) {
-          const auto* num_msg = dynamic_cast<const Message<NumberData>*>(out_msg.get());
+          const auto* num_msg = static_cast<const Message<NumberData>*>(out_msg.get());
           result.values->push_back(num_msg->data.value);
         }
 

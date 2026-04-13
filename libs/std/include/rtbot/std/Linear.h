@@ -61,7 +61,7 @@ class Linear : public Join {
       // Process each synchronized set of messages
       for (int i=0; i < num_data_ports(); i++) {
         typed_messages.reserve(num_data_ports());
-        const auto* typed_msg = dynamic_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
+        const auto* typed_msg = static_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
         if (!typed_msg) {
           throw std::runtime_error("Invalid message type in Linear");
         }

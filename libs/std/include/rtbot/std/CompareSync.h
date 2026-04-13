@@ -48,9 +48,9 @@ class CompareSync : public Join {
       if (!is_sync) return;
 
       const auto* msg1 =
-          dynamic_cast<const Message<NumberData>*>(get_data_queue(0).front().get());
+          static_cast<const Message<NumberData>*>(get_data_queue(0).front().get());
       const auto* msg2 =
-          dynamic_cast<const Message<NumberData>*>(get_data_queue(1).front().get());
+          static_cast<const Message<NumberData>*>(get_data_queue(1).front().get());
       if (!msg1 || !msg2) {
         throw std::runtime_error("Invalid message type in CompareSync");
       }
