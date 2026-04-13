@@ -9,7 +9,6 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <unordered_set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -318,7 +317,7 @@ class Operator {
       }
     }
 
-    connections_.push_back({child, output_port, child_port_index, child_port_kind});
+    connections_.push_back({child.get(), output_port, child_port_index, child_port_kind});
     return child;
   }
 
@@ -523,26 +522,46 @@ class Operator {
   }
 
   void propagate_outputs(bool debug=false) {
-    
-    std::unordered_set<size_t> propagated_outputs;
+
+    // B.1: track which output ports were propagated via a bitmask instead of
+    // an std::unordered_set. Output port counts are tiny (typically 1-2),
+    // and the per-call hashmap alloc/free was ~5% of CPU. 64 bits covers
+    // any realistic operator; we static-check in debug.
+    uint64_t propagated_mask = 0;
     if (debug) {
-      
+      if (output_ports_.size() > 64) {
+        throw std::runtime_error("Operator::propagate_outputs: more than 64 output ports not supported");
+      }
       if (debug_output_queues_.size() != num_output_ports()) {
         debug_output_queues_.clear();
         for (int i = 0; i < num_output_ports(); i++) {
           debug_output_queues_.emplace_back();
         }
       }
-      
+
     } else if (!debug && debug_output_queues_.size() > 0) {
       debug_output_queues_.clear();
     }
 
+    // Fast path: single-connection operators (the common case in generated SQL
+    // pipelines) can move messages straight out of the output queue into the
+    // child, avoiding a per-message clone (= heap allocation). Disabled under
+    // debug (debug_output_queues_ path below needs the originals) or
+    // RTBOT_INSTRUMENTATION (the telemetry macro re-clones output_queue[i]).
+#if defined(RTBOT_INSTRUMENTATION)
+    const bool can_move_single = false;
+#else
+    const bool can_move_single = !debug && connections_.size() == 1;
+#endif
+
     // Send the messages to the connected operators
     for (auto& conn : connections_) {
-      auto child = conn.child.lock();  // Lock weak_ptr to get shared_ptr
+      // B.2: Connection holds a raw Operator*; the owning Program keeps all
+      // operators alive via shared_ptr for the program's lifetime, so the
+      // weak_ptr::lock dance was ~3% of pure overhead.
+      Operator* child = conn.child;
       if (!child) {
-        continue;  // Child has been destroyed
+        continue;
       }
 
       auto& output_queue = output_ports_[conn.output_port].queue;
@@ -551,7 +570,12 @@ class Operator {
       }
 
       for (size_t i = 0; i < output_queue.size(); i++) {
-        auto msg_copy = output_queue[i]->clone();
+        std::unique_ptr<BaseMessage> msg_to_send;
+        if (can_move_single) {
+          msg_to_send = std::move(output_queue[i]);
+        } else {
+          msg_to_send = output_queue[i]->clone();
+        }
 #ifdef RTBOT_INSTRUMENTATION
         RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), child->id(), child->type_name(),
                                   std::to_string(conn.child_input_port),
@@ -559,14 +583,14 @@ class Operator {
 #endif
         // Route message based on connection port kind
         if (conn.child_port_kind == PortKind::DATA) {
-          child->receive_data(std::move(msg_copy), conn.child_input_port);
+          child->receive_data(std::move(msg_to_send), conn.child_input_port);
         } else {
-          child->receive_control(std::move(msg_copy), conn.child_input_port);
+          child->receive_control(std::move(msg_to_send), conn.child_input_port);
         }
-        propagated_outputs.insert(conn.output_port);
+        propagated_mask |= (uint64_t{1} << conn.output_port);
       }
     }
-    
+
     if (debug) {
       for (size_t i = 0; i < num_output_ports(); i++) {
         auto& queue = output_ports_[i].queue;
@@ -577,23 +601,27 @@ class Operator {
       }
     }
 
-    for (const size_t& value : propagated_outputs) {
-      get_output_queue(value).clear();
+    if (propagated_mask != 0) {
+      for (size_t i = 0; i < output_ports_.size(); ++i) {
+        if (propagated_mask & (uint64_t{1} << i)) {
+          output_ports_[i].queue.clear();
+        }
+      }
     }
-
-    
 
     // Then execute connected operators
     for (auto& conn : connections_) {
-      auto child = conn.child.lock();
-      if (child && propagated_outputs.find(conn.output_port) != propagated_outputs.end()) {
-        child->execute(debug);
+      if (conn.child && (propagated_mask & (uint64_t{1} << conn.output_port))) {
+        conn.child->execute(debug);
       }
     }
 
   }
   struct Connection {
-    std::weak_ptr<Operator> child;  // Use weak_ptr to avoid circular references
+    // B.2: raw pointer — Program owns operators via shared_ptr for its full
+    // lifetime, so this never dangles in the steady state. Previously a
+    // weak_ptr, whose atomic .lock() was ~3% of CPU on the hot path.
+    Operator* child{nullptr};
     size_t output_port;
     size_t child_input_port;
     PortKind child_port_kind{PortKind::DATA};
