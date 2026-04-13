@@ -56,9 +56,9 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 1);
-      REQUIRE(msg->data.values.size() == 2);
-      REQUIRE(msg->data.values[0] == 1.0);    // key
-      REQUIRE(msg->data.values[1] == 100.0);  // sum
+      REQUIRE(msg->data.values->size() == 2);
+      REQUIRE((*msg->data.values)[0] == 1.0);    // key
+      REQUIRE((*msg->data.values)[1] == 100.0);  // sum
     }
 
     kp->clear_all_output_ports();
@@ -72,8 +72,8 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 2);
-      REQUIRE(msg->data.values[0] == 2.0);    // key
-      REQUIRE(msg->data.values[1] == 200.0);  // sum
+      REQUIRE((*msg->data.values)[0] == 2.0);    // key
+      REQUIRE((*msg->data.values)[1] == 200.0);  // sum
     }
 
     kp->clear_all_output_ports();
@@ -87,8 +87,8 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 3);
-      REQUIRE(msg->data.values[0] == 1.0);    // key
-      REQUIRE(msg->data.values[1] == 250.0);  // cumulative sum for key=1
+      REQUIRE((*msg->data.values)[0] == 1.0);    // key
+      REQUIRE((*msg->data.values)[1] == 250.0);  // cumulative sum for key=1
     }
 
     kp->clear_all_output_ports();
@@ -102,8 +102,8 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 4);
-      REQUIRE(msg->data.values[0] == 2.0);    // key
-      REQUIRE(msg->data.values[1] == 450.0);  // cumulative sum for key=2
+      REQUIRE((*msg->data.values)[0] == 2.0);    // key
+      REQUIRE((*msg->data.values)[1] == 450.0);  // cumulative sum for key=2
     }
 
     REQUIRE(kp->num_keys() == 2);
@@ -123,10 +123,10 @@ SCENARIO("KeyedPipeline handles VectorNumberData output from sub-graph", "[keyed
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     REQUIRE(msg->time == 1);
-    REQUIRE(msg->data.values.size() == 3);    // key + 2 projected fields
-    REQUIRE(msg->data.values[0] == 1.0);      // key
-    REQUIRE(msg->data.values[1] == 10.5);     // price
-    REQUIRE(msg->data.values[2] == 3.0);      // quantity
+    REQUIRE(msg->data.values->size() == 3);    // key + 2 projected fields
+    REQUIRE((*msg->data.values)[0] == 1.0);      // key
+    REQUIRE((*msg->data.values)[1] == 10.5);     // price
+    REQUIRE((*msg->data.values)[2] == 3.0);      // quantity
   }
 }
 
@@ -171,8 +171,8 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 5);
-      REQUIRE(msg->data.values[0] == 1.0);
-      REQUIRE(msg->data.values[1] == 300.0);  // 100 + 150 + 50
+      REQUIRE((*msg->data.values)[0] == 1.0);
+      REQUIRE((*msg->data.values)[1] == 300.0);  // 100 + 150 + 50
     }
 
     kp2->clear_all_output_ports();
@@ -186,8 +186,8 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 6);
-      REQUIRE(msg->data.values[0] == 2.0);
-      REQUIRE(msg->data.values[1] == 500.0);  // 200 + 250 + 50
+      REQUIRE((*msg->data.values)[0] == 2.0);
+      REQUIRE((*msg->data.values)[1] == 500.0);  // 200 + 250 + 50
     }
   }
 }
@@ -215,8 +215,8 @@ SCENARIO("KeyedPipeline handles many keys", "[keyed_pipeline]") {
           expected_sum += static_cast<double>(r + 1) * 10.0;
         }
 
-        REQUIRE(msg->data.values[0] == key_val);
-        REQUIRE(msg->data.values[1] == Approx(expected_sum));
+        REQUIRE((*msg->data.values)[0] == key_val);
+        REQUIRE((*msg->data.values)[1] == Approx(expected_sum));
 
         kp->clear_all_output_ports();
         t++;

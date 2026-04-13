@@ -60,7 +60,7 @@ class PortType {
     } else if (port_type == BOOLEAN) {
       return rtbot::create_message<BooleanData>(time, {false});
     } else if (port_type == VECTOR_NUMBER) {
-      return rtbot::create_message<VectorNumberData>(time, {{}});
+      return rtbot::create_message<VectorNumberData>(time, VectorNumberData{});
     } else if (port_type == VECTOR_BOOLEAN) {
       return rtbot::create_message<VectorBooleanData>(time, {{}});
     } else {

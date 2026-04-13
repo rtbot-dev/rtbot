@@ -142,7 +142,7 @@ SCENARIO("Join operator handles multiple types", "[join]") {
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output.front().get());
           REQUIRE(msg != nullptr);
-          REQUIRE(msg->data.values == std::vector<double>{1.0, 2.0});
+          REQUIRE(*msg->data.values == std::vector<double>{1.0, 2.0});
         }
       }
     }

@@ -165,12 +165,12 @@ class KeyedVariable : public Operator {
       if (!msg) {
         throw std::runtime_error("Invalid data message type in KeyedVariable");
       }
-      if (msg->data.values.size() < 2) {
+      if (msg->data.values->size() < 2) {
         throw std::runtime_error("KeyedVariable i1 message must have 2 values: [key, value]");
       }
 
-      double key = msg->data.values[0];
-      double val = msg->data.values[1];
+      double key = (*msg->data.values)[0];
+      double val = (*msg->data.values)[1];
 
       if (std::isnan(val)) {
         hashmap_.erase(key);

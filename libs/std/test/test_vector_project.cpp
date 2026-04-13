@@ -18,9 +18,9 @@ SCENARIO("VectorProject selects subset of fields", "[vector_project]") {
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
-    REQUIRE(msg->data.values.size() == 2);
-    REQUIRE(msg->data.values[0] == 10.0);
-    REQUIRE(msg->data.values[1] == 30.0);
+    REQUIRE(msg->data.values->size() == 2);
+    REQUIRE((*msg->data.values)[0] == 10.0);
+    REQUIRE((*msg->data.values)[1] == 30.0);
   }
 
   SECTION("Reorder fields") {
@@ -32,10 +32,10 @@ SCENARIO("VectorProject selects subset of fields", "[vector_project]") {
     auto& output = proj->get_output_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 3);
-    REQUIRE(msg->data.values[0] == 30.0);
-    REQUIRE(msg->data.values[1] == 10.0);
-    REQUIRE(msg->data.values[2] == 20.0);
+    REQUIRE(msg->data.values->size() == 3);
+    REQUIRE((*msg->data.values)[0] == 30.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
+    REQUIRE((*msg->data.values)[2] == 20.0);
   }
 
   SECTION("Single index") {
@@ -47,8 +47,8 @@ SCENARIO("VectorProject selects subset of fields", "[vector_project]") {
     auto& output = proj->get_output_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 1);
-    REQUIRE(msg->data.values[0] == 20.0);
+    REQUIRE(msg->data.values->size() == 1);
+    REQUIRE((*msg->data.values)[0] == 20.0);
   }
 }
 

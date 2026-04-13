@@ -38,15 +38,15 @@ SCENARIO("TopK maintains top-K entries by score (descending)", "[topk]") {
     auto* m1 = dynamic_cast<const Message<VectorNumberData>*>(out[10].get());
     auto* m2 = dynamic_cast<const Message<VectorNumberData>*>(out[11].get());
     REQUIRE(m0->time == 5);
-    REQUIRE(m0->data.values[1] == Approx(200.0));
-    REQUIRE(m1->data.values[1] == Approx(180.0));
-    REQUIRE(m2->data.values[1] == Approx(150.0));
+    REQUIRE((*m0->data.values)[1] == Approx(200.0));
+    REQUIRE((*m1->data.values)[1] == Approx(180.0));
+    REQUIRE((*m2->data.values)[1] == Approx(150.0));
 
     // First message at t=1 should have [1,100]
     auto* first = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     REQUIRE(first->time == 1);
-    REQUIRE(first->data.values[0] == Approx(1.0));
-    REQUIRE(first->data.values[1] == Approx(100.0));
+    REQUIRE((*first->data.values)[0] == Approx(1.0));
+    REQUIRE((*first->data.values)[1] == Approx(100.0));
   }
 
   SECTION("k=1 — single best entry") {
@@ -65,13 +65,13 @@ SCENARIO("TopK maintains top-K entries by score (descending)", "[topk]") {
     REQUIRE(out.size() == 3);
 
     auto* m0 = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
-    REQUIRE(m0->data.values[0] == Approx(5.0));
+    REQUIRE((*m0->data.values)[0] == Approx(5.0));
 
     auto* m1 = dynamic_cast<const Message<VectorNumberData>*>(out[1].get());
-    REQUIRE(m1->data.values[0] == Approx(5.0));  // 3 < 5, re-emit 5
+    REQUIRE((*m1->data.values)[0] == Approx(5.0));  // 3 < 5, re-emit 5
 
     auto* m2 = dynamic_cast<const Message<VectorNumberData>*>(out[2].get());
-    REQUIRE(m2->data.values[0] == Approx(8.0));
+    REQUIRE((*m2->data.values)[0] == Approx(8.0));
   }
 }
 
@@ -97,8 +97,8 @@ SCENARIO("TopK ascending order", "[topk]") {
     auto* last0 = dynamic_cast<const Message<VectorNumberData>*>(out[5].get());
     auto* last1 = dynamic_cast<const Message<VectorNumberData>*>(out[6].get());
     REQUIRE(last0->time == 4);
-    REQUIRE(last0->data.values[0] == Approx(2.0));
-    REQUIRE(last1->data.values[0] == Approx(5.0));
+    REQUIRE((*last0->data.values)[0] == Approx(2.0));
+    REQUIRE((*last1->data.values)[0] == Approx(5.0));
   }
 }
 
@@ -126,7 +126,7 @@ SCENARIO("TopK serialization roundtrip", "[topk][State]") {
     REQUIRE(out.size() == 2);  // k=2: [200,150]
     auto* m0 = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     auto* m1 = dynamic_cast<const Message<VectorNumberData>*>(out[1].get());
-    REQUIRE(m0->data.values[0] == Approx(200.0));
-    REQUIRE(m1->data.values[0] == Approx(150.0));
+    REQUIRE((*m0->data.values)[0] == Approx(200.0));
+    REQUIRE((*m1->data.values)[0] == Approx(150.0));
   }
 }

@@ -22,9 +22,9 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
-    REQUIRE(msg->data.values.size() == 2);
-    REQUIRE(msg->data.values[0] == 5.0);
-    REQUIRE(msg->data.values[1] == 10.0);
+    REQUIRE(msg->data.values->size() == 2);
+    REQUIRE((*msg->data.values)[0] == 5.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
   }
 
   SECTION("Scalar composition preserves port order") {
@@ -37,9 +37,9 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     auto& output = comp->get_output_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 2);
-    REQUIRE(msg->data.values[0] == 1.0);
-    REQUIRE(msg->data.values[1] == 3.0);
+    REQUIRE(msg->data.values->size() == 2);
+    REQUIRE((*msg->data.values)[0] == 1.0);
+    REQUIRE((*msg->data.values)[1] == 3.0);
   }
 
   SECTION("Three ports") {
@@ -53,10 +53,10 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     auto& output = comp->get_output_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 3);
-    REQUIRE(msg->data.values[0] == 1.0);
-    REQUIRE(msg->data.values[1] == 2.0);
-    REQUIRE(msg->data.values[2] == 3.0);
+    REQUIRE(msg->data.values->size() == 3);
+    REQUIRE((*msg->data.values)[0] == 1.0);
+    REQUIRE((*msg->data.values)[1] == 2.0);
+    REQUIRE((*msg->data.values)[2] == 3.0);
   }
 
   SECTION("Timestamp synchronization — mismatched timestamps drop stale") {
@@ -73,8 +73,8 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 2);
-    REQUIRE(msg->data.values[0] == 30.0);
-    REQUIRE(msg->data.values[1] == 20.0);
+    REQUIRE((*msg->data.values)[0] == 30.0);
+    REQUIRE((*msg->data.values)[1] == 20.0);
   }
 }
 
@@ -118,7 +118,7 @@ SCENARIO("VectorCompose serialization roundtrip", "[vector_compose][State]") {
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
-    REQUIRE(msg->data.values[0] == 5.0);
-    REQUIRE(msg->data.values[1] == 10.0);
+    REQUIRE((*msg->data.values)[0] == 5.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
   }
 }

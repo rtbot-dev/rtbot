@@ -370,7 +370,7 @@ SCENARIO("KeyedVariable JOIN pattern: trades filtered by watchlist", "[keyed_var
       REQUIRE(out2.size() == 1);
       const auto* t2 = dynamic_cast<const Message<VectorNumberData>*>(out2[0].get());
       REQUIRE(t2->time == 2);
-      REQUIRE(t2->data.values[0] == 42.0);
+      REQUIRE((*t2->data.values)[0] == 42.0);
       dmux->clear_all_output_ports();
 
       // t=3: trade [99, 200] — account 99 not on watchlist → should drop
@@ -390,7 +390,7 @@ SCENARIO("KeyedVariable JOIN pattern: trades filtered by watchlist", "[keyed_var
       REQUIRE(out4.size() == 1);
       const auto* t4 = dynamic_cast<const Message<VectorNumberData>*>(out4[0].get());
       REQUIRE(t4->time == 4);
-      REQUIRE(t4->data.values[0] == 17.0);
+      REQUIRE((*t4->data.values)[0] == 17.0);
       dmux->clear_all_output_ports();
 
       // t=5: trade [8, 400] — account 8 not on watchlist → should drop

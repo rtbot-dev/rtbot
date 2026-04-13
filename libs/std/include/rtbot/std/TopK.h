@@ -81,7 +81,7 @@ class TopK : public Operator {
           input_queue.front().get());
       if (!msg) throw std::runtime_error("TopK: invalid message type");
 
-      const auto& values = msg->data.values;
+      const auto& values = *msg->data.values;
       if (score_index_ >= static_cast<int>(values.size())) {
         throw std::runtime_error("TopK: score_index out of bounds");
       }

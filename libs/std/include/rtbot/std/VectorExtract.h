@@ -40,11 +40,11 @@ class VectorExtract : public Operator {
       if (!msg) {
         throw std::runtime_error("Invalid message type in VectorExtract");
       }
-      if (static_cast<size_t>(index_) >= msg->data.values.size()) {
+      if (static_cast<size_t>(index_) >= msg->data.values->size()) {
         throw std::runtime_error("VectorExtract index " + std::to_string(index_) +
-                                 " out of bounds for vector of size " + std::to_string(msg->data.values.size()));
+                                 " out of bounds for vector of size " + std::to_string(msg->data.values->size()));
       }
-      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{msg->data.values[index_]}));
+      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{(*msg->data.values)[index_]}));
       input_queue.pop_front();
     }
   }

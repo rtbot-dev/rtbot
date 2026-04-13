@@ -125,12 +125,12 @@ class KeyedPipeline : public Operator {
         throw std::runtime_error("Invalid message type in KeyedPipeline");
       }
 
-      if (static_cast<size_t>(key_index_) >= msg->data.values.size()) {
+      if (static_cast<size_t>(key_index_) >= msg->data.values->size()) {
         throw std::runtime_error("KeyedPipeline key_index out of bounds");
       }
 
       auto time = msg->time;
-      double key = msg->data.values[key_index_];
+      double key = (*msg->data.values)[key_index_];
 
       // Get or create sub-graph for this key
       auto it = sub_graphs_.find(key);
@@ -155,15 +155,15 @@ class KeyedPipeline : public Operator {
       auto& sg_output = sg.output->get_output_queue(0);
       for (const auto& out_msg : sg_output) {
         VectorNumberData result;
-        result.values.push_back(key);
+        result.values->push_back(key);
 
         if (out_msg->type() == std::type_index(typeid(VectorNumberData))) {
           const auto* vec_msg = dynamic_cast<const Message<VectorNumberData>*>(out_msg.get());
-          result.values.insert(result.values.end(), vec_msg->data.values.begin(),
-                               vec_msg->data.values.end());
+          result.values->insert(result.values->end(), vec_msg->data.values->begin(),
+                               vec_msg->data.values->end());
         } else if (out_msg->type() == std::type_index(typeid(NumberData))) {
           const auto* num_msg = dynamic_cast<const Message<NumberData>*>(out_msg.get());
-          result.values.push_back(num_msg->data.value);
+          result.values->push_back(num_msg->data.value);
         }
 
         output_queue.push_back(create_message<VectorNumberData>(time, std::move(result)));

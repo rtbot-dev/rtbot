@@ -48,13 +48,13 @@ class VectorProject : public Operator {
       }
 
       VectorNumberData result;
-      result.values.reserve(indices_.size());
+      result.values->reserve(indices_.size());
       for (auto idx : indices_) {
-        if (static_cast<size_t>(idx) >= msg->data.values.size()) {
+        if (static_cast<size_t>(idx) >= msg->data.values->size()) {
           throw std::runtime_error("VectorProject index " + std::to_string(idx) +
-                                   " out of bounds for vector of size " + std::to_string(msg->data.values.size()));
+                                   " out of bounds for vector of size " + std::to_string(msg->data.values->size()));
         }
-        result.values.push_back(msg->data.values[idx]);
+        result.values->push_back((*msg->data.values)[idx]);
       }
 
       output_queue.push_back(create_message<VectorNumberData>(msg->time, result));

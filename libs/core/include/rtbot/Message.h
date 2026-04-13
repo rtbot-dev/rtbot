@@ -116,15 +116,25 @@ struct BooleanData {
 };
 
 struct VectorNumberData {
-  std::vector<double> values;
+  // Shared-immutable buffer: clone() of Message<VectorNumberData> copies the
+  // shared_ptr (one atomic increment) instead of the entire vector (~161 KB
+  // for a 20K-sample burst). Construction sites build into a local vector
+  // then wrap it with make_shared or use the convenience constructor.
+  std::shared_ptr<std::vector<double>> values;
+
+  VectorNumberData() : values(std::make_shared<std::vector<double>>()) {}
+  VectorNumberData(std::vector<double> v)
+      : values(std::make_shared<std::vector<double>>(std::move(v))) {}
+  VectorNumberData(std::shared_ptr<std::vector<double>> v)
+      : values(std::move(v)) {}
 
   Bytes serialize() const {
     Bytes bytes;
-    size_t size = values.size();
+    size_t size = values->size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
                  reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
 
-    for (const auto& value : values) {
+    for (const auto& value : *values) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&value),
                    reinterpret_cast<const uint8_t*>(&value) + sizeof(value));
     }
@@ -139,14 +149,14 @@ struct VectorNumberData {
     std::memcpy(&size, &(*it), sizeof(size));
     it += sizeof(size_t);
 
-    data.values.reserve(size);
+    data.values->reserve(size);
 
     // ---- read each double ----
     for (size_t i = 0; i < size; ++i) {
         double value;
         std::memcpy(&value, &(*it), sizeof(double));
         it += sizeof(double);
-        data.values.push_back(value);
+        data.values->push_back(value);
     }
     return data;
   }
@@ -161,9 +171,9 @@ struct VectorNumberData {
 
   uint64_t hash() const {
     uint64_t result = 0;
-    for (int i=0; i < values.size(); i++) {
+    for (int i=0; i < values->size(); i++) {
       uint64_t u;
-      double value = values.at(i);
+      double value = values->at(i);
       uint64_t quantize = static_cast<uint64_t>(value * 1e9);
       std::memcpy(&u, &quantize, sizeof(uint64_t));
       result = result + u;
@@ -347,9 +357,9 @@ class Message : public BaseMessage {
       ss << (data.value ? "true" : "false");
     } else if constexpr (std::is_same_v<T, VectorNumberData>) {
       ss << "[";
-      for (size_t i = 0; i < data.values.size(); ++i) {
+      for (size_t i = 0; i < data.values->size(); ++i) {
         if (i > 0) ss << ", ";
-        ss << data.values[i];
+        ss << (*data.values)[i];
       }
       ss << "]";
     } else if constexpr (std::is_same_v<T, VectorBooleanData>) {

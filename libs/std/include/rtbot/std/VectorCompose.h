@@ -60,7 +60,7 @@ class VectorCompose : public Join {
           throw std::runtime_error("Invalid message type in VectorCompose");
         }
         time = msg->time;
-        result.values.push_back(msg->data.value);
+        result.values->push_back(msg->data.value);
       }
 
       for (size_t i = 0; i < num_ports_; i++) {

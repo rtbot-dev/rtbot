@@ -59,7 +59,7 @@ SCENARIO("Output operator handles single port configurations", "[output]") {
         const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out_queue.front().get());
         REQUIRE(msg != nullptr);
         REQUIRE(msg->time == 1);
-        REQUIRE(msg->data.values == std::vector<double>{1.0, 2.0, 3.0});
+        REQUIRE(*msg->data.values == std::vector<double>{1.0, 2.0, 3.0});
       }
     }
   }
@@ -104,7 +104,7 @@ SCENARIO("Output operator handles multiple port configurations", "[output]") {
           REQUIRE(out_queue.size() == 1);
           const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out_queue.front().get());
           REQUIRE(msg != nullptr);
-          REQUIRE(msg->data.values == std::vector<double>{1.0, 2.0});
+          REQUIRE(*msg->data.values == std::vector<double>{1.0, 2.0});
         }
       }
     }
