@@ -24,21 +24,6 @@ struct BooleanData;
 struct VectorNumberData;
 struct VectorBooleanData;
 
-// Integer type tags for hot-path type checks (replaces RTTI on the fast path).
-enum class TypeTag : uint8_t {
-  Number = 0,
-  Boolean = 1,
-  VectorNumber = 2,
-  VectorBoolean = 3,
-};
-
-template <typename T>
-constexpr TypeTag type_tag_for();
-template <> constexpr TypeTag type_tag_for<NumberData>()        { return TypeTag::Number; }
-template <> constexpr TypeTag type_tag_for<BooleanData>()       { return TypeTag::Boolean; }
-template <> constexpr TypeTag type_tag_for<VectorNumberData>()  { return TypeTag::VectorNumber; }
-template <> constexpr TypeTag type_tag_for<VectorBooleanData>() { return TypeTag::VectorBoolean; }
-
 // Data type definitions
 struct NumberData {
   double value;
@@ -244,11 +229,10 @@ struct VectorBooleanData {
 // Base message class
 class BaseMessage {
  public:
-  BaseMessage(timestamp_t t, TypeTag tag) : time(t), tag(tag) {}
+  BaseMessage(timestamp_t t) : time(t) {}
   virtual ~BaseMessage() = default;
 
   timestamp_t time;
-  TypeTag tag;
   virtual std::type_index type() const = 0;
   virtual std::unique_ptr<BaseMessage> clone() const = 0;
   virtual std::string to_string() const = 0;
@@ -281,7 +265,7 @@ class BaseMessage {
 template <typename T>
 class Message : public BaseMessage {
  public:
-  Message(timestamp_t t, const T& d) : BaseMessage(t, type_tag_for<T>()), data(d) {}
+  Message(timestamp_t t, const T& d) : BaseMessage(t), data(d) {}
 
   std::type_index type() const override { return typeid(T); }
 

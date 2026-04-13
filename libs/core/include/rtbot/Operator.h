@@ -31,12 +31,11 @@ using MessageQueue = std::deque<std::unique_ptr<BaseMessage>>;
 struct PortInfo {
   MessageQueue queue;
   std::type_index type;
-  TypeTag tag;
   timestamp_t last_timestamp{std::numeric_limits<timestamp_t>::min()};
 
   // Constructor
-  PortInfo(MessageQueue q, std::type_index t, TypeTag tag)
-      : queue(std::move(q)), type(t), tag(tag) {}
+  PortInfo(MessageQueue q, std::type_index t)
+      : queue(std::move(q)), type(t) {}
 
   // Delete copy operations (MessageQueue contains unique_ptr)
   PortInfo(const PortInfo&) = delete;
@@ -145,17 +144,17 @@ class Operator {
   // Dynamic port management with type information
   template <typename T>
   void add_data_port() {
-    data_ports_.push_back({MessageQueue{}, std::type_index(typeid(T)), type_tag_for<T>()});
+    data_ports_.push_back({MessageQueue{}, std::type_index(typeid(T))});
   }
 
   template <typename T>
   void add_control_port() {
-    control_ports_.push_back({MessageQueue{}, std::type_index(typeid(T)), type_tag_for<T>()});
+    control_ports_.push_back({MessageQueue{}, std::type_index(typeid(T))});
   }
 
   template <typename T>
   void add_output_port() {
-    output_ports_.push_back({MessageQueue{}, std::type_index(typeid(T)), type_tag_for<T>()});
+    output_ports_.push_back({MessageQueue{}, std::type_index(typeid(T))});
   }
 
   size_t num_data_ports() const { return data_ports_.size(); }
@@ -170,7 +169,7 @@ class Operator {
                                std::to_string(port_index));
     }
 
-    if (msg->tag != data_ports_[port_index].tag) {
+    if (msg->type() != data_ports_[port_index].type) {
       throw std::runtime_error("Type mismatch on data port at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
     }
@@ -262,7 +261,7 @@ class Operator {
                                std::to_string(port_index));
     }
 
-    if (msg->tag != control_ports_[port_index].tag) {
+    if (msg->type() != control_ports_[port_index].type) {
       throw std::runtime_error("Type mismatch on control port at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
     }
