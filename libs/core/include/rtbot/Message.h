@@ -261,6 +261,66 @@ class Message : public BaseMessage {
 
   std::unique_ptr<BaseMessage> clone() const override { return std::make_unique<Message<T>>(time, data); }
 
+  // --- Thread-local object pool for Message<T> -----------------------------------
+  // Messages are heap-allocated per-sample on the rtbot hot path (see
+  // Program::receive → create_message, Operator::propagate_outputs → clone).
+  // Under profiling the allocator dominates at ~47% of CPU. Pool the Message
+  // blocks themselves to short-circuit malloc/free on the common case.
+  //
+  // Note: this pools the Message<T> object only. For T = VectorNumberData the
+  // inner std::vector<double> still allocates its own buffer; that is tracked
+  // as a follow-up optimization.
+ private:
+  struct Pool {
+    static constexpr std::size_t kCap = 1024;
+    void* slots[kCap];
+    std::size_t count = 0;
+    ~Pool() {
+      for (std::size_t i = 0; i < count; ++i) {
+        ::operator delete(slots[i]);
+      }
+    }
+  };
+
+  static Pool& tls_pool() noexcept {
+    thread_local Pool pool;
+    return pool;
+  }
+
+ public:
+  static void* operator new(std::size_t sz) {
+    if (sz == sizeof(Message<T>)) {
+      Pool& pool = tls_pool();
+      if (pool.count > 0) {
+        return pool.slots[--pool.count];
+      }
+    }
+    return ::operator new(sz);
+  }
+
+  static void operator delete(void* p, std::size_t sz) noexcept {
+    if (!p) return;
+    if (sz == sizeof(Message<T>)) {
+      Pool& pool = tls_pool();
+      if (pool.count < Pool::kCap) {
+        pool.slots[pool.count++] = p;
+        return;
+      }
+    }
+    ::operator delete(p, sz);
+  }
+
+  static void operator delete(void* p) noexcept {
+    if (!p) return;
+    Pool& pool = tls_pool();
+    if (pool.count < Pool::kCap) {
+      pool.slots[pool.count++] = p;
+      return;
+    }
+    ::operator delete(p);
+  }
+  // --- end pool ------------------------------------------------------------------
+
   std::string to_string() const override {
     std::ostringstream ss;
     ss << "(" << time << ", ";
