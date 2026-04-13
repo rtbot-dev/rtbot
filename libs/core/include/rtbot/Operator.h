@@ -131,6 +131,8 @@ class Operator {
         StateSerializer::deserialize_message_queue(it, port.queue);
     }
 
+    // Restored queues may be non-empty
+    has_pending_output_ = true;
   }
 
   virtual void restore_data_from_json(const nlohmann::json& j) {
@@ -215,12 +217,14 @@ class Operator {
   // This should be called by the runtime to clear all output ports before executing
   // the operator again
   virtual void clear_all_output_ports() {
+    if (!has_pending_output_) return;
     for (auto& port : output_ports_) {
       port.queue.clear();
     }
     for (auto& queue : debug_output_queues_) {
       queue.clear();
     }
+    has_pending_output_ = false;
   }
 
   void execute(bool debug=false) {
@@ -609,6 +613,24 @@ class Operator {
       }
     }
 
+    // Update pending-output flag: true if any output port or debug queue
+    // still has messages that clear_all_output_ports needs to clean up.
+    has_pending_output_ = false;
+    for (size_t i = 0; i < output_ports_.size(); ++i) {
+      if (!output_ports_[i].queue.empty()) {
+        has_pending_output_ = true;
+        break;
+      }
+    }
+    if (!has_pending_output_ && !debug_output_queues_.empty()) {
+      for (auto& dq : debug_output_queues_) {
+        if (!dq.empty()) {
+          has_pending_output_ = true;
+          break;
+        }
+      }
+    }
+
     // Then execute connected operators
     for (auto& conn : connections_) {
       if (conn.child && (propagated_mask & (uint64_t{1} << conn.output_port))) {
@@ -632,8 +654,9 @@ class Operator {
   std::vector<PortInfo> control_ports_;
   std::vector<PortInfo> output_ports_;
   std::deque<MessageQueue> debug_output_queues_;
-  std::vector<Connection> connections_;  
+  std::vector<Connection> connections_;
   std::size_t max_size_per_port_;
+  bool has_pending_output_{false};
 };
 
 }  // namespace rtbot
