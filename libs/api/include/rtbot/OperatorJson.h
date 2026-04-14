@@ -53,6 +53,7 @@
 #include "rtbot/std/TopK.h"
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
+#include "rtbot/std/FusedExpression.h"
 
 using json = nlohmann::json;
 
@@ -219,6 +220,12 @@ class OperatorJson {
       return make_vector_project(id, parsed["indices"].get<std::vector<int>>());
     } else if (type == "VectorCompose") {
       return make_vector_compose(id, parsed["numPorts"].get<size_t>());
+    } else if (type == "FusedExpression") {
+      return make_fused_expression(
+          id, parsed["numPorts"].get<size_t>(),
+          parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}));
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
@@ -549,6 +556,12 @@ class OperatorJson {
       j["indices"] = std::dynamic_pointer_cast<VectorProject>(op)->get_indices();
     } else if (type == "VectorCompose") {
       j["numPorts"] = std::dynamic_pointer_cast<VectorCompose>(op)->get_num_ports();
+    } else if (type == "FusedExpression") {
+      auto fe = std::dynamic_pointer_cast<FusedExpression>(op);
+      j["numPorts"] = fe->get_num_ports();
+      j["numOutputs"] = fe->get_num_outputs();
+      j["bytecode"] = fe->get_bytecode();
+      j["constants"] = fe->get_constants();
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
     } else if (type == "CompareLT") {
