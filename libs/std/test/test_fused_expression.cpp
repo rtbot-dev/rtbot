@@ -347,6 +347,31 @@ SCENARIO("FusedExpression validation", "[fused_expression]") {
     REQUIRE_THROWS_AS(fe("fe1", 1, 1, {INPUT, 0, END, INPUT, 0, END}),
                       std::runtime_error);
   }
+
+  SECTION("Const index equal to END opcode value does not miscount") {
+    // Regression: constant index 20 matches fused_op::END (20.0).
+    // Validation must walk opcodes respecting argument structure.
+    // Build 21 constants so that one CONST argument == 20.
+    std::vector<double> constants(21, 1.0);
+    // Bytecode: CONST 20 (index=20, same double value as END), END
+    std::vector<double> bytecode = {CONST, 20, END};
+    REQUIRE_NOTHROW(fe("fe1", 1, 1, bytecode, constants));
+
+    // Also verify it evaluates correctly
+    auto op = fe("fe1", 1, 1, bytecode, constants);
+    feed(*op, 1, {99.0});  // input value ignored — expression is just const[20]
+    auto vals = output_values(*op);
+    REQUIRE(vals.size() == 1);
+    REQUIRE(vals[0] == Approx(1.0));
+  }
+
+  SECTION("Input index equal to END opcode value does not miscount") {
+    // 21 input ports, INPUT 20 references port index 20
+    std::vector<double> bytecode = {INPUT, 20, END};
+    // Need 21 ports
+    auto op = make_fused_expression("fe1", 21, 1, bytecode, {});
+    REQUIRE(op->get_num_outputs() == 1);
+  }
 }
 
 // =========================================================================

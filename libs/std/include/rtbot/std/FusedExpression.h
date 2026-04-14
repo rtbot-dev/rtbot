@@ -55,10 +55,18 @@ class FusedExpression : public VectorCompose {
       throw std::runtime_error(
           "FusedExpression requires at least 1 output expression");
     }
-    // Validate bytecode has exactly num_outputs END markers
+    // Validate bytecode has exactly num_outputs END markers.
+    // Must walk opcodes respecting argument structure — INPUT and CONST
+    // consume the next double as an argument, so those positions must not
+    // be counted as opcodes.
     size_t end_count = 0;
-    for (double op : bytecode_) {
-      if (static_cast<int>(op) == static_cast<int>(fused_op::END)) {
+    size_t pc = 0;
+    while (pc < bytecode_.size()) {
+      int opcode = static_cast<int>(bytecode_[pc++]);
+      if (opcode == static_cast<int>(fused_op::INPUT) ||
+          opcode == static_cast<int>(fused_op::CONST)) {
+        ++pc;  // skip argument
+      } else if (opcode == static_cast<int>(fused_op::END)) {
         ++end_count;
       }
     }
