@@ -54,6 +54,7 @@
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
 #include "rtbot/std/FusedExpression.h"
+#include "rtbot/std/FusedExpressionVector.h"
 
 using json = nlohmann::json;
 
@@ -224,6 +225,12 @@ class OperatorJson {
       return make_fused_expression(
           id, parsed["numPorts"].get<size_t>(),
           parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("stateInit", std::vector<double>{}));
+    } else if (type == "FusedExpressionVector") {
+      return make_fused_expression_vector(
+          id, parsed["numOutputs"].get<size_t>(),
           parsed["bytecode"].get<std::vector<double>>(),
           parsed.value("constants", std::vector<double>{}),
           parsed.value("stateInit", std::vector<double>{}));
@@ -588,6 +595,14 @@ class OperatorJson {
       j["constants"] = fe->get_constants();
       if (!fe->get_state_init().empty()) {
         j["stateInit"] = fe->get_state_init();
+      }
+    } else if (type == "FusedExpressionVector") {
+      auto fev = std::dynamic_pointer_cast<FusedExpressionVector>(op);
+      j["numOutputs"] = fev->get_num_outputs();
+      j["bytecode"] = fev->get_bytecode();
+      j["constants"] = fev->get_constants();
+      if (!fev->get_state_init().empty()) {
+        j["stateInit"] = fev->get_state_init();
       }
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
