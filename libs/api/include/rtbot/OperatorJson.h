@@ -267,7 +267,16 @@ class OperatorJson {
     } else if (type == "BooleanToNumber") {
       return make_boolean_to_number(id);
     } else if (type == "KeyedPipeline") {
-      auto key_index = parsed["key_index"].get<int>();
+      // Computed key mode: keyColumnIndices (coefficients computed internally)
+      // Classic mode: key_index
+      int key_index = -1;
+      std::vector<int> key_column_indices;
+
+      if (parsed.contains("keyColumnIndices")) {
+        key_column_indices = parsed["keyColumnIndices"].get<std::vector<int>>();
+      } else {
+        key_index = parsed["key_index"].get<int>();
+      }
 
       // Build factory from embedded prototype definition
       const auto& proto = parsed["prototype"];
@@ -294,7 +303,11 @@ class OperatorJson {
         return sg;
       };
 
-      return make_keyed_pipeline(id, key_index, factory);
+      if (!key_column_indices.empty()) {
+        return make_keyed_pipeline(id, std::move(key_column_indices), factory);
+      } else {
+        return make_keyed_pipeline(id, key_index, factory);
+      }
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -620,7 +633,11 @@ class OperatorJson {
       // No parameters beyond id
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
-      j["key_index"] = kp->get_key_index();
+      if (kp->has_computed_key()) {
+        j["keyColumnIndices"] = kp->get_key_column_indices();
+      } else {
+        j["key_index"] = kp->get_key_index();
+      }
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";
