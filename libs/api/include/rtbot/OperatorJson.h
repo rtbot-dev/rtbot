@@ -225,7 +225,8 @@ class OperatorJson {
           id, parsed["numPorts"].get<size_t>(),
           parsed["numOutputs"].get<size_t>(),
           parsed["bytecode"].get<std::vector<double>>(),
-          parsed.value("constants", std::vector<double>{}));
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("stateInit", std::vector<double>{}));
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
@@ -562,6 +563,9 @@ class OperatorJson {
       j["numOutputs"] = fe->get_num_outputs();
       j["bytecode"] = fe->get_bytecode();
       j["constants"] = fe->get_constants();
+      if (!fe->get_state_init().empty()) {
+        j["stateInit"] = fe->get_state_init();
+      }
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
     } else if (type == "CompareLT") {
