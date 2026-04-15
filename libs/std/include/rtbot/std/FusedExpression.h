@@ -86,6 +86,9 @@ class FusedExpression : public VectorCompose {
  protected:
   void process_data(bool debug = false) override {
     const size_t np = get_num_ports();
+    const double* bc = bytecode_.data();
+    const size_t bc_size = bytecode_.size();
+    const double* consts = constants_.data();
 
     while (true) {
       // Use the built-in sync mechanism (inherited from Join via VectorCompose)
@@ -100,16 +103,12 @@ class FusedExpression : public VectorCompose {
       if (!is_sync && is_any_empty) return;
       if (!is_sync) continue;
 
-      // Read synced scalar values from input ports
+      // Read synced scalar values from input ports — stack-allocated
       timestamp_t time = 0;
-      std::vector<double> inputs(np);
+      double inputs[64];
       for (size_t i = 0; i < np; i++) {
         const auto* msg = static_cast<const Message<NumberData>*>(
             get_data_queue(i).front().get());
-        if (!msg) {
-          throw std::runtime_error(
-              "Invalid message type in FusedExpression");
-        }
         time = msg->time;
         inputs[i] = msg->data.value;
       }
@@ -119,116 +118,110 @@ class FusedExpression : public VectorCompose {
         get_data_queue(i).pop_front();
       }
 
-      // Evaluate bytecode to produce output values
-      std::vector<double> outputs;
-      outputs.reserve(num_outputs_);
+      // Allocate output vector once — write results directly into it
+      auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+      double* out_ptr = out_vec->data();
+      size_t out_idx = 0;
 
-      // RPN evaluation stack
+      // RPN evaluation stack (stack-allocated)
       double stack[64];
       size_t sp = 0;
 
       size_t pc = 0;
-      while (pc < bytecode_.size()) {
-        int opcode = static_cast<int>(bytecode_[pc++]);
+      while (pc < bc_size) {
+        int opcode = static_cast<int>(bc[pc++]);
 
         switch (opcode) {
-          case static_cast<int>(fused_op::INPUT): {
-            int idx = static_cast<int>(bytecode_[pc++]);
-            stack[sp++] = inputs[idx];
+          case 0 /* INPUT */: {
+            stack[sp++] = inputs[static_cast<int>(bc[pc++])];
             break;
           }
-          case static_cast<int>(fused_op::CONST): {
-            int idx = static_cast<int>(bytecode_[pc++]);
-            stack[sp++] = constants_[idx];
+          case 1 /* CONST */: {
+            stack[sp++] = consts[static_cast<int>(bc[pc++])];
             break;
           }
-          case static_cast<int>(fused_op::ADD): {
+          case 2 /* ADD */: {
             double b = stack[--sp];
-            double a = stack[--sp];
-            stack[sp++] = a + b;
+            stack[sp - 1] += b;
             break;
           }
-          case static_cast<int>(fused_op::SUB): {
+          case 3 /* SUB */: {
             double b = stack[--sp];
-            double a = stack[--sp];
-            stack[sp++] = a - b;
+            stack[sp - 1] -= b;
             break;
           }
-          case static_cast<int>(fused_op::MUL): {
+          case 4 /* MUL */: {
             double b = stack[--sp];
-            double a = stack[--sp];
-            stack[sp++] = a * b;
+            stack[sp - 1] *= b;
             break;
           }
-          case static_cast<int>(fused_op::DIV): {
+          case 5 /* DIV */: {
             double b = stack[--sp];
-            double a = stack[--sp];
-            stack[sp++] = a / b;
+            stack[sp - 1] /= b;
             break;
           }
-          case static_cast<int>(fused_op::POW): {
+          case 6 /* POW */: {
             double b = stack[--sp];
             double a = stack[--sp];
             stack[sp++] = std::pow(a, b);
             break;
           }
-          case static_cast<int>(fused_op::ABS): {
+          case 7 /* ABS */: {
             stack[sp - 1] = std::abs(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::SQRT): {
+          case 8 /* SQRT */: {
             stack[sp - 1] = std::sqrt(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::LOG): {
+          case 9 /* LOG */: {
             stack[sp - 1] = std::log(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::LOG10): {
+          case 10 /* LOG10 */: {
             stack[sp - 1] = std::log10(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::EXP): {
+          case 11 /* EXP */: {
             stack[sp - 1] = std::exp(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::SIN): {
+          case 12 /* SIN */: {
             stack[sp - 1] = std::sin(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::COS): {
+          case 13 /* COS */: {
             stack[sp - 1] = std::cos(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::TAN): {
+          case 14 /* TAN */: {
             stack[sp - 1] = std::tan(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::SIGN): {
+          case 15 /* SIGN */: {
             double v = stack[sp - 1];
             stack[sp - 1] = (v > 0.0) ? 1.0 : (v < 0.0) ? -1.0 : 0.0;
             break;
           }
-          case static_cast<int>(fused_op::FLOOR): {
+          case 16 /* FLOOR */: {
             stack[sp - 1] = std::floor(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::CEIL): {
+          case 17 /* CEIL */: {
             stack[sp - 1] = std::ceil(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::ROUND): {
+          case 18 /* ROUND */: {
             stack[sp - 1] = std::round(stack[sp - 1]);
             break;
           }
-          case static_cast<int>(fused_op::NEG): {
+          case 19 /* NEG */: {
             stack[sp - 1] = -stack[sp - 1];
             break;
           }
-          case static_cast<int>(fused_op::END): {
-            // Top of stack is the expression result
-            outputs.push_back(stack[--sp]);
-            sp = 0;  // reset stack for next expression
+          case 20 /* END */: {
+            out_ptr[out_idx++] = stack[--sp];
+            sp = 0;
             break;
           }
           default:
@@ -237,10 +230,9 @@ class FusedExpression : public VectorCompose {
         }
       }
 
-      // Assemble output vector
-      VectorNumberData result(std::move(outputs));
+      // Emit output — single allocation (the make_shared above)
       get_output_queue(0).push_back(
-          create_message<VectorNumberData>(time, std::move(result)));
+          create_message<VectorNumberData>(time, VectorNumberData(std::move(out_vec))));
     }
   }
 
