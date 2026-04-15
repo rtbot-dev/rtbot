@@ -1,11 +1,14 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
+#include "rtbot/OperatorJson.h"
 #include "rtbot/Pipeline.h"
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Count.h"
+#include "rtbot/std/FusedExpression.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
+#include "rtbot/std/VectorExtract.h"
 
 using namespace rtbot;
 
@@ -994,6 +997,193 @@ SCENARIO("Pipeline: serialization round-trip preserves behavior", "[pipeline][St
       }
     }
   }
+}
+
+// =============================================================================
+// EQUALITY TESTS
+// =============================================================================
+
+// =============================================================================
+// SEGMENT BYTECODE HELPERS
+// =============================================================================
+
+// Helper: build a segment-bytecode pipeline
+// Internal mesh: VectorExtract(index=0) → CumulativeSum
+// Input: 1 VectorNumber port | Output: 1 Number port
+// Segment expression computed from bytecode (no control port)
+static std::unique_ptr<Pipeline> make_segment_bc_pipeline(
+    const std::string& id,
+    std::vector<double> segment_bytecode,
+    std::vector<double> segment_constants = {}) {
+  auto pipeline = std::make_unique<Pipeline>(
+      id,
+      std::vector<std::string>{PortType::VECTOR_NUMBER},
+      std::vector<std::string>{PortType::NUMBER},
+      std::move(segment_bytecode),
+      std::move(segment_constants));
+
+  auto extract = std::make_shared<VectorExtract>("extract", 0);
+  auto cumsum = std::make_shared<CumulativeSum>("cumsum");
+  pipeline->register_operator(extract);
+  pipeline->register_operator(cumsum);
+  pipeline->set_entry("extract");
+  pipeline->connect("extract", "cumsum");
+  pipeline->add_output_mapping("cumsum", 0, 0);
+  return pipeline;
+}
+
+static void send_vec(Pipeline& p, timestamp_t t, std::vector<double> values) {
+  auto vec = std::make_shared<std::vector<double>>(std::move(values));
+  p.receive_data(create_message<VectorNumberData>(t, VectorNumberData(std::move(vec))), 0);
+  p.execute();
+}
+
+// =============================================================================
+// SEGMENT BYTECODE TESTS
+// =============================================================================
+
+SCENARIO("Pipeline segment bytecode: no control port created", "[pipeline][segment_bytecode]") {
+  using namespace fused_op;
+  // Bytecode: INPUT 2, ABS, CONST 0, GT, END  → ABS(col[2]) > 0
+  auto pipeline = make_segment_bc_pipeline("seg_bc",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  THEN("Pipeline has 0 control ports") {
+    REQUIRE(pipeline->num_control_ports() == 0);
+  }
+  THEN("Pipeline has 1 data port") {
+    REQUIRE(pipeline->num_data_ports() == 1);
+  }
+}
+
+SCENARIO("Pipeline segment bytecode: segment boundary triggers emission", "[pipeline][segment_bytecode]") {
+  using namespace fused_op;
+  auto pipeline = make_segment_bc_pipeline("seg_bc",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  // Segment 1: col[2]=5.0 → ABS(5)>0 → key=1.0
+  // Internal cumsum on col[0]: 10, 30, 60
+  send_vec(*pipeline, 1, {10.0, 0.0, 5.0});
+  send_vec(*pipeline, 2, {20.0, 0.0, 5.0});
+  send_vec(*pipeline, 3, {30.0, 0.0, 5.0});
+  REQUIRE(pipeline->get_output_queue(0).empty());  // no boundary yet
+
+  // Key change: col[2]=0.0 → ABS(0)>0 → key=0.0 (boundary!)
+  send_vec(*pipeline, 4, {5.0, 0.0, 0.0});
+
+  THEN("Segment 1 buffer emitted at boundary timestamp") {
+    auto& out = pipeline->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    auto* msg = dynamic_cast<const Message<NumberData>*>(out[0].get());
+    REQUIRE(msg != nullptr);
+    REQUIRE(msg->time == 4);
+    REQUIRE(msg->data.value == Approx(60.0));  // cumsum: 10+20+30
+  }
+}
+
+SCENARIO("Pipeline segment bytecode: multiple segment transitions", "[pipeline][segment_bytecode]") {
+  using namespace fused_op;
+  auto pipeline = make_segment_bc_pipeline("seg_bc",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  // Segment 1: key=1.0 (col[2]=5), cumsum: 10, 30
+  send_vec(*pipeline, 1, {10.0, 0.0, 5.0});
+  send_vec(*pipeline, 2, {20.0, 0.0, 5.0});
+
+  // Boundary → segment 2: key=0.0 (col[2]=0), emits cumsum=30
+  send_vec(*pipeline, 3, {100.0, 0.0, 0.0});
+  {
+    auto& out = pipeline->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(30.0));
+    REQUIRE(out[0]->time == 3);
+  }
+  pipeline->clear_all_output_ports();
+
+  // Segment 2: cumsum resets → 100
+  send_vec(*pipeline, 4, {200.0, 0.0, 0.0});
+
+  // Boundary → segment 3: key=1.0 (col[2]=7), emits cumsum=300
+  send_vec(*pipeline, 5, {50.0, 0.0, 7.0});
+  {
+    auto& out = pipeline->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(300.0));
+    REQUIRE(out[0]->time == 5);
+  }
+}
+
+SCENARIO("Pipeline segment bytecode: numeric segment expression", "[pipeline][segment_bytecode]") {
+  using namespace fused_op;
+  // Segment key = FLOOR(col[0] / 10)
+  // Bytecode: INPUT 0, CONST 0, DIV, FLOOR, END
+  auto pipeline = make_segment_bc_pipeline("seg_num",
+      {INPUT, 0, CONST, 0, DIV, FLOOR, END}, {10.0});
+
+  // Segment key=0 (values 0-9)
+  send_vec(*pipeline, 1, {3.0, 0.0, 0.0});    // cumsum=3, key=0
+  send_vec(*pipeline, 2, {7.0, 0.0, 0.0});    // cumsum=10, key=0
+
+  // Key change to 1 (values 10-19)
+  send_vec(*pipeline, 3, {10.0, 0.0, 0.0});   // key=1 → emit 10
+  {
+    auto& out = pipeline->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(10.0));
+  }
+}
+
+SCENARIO("Pipeline segment bytecode: backwards compat with empty bytecode", "[pipeline][segment_bytecode]") {
+  // Empty segment_bytecode → control port mode (existing behavior)
+  auto pipeline = make_cumsum_pipeline("compat_test");
+  REQUIRE(pipeline->num_control_ports() == 1);
+
+  send_paired(*pipeline, 1, 10.0, 1.0);
+  send_paired(*pipeline, 2, 20.0, 1.0);
+  send_paired(*pipeline, 3, 5.0, 0.0);
+
+  auto& out = pipeline->get_output_queue(0);
+  REQUIRE(out.size() == 1);
+  REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(30.0));
+}
+
+SCENARIO("Pipeline segment bytecode: serialization roundtrip", "[pipeline][segment_bytecode]") {
+  using namespace fused_op;
+  auto pipeline = make_segment_bc_pipeline("seg_ser",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  // Feed some data to build up state
+  send_vec(*pipeline, 1, {10.0, 0.0, 5.0});
+  send_vec(*pipeline, 2, {20.0, 0.0, 5.0});
+
+  // Collect and restore
+  auto bytes = pipeline->collect_bytes();
+  auto pipeline2 = make_segment_bc_pipeline("seg_ser",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  // Feed the same data to pipeline2 so internal operators match
+  send_vec(*pipeline2, 1, {10.0, 0.0, 5.0});
+  send_vec(*pipeline2, 2, {20.0, 0.0, 5.0});
+
+  auto bytes2 = pipeline2->collect_bytes();
+  REQUIRE(bytes == bytes2);
+}
+
+SCENARIO("Pipeline segment bytecode: JSON roundtrip via OperatorJson", "[pipeline][segment_bytecode][json]") {
+  using namespace fused_op;
+  std::shared_ptr<Pipeline> pipeline = make_segment_bc_pipeline("seg_json",
+      {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+
+  // Serialize
+  std::string json_str = OperatorJson::write_op(pipeline);
+
+  // Deserialize
+  auto restored = OperatorJson::read_op(json_str);
+  auto* restored_pipeline = dynamic_cast<Pipeline*>(restored.get());
+  REQUIRE(restored_pipeline != nullptr);
+  REQUIRE(restored_pipeline->num_control_ports() == 0);
+  REQUIRE(restored_pipeline->get_segment_bytecode().size() == 7);
+  REQUIRE(restored_pipeline->get_segment_constants().size() == 1);
 }
 
 // =============================================================================
