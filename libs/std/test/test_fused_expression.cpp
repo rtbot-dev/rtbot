@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <type_traits>
 
@@ -411,6 +412,225 @@ SCENARIO("FusedExpression parameter accessors", "[fused_expression]") {
     std::vector<double> bytecode = {INPUT, 0, INPUT, 1, ADD, END};
     auto op = fe("fe1", 2, 1, bytecode);
     REQUIRE(op->get_constants().empty());
+  }
+}
+
+// =========================================================================
+// Stateful opcodes
+// =========================================================================
+
+static auto fe_stateful(std::string id, size_t num_ports, size_t num_outputs,
+                        std::vector<double> bytecode,
+                        std::vector<double> constants,
+                        std::vector<double> state_init) {
+  return make_fused_expression(std::move(id), num_ports, num_outputs,
+                                std::move(bytecode), std::move(constants),
+                                std::move(state_init));
+}
+
+SCENARIO("FusedExpression stateful CUMSUM", "[fused_expression][stateful]") {
+  SECTION("Cumulative sum: 10, 20, 5 → 10, 30, 35") {
+    // Bytecode: INPUT 0, CUMSUM 0, END
+    // State: {sum=0.0, kahan_comp=0.0}
+    auto op = fe_stateful("fe_cumsum", 1, 1,
+                          {INPUT, 0, CUMSUM, 0, END}, {}, {0.0, 0.0});
+
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == Approx(10.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {20.0});
+    REQUIRE(output_values(*op)[0] == Approx(30.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 3, {5.0});
+    REQUIRE(output_values(*op)[0] == Approx(35.0));
+  }
+}
+
+SCENARIO("FusedExpression stateful COUNT", "[fused_expression][stateful]") {
+  SECTION("Count: 3 messages → 1, 2, 3") {
+    // Bytecode: COUNT 0, END  (no pop — pushes count)
+    // State: {0.0}
+    auto op = fe_stateful("fe_count", 1, 1,
+                          {COUNT, 0, END}, {}, {0.0});
+
+    feed(*op, 1, {999.0});
+    REQUIRE(output_values(*op)[0] == Approx(1.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {42.0});
+    REQUIRE(output_values(*op)[0] == Approx(2.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 3, {-1.0});
+    REQUIRE(output_values(*op)[0] == Approx(3.0));
+  }
+}
+
+SCENARIO("FusedExpression stateful MAX_AGG", "[fused_expression][stateful]") {
+  SECTION("Running max: 5, 3, 8 → 5, 5, 8") {
+    // Bytecode: INPUT 0, MAX_AGG 0, END
+    // State: {-inf}
+    auto op = fe_stateful("fe_max", 1, 1,
+                          {INPUT, 0, MAX_AGG, 0, END}, {},
+                          {-std::numeric_limits<double>::infinity()});
+
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == Approx(5.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {3.0});
+    REQUIRE(output_values(*op)[0] == Approx(5.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 3, {8.0});
+    REQUIRE(output_values(*op)[0] == Approx(8.0));
+  }
+}
+
+SCENARIO("FusedExpression stateful MIN_AGG", "[fused_expression][stateful]") {
+  SECTION("Running min: 5, 8, 2 → 5, 5, 2") {
+    // Bytecode: INPUT 0, MIN_AGG 0, END
+    // State: {+inf}
+    auto op = fe_stateful("fe_min", 1, 1,
+                          {INPUT, 0, MIN_AGG, 0, END}, {},
+                          {std::numeric_limits<double>::infinity()});
+
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == Approx(5.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {8.0});
+    REQUIRE(output_values(*op)[0] == Approx(5.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 3, {2.0});
+    REQUIRE(output_values(*op)[0] == Approx(2.0));
+  }
+}
+
+SCENARIO("FusedExpression stateful AVG via CUMSUM+COUNT+DIV",
+         "[fused_expression][stateful]") {
+  SECTION("Running average: 10, 20, 30 → 10, 15, 20") {
+    // Bytecode: INPUT 0, CUMSUM 0, COUNT 2, DIV, END
+    // State: {sum=0.0, kahan=0.0, count=0.0}
+    auto op = fe_stateful("fe_avg", 1, 1,
+                          {INPUT, 0, CUMSUM, 0, COUNT, 2, DIV, END},
+                          {}, {0.0, 0.0, 0.0});
+
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == Approx(10.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {20.0});
+    REQUIRE(output_values(*op)[0] == Approx(15.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 3, {30.0});
+    REQUIRE(output_values(*op)[0] == Approx(20.0));
+  }
+}
+
+SCENARIO("FusedExpression multi-output stateful (AVG + MAX + COUNT)",
+         "[fused_expression][stateful]") {
+  SECTION("Three outputs: AVG, MAX, COUNT for inputs 10, 20, 5") {
+    // Bytecode:
+    //   expr0 (AVG):  INPUT 0, CUMSUM 0, COUNT 2, DIV, END
+    //   expr1 (MAX):  INPUT 0, MAX_AGG 3, END
+    //   expr2 (COUNT): STATE_LOAD 2, END  (reads shared count without incrementing)
+    // State: {sum=0.0, kahan=0.0, count=0.0, max=-inf}
+    auto op = fe_stateful("fe_multi", 1, 3,
+                          {INPUT, 0, CUMSUM, 0, COUNT, 2, DIV, END,
+                           INPUT, 0, MAX_AGG, 3, END,
+                           STATE_LOAD, 2, END},
+                          {},
+                          {0.0, 0.0, 0.0,
+                           -std::numeric_limits<double>::infinity()});
+
+    // Feed 10
+    feed(*op, 1, {10.0});
+    auto vals1 = output_values(*op);
+    REQUIRE(vals1.size() == 3);
+    REQUIRE(vals1[0] == Approx(10.0));   // avg = 10/1
+    REQUIRE(vals1[1] == Approx(10.0));   // max = 10
+    REQUIRE(vals1[2] == Approx(1.0));    // count = 1
+    op->get_output_queue(0).clear();
+
+    // Feed 20
+    feed(*op, 2, {20.0});
+    auto vals2 = output_values(*op);
+    REQUIRE(vals2.size() == 3);
+    REQUIRE(vals2[0] == Approx(15.0));   // avg = 30/2
+    REQUIRE(vals2[1] == Approx(20.0));   // max = 20
+    REQUIRE(vals2[2] == Approx(2.0));    // count = 2
+    op->get_output_queue(0).clear();
+
+    // Feed 5
+    feed(*op, 3, {5.0});
+    auto vals3 = output_values(*op);
+    REQUIRE(vals3.size() == 3);
+    REQUIRE(vals3[0] == Approx(35.0 / 3.0));  // avg = 35/3
+    REQUIRE(vals3[1] == Approx(20.0));         // max = 20
+    REQUIRE(vals3[2] == Approx(3.0));          // count = 3
+  }
+}
+
+SCENARIO("FusedExpression stateful reset", "[fused_expression][stateful]") {
+  SECTION("Reset restores state to initial values") {
+    // Use CUMSUM to accumulate, then reset, then verify fresh state
+    auto op = fe_stateful("fe_reset", 1, 1,
+                          {INPUT, 0, CUMSUM, 0, END}, {}, {0.0, 0.0});
+
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == Approx(10.0));
+    op->get_output_queue(0).clear();
+
+    feed(*op, 2, {20.0});
+    REQUIRE(output_values(*op)[0] == Approx(30.0));
+    op->get_output_queue(0).clear();
+
+    // Reset — state should go back to {0.0, 0.0}
+    op->reset();
+
+    feed(*op, 3, {5.0});
+    REQUIRE(output_values(*op)[0] == Approx(5.0));  // not 35
+    op->get_output_queue(0).clear();
+
+    feed(*op, 4, {7.0});
+    REQUIRE(output_values(*op)[0] == Approx(12.0)); // 5 + 7, not 42
+  }
+}
+
+SCENARIO("FusedExpression shared COUNT via STATE_LOAD",
+         "[fused_expression][stateful]") {
+  SECTION("Two AVGs sharing one COUNT: avg(x) and avg(2x)") {
+    // expr0: avg(x)  = cumsum(x) / count
+    //   INPUT 0, CUMSUM 0, COUNT 4, DIV, END
+    // expr1: avg(2*x) = cumsum(2*x) / count  (reads count via STATE_LOAD)
+    //   INPUT 0, CONST 0, MUL, CUMSUM 2, STATE_LOAD 4, DIV, END
+    // Constants: {2.0}
+    // State: {sum_x=0, kahan_x=0, sum_2x=0, kahan_2x=0, count=0}
+    auto op = fe_stateful("fe_shared", 1, 2,
+                          {INPUT, 0, CUMSUM, 0, COUNT, 4, DIV, END,
+                           INPUT, 0, CONST, 0, MUL, CUMSUM, 2, STATE_LOAD, 4, DIV, END},
+                          {2.0},
+                          {0.0, 0.0, 0.0, 0.0, 0.0});
+
+    // Feed 10: avg(x) = 10/1 = 10, avg(2x) = 20/1 = 20
+    feed(*op, 1, {10.0});
+    auto vals1 = output_values(*op);
+    REQUIRE(vals1.size() == 2);
+    REQUIRE(vals1[0] == Approx(10.0));
+    REQUIRE(vals1[1] == Approx(20.0));
+    op->get_output_queue(0).clear();
+
+    // Feed 20: avg(x) = 30/2 = 15, avg(2x) = 60/2 = 30
+    feed(*op, 2, {20.0});
+    auto vals2 = output_values(*op);
+    REQUIRE(vals2.size() == 2);
+    REQUIRE(vals2[0] == Approx(15.0));
+    REQUIRE(vals2[1] == Approx(30.0));
   }
 }
 
