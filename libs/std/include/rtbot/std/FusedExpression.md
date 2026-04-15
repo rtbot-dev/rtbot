@@ -36,6 +36,12 @@ jsonschema:
       items:
         type: number
       examples: [[1.0, 2.0]]
+    stateInit:
+      type: array
+      description: Initial values for persistent state slots used by stateful opcodes (CUMSUM, COUNT, MAX_AGG, MIN_AGG). Empty for pure expressions.
+      items:
+        type: number
+      examples: [[0.0, 0.0, 0.0]]
   required: ["id", "numPorts", "numOutputs", "bytecode"]
 ---
 
@@ -52,6 +58,7 @@ Inherits from VectorCompose (which inherits from Join) for timestamp synchroniza
 - `numOutputs`: Number of output columns (one per expression)
 - `bytecode`: Flat array of RPN opcodes (see Opcodes below)
 - `constants`: Array of compile-time constants referenced by CONST opcodes (optional, defaults to empty)
+- `stateInit`: Array of initial values for persistent state slots used by stateful opcodes (optional, defaults to empty)
 
 ```json
 {
@@ -97,6 +104,11 @@ Each opcode is encoded as a double. Opcodes with arguments consume the next doub
 | 18   | ROUND | -    | pop a; push round(a)   |
 | 19   | NEG   | -    | pop a; push -a         |
 | 20   | END   | -    | emit top as output     |
+| 21   | CUMSUM     | idx  | pop a; Kahan-add to state[idx]; push state[idx] |
+| 22   | COUNT      | idx  | state[idx] += 1; push state[idx] |
+| 23   | MAX_AGG    | idx  | pop a; state[idx] = max(state[idx], a); push state[idx] |
+| 24   | MIN_AGG    | idx  | pop a; state[idx] = min(state[idx], a); push state[idx] |
+| 25   | STATE_LOAD | idx  | push state[idx] (read-only) |
 
 The bytecode must contain exactly `numOutputs` END markers. Each END terminates one expression and resets the evaluation stack.
 
@@ -106,6 +118,10 @@ The bytecode must contain exactly `numOutputs` END markers. Each END terminates 
 2. Reads scalar values from each input port
 3. Evaluates bytecode sequentially: each END marker emits the stack top as one output column
 4. Assembles all output columns into a VectorNumberData message
+
+### Stateful Opcodes
+
+Opcodes 21-25 access persistent state slots that survive across messages. The `stateInit` array sets the initial value of each slot (e.g., `[0.0, -Infinity, Infinity]` for CUMSUM, MAX_AGG, MIN_AGG respectively). State is mutated in place on every evaluation and is never reset automatically.
 
 ### Example: two expressions over three inputs
 
