@@ -663,3 +663,152 @@ SCENARIO("FusedExpression state save/restore", "[fused_expression][State]") {
     REQUIRE((*msg->data.values)[0] == Approx(15.0));
   }
 }
+
+// =========================================================================
+// Comparison opcodes
+// =========================================================================
+
+SCENARIO("FusedExpression comparison GT", "[fused_expression]") {
+  // bytecode: INPUT 0, CONST 0, GT, END  → 1.0 if input[0] > constant[0], else 0.0
+  auto op = fe("fe_gt", 1, 1, {INPUT, 0, CONST, 0, GT, END}, {5.0});
+
+  SECTION("Greater → 1.0") {
+    feed(*op, 1, {10.0});
+    auto v = output_values(*op);
+    REQUIRE(v.size() == 1);
+    REQUIRE(v[0] == 1.0);
+  }
+  SECTION("Equal → 0.0") {
+    feed(*op, 1, {5.0});
+    auto v = output_values(*op);
+    REQUIRE(v.size() == 1);
+    REQUIRE(v[0] == 0.0);
+  }
+  SECTION("Less → 0.0") {
+    feed(*op, 1, {3.0});
+    auto v = output_values(*op);
+    REQUIRE(v.size() == 1);
+    REQUIRE(v[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression comparison GTE", "[fused_expression]") {
+  auto op = fe("fe_gte", 1, 1, {INPUT, 0, CONST, 0, GTE, END}, {5.0});
+  SECTION("Greater → 1.0") {
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Equal → 1.0") {
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Less → 0.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression comparison LT", "[fused_expression]") {
+  auto op = fe("fe_lt", 1, 1, {INPUT, 0, CONST, 0, LT, END}, {5.0});
+  SECTION("Less → 1.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Equal → 0.0") {
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression comparison LTE", "[fused_expression]") {
+  auto op = fe("fe_lte", 1, 1, {INPUT, 0, CONST, 0, LTE, END}, {5.0});
+  SECTION("Less → 1.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Equal → 1.0") {
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Greater → 0.0") {
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression comparison EQ", "[fused_expression]") {
+  auto op = fe("fe_eq", 1, 1, {INPUT, 0, CONST, 0, EQ, END}, {5.0});
+  SECTION("Equal → 1.0") {
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Not equal → 0.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression comparison NEQ", "[fused_expression]") {
+  auto op = fe("fe_neq", 1, 1, {INPUT, 0, CONST, 0, NEQ, END}, {5.0});
+  SECTION("Not equal → 1.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Equal → 0.0") {
+    feed(*op, 1, {5.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression logical AND", "[fused_expression]") {
+  // ABS(INPUT 0) > 0 AND INPUT 0 < 100
+  // bytecode: INPUT 0, ABS, CONST 0, GT, INPUT 0, CONST 1, LT, AND, END
+  auto op = fe("fe_and", 1, 1,
+               {INPUT, 0, ABS, CONST, 0, GT, INPUT, 0, CONST, 1, LT, AND, END},
+               {0.0, 100.0});
+  SECTION("Both true → 1.0") {
+    feed(*op, 1, {50.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Left false → 0.0") {
+    feed(*op, 1, {0.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+  SECTION("Right false → 0.0") {
+    feed(*op, 1, {200.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression logical OR", "[fused_expression]") {
+  // INPUT 0 > 100 OR INPUT 0 < -100
+  auto op = fe("fe_or", 1, 1,
+               {INPUT, 0, CONST, 0, GT, INPUT, 0, CONST, 1, LT, OR, END},
+               {100.0, -100.0});
+  SECTION("Left true → 1.0") {
+    feed(*op, 1, {200.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Right true → 1.0") {
+    feed(*op, 1, {-200.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+  SECTION("Neither true → 0.0") {
+    feed(*op, 1, {50.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+}
+
+SCENARIO("FusedExpression logical NOT", "[fused_expression]") {
+  // NOT (INPUT 0 > 5) → INPUT 0, CONST 0, GT, NOT, END
+  auto op = fe("fe_not", 1, 1,
+               {INPUT, 0, CONST, 0, GT, NOT, END}, {5.0});
+  SECTION("True becomes 0.0") {
+    feed(*op, 1, {10.0});
+    REQUIRE(output_values(*op)[0] == 0.0);
+  }
+  SECTION("False becomes 1.0") {
+    feed(*op, 1, {3.0});
+    REQUIRE(output_values(*op)[0] == 1.0);
+  }
+}

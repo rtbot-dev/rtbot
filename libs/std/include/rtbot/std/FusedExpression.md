@@ -109,6 +109,15 @@ Each opcode is encoded as a double. Opcodes with arguments consume the next doub
 | 23   | MAX_AGG    | idx  | pop a; state[idx] = max(state[idx], a); push state[idx] |
 | 24   | MIN_AGG    | idx  | pop a; state[idx] = min(state[idx], a); push state[idx] |
 | 25   | STATE_LOAD | idx  | push state[idx] (read-only) |
+| 26   | GT         | -    | pop b, a; push (a>b)?1:0   |
+| 27   | GTE        | -    | pop b, a; push (a>=b)?1:0  |
+| 28   | LT         | -    | pop b, a; push (a<b)?1:0   |
+| 29   | LTE        | -    | pop b, a; push (a<=b)?1:0  |
+| 30   | EQ         | -    | pop b, a; push (a==b)?1:0  |
+| 31   | NEQ        | -    | pop b, a; push (a!=b)?1:0  |
+| 32   | AND        | -    | pop b, a; push (a&&b)?1:0  |
+| 33   | OR         | -    | pop b, a; push (a\|\|b)?1:0|
+| 34   | NOT        | -    | pop a; push (!a)?1:0       |
 
 The bytecode must contain exactly `numOutputs` END markers. Each END terminates one expression and resets the evaluation stack.
 
@@ -122,6 +131,10 @@ The bytecode must contain exactly `numOutputs` END markers. Each END terminates 
 ### Stateful Opcodes
 
 Opcodes 21-25 access persistent state slots that survive across messages. The `stateInit` array sets the initial value of each slot (e.g., `[0.0, -Infinity, Infinity]` for CUMSUM, MAX_AGG, MIN_AGG respectively). State is mutated in place on every evaluation and is never reset automatically.
+
+### Comparison & Logical Opcodes
+
+Opcodes 26-34 perform comparisons and logical operations, producing 1.0 for true and 0.0 for false. These are primarily used by Pipeline's segment bytecode evaluator but are also available in FusedExpression for completeness. AND/OR treat any non-zero value as true.
 
 ### Example: two expressions over three inputs
 

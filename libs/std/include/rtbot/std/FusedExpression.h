@@ -43,6 +43,15 @@ constexpr double COUNT = 22;      // state[arg] += 1; push state[arg]. Uses 1 st
 constexpr double MAX_AGG = 23;    // pop a; state[arg] = max(state[arg], a); push state[arg]. Uses 1 slot (init -inf)
 constexpr double MIN_AGG = 24;    // pop a; state[arg] = min(state[arg], a); push state[arg]. Uses 1 slot (init +inf)
 constexpr double STATE_LOAD = 25; // push state[arg] (read-only, no modification). For shared COUNT references.
+constexpr double GT = 26;        // pop b, a; push (a > b) ? 1.0 : 0.0
+constexpr double GTE = 27;       // pop b, a; push (a >= b) ? 1.0 : 0.0
+constexpr double LT = 28;        // pop b, a; push (a < b) ? 1.0 : 0.0
+constexpr double LTE = 29;       // pop b, a; push (a <= b) ? 1.0 : 0.0
+constexpr double EQ = 30;        // pop b, a; push (a == b) ? 1.0 : 0.0
+constexpr double NEQ = 31;       // pop b, a; push (a != b) ? 1.0 : 0.0
+constexpr double AND = 32;       // pop b, a; push (a != 0.0 && b != 0.0) ? 1.0 : 0.0
+constexpr double OR = 33;        // pop b, a; push (a != 0.0 || b != 0.0) ? 1.0 : 0.0
+constexpr double NOT = 34;       // pop a; push (a == 0.0) ? 1.0 : 0.0
 }  // namespace fused_op
 
 class FusedExpression : public VectorCompose {
@@ -302,6 +311,52 @@ class FusedExpression : public VectorCompose {
           case 25 /* STATE_LOAD */: {
             int si = static_cast<int>(bc[pc++]);
             stack[sp++] = state_[si];
+            break;
+          }
+          case 26 /* GT */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] > b) ? 1.0 : 0.0;
+            break;
+          }
+          case 27 /* GTE */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] >= b) ? 1.0 : 0.0;
+            break;
+          }
+          case 28 /* LT */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] < b) ? 1.0 : 0.0;
+            break;
+          }
+          case 29 /* LTE */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] <= b) ? 1.0 : 0.0;
+            break;
+          }
+          case 30 /* EQ */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] == b) ? 1.0 : 0.0;
+            break;
+          }
+          case 31 /* NEQ */: {
+            double b = stack[--sp];
+            stack[sp - 1] = (stack[sp - 1] != b) ? 1.0 : 0.0;
+            break;
+          }
+          case 32 /* AND */: {
+            double b = stack[--sp];
+            double a = stack[--sp];
+            stack[sp++] = (a != 0.0 && b != 0.0) ? 1.0 : 0.0;
+            break;
+          }
+          case 33 /* OR */: {
+            double b = stack[--sp];
+            double a = stack[--sp];
+            stack[sp++] = (a != 0.0 || b != 0.0) ? 1.0 : 0.0;
+            break;
+          }
+          case 34 /* NOT */: {
+            stack[sp - 1] = (stack[sp - 1] == 0.0) ? 1.0 : 0.0;
             break;
           }
           default:
