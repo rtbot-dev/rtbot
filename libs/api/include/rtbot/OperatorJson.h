@@ -324,7 +324,17 @@ class OperatorJson {
         throw std::runtime_error("Pipeline must contain at least one connection between operators");
       }
 
-      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types);
+      std::vector<double> segment_bytecode;
+      std::vector<double> segment_constants;
+      if (parsed.contains("segmentBytecode") && parsed["segmentBytecode"].is_array()) {
+        segment_bytecode = parsed["segmentBytecode"].get<std::vector<double>>();
+      }
+      if (parsed.contains("segmentConstants") && parsed["segmentConstants"].is_array()) {
+        segment_constants = parsed["segmentConstants"].get<std::vector<double>>();
+      }
+      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types,
+                                                  std::move(segment_bytecode),
+                                                  std::move(segment_constants));
 
       // Configure internal operators
       for (const auto& op_json : parsed["operators"]) {
@@ -604,6 +614,10 @@ class OperatorJson {
       j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "BooleanToNumber") {
       // No parameters beyond id
+    } else if (type == "CumulativeSum") {
+      // No parameters beyond id
+    } else if (type == "CountNumber" || type == "CountBoolean") {
+      // No parameters beyond id
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
       j["key_index"] = kp->get_key_index();
@@ -643,6 +657,12 @@ class OperatorJson {
           mapping_json["o" + std::to_string(op_port + 1)] = "o" + std::to_string(pipeline_port + 1);
         }
         j["outputMappings"][op_id] = mapping_json;
+      }
+
+      // Segment bytecode (if present)
+      if (!pipeline->get_segment_bytecode().empty()) {
+        j["segmentBytecode"] = pipeline->get_segment_bytecode();
+        j["segmentConstants"] = pipeline->get_segment_constants();
       }
     } else if (type == "TriggerSet") {
       auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op);
