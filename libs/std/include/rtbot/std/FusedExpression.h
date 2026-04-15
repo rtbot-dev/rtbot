@@ -2,6 +2,8 @@
 #define FUSED_EXPRESSION_H
 
 #include <cmath>
+#include <cstring>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -36,6 +38,11 @@ constexpr double CEIL = 17;   // pop a; push ceil(a)
 constexpr double ROUND = 18;  // pop a; push round(a)
 constexpr double NEG = 19;    // pop a; push -a
 constexpr double END = 20;    // end of expression, top of stack is result
+constexpr double CUMSUM = 21;     // pop a; state[arg] += a (Kahan); push state[arg]. Uses 2 state slots: [sum, kahan_comp]
+constexpr double COUNT = 22;      // state[arg] += 1; push state[arg]. Uses 1 state slot. Does NOT pop.
+constexpr double MAX_AGG = 23;    // pop a; state[arg] = max(state[arg], a); push state[arg]. Uses 1 slot (init -inf)
+constexpr double MIN_AGG = 24;    // pop a; state[arg] = min(state[arg], a); push state[arg]. Uses 1 slot (init +inf)
+constexpr double STATE_LOAD = 25; // push state[arg] (read-only, no modification). For shared COUNT references.
 }  // namespace fused_op
 
 class FusedExpression : public VectorCompose {
@@ -44,27 +51,36 @@ class FusedExpression : public VectorCompose {
   // num_outputs: number of output columns in the emitted VectorNumberData
   // bytecode: flat double array encoding M expression trees in postfix notation
   // constants: flat double array of compile-time constants referenced by bytecode
+  // state_init: initial values for persistent state slots (empty = pure expressions)
   FusedExpression(std::string id, size_t num_ports, size_t num_outputs,
                   std::vector<double> bytecode, std::vector<double> constants,
+                  std::vector<double> state_init = {},
                   size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : VectorCompose(std::move(id), num_ports, max_size_per_port),
         num_outputs_(num_outputs),
         bytecode_(std::move(bytecode)),
-        constants_(std::move(constants)) {
+        constants_(std::move(constants)),
+        state_init_(std::move(state_init)),
+        state_(state_init_) {
     if (num_outputs_ < 1) {
       throw std::runtime_error(
           "FusedExpression requires at least 1 output expression");
     }
     // Validate bytecode has exactly num_outputs END markers.
-    // Must walk opcodes respecting argument structure — INPUT and CONST
-    // consume the next double as an argument, so those positions must not
-    // be counted as opcodes.
+    // Must walk opcodes respecting argument structure — INPUT, CONST, and
+    // stateful opcodes consume the next double as an argument, so those
+    // positions must not be counted as opcodes.
     size_t end_count = 0;
     size_t pc = 0;
     while (pc < bytecode_.size()) {
       int opcode = static_cast<int>(bytecode_[pc++]);
       if (opcode == static_cast<int>(fused_op::INPUT) ||
-          opcode == static_cast<int>(fused_op::CONST)) {
+          opcode == static_cast<int>(fused_op::CONST) ||
+          opcode == static_cast<int>(fused_op::CUMSUM) ||
+          opcode == static_cast<int>(fused_op::COUNT) ||
+          opcode == static_cast<int>(fused_op::MAX_AGG) ||
+          opcode == static_cast<int>(fused_op::MIN_AGG) ||
+          opcode == static_cast<int>(fused_op::STATE_LOAD)) {
         ++pc;  // skip argument
       } else if (opcode == static_cast<int>(fused_op::END)) {
         ++end_count;
@@ -82,6 +98,36 @@ class FusedExpression : public VectorCompose {
   size_t get_num_outputs() const { return num_outputs_; }
   const std::vector<double>& get_bytecode() const { return bytecode_; }
   const std::vector<double>& get_constants() const { return constants_; }
+  const std::vector<double>& get_state_init() const { return state_init_; }
+
+  void reset() override {
+    VectorCompose::reset();
+    state_ = state_init_;
+  }
+
+  Bytes collect_bytes() override {
+    Bytes bytes = VectorCompose::collect_bytes();
+    size_t n = state_.size();
+    bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&n),
+                 reinterpret_cast<const uint8_t*>(&n) + sizeof(n));
+    for (double v : state_) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&v),
+                   reinterpret_cast<const uint8_t*>(&v) + sizeof(v));
+    }
+    return bytes;
+  }
+
+  void restore(Bytes::const_iterator& it) override {
+    VectorCompose::restore(it);
+    size_t n;
+    std::memcpy(&n, &(*it), sizeof(n));
+    it += sizeof(n);
+    state_.resize(n);
+    for (size_t i = 0; i < n; i++) {
+      std::memcpy(&state_[i], &(*it), sizeof(double));
+      it += sizeof(double);
+    }
+  }
 
  protected:
   void process_data(bool debug = false) override {
@@ -224,6 +270,40 @@ class FusedExpression : public VectorCompose {
             sp = 0;
             break;
           }
+          case 21 /* CUMSUM */: {
+            int si = static_cast<int>(bc[pc++]);
+            double y = stack[--sp] - state_[si + 1];
+            double t = state_[si] + y;
+            state_[si + 1] = (t - state_[si]) - y;
+            state_[si] = t;
+            stack[sp++] = state_[si];
+            break;
+          }
+          case 22 /* COUNT */: {
+            int si = static_cast<int>(bc[pc++]);
+            state_[si] += 1.0;
+            stack[sp++] = state_[si];
+            break;
+          }
+          case 23 /* MAX_AGG */: {
+            int si = static_cast<int>(bc[pc++]);
+            double v = stack[--sp];
+            if (v > state_[si]) state_[si] = v;
+            stack[sp++] = state_[si];
+            break;
+          }
+          case 24 /* MIN_AGG */: {
+            int si = static_cast<int>(bc[pc++]);
+            double v = stack[--sp];
+            if (v < state_[si]) state_[si] = v;
+            stack[sp++] = state_[si];
+            break;
+          }
+          case 25 /* STATE_LOAD */: {
+            int si = static_cast<int>(bc[pc++]);
+            stack[sp++] = state_[si];
+            break;
+          }
           default:
             throw std::runtime_error(
                 "FusedExpression: unknown opcode " + std::to_string(opcode));
@@ -240,14 +320,18 @@ class FusedExpression : public VectorCompose {
   size_t num_outputs_;
   std::vector<double> bytecode_;
   std::vector<double> constants_;
+  std::vector<double> state_init_;
+  std::vector<double> state_;
 };
 
 inline std::shared_ptr<FusedExpression> make_fused_expression(
     std::string id, size_t num_ports, size_t num_outputs,
-    std::vector<double> bytecode, std::vector<double> constants) {
+    std::vector<double> bytecode, std::vector<double> constants,
+    std::vector<double> state_init = {}) {
   return std::make_shared<FusedExpression>(std::move(id), num_ports,
-                                           num_outputs, std::move(bytecode),
-                                           std::move(constants));
+                                            num_outputs, std::move(bytecode),
+                                            std::move(constants),
+                                            std::move(state_init));
 }
 
 }  // namespace rtbot
