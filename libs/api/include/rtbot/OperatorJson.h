@@ -53,6 +53,8 @@
 #include "rtbot/std/TopK.h"
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
+#include "rtbot/std/FusedExpression.h"
+#include "rtbot/std/FusedExpressionVector.h"
 
 using json = nlohmann::json;
 
@@ -219,6 +221,19 @@ class OperatorJson {
       return make_vector_project(id, parsed["indices"].get<std::vector<int>>());
     } else if (type == "VectorCompose") {
       return make_vector_compose(id, parsed["numPorts"].get<size_t>());
+    } else if (type == "FusedExpression") {
+      return make_fused_expression(
+          id, parsed["numPorts"].get<size_t>(),
+          parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("stateInit", std::vector<double>{}));
+    } else if (type == "FusedExpressionVector") {
+      return make_fused_expression_vector(
+          id, parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("stateInit", std::vector<double>{}));
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
@@ -259,7 +274,16 @@ class OperatorJson {
     } else if (type == "BooleanToNumber") {
       return make_boolean_to_number(id);
     } else if (type == "KeyedPipeline") {
-      auto key_index = parsed["key_index"].get<int>();
+      // Computed key mode: keyColumnIndices (coefficients computed internally)
+      // Classic mode: key_index
+      int key_index = -1;
+      std::vector<int> key_column_indices;
+
+      if (parsed.contains("keyColumnIndices")) {
+        key_column_indices = parsed["keyColumnIndices"].get<std::vector<int>>();
+      } else {
+        key_index = parsed["key_index"].get<int>();
+      }
 
       // Build factory from embedded prototype definition
       const auto& proto = parsed["prototype"];
@@ -286,7 +310,11 @@ class OperatorJson {
         return sg;
       };
 
-      return make_keyed_pipeline(id, key_index, factory);
+      if (!key_column_indices.empty()) {
+        return make_keyed_pipeline(id, std::move(key_column_indices), factory);
+      } else {
+        return make_keyed_pipeline(id, key_index, factory);
+      }
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -316,7 +344,17 @@ class OperatorJson {
         throw std::runtime_error("Pipeline must contain at least one connection between operators");
       }
 
-      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types);
+      std::vector<double> segment_bytecode;
+      std::vector<double> segment_constants;
+      if (parsed.contains("segmentBytecode") && parsed["segmentBytecode"].is_array()) {
+        segment_bytecode = parsed["segmentBytecode"].get<std::vector<double>>();
+      }
+      if (parsed.contains("segmentConstants") && parsed["segmentConstants"].is_array()) {
+        segment_constants = parsed["segmentConstants"].get<std::vector<double>>();
+      }
+      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types,
+                                                  std::move(segment_bytecode),
+                                                  std::move(segment_constants));
 
       // Configure internal operators
       for (const auto& op_json : parsed["operators"]) {
@@ -549,6 +587,23 @@ class OperatorJson {
       j["indices"] = std::dynamic_pointer_cast<VectorProject>(op)->get_indices();
     } else if (type == "VectorCompose") {
       j["numPorts"] = std::dynamic_pointer_cast<VectorCompose>(op)->get_num_ports();
+    } else if (type == "FusedExpression") {
+      auto fe = std::dynamic_pointer_cast<FusedExpression>(op);
+      j["numPorts"] = fe->get_num_ports();
+      j["numOutputs"] = fe->get_num_outputs();
+      j["bytecode"] = fe->get_bytecode();
+      j["constants"] = fe->get_constants();
+      if (!fe->get_state_init().empty()) {
+        j["stateInit"] = fe->get_state_init();
+      }
+    } else if (type == "FusedExpressionVector") {
+      auto fev = std::dynamic_pointer_cast<FusedExpressionVector>(op);
+      j["numOutputs"] = fev->get_num_outputs();
+      j["bytecode"] = fev->get_bytecode();
+      j["constants"] = fev->get_constants();
+      if (!fev->get_state_init().empty()) {
+        j["stateInit"] = fev->get_state_init();
+      }
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
     } else if (type == "CompareLT") {
@@ -587,9 +642,17 @@ class OperatorJson {
       j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "BooleanToNumber") {
       // No parameters beyond id
+    } else if (type == "CumulativeSum") {
+      // No parameters beyond id
+    } else if (type == "CountNumber" || type == "CountBoolean") {
+      // No parameters beyond id
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
-      j["key_index"] = kp->get_key_index();
+      if (kp->has_computed_key()) {
+        j["keyColumnIndices"] = kp->get_key_column_indices();
+      } else {
+        j["key_index"] = kp->get_key_index();
+      }
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";
@@ -626,6 +689,12 @@ class OperatorJson {
           mapping_json["o" + std::to_string(op_port + 1)] = "o" + std::to_string(pipeline_port + 1);
         }
         j["outputMappings"][op_id] = mapping_json;
+      }
+
+      // Segment bytecode (if present)
+      if (!pipeline->get_segment_bytecode().empty()) {
+        j["segmentBytecode"] = pipeline->get_segment_bytecode();
+        j["segmentConstants"] = pipeline->get_segment_constants();
       }
     } else if (type == "TriggerSet") {
       auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op);

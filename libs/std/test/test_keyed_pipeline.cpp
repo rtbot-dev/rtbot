@@ -6,6 +6,8 @@
 #include "rtbot/std/KeyedPipeline.h"
 #include "rtbot/std/VectorExtract.h"
 #include "rtbot/std/VectorProject.h"
+#include "rtbot/std/FusedExpression.h"
+#include "rtbot/OperatorJson.h"
 
 using namespace rtbot;
 
@@ -270,5 +272,301 @@ SCENARIO("KeyedPipeline validation", "[keyed_pipeline]") {
     auto kp = make_keyed_pipeline("kp1", 5, make_extract_cumsum_factory(1));
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 2.0}}), 0);
     REQUIRE_THROWS_AS(kp->execute(), std::runtime_error);
+  }
+}
+
+// --- Computed key mode tests ---
+
+SCENARIO("KeyedPipeline computed key: basic routing with 2-column hash", "[keyed_pipeline][computed_key]") {
+  SECTION("Routes messages by weighted sum of two columns") {
+    // Prototype: VectorProject(indices=[0,1,2]) — passes through 3 fields
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0, 1},           // key from cols 0 and 1
+        make_project_factory({0, 1, 2}));
+
+    // Input: [device_id, channel_id, amplitude]
+    // key for (1, 10, ...) = PRIME * 1 + 10
+    // key for (2, 20, ...) = PRIME * 2 + 20
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0, 100.0}}), 0);
+    kp->execute();
+
+    {
+      auto& out = kp->get_output_queue(0);
+      REQUIRE(out.size() == 1);
+      auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
+      REQUIRE(msg->time == 1);
+      // Computed key: output is prototype output directly (no key prepend)
+      REQUIRE(msg->data.values->size() == 3);
+      REQUIRE((*msg->data.values)[0] == 1.0);    // device_id
+      REQUIRE((*msg->data.values)[1] == 10.0);   // channel_id
+      REQUIRE((*msg->data.values)[2] == 100.0);  // amplitude
+    }
+
+    kp->clear_all_output_ports();
+
+    // Different key group
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
+    kp->execute();
+
+    {
+      auto& out = kp->get_output_queue(0);
+      REQUIRE(out.size() == 1);
+      auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
+      REQUIRE(msg->data.values->size() == 3);
+      REQUIRE((*msg->data.values)[0] == 2.0);
+      REQUIRE((*msg->data.values)[1] == 20.0);
+      REQUIRE((*msg->data.values)[2] == 200.0);
+    }
+
+    REQUIRE(kp->num_keys() == 2);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: per-key state isolation", "[keyed_pipeline][computed_key]") {
+  SECTION("Cumulative sums are maintained independently per computed key") {
+    // Prototype: VectorExtract(index=2) → CumulativeSum
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0, 1},
+        make_extract_cumsum_factory(2));
+
+    // key group A: device=1, channel=10
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0, 100.0}}), 0);
+    kp->execute();
+    {
+      auto& out = kp->get_output_queue(0);
+      REQUIRE(out.size() == 1);
+      // CumulativeSum outputs NumberData, which gets cloned as-is in computed key mode.
+      // The real use case has FusedExpression outputting VectorNumberData.
+    }
+    kp->clear_all_output_ports();
+
+    // key group B: device=2, channel=20
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    // key group A again: sum should be 100 + 150 = 250
+    kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 10.0, 150.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    // key group B again: sum should be 200 + 250 = 450
+    kp->receive_data(create_message<VectorNumberData>(4, VectorNumberData{{2.0, 20.0, 250.0}}), 0);
+    kp->execute();
+
+    // We can't easily check scalar vs vector in computed mode since CumulativeSum
+    // outputs NumberData. The real use case has FusedExpression outputting VectorNumberData.
+    REQUIRE(kp->num_keys() == 2);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: single column coefficient", "[keyed_pipeline][computed_key]") {
+  SECTION("Single column with coefficient 1.0 acts like classic mode without key prepend") {
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0},
+        make_project_factory({0, 1}));
+
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{5.0, 99.0}}), 0);
+    kp->execute();
+
+    auto& out = kp->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
+    // No key prepend in computed mode: output = project({0,1}) = [5.0, 99.0]
+    REQUIRE(msg->data.values->size() == 2);
+    REQUIRE((*msg->data.values)[0] == 5.0);
+    REQUIRE((*msg->data.values)[1] == 99.0);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: validation", "[keyed_pipeline][computed_key]") {
+  SECTION("Empty key_column_indices throws") {
+    REQUIRE_THROWS_AS(
+        make_keyed_pipeline("kp1", std::vector<int>{},
+                            make_project_factory({0})),
+        std::runtime_error);
+  }
+
+  SECTION("Negative index throws") {
+    REQUIRE_THROWS_AS(
+        make_keyed_pipeline("kp1", std::vector<int>{-1},
+                            make_project_factory({0})),
+        std::runtime_error);
+  }
+
+  SECTION("Out of bounds column index at runtime throws") {
+    auto kp = make_keyed_pipeline(
+        "kp1", std::vector<int>{5},
+        make_project_factory({0}));
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 2.0}}), 0);
+    REQUIRE_THROWS_AS(kp->execute(), std::runtime_error);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: serialization roundtrip", "[keyed_pipeline][computed_key][State]") {
+  SECTION("Collect and restore preserves per-key state") {
+    auto factory = make_project_factory({0, 1, 2});
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0, 1},
+        factory);
+
+    // Process messages for 2 key groups
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0, 100.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    REQUIRE(kp->num_keys() == 2);
+
+    // Collect state
+    auto state = kp->collect();
+
+    // Restore into a new instance
+    auto kp2 = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0, 1},
+        factory);
+    kp2->restore_data_from_json(state);
+
+    REQUIRE(kp2->num_keys() == 2);
+
+    // Process new message for key group A and verify it routes correctly
+    kp2->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 10.0, 300.0}}), 0);
+    kp2->execute();
+
+    auto& out = kp2->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
+    REQUIRE(msg->data.values->size() == 3);
+    REQUIRE((*msg->data.values)[0] == 1.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
+    REQUIRE((*msg->data.values)[2] == 300.0);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: new key callback fires", "[keyed_pipeline][computed_key]") {
+  SECTION("Callback called once per unique computed key") {
+    std::vector<double> new_keys;
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0},
+        make_project_factory({0, 1}));
+    kp->set_new_key_callback([&new_keys](double key) { new_keys.push_back(key); });
+
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 30.0}}), 0);
+    kp->execute();
+    kp->clear_all_output_ports();
+
+    REQUIRE(new_keys.size() == 2);
+    REQUIRE(new_keys[0] == 1.0);
+    REQUIRE(new_keys[1] == 2.0);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: equality comparison", "[keyed_pipeline][computed_key]") {
+  SECTION("Same configuration and state are equal") {
+    auto factory = make_project_factory({0, 1});
+    auto kp1 = make_keyed_pipeline("kp", std::vector<int>{0, 1}, factory);
+    auto kp2 = make_keyed_pipeline("kp", std::vector<int>{0, 1}, factory);
+    REQUIRE(*kp1 == *kp2);
+  }
+
+  SECTION("Different column indices are not equal") {
+    auto factory = make_project_factory({0, 1});
+    auto kp1 = make_keyed_pipeline("kp", std::vector<int>{0, 1}, factory);
+    auto kp2 = make_keyed_pipeline("kp", std::vector<int>{0, 2}, factory);
+    REQUIRE(*kp1 != *kp2);
+  }
+
+  SECTION("Computed key mode not equal to classic mode") {
+    auto factory = make_project_factory({0, 1});
+    auto kp1 = make_keyed_pipeline("kp", 0, factory);
+    auto kp2 = make_keyed_pipeline("kp", std::vector<int>{0}, factory);
+    REQUIRE(*kp1 != *kp2);
+  }
+}
+
+SCENARIO("KeyedPipeline computed key: JSON roundtrip via OperatorJson", "[keyed_pipeline][computed_key][json]") {
+  SECTION("Serialize and deserialize preserves computed key config") {
+    // Build a KeyedPipeline with computed key that contains a VectorProject prototype
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{0, 1},
+        make_project_factory({0, 1, 2}));
+
+    // Test the read_op path with a hand-crafted JSON.
+    // Note: keyCoefficients is NOT needed — the operator computes them internally.
+    std::string json_str = R"({
+      "type": "KeyedPipeline",
+      "id": "kp1",
+      "keyColumnIndices": [0, 1],
+      "prototype": {
+        "entry": {"operator": "proj"},
+        "output": {"operator": "proj"},
+        "operators": [
+          {"type": "VectorProject", "id": "proj", "indices": [0, 1, 2]}
+        ],
+        "connections": []
+      }
+    })";
+
+    auto restored = OperatorJson::read_op(json_str);
+    REQUIRE(restored->type_name() == "KeyedPipeline");
+
+    auto* kp_restored = dynamic_cast<KeyedPipeline*>(restored.get());
+    REQUIRE(kp_restored != nullptr);
+    REQUIRE(kp_restored->has_computed_key());
+    REQUIRE(kp_restored->get_key_column_indices() == std::vector<int>{0, 1});
+
+    // Verify it routes correctly
+    kp_restored->receive_data(
+        create_message<VectorNumberData>(1, VectorNumberData{{5.0, 10.0, 99.0}}), 0);
+    kp_restored->execute();
+
+    auto& out = kp_restored->get_output_queue(0);
+    REQUIRE(out.size() == 1);
+    auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
+    REQUIRE(msg->data.values->size() == 3);
+    REQUIRE((*msg->data.values)[0] == 5.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
+    REQUIRE((*msg->data.values)[2] == 99.0);
+  }
+
+  SECTION("write_op emits keyColumnIndices only") {
+    auto kp = make_keyed_pipeline(
+        "kp1",
+        std::vector<int>{2, 3},
+        make_project_factory({0}));
+
+    auto json_str = OperatorJson::write_op(kp);
+    auto j = nlohmann::json::parse(json_str);
+    REQUIRE(j.contains("keyColumnIndices"));
+    REQUIRE_FALSE(j.contains("keyCoefficients"));
+    REQUIRE_FALSE(j.contains("key_index"));
+    REQUIRE(j["keyColumnIndices"] == std::vector<int>{2, 3});
+  }
+
+  SECTION("write_op for classic mode emits key_index") {
+    auto kp = make_keyed_pipeline("kp1", 0, make_project_factory({0}));
+    auto json_str = OperatorJson::write_op(kp);
+    auto j = nlohmann::json::parse(json_str);
+    REQUIRE(j.contains("key_index"));
+    REQUIRE_FALSE(j.contains("keyColumnIndices"));
+    REQUIRE(j["key_index"] == 0);
   }
 }

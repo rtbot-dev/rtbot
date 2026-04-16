@@ -1,7 +1,9 @@
 #ifndef OPERATOR_H
 #define OPERATOR_H
 
-#define MAX_SIZE_PER_PORT 17280
+#ifndef MAX_SIZE_PER_PORT
+#define MAX_SIZE_PER_PORT 50000
+#endif
 
 #include <cstddef>
 #include <cstdint>

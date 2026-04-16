@@ -317,7 +317,7 @@ class Message : public BaseMessage {
         return;
       }
     }
-    ::operator delete(p, sz);
+    ::operator delete(p);
   }
 
   static void operator delete(void* p) noexcept {

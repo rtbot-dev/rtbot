@@ -25,6 +25,7 @@ cc_test(
         "-fsanitize=address",
     ],
     deps = [
+        "//libs/api:rtbot-api",
         "//libs/std:rtbot-std",
         "@catch2",
     ] + select({

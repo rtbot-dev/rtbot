@@ -82,6 +82,30 @@ class Program {
     return receive_debug(create_message<NumberData>(msg.time, msg.data), port_id);
   }
 
+  // Batch entry: push all messages from a multi-port buffer into the entry
+  // operator's queues, then run a single execute() pass, then collect+clear
+  // outputs once. Semantically equivalent to calling receive() once per
+  // message in arrival order, but amortizes the per-message scheduling cost
+  // (virtual dispatch, propagate_outputs recursion, collect/clear) over the
+  // whole burst. Relies on the rtbot invariant that messages within a port
+  // are monotone in time; sync_data_inputs is state-preserving regardless of
+  // how many messages are queued on each port.
+  ProgramMsgBatch receive_batch(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
+    send_batch_to_entry(port_messages, false);
+    ProgramMsgBatch result = collect_outputs(false);
+    clear_all_outputs();
+    return result;
+  }
+
+  ProgramMsgBatch receive_batch_debug(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
+    send_batch_to_entry(port_messages, true);
+    ProgramMsgBatch result = collect_outputs(true);
+    clear_all_outputs();
+    return result;
+  }
+
   // Getters
   const string& get_entry_operator() const { return entry_operator_id_; }
   const map<string, vector<size_t>>& get_output_mappings() const { return output_mappings_; }
@@ -194,6 +218,19 @@ class Program {
     auto port_info = OperatorJson::parse_port_name(port_id);
     operators_[entry_operator_id_]->receive_data(std::move(msg), port_info.index);
     operators_[entry_operator_id_]->execute(debug);
+  }
+
+  void send_batch_to_entry(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages, bool debug) {
+    auto& entry = operators_[entry_operator_id_];
+    for (const auto& [port_id, messages] : port_messages) {
+      if (messages.empty()) continue;
+      auto port_info = OperatorJson::parse_port_name(port_id);
+      for (const auto& msg : messages) {
+        entry->receive_data(msg->clone(), port_info.index);
+      }
+    }
+    entry->execute(debug);
   }
 
   ProgramMsgBatch collect_outputs(bool debug_mode = false) {
@@ -402,19 +439,14 @@ class ProgramManager {
       throw runtime_error("Program " + program_id + " not found");
     }
 
-    ProgramMsgBatch result;
     auto& prog = programs_.at(program_id);
-
     auto buffer_it = message_buffer_.find(program_id);
-    if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
-      for (const auto& [port_id, messages] : buffer_it->second) {
-        for (const auto& msg : messages) {
-          auto batch = prog.receive(msg->clone(), port_id);
-          merge_batches(result, batch);
-        }
-      }
-      message_buffer_.erase(buffer_it);
+    if (buffer_it == message_buffer_.end() || buffer_it->second.empty()) {
+      return {};
     }
+
+    ProgramMsgBatch result = prog.receive_batch(buffer_it->second);
+    message_buffer_.erase(buffer_it);
     return result;
   }
 
@@ -423,19 +455,14 @@ class ProgramManager {
       throw runtime_error("Program " + program_id + " not found");
     }
 
-    ProgramMsgBatch result;
     auto& prog = programs_.at(program_id);
-
     auto buffer_it = message_buffer_.find(program_id);
-    if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
-      for (const auto& [port_id, messages] : buffer_it->second) {
-        for (const auto& msg : messages) {
-          auto batch = prog.receive_debug(msg->clone(), port_id);
-          merge_batches(result, batch);
-        }
-      }
-      message_buffer_.erase(buffer_it);
+    if (buffer_it == message_buffer_.end() || buffer_it->second.empty()) {
+      return {};
     }
+
+    ProgramMsgBatch result = prog.receive_batch_debug(buffer_it->second);
+    message_buffer_.erase(buffer_it);
     return result;
   }
 

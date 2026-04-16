@@ -1,6 +1,7 @@
 #ifndef PIPELINE_H
 #define PIPELINE_H
 
+#include <cmath>
 #include <map>
 #include <memory>
 #include <string>
@@ -18,8 +19,12 @@ class Pipeline : public Operator {
  public:
 
   Pipeline(std::string id, const std::vector<std::string>& input_port_types,
-           const std::vector<std::string>& output_port_types)
-      : Operator(std::move(id)) {
+           const std::vector<std::string>& output_port_types,
+           std::vector<double> segment_bytecode = {},
+           std::vector<double> segment_constants = {})
+      : Operator(std::move(id)),
+        segment_bytecode_(std::move(segment_bytecode)),
+        segment_constants_(std::move(segment_constants)) {
     // Configure input ports
     for (const auto& type : input_port_types) {
       if (!PortType::is_valid_port_type(type)) {
@@ -38,9 +43,18 @@ class Pipeline : public Operator {
       output_port_types_.push_back(type);
     }
 
-    // Control port: receives segment expression value (NumberData)
-    // Key transitions (value changes) drive output emission and reset
-    add_control_port<NumberData>();
+    // Segment bytecode mode requires first input port to be VECTOR_NUMBER
+    if (!segment_bytecode_.empty() && (input_port_types_.empty() ||
+        input_port_types_[0] != PortType::VECTOR_NUMBER)) {
+      throw std::runtime_error(
+          "Segment bytecode mode requires first input port to be VECTOR_NUMBER");
+    }
+
+    // Control port: only created when no segment bytecode is provided
+    // When segment_bytecode is non-empty, the segment key is computed internally
+    if (segment_bytecode_.empty()) {
+      add_control_port<NumberData>();
+    }
   }
 
   // Get port configurations
@@ -52,6 +66,9 @@ class Pipeline : public Operator {
   const std::map<std::string, std::vector<std::pair<size_t, size_t>>>& get_output_mappings() const {
     return output_mappings_;
   }
+  const std::vector<double>& get_segment_bytecode() const { return segment_bytecode_; }
+  const std::vector<double>& get_segment_constants() const { return segment_constants_; }
+  bool has_segment_bytecode() const { return !segment_bytecode_.empty(); }
 
   // API for configuring the pipeline
   void register_operator(std::shared_ptr<Operator> op) { operators_[op->id()] = std::move(op); }
@@ -199,6 +216,8 @@ class Pipeline : public Operator {
   bool equals(const Pipeline& other) const {
     if (input_port_types_ != other.input_port_types_) return false;
     if (output_port_types_ != other.output_port_types_) return false;
+    if (segment_bytecode_ != other.segment_bytecode_) return false;
+    if (segment_constants_ != other.segment_constants_) return false;
     if (output_mappings_ != other.output_mappings_) return false;
     if ((bool)entry_operator_ != (bool)other.entry_operator_) return false;
     if (entry_operator_ && other.entry_operator_) {
@@ -242,7 +261,16 @@ class Pipeline : public Operator {
     if (!entry_operator_) {
       throw std::runtime_error("Pipeline entry point not configured");
     }
+    if (!segment_bytecode_.empty()) {
+      process_data_with_segment_bytecode(debug);
+    } else {
+      process_data_with_control_port(debug);
+    }
+  }
 
+ private:
+  // Control-port mode: original process_data logic (unchanged)
+  void process_data_with_control_port(bool debug) {
     auto& control_queue = get_control_queue(0);
 
     while (!control_queue.empty()) {
@@ -302,7 +330,208 @@ class Pipeline : public Operator {
     }
   }
 
- private:
+  // Segment-bytecode mode: evaluate bytecode on incoming vector, no control port
+  void process_data_with_segment_bytecode(bool debug) {
+    while (true) {
+      // Check all data ports have at least one message
+      bool all_data_ready = true;
+      for (size_t i = 0; i < num_data_ports(); ++i) {
+        if (get_data_queue(i).empty()) {
+          all_data_ready = false;
+          break;
+        }
+      }
+      if (!all_data_ready) break;
+
+      // Evaluate segment bytecode on the first data port's vector to get segment key
+      const auto* vec_msg = static_cast<const Message<VectorNumberData>*>(get_data_queue(0).front().get());
+      const auto& vec = *vec_msg->data.values;
+      double new_key = evaluate_segment_bytecode(vec);
+      timestamp_t boundary_time = vec_msg->time;
+
+      if (has_key_ && new_key != current_key_) {
+        // Key changed: emit buffer with boundary timestamp, reset internals, start new segment
+        emit_buffer(boundary_time);
+        reset_internals();
+      }
+      if (!has_key_) has_key_ = true;
+      current_key_ = new_key;
+      forward_and_buffer(debug);
+
+      // Pop consumed messages from data queues
+      for (size_t i = 0; i < num_data_ports(); ++i) {
+        get_data_queue(i).pop_front();
+      }
+    }
+  }
+
+  // RPN bytecode interpreter for segment key evaluation.
+  // Evaluates against a vector — INPUT reads vec[argument] directly.
+  // Only stateless opcodes (0-20, 26-34) are supported; stateful aggregate
+  // opcodes (21-25: CUMSUM, COUNT, MAX_AGG, MIN_AGG, STATE_LOAD) are not
+  // available since the segment expression must be a pure function of the
+  // current vector. Segment keys are compared with exact floating-point
+  // equality, so expressions should produce integer-valued results
+  // (e.g., via FLOOR, comparisons producing 1.0/0.0).
+  double evaluate_segment_bytecode(const std::vector<double>& vec) const {
+    const double* bc = segment_bytecode_.data();
+    const size_t bc_size = segment_bytecode_.size();
+    const double* consts = segment_constants_.data();
+
+    double stack[64];
+    size_t sp = 0;
+    size_t pc = 0;
+
+    while (pc < bc_size) {
+      int opcode = static_cast<int>(bc[pc++]);
+
+      switch (opcode) {
+        case 0 /* INPUT */: {
+          stack[sp++] = vec[static_cast<int>(bc[pc++])];
+          break;
+        }
+        case 1 /* CONST */: {
+          stack[sp++] = consts[static_cast<int>(bc[pc++])];
+          break;
+        }
+        case 2 /* ADD */: {
+          double b = stack[--sp];
+          stack[sp - 1] += b;
+          break;
+        }
+        case 3 /* SUB */: {
+          double b = stack[--sp];
+          stack[sp - 1] -= b;
+          break;
+        }
+        case 4 /* MUL */: {
+          double b = stack[--sp];
+          stack[sp - 1] *= b;
+          break;
+        }
+        case 5 /* DIV */: {
+          double b = stack[--sp];
+          stack[sp - 1] /= b;
+          break;
+        }
+        case 6 /* POW */: {
+          double b = stack[--sp];
+          double a = stack[--sp];
+          stack[sp++] = std::pow(a, b);
+          break;
+        }
+        case 7 /* ABS */: {
+          stack[sp - 1] = std::abs(stack[sp - 1]);
+          break;
+        }
+        case 8 /* SQRT */: {
+          stack[sp - 1] = std::sqrt(stack[sp - 1]);
+          break;
+        }
+        case 9 /* LOG */: {
+          stack[sp - 1] = std::log(stack[sp - 1]);
+          break;
+        }
+        case 10 /* LOG10 */: {
+          stack[sp - 1] = std::log10(stack[sp - 1]);
+          break;
+        }
+        case 11 /* EXP */: {
+          stack[sp - 1] = std::exp(stack[sp - 1]);
+          break;
+        }
+        case 12 /* SIN */: {
+          stack[sp - 1] = std::sin(stack[sp - 1]);
+          break;
+        }
+        case 13 /* COS */: {
+          stack[sp - 1] = std::cos(stack[sp - 1]);
+          break;
+        }
+        case 14 /* TAN */: {
+          stack[sp - 1] = std::tan(stack[sp - 1]);
+          break;
+        }
+        case 15 /* SIGN */: {
+          double v = stack[sp - 1];
+          stack[sp - 1] = (v > 0.0) ? 1.0 : (v < 0.0) ? -1.0 : 0.0;
+          break;
+        }
+        case 16 /* FLOOR */: {
+          stack[sp - 1] = std::floor(stack[sp - 1]);
+          break;
+        }
+        case 17 /* CEIL */: {
+          stack[sp - 1] = std::ceil(stack[sp - 1]);
+          break;
+        }
+        case 18 /* ROUND */: {
+          stack[sp - 1] = std::round(stack[sp - 1]);
+          break;
+        }
+        case 19 /* NEG */: {
+          stack[sp - 1] = -stack[sp - 1];
+          break;
+        }
+        case 20 /* END */: {
+          // Return the top of stack as the segment key
+          return stack[--sp];
+        }
+        case 26 /* GT */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] > b) ? 1.0 : 0.0;
+          break;
+        }
+        case 27 /* GTE */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] >= b) ? 1.0 : 0.0;
+          break;
+        }
+        case 28 /* LT */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] < b) ? 1.0 : 0.0;
+          break;
+        }
+        case 29 /* LTE */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] <= b) ? 1.0 : 0.0;
+          break;
+        }
+        case 30 /* EQ */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] == b) ? 1.0 : 0.0;
+          break;
+        }
+        case 31 /* NEQ */: {
+          double b = stack[--sp];
+          stack[sp - 1] = (stack[sp - 1] != b) ? 1.0 : 0.0;
+          break;
+        }
+        case 32 /* AND */: {
+          double b = stack[--sp];
+          double a = stack[--sp];
+          stack[sp++] = (a != 0.0 && b != 0.0) ? 1.0 : 0.0;
+          break;
+        }
+        case 33 /* OR */: {
+          double b = stack[--sp];
+          double a = stack[--sp];
+          stack[sp++] = (a != 0.0 || b != 0.0) ? 1.0 : 0.0;
+          break;
+        }
+        case 34 /* NOT */: {
+          stack[sp - 1] = (stack[sp - 1] == 0.0) ? 1.0 : 0.0;
+          break;
+        }
+        default:
+          throw std::runtime_error(
+              "Pipeline: unknown segment bytecode opcode " + std::to_string(opcode));
+      }
+    }
+    // Missing END opcode is always a bytecode authoring bug
+    throw std::runtime_error("Pipeline segment bytecode: missing END opcode");
+  }
+
   // Forward data from all input ports to the entry operator, execute the mesh,
   // and buffer any internal outputs (don't emit to pipeline output).
   void forward_and_buffer(bool debug) {
@@ -361,6 +590,8 @@ class Pipeline : public Operator {
 
   std::vector<std::string> input_port_types_;
   std::vector<std::string> output_port_types_;
+  std::vector<double> segment_bytecode_;
+  std::vector<double> segment_constants_;
   std::vector<CompositeConnection> connections_;
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;

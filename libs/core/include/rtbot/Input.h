@@ -52,22 +52,20 @@ class Input : public Operator {
     }
   }
 
- protected:
+  protected:
   void process_data(bool debug=false) override {
+    (void)debug;
     // Process each port independently to allow concurrent timestamps
     for (int port_index = 0; port_index < num_data_ports(); port_index++) {
-      const auto& input_queue = get_data_queue(port_index);
+      auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
 
       auto& output_queue = get_output_queue(port_index);
 
-      // Process all messages in input queue
-      for (const auto& msg : input_queue) {        
-          output_queue.push_back(std::move(msg->clone()));       
+      while (!input_queue.empty()) {
+        output_queue.push_back(std::move(input_queue.front()));
+        input_queue.pop_front();
       }
-
-      // Clear processed messages
-      get_data_queue(port_index).clear();
     }
   }
 
