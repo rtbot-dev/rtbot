@@ -94,17 +94,16 @@ class Program {
   ProgramMsgBatch receive_batch(
       const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
     send_batch_to_entry(port_messages, false);
-    ProgramMsgBatch result = collect_outputs(false);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(false);
   }
 
   ProgramMsgBatch receive_batch_debug(
       const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
+    for (auto& [_, op] : operators_) {
+      op->clear_debug_output_queues();
+    }
     send_batch_to_entry(port_messages, true);
-    ProgramMsgBatch result = collect_outputs(true);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(true);
   }
 
   // Getters

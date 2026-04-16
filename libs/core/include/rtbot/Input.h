@@ -67,7 +67,6 @@ class Input : public Operator {
 
  protected:
   void process_data(bool debug=false) override {
-    (void)debug;
     // Process each port independently to allow concurrent timestamps
     for (int port_index = 0; port_index < num_data_ports(); port_index++) {
       auto& input_queue = get_data_queue(port_index);
@@ -77,6 +76,7 @@ class Input : public Operator {
       for (const auto& msg : input_queue) {
         emit_output(port_index, msg->clone(), debug);
       }
+      input_queue.clear();
     }
   }
 

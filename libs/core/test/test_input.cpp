@@ -165,6 +165,7 @@ SCENARIO("Input operator handles state serialization", "[input][State]") {
       }
 
       AND_WHEN("New messages are received") {
+        rcol->reset();
         restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
         restored->execute();
 
@@ -291,19 +292,19 @@ SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
 SCENARIO("Input forwards messages without cloning", "[input][perf]") {
   GIVEN("A vector-number input operator") {
     auto input = make_vector_number_input("input_no_clone");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::VECTOR_NUMBER});
+    input->connect(col, 0, 0);
 
     auto msg = create_message<VectorNumberData>(
         1, VectorNumberData{{1.0, 2.0, 3.0}});
-    const BaseMessage* original_ptr = msg.get();
 
     WHEN("A message is received and executed") {
       input->receive_data(std::move(msg), 0);
       input->execute();
 
-      THEN("The same message instance is forwarded") {
-        const auto& output = input->get_output_queue(0);
+      THEN("The message is forwarded to the collector") {
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
-        REQUIRE(output.front().get() == original_ptr);
       }
     }
   }

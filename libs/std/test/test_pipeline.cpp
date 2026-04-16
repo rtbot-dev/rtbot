@@ -1084,7 +1084,7 @@ static std::unique_ptr<Pipeline> make_segment_bc_pipeline(
   pipeline->register_operator(extract);
   pipeline->register_operator(cumsum);
   pipeline->set_entry("extract");
-  pipeline->connect("extract", "cumsum");
+  pipeline->connect(extract, cumsum);
   pipeline->add_output_mapping("cumsum", 0, 0);
   return pipeline;
 }
@@ -1117,19 +1117,21 @@ SCENARIO("Pipeline segment bytecode: segment boundary triggers emission", "[pipe
   using namespace fused_op;
   auto pipeline = make_segment_bc_pipeline("seg_bc",
       {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::NUMBER});
+  pipeline->connect(col, 0, 0);
 
   // Segment 1: col[2]=5.0 → ABS(5)>0 → key=1.0
   // Internal cumsum on col[0]: 10, 30, 60
   send_vec(*pipeline, 1, {10.0, 0.0, 5.0});
   send_vec(*pipeline, 2, {20.0, 0.0, 5.0});
   send_vec(*pipeline, 3, {30.0, 0.0, 5.0});
-  REQUIRE(pipeline->get_output_queue(0).empty());  // no boundary yet
+  REQUIRE(col->get_data_queue(0).empty());  // no boundary yet
 
   // Key change: col[2]=0.0 → ABS(0)>0 → key=0.0 (boundary!)
   send_vec(*pipeline, 4, {5.0, 0.0, 0.0});
 
   THEN("Segment 1 buffer emitted at boundary timestamp") {
-    auto& out = pipeline->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<NumberData>*>(out[0].get());
     REQUIRE(msg != nullptr);
@@ -1142,6 +1144,8 @@ SCENARIO("Pipeline segment bytecode: multiple segment transitions", "[pipeline][
   using namespace fused_op;
   auto pipeline = make_segment_bc_pipeline("seg_bc",
       {INPUT, 2, ABS, CONST, 0, GT, END}, {0.0});
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::NUMBER});
+  pipeline->connect(col, 0, 0);
 
   // Segment 1: key=1.0 (col[2]=5), cumsum: 10, 30
   send_vec(*pipeline, 1, {10.0, 0.0, 5.0});
@@ -1150,12 +1154,12 @@ SCENARIO("Pipeline segment bytecode: multiple segment transitions", "[pipeline][
   // Boundary → segment 2: key=0.0 (col[2]=0), emits cumsum=30
   send_vec(*pipeline, 3, {100.0, 0.0, 0.0});
   {
-    auto& out = pipeline->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(30.0));
     REQUIRE(out[0]->time == 3);
   }
-  pipeline->clear_all_output_ports();
+  col->reset();
 
   // Segment 2: cumsum resets → 100
   send_vec(*pipeline, 4, {200.0, 0.0, 0.0});
@@ -1163,7 +1167,7 @@ SCENARIO("Pipeline segment bytecode: multiple segment transitions", "[pipeline][
   // Boundary → segment 3: key=1.0 (col[2]=7), emits cumsum=300
   send_vec(*pipeline, 5, {50.0, 0.0, 7.0});
   {
-    auto& out = pipeline->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(300.0));
     REQUIRE(out[0]->time == 5);
@@ -1176,6 +1180,8 @@ SCENARIO("Pipeline segment bytecode: numeric segment expression", "[pipeline][se
   // Bytecode: INPUT 0, CONST 0, DIV, FLOOR, END
   auto pipeline = make_segment_bc_pipeline("seg_num",
       {INPUT, 0, CONST, 0, DIV, FLOOR, END}, {10.0});
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::NUMBER});
+  pipeline->connect(col, 0, 0);
 
   // Segment key=0 (values 0-9)
   send_vec(*pipeline, 1, {3.0, 0.0, 0.0});    // cumsum=3, key=0
@@ -1184,7 +1190,7 @@ SCENARIO("Pipeline segment bytecode: numeric segment expression", "[pipeline][se
   // Key change to 1 (values 10-19)
   send_vec(*pipeline, 3, {10.0, 0.0, 0.0});   // key=1 → emit 10
   {
-    auto& out = pipeline->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(10.0));
   }
@@ -1193,13 +1199,15 @@ SCENARIO("Pipeline segment bytecode: numeric segment expression", "[pipeline][se
 SCENARIO("Pipeline segment bytecode: backwards compat with empty bytecode", "[pipeline][segment_bytecode]") {
   // Empty segment_bytecode → control port mode (existing behavior)
   auto pipeline = make_cumsum_pipeline("compat_test");
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::NUMBER});
+  pipeline->connect(col, 0, 0);
   REQUIRE(pipeline->num_control_ports() == 1);
 
   send_paired(*pipeline, 1, 10.0, 1.0);
   send_paired(*pipeline, 2, 20.0, 1.0);
   send_paired(*pipeline, 3, 5.0, 0.0);
 
-  auto& out = pipeline->get_output_queue(0);
+  auto& out = col->get_data_queue(0);
   REQUIRE(out.size() == 1);
   REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(30.0));
 }

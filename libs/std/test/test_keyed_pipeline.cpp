@@ -297,6 +297,8 @@ SCENARIO("KeyedPipeline computed key: basic routing with 2-column hash", "[keyed
         "kp1",
         std::vector<int>{0, 1},           // key from cols 0 and 1
         make_project_factory({0, 1, 2}));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     // Input: [device_id, channel_id, amplitude]
     // key for (1, 10, ...) = PRIME * 1 + 10
@@ -305,7 +307,7 @@ SCENARIO("KeyedPipeline computed key: basic routing with 2-column hash", "[keyed
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 1);
@@ -316,14 +318,14 @@ SCENARIO("KeyedPipeline computed key: basic routing with 2-column hash", "[keyed
       REQUIRE((*msg->data.values)[2] == 100.0);  // amplitude
     }
 
-    kp->clear_all_output_ports();
+    col->reset();
 
     // Different key group
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->data.values->size() == 3);
@@ -343,27 +345,29 @@ SCENARIO("KeyedPipeline computed key: per-key state isolation", "[keyed_pipeline
         "kp1",
         std::vector<int>{0, 1},
         make_extract_cumsum_factory(2));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     // key group A: device=1, channel=10
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0, 100.0}}), 0);
     kp->execute();
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       // CumulativeSum outputs NumberData, which gets cloned as-is in computed key mode.
       // The real use case has FusedExpression outputting VectorNumberData.
     }
-    kp->clear_all_output_ports();
+    col->reset();
 
     // key group B: device=2, channel=20
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     // key group A again: sum should be 100 + 150 = 250
     kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 10.0, 150.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     // key group B again: sum should be 200 + 250 = 450
     kp->receive_data(create_message<VectorNumberData>(4, VectorNumberData{{2.0, 20.0, 250.0}}), 0);
@@ -381,11 +385,13 @@ SCENARIO("KeyedPipeline computed key: single column coefficient", "[keyed_pipeli
         "kp1",
         std::vector<int>{0},
         make_project_factory({0, 1}));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{5.0, 99.0}}), 0);
     kp->execute();
 
-    auto& out = kp->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     // No key prepend in computed mode: output = project({0,1}) = [5.0, 99.0]
@@ -426,15 +432,17 @@ SCENARIO("KeyedPipeline computed key: serialization roundtrip", "[keyed_pipeline
         "kp1",
         std::vector<int>{0, 1},
         factory);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     // Process messages for 2 key groups
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0, 100.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0, 200.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     REQUIRE(kp->num_keys() == 2);
 
@@ -446,6 +454,8 @@ SCENARIO("KeyedPipeline computed key: serialization roundtrip", "[keyed_pipeline
         "kp1",
         std::vector<int>{0, 1},
         factory);
+    auto col2 = std::make_shared<Collector>("c2", std::vector<std::string>{"vector_number"});
+    kp2->connect(col2, 0, 0);
     kp2->restore_data_from_json(state);
 
     REQUIRE(kp2->num_keys() == 2);
@@ -454,7 +464,7 @@ SCENARIO("KeyedPipeline computed key: serialization roundtrip", "[keyed_pipeline
     kp2->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 10.0, 300.0}}), 0);
     kp2->execute();
 
-    auto& out = kp2->get_output_queue(0);
+    auto& out = col2->get_data_queue(0);
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     REQUIRE(msg->data.values->size() == 3);
@@ -471,19 +481,21 @@ SCENARIO("KeyedPipeline computed key: new key callback fires", "[keyed_pipeline]
         "kp1",
         std::vector<int>{0},
         make_project_factory({0, 1}));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
     kp->set_new_key_callback([&new_keys](double key) { new_keys.push_back(key); });
 
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 30.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     REQUIRE(new_keys.size() == 2);
     REQUIRE(new_keys[0] == 1.0);
@@ -547,11 +559,13 @@ SCENARIO("KeyedPipeline computed key: JSON roundtrip via OperatorJson", "[keyed_
     REQUIRE(kp_restored->get_key_column_indices() == std::vector<int>{0, 1});
 
     // Verify it routes correctly
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp_restored->connect(col, 0, 0);
     kp_restored->receive_data(
         create_message<VectorNumberData>(1, VectorNumberData{{5.0, 10.0, 99.0}}), 0);
     kp_restored->execute();
 
-    auto& out = kp_restored->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     REQUIRE(msg->data.values->size() == 3);

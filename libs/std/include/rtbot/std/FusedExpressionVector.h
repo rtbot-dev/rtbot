@@ -18,9 +18,8 @@ class FusedExpressionVector : public Operator {
   FusedExpressionVector(std::string id, size_t num_outputs,
                         std::vector<double> bytecode,
                         std::vector<double> constants,
-                        std::vector<double> state_init = {},
-                        size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : Operator(std::move(id), max_size_per_port),
+                        std::vector<double> state_init = {})
+      : Operator(std::move(id)),
         num_outputs_(num_outputs),
         bytecode_(std::move(bytecode)),
         constants_(std::move(constants)),
@@ -320,8 +319,8 @@ class FusedExpressionVector : public Operator {
         }
       }
 
-      get_output_queue(0).push_back(create_message<VectorNumberData>(
-          time, VectorNumberData(std::move(out_vec))));
+      emit_output(0, create_message<VectorNumberData>(
+          time, VectorNumberData(std::move(out_vec))), debug);
       input.pop_front();
     }
   }

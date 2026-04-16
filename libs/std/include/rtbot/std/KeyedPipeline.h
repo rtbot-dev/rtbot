@@ -186,14 +186,12 @@ class KeyedPipeline : public Operator {
 
       // Collect from collector's data queue, prepend key
       auto& sg_output = sg.collector->get_data_queue(0);
-      for (const auto& out_msg : sg_output) {
+      for (auto& out_msg : sg_output) {
         if (has_computed_key()) {
           // Computed key mode: pass through prototype output as-is (no key prepend)
-          output_queue.push_back(out_msg->clone());
-          // Fix timestamp to match input
-          auto& last = output_queue.back();
-          auto* vec_out = dynamic_cast<Message<VectorNumberData>*>(last.get());
+          auto* vec_out = dynamic_cast<Message<VectorNumberData>*>(out_msg.get());
           if (vec_out) vec_out->time = time;
+          emit_output(0, std::move(out_msg), debug);
         } else {
           // Classic mode: prepend key to output
           VectorNumberData result;
@@ -208,10 +206,8 @@ class KeyedPipeline : public Operator {
             result.values->push_back(num_msg->data.value);
           }
 
-          output_queue.push_back(create_message<VectorNumberData>(time, std::move(result)));
+          emit_output(0, create_message<VectorNumberData>(time, std::move(result)), debug);
         }
-
-        emit_output(0, create_message<VectorNumberData>(time, std::move(result)), debug);
       }
 
       input_queue.pop_front();

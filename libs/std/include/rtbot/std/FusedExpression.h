@@ -63,9 +63,8 @@ class FusedExpression : public VectorCompose {
   // state_init: initial values for persistent state slots (empty = pure expressions)
   FusedExpression(std::string id, size_t num_ports, size_t num_outputs,
                   std::vector<double> bytecode, std::vector<double> constants,
-                  std::vector<double> state_init = {},
-                  size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : VectorCompose(std::move(id), num_ports, max_size_per_port),
+                  std::vector<double> state_init = {})
+      : VectorCompose(std::move(id), num_ports),
         num_outputs_(num_outputs),
         bytecode_(std::move(bytecode)),
         constants_(std::move(constants)),
@@ -366,8 +365,7 @@ class FusedExpression : public VectorCompose {
       }
 
       // Emit output — single allocation (the make_shared above)
-      get_output_queue(0).push_back(
-          create_message<VectorNumberData>(time, VectorNumberData(std::move(out_vec))));
+      emit_output(0, create_message<VectorNumberData>(time, VectorNumberData(std::move(out_vec))), debug);
     }
   }
 
