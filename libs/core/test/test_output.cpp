@@ -212,3 +212,24 @@ SCENARIO("Output operator handles state serialization", "[output][State]") {
     }
   }
 }
+
+SCENARIO("Output forwards messages without cloning", "[output][perf]") {
+  GIVEN("A vector-number output operator") {
+    auto output = make_vector_number_output("output_no_clone");
+
+    auto msg = create_message<VectorNumberData>(
+        1, VectorNumberData{{4.0, 5.0, 6.0}});
+    const BaseMessage* original_ptr = msg.get();
+
+    WHEN("A message is received and executed") {
+      output->receive_data(std::move(msg), 0);
+      output->execute();
+
+      THEN("The same message instance is forwarded") {
+        const auto& out_queue = output->get_output_queue(0);
+        REQUIRE(out_queue.size() == 1);
+        REQUIRE(out_queue.front().get() == original_ptr);
+      }
+    }
+  }
+}
