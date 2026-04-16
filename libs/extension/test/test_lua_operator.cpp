@@ -1,6 +1,7 @@
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/extension/LuaOperator.h"
 
 using namespace rtbot;
@@ -27,14 +28,16 @@ SCENARIO("LuaOperator handles basic configuration and execution", "[LuaOperator]
             end
         )";
 
-    auto op = std::make_unique<LuaOperator>("lua1", lua_code);
+    auto op = std::make_shared<LuaOperator>("lua1", lua_code);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Processing a single message") {
       op->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
       op->execute();
 
       THEN("Message is passed through unchanged") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 1);
@@ -49,7 +52,7 @@ SCENARIO("LuaOperator handles basic configuration and execution", "[LuaOperator]
       op->execute();
 
       THEN("All messages are processed correctly") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 3);
 
         for (size_t i = 0; i < output.size(); ++i) {
@@ -99,7 +102,9 @@ SCENARIO("LuaOperator implements moving average correctly", "[LuaOperator]") {
             end
         )";
 
-    auto op = std::make_unique<LuaOperator>("lua_ma", lua_code);
+    auto op = std::make_shared<LuaOperator>("lua_ma", lua_code);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Processing enough points to fill window") {
       op->receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
@@ -108,7 +113,7 @@ SCENARIO("LuaOperator implements moving average correctly", "[LuaOperator]") {
       op->execute();
 
       THEN("Moving average is calculated correctly") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 3);
@@ -122,7 +127,7 @@ SCENARIO("LuaOperator implements moving average correctly", "[LuaOperator]") {
       op->execute();
 
       THEN("No output is produced") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.empty());
       }
     }
@@ -151,16 +156,20 @@ SCENARIO("LuaOperator serialization", "[LuaOperator][State]") {
             end
         )";
 
-    auto op = std::make_unique<LuaOperator>("lua1", lua_code);
+    auto op = std::make_shared<LuaOperator>("lua1", lua_code);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
     op->execute();
-    op->clear_all_output_ports();
+    col->reset();
 
     WHEN("State is serialized and restored") {
       auto state = op->collect();
 
-      auto restored = std::make_unique<LuaOperator>("lua1", lua_code);
+      auto restored = std::make_shared<LuaOperator>("lua1", lua_code);
+      auto rcol = std::make_shared<Collector>("rc", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
       THEN("Restored operator produces correct output") {
@@ -169,8 +178,8 @@ SCENARIO("LuaOperator serialization", "[LuaOperator][State]") {
         restored->receive_data(create_message<NumberData>(2, NumberData{10.0}), 0);
         restored->execute();
 
-        const auto& orig_out = op->get_output_queue(0);
-        const auto& rest_out = restored->get_output_queue(0);
+        const auto& orig_out = col->get_data_queue(0);
+        const auto& rest_out = rcol->get_data_queue(0);
         REQUIRE(orig_out.size() == rest_out.size());
         REQUIRE(orig_out.size() == 1);
 

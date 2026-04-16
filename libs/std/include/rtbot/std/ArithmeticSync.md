@@ -35,11 +35,6 @@ jsonschemas:
         type: integer
         minimum: 2
         description: Number of input ports (default 2)
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: Subtraction
@@ -55,11 +50,6 @@ jsonschemas:
         minimum: 2
         default: 2
         description: Number of input ports (fixed at 2)
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: Multiplication
@@ -74,11 +64,6 @@ jsonschemas:
         type: integer
         minimum: 2
         description: Number of input ports (default 2)
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: Division
@@ -94,11 +79,6 @@ jsonschemas:
         minimum: 2
         default: 2
         description: Number of input ports (fixed at 2)
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
 ---
 

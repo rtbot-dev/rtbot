@@ -52,30 +52,7 @@ class Multiplexer : public Operator {
     return !(*this == other);
   }
 
-  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
-    if (port_index >= num_control_ports()) {
-      throw std::runtime_error("Invalid control port index");
-    }
-
-    auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(msg.get());
-    if (!ctrl_msg) {
-      throw std::runtime_error("Invalid control message type");
-    }
-    
-    // Update last timestamp
-    control_ports_[port_index].last_timestamp = msg->time;
-
-    if (get_control_queue(port_index).size() == max_size_per_port_) {      
-      get_control_queue(port_index).pop_front();
-    }    
-    
-
-    // Add message to queue
-    get_control_queue(port_index).push_back(std::move(msg));
-
-  }
-
- protected:  
+ protected:
 
   void process_data(bool debug=false) override {
     while (true) {
@@ -113,7 +90,7 @@ class Multiplexer : public Operator {
           if (!get_data_queue(i).empty()) {
             auto* msg = static_cast<const Message<T>*>(get_data_queue(i).front().get());
             if (i == port_to_emit && msg->time == ctrl_msg->time) {
-              get_output_queue(0).push_back(create_message<T>(msg->time, msg->data));
+              emit_output(0, create_message<T>(msg->time, msg->data), debug);
               get_data_queue(i).pop_front();
               message_found = true;
             } else if (i == port_to_emit && ctrl_msg->time < msg->time) {

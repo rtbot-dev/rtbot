@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/FilterSync.h"
 
 using namespace rtbot;
@@ -11,6 +12,8 @@ using namespace rtbot;
 SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") {
   GIVEN("A SyncGreaterThan operator") {
     auto op = make_sync_greater_than("sgt1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("port0 value is strictly greater than port1 value") {
       op->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
@@ -18,7 +21,7 @@ SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") 
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->time == 1);
@@ -31,7 +34,7 @@ SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") 
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("port0 value is less than port1 value") {
@@ -39,7 +42,7 @@ SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") 
       op->receive_data(create_message<NumberData>(1, NumberData{7.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("Messages have different timestamps") {
@@ -47,7 +50,7 @@ SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") 
       op->receive_data(create_message<NumberData>(2, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 }
@@ -55,6 +58,8 @@ SCENARIO("SyncGreaterThan passes messages when port0 > port1", "[filter_sync]") 
 SCENARIO("SyncGreaterThan handles multiple synchronized pairs", "[filter_sync]") {
   GIVEN("A SyncGreaterThan operator") {
     auto op = make_sync_greater_than("sgt1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("A mix of passing and blocking pairs arrive") {
       // t=1: 10 > 5 → pass
@@ -69,7 +74,7 @@ SCENARIO("SyncGreaterThan handles multiple synchronized pairs", "[filter_sync]")
       op->execute();
 
       THEN("Only the passing messages appear in the output") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 2);
 
         const auto* msg0 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -109,6 +114,8 @@ SCENARIO("SyncGreaterThan state serialization", "[filter_sync][state]") {
 SCENARIO("SyncLessThan passes messages when port0 < port1", "[filter_sync]") {
   GIVEN("A SyncLessThan operator") {
     auto op = make_sync_less_than("slt1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("port0 value is strictly less than port1 value") {
       op->receive_data(create_message<NumberData>(1, NumberData{3.0}), 0);
@@ -116,7 +123,7 @@ SCENARIO("SyncLessThan passes messages when port0 < port1", "[filter_sync]") {
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->time == 1);
@@ -129,7 +136,7 @@ SCENARIO("SyncLessThan passes messages when port0 < port1", "[filter_sync]") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("port0 value is greater than port1 value") {
@@ -137,7 +144,7 @@ SCENARIO("SyncLessThan passes messages when port0 < port1", "[filter_sync]") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("Messages have different timestamps") {
@@ -145,7 +152,7 @@ SCENARIO("SyncLessThan passes messages when port0 < port1", "[filter_sync]") {
       op->receive_data(create_message<NumberData>(2, NumberData{7.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 }
@@ -175,6 +182,8 @@ SCENARIO("SyncLessThan state serialization", "[filter_sync][state]") {
 SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sync]") {
   GIVEN("A SyncEqual operator with default epsilon") {
     auto op = make_sync_equal("seq1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Values are identical") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
@@ -182,7 +191,7 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->data.value == Approx(5.0));
@@ -196,7 +205,7 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        REQUIRE(op->get_output_queue(0).size() == 1);
+        REQUIRE(col->get_data_queue(0).size() == 1);
       }
     }
 
@@ -205,12 +214,14 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->receive_data(create_message<NumberData>(1, NumberData{6.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 
   GIVEN("A SyncEqual operator with custom epsilon of 0.5") {
     auto op = make_sync_equal("seq1", 2, 0.5);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Values differ by 0.4 (within epsilon)") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
@@ -218,7 +229,7 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        REQUIRE(op->get_output_queue(0).size() == 1);
+        REQUIRE(col->get_data_queue(0).size() == 1);
       }
     }
 
@@ -228,7 +239,7 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->execute();
 
       THEN("No output is produced (difference not strictly less than epsilon)") {
-        REQUIRE(op->get_output_queue(0).empty());
+        REQUIRE(col->get_data_queue(0).empty());
       }
     }
 
@@ -237,7 +248,7 @@ SCENARIO("SyncEqual passes messages when |port0 - port1| < epsilon", "[filter_sy
       op->receive_data(create_message<NumberData>(1, NumberData{6.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 }
@@ -276,6 +287,8 @@ SCENARIO("SyncEqual state serialization", "[filter_sync][state]") {
 SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filter_sync]") {
   GIVEN("A SyncNotEqual operator with default epsilon") {
     auto op = make_sync_not_equal("sne1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Values differ significantly") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
@@ -283,7 +296,7 @@ SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filte
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->data.value == Approx(5.0));
@@ -295,7 +308,7 @@ SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filte
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("Values differ by less than epsilon") {
@@ -304,12 +317,14 @@ SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filte
       op->receive_data(create_message<NumberData>(1, NumberData{5.0 + eps * 0.5}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 
   GIVEN("A SyncNotEqual operator with custom epsilon of 0.5") {
     auto op = make_sync_not_equal("sne1", 2, 0.5);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("Values differ by exactly epsilon (boundary — passes)") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
@@ -317,7 +332,7 @@ SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filte
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        REQUIRE(op->get_output_queue(0).size() == 1);
+        REQUIRE(col->get_data_queue(0).size() == 1);
       }
     }
 
@@ -326,7 +341,7 @@ SCENARIO("SyncNotEqual passes messages when |port0 - port1| >= epsilon", "[filte
       op->receive_data(create_message<NumberData>(1, NumberData{5.4}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 }
@@ -365,6 +380,8 @@ SCENARIO("SyncNotEqual state serialization", "[filter_sync][state]") {
 SCENARIO("FilterSync operators work with more than 2 ports", "[filter_sync]") {
   GIVEN("A SyncGreaterThan operator with 3 ports") {
     auto op = make_sync_greater_than("sgt1", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    op->connect(col, 0, 0);
 
     WHEN("port0 > port1 and port0 > port2") {
       op->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
@@ -373,7 +390,7 @@ SCENARIO("FilterSync operators work with more than 2 ports", "[filter_sync]") {
       op->execute();
 
       THEN("The port0 value is forwarded") {
-        const auto& output = op->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->data.value == Approx(10.0));
@@ -386,7 +403,7 @@ SCENARIO("FilterSync operators work with more than 2 ports", "[filter_sync]") {
       op->receive_data(create_message<NumberData>(1, NumberData{15.0}), 2);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
 
     WHEN("Only 2 of 3 ports have messages") {
@@ -394,7 +411,7 @@ SCENARIO("FilterSync operators work with more than 2 ports", "[filter_sync]") {
       op->receive_data(create_message<NumberData>(1, NumberData{5.0}), 1);
       op->execute();
 
-      THEN("No output is produced") { REQUIRE(op->get_output_queue(0).empty()); }
+      THEN("No output is produced") { REQUIRE(col->get_data_queue(0).empty()); }
     }
   }
 }

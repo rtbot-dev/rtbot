@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rtbot/PerfCounters.h"
+
 namespace rtbot {
 
 using timestamp_t = int64_t;
@@ -302,9 +304,11 @@ class Message : public BaseMessage {
     if (sz == sizeof(Message<T>)) {
       Pool& pool = tls_pool();
       if (pool.count > 0) {
+        RTBOT_PERF_COUNT(MSG_ALLOC_POOL_HIT);
         return pool.slots[--pool.count];
       }
     }
+    RTBOT_PERF_COUNT(MSG_ALLOC_POOL_MISS);
     return ::operator new(sz);
   }
 

@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 #include <memory>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/Linear.h"
 
 using namespace rtbot;
@@ -9,6 +10,8 @@ SCENARIO("Linear operator handles basic operations", "[linear]") {
   GIVEN("A Linear operator with two coefficients") {
     std::vector<double> coeffs = {2.0, -1.0};  // 2x - y
     auto linear = std::make_shared<Linear>("linear1", coeffs);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    linear->connect(col, 0, 0);
 
     WHEN("Receiving synchronized messages") {
       linear->receive_data(create_message<NumberData>(1, NumberData{3.0}), 0);  // x = 3
@@ -16,7 +19,7 @@ SCENARIO("Linear operator handles basic operations", "[linear]") {
       linear->execute();
 
       THEN("Linear combination is calculated correctly") {
-        const auto& output = linear->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(!output.empty());
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg != nullptr);
@@ -31,7 +34,7 @@ SCENARIO("Linear operator handles basic operations", "[linear]") {
       linear->execute();
 
       THEN("No output is produced") {
-        const auto& output = linear->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.empty());
       }
     }
@@ -40,6 +43,8 @@ SCENARIO("Linear operator handles basic operations", "[linear]") {
   GIVEN("A Linear operator with three coefficients") {
     std::vector<double> coeffs = {1.0, 2.0, 3.0};  // x + 2y + 3z
     auto linear = std::make_shared<Linear>("linear2", coeffs);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    linear->connect(col, 0, 0);
 
     WHEN("Processing multiple sets of synchronized messages") {
       // First set
@@ -55,7 +60,7 @@ SCENARIO("Linear operator handles basic operations", "[linear]") {
       linear->execute();
 
       THEN("All combinations are calculated correctly") {
-        const auto& output = linear->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 2);
 
         // First set: 1 + 2*2 + 3*3 = 14
@@ -101,8 +106,8 @@ SCENARIO("Linear operator handles serialization", "[linear][serialization]") {
     auto state = linear->collect();
     auto restored = std::make_shared<Linear>("linear", std::vector<double>{1.0, 2.0, 3.0});
     restored->restore_data_from_json(state);
-  
-    
+
+
     SECTION("verifying deserialization") {
       REQUIRE(*restored == *linear);
     }
@@ -113,6 +118,8 @@ SCENARIO("Linear operator handles numerical stability", "[linear]") {
   GIVEN("A Linear operator with large coefficients") {
     std::vector<double> coeffs = {1e6, -1e6};  // Large opposing coefficients
     auto linear = std::make_shared<Linear>("linear", coeffs);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    linear->connect(col, 0, 0);
 
     WHEN("Processing values that could cause cancellation") {
       linear->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -120,7 +127,7 @@ SCENARIO("Linear operator handles numerical stability", "[linear]") {
       linear->execute();
 
       THEN("Results remain numerically stable") {
-        const auto& output = linear->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(!output.empty());
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg != nullptr);

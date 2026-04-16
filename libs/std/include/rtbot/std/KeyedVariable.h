@@ -157,8 +157,6 @@ class KeyedVariable : public Operator {
   void process_data(bool debug = false) override {
     auto& i1_queue = get_data_queue(0);
     auto& c1_queue = get_control_queue(0);
-    auto& out_queue = get_output_queue(0);
-
     // Step 1: apply all pending i1 updates
     while (!i1_queue.empty()) {
       const auto* msg = static_cast<const Message<VectorNumberData>*>(i1_queue.front().get());
@@ -197,11 +195,11 @@ class KeyedVariable : public Operator {
 
       if (mode_ == "exists") {
         bool found = hashmap_.count(lookup_key) > 0;
-        out_queue.push_back(create_message<BooleanData>(query_time, BooleanData{found}));
+        emit_output(0, create_message<BooleanData>(query_time, BooleanData{found}), debug);
       } else {
         auto it = hashmap_.find(lookup_key);
         double result = (it != hashmap_.end()) ? it->second : default_value_;
-        out_queue.push_back(create_message<NumberData>(query_time, NumberData{result}));
+        emit_output(0, create_message<NumberData>(query_time, NumberData{result}), debug);
       }
 
       c1_queue.pop_front();

@@ -212,10 +212,8 @@ class Buffer : public Operator {
       update_statistics(msg->data.value, removed_value);
 
       auto output_msgs = process_message(msg);
-      if (!output_msgs.empty()) {
-        for (auto& output_msg : output_msgs) {
-          get_output_queue(0).push_back(std::move(output_msg));
-        }
+      for (auto& output_msg : output_msgs) {
+        emit_output(0, std::move(output_msg), debug);
       }
 
       input_queue.pop_front();

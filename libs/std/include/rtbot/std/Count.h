@@ -57,12 +57,10 @@ class Count : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input = get_data_queue(0);
-    auto& output = get_output_queue(0);
-
     while (!input.empty()) {
       const auto& msg = input.front();
       count_++;
-      output.push_back(create_message<NumberData>(msg->time, NumberData{static_cast<double>(count_)}));
+      emit_output(0, create_message<NumberData>(msg->time, NumberData{static_cast<double>(count_)}), debug);
       input.pop_front();
     }
   }

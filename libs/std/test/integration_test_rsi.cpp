@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Demultiplexer.h"
 #include "rtbot/Input.h"
 #include "rtbot/Output.h"
@@ -26,6 +27,8 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
     // Create input/output operators
     auto input = std::make_shared<Input>("input", std::vector<std::string>{PortType::NUMBER});
     auto output = std::make_shared<Output>("output", std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    output->connect(col, 0, 0);
 
     // Core operators for counting and switching
     auto count = std::make_shared<Count<NumberData>>("count");
@@ -181,23 +184,15 @@ SCENARIO("Building RSI calculation from operators", "[rsi][integration]") {
       std::vector<std::pair<timestamp_t, double>> outputs;
 
       for (const auto& [time, price] : test_data) {
-        // Clear all operator outputs
-        std::vector<std::shared_ptr<Operator>> ops = {
-            input, dm,   count, lt,   et,     gt,     etn2, diff1,  diff2, gt0,     et0,       lt0,    gt1,    et1,
-            lt1,   l1,   l2,    neg0, neg1,   varg,   varl, divide, add1,  power_1, scale_100, add100, output, cgtz,
-            cgto,  cltz, clto,  ceto, const0, const1, ts1,  ts11,   ts2,   ts22,    sc0,       sc1,    sum0,   sum1};
-
-        for (auto& op : ops) {
-          op->clear_all_output_ports();
-        }
+        col->reset();
 
         // Process new data point
         input->receive_data(create_message<NumberData>(time, NumberData{price}), 0);
         input->execute();
 
-        const auto& output_queue = output->get_output_queue(0);
+        const auto& received = col->get_data_queue(0);
 
-        for (const auto& msg : output_queue) {
+        for (const auto& msg : received) {
           const auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get());
           outputs.emplace_back(num_msg->time, num_msg->data.value);
         }

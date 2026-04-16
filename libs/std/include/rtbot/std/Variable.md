@@ -19,11 +19,6 @@ jsonschema:
         - 0.0
       description: Default value to use when no data is available
       default: 0.0
-    maxSizePerPort:
-      type: integer
-      minimum: 1
-      default: 17280
-      description: Maximum number of messages buffered per port
   required: ["id"]
 ---
 

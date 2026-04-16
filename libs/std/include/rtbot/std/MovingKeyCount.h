@@ -96,8 +96,6 @@ class MovingKeyCount : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg =
           static_cast<const Message<NumberData>*>(input_queue.front().get());
@@ -126,8 +124,8 @@ class MovingKeyCount : public Operator {
       counts_[key]++;
 
       // Emit count of this key in the current window
-      output_queue.push_back(create_message<NumberData>(
-          msg->time, NumberData{static_cast<double>(counts_[key])}));
+      emit_output(0, create_message<NumberData>(
+          msg->time, NumberData{static_cast<double>(counts_[key])}), debug);
       input_queue.pop_front();
     }
   }

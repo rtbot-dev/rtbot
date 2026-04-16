@@ -43,16 +43,29 @@ class Input : public Operator {
     return !(*this == other);
   }
 
-  // Do not throw exceptions in receive_data
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  // Input is the system boundary — ignore the caller's debug flag and always
+  // enforce timestamp ordering on ingress. Downstream operators trust their
+  // producers, so the base check is debug-gated; Input's is not.
+  // Exceptions are swallowed so invalid ingress messages are silently dropped.
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
     try {
-      Operator::receive_data(std::move(msg), port_index);
+      Operator::receive_data(std::move(msg), port_index, /*debug=*/true);
     } catch (const std::exception& e) {
       // Do nothing
     }
   }
 
-  protected:
+  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
+    try {
+      Operator::receive_control(std::move(msg), port_index, /*debug=*/true);
+    } catch (const std::exception& e) {
+      // Do nothing
+    }
+  }
+
+  bool uses_base_receive_data() const override { return false; }
+
+ protected:
   void process_data(bool debug=false) override {
     (void)debug;
     // Process each port independently to allow concurrent timestamps
@@ -60,11 +73,9 @@ class Input : public Operator {
       auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
 
-      auto& output_queue = get_output_queue(port_index);
-
-      while (!input_queue.empty()) {
-        output_queue.push_back(std::move(input_queue.front()));
-        input_queue.pop_front();
+      // Forward all messages to output
+      for (const auto& msg : input_queue) {
+        emit_output(port_index, msg->clone(), debug);
       }
     }
   }

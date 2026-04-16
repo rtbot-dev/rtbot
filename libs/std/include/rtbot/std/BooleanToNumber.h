@@ -27,8 +27,6 @@ class BooleanToNumber : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg =
           static_cast<const Message<BooleanData>*>(input_queue.front().get());
@@ -37,7 +35,7 @@ class BooleanToNumber : public Operator {
       }
 
       double value = msg->data.value ? 1.0 : 0.0;
-      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{value}));
+      emit_output(0, create_message<NumberData>(msg->time, NumberData{value}), debug);
       input_queue.pop_front();
     }
   }

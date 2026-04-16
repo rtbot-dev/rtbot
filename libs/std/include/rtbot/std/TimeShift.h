@@ -31,8 +31,6 @@ class TimeShift : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
@@ -43,7 +41,7 @@ class TimeShift : public Operator {
       timestamp_t new_time = msg->time + shift_;
       // Only emit if the resulting time would be non-negative
       if (new_time >= 0) {
-        output_queue.push_back(create_message<NumberData>(new_time, msg->data));
+        emit_output(0, create_message<NumberData>(new_time, msg->data), debug);
       } else {
         throw std::runtime_error("Negative new time " + std::to_string(new_time) + " in TimeShift");
       }

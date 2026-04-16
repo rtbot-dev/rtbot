@@ -48,7 +48,6 @@ class MinTracker : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
 
     while (!input_queue.empty()) {
       const auto* msg =
@@ -57,8 +56,8 @@ class MinTracker : public Operator {
         throw std::runtime_error("Invalid message type in MinTracker");
       }
       if (msg->data.value < min_) min_ = msg->data.value;
-      output_queue.push_back(
-          create_message<NumberData>(msg->time, NumberData{min_}));
+      emit_output(0,
+          create_message<NumberData>(msg->time, NumberData{min_}), debug);
       input_queue.pop_front();
     }
   }
@@ -104,7 +103,6 @@ class MaxTracker : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
 
     while (!input_queue.empty()) {
       const auto* msg =
@@ -113,8 +111,8 @@ class MaxTracker : public Operator {
         throw std::runtime_error("Invalid message type in MaxTracker");
       }
       if (msg->data.value > max_) max_ = msg->data.value;
-      output_queue.push_back(
-          create_message<NumberData>(msg->time, NumberData{max_}));
+      emit_output(0,
+          create_message<NumberData>(msg->time, NumberData{max_}), debug);
       input_queue.pop_front();
     }
   }

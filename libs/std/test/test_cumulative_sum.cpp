@@ -1,12 +1,15 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/CumulativeSum.h"
 
 using namespace rtbot;
 
 SCENARIO("CumulativeSum handles basic operations", "[CumulativeSum]") {
   GIVEN("A CumulativeSum operator") {
-    auto sum = std::make_unique<CumulativeSum>("sum1");
+    auto sum = std::make_shared<CumulativeSum>("sum1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    sum->connect(col, 0, 0);
 
     WHEN("Processing single message") {
       sum->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
@@ -14,7 +17,7 @@ SCENARIO("CumulativeSum handles basic operations", "[CumulativeSum]") {
 
       THEN("Sum is correctly calculated") {
         REQUIRE(sum->get_sum() == 10.0);
-        const auto& output = sum->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 1);
@@ -31,7 +34,7 @@ SCENARIO("CumulativeSum handles basic operations", "[CumulativeSum]") {
       THEN("Cumulative sum is correct") {
         REQUIRE(sum->get_sum() == 60.0);
 
-        const auto& output = sum->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 3);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -52,7 +55,7 @@ SCENARIO("CumulativeSum handles basic operations", "[CumulativeSum]") {
 
 SCENARIO("CumulativeSum handles numerical stability", "[CumulativeSum]") {
   GIVEN("A CumulativeSum operator with large and small values") {
-    auto sum = std::make_unique<CumulativeSum>("sum1");
+    auto sum = std::make_shared<CumulativeSum>("sum1");
 
     WHEN("Adding large and small numbers") {
       sum->receive_data(create_message<NumberData>(1, NumberData{1e15}), 0);
@@ -67,14 +70,14 @@ SCENARIO("CumulativeSum handles numerical stability", "[CumulativeSum]") {
 
 SCENARIO("CumulativeSum handles state serialization", "[CumulativeSum]") {
   GIVEN("A CumulativeSum operator with processed messages") {
-    auto sum = std::make_unique<CumulativeSum>("sum1");
+    auto sum = std::make_shared<CumulativeSum>("sum1");
     sum->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
     sum->receive_data(create_message<NumberData>(2, NumberData{20.0}), 0);
     sum->execute();
 
     WHEN("State is serialized and restored") {
       auto state = sum->collect();
-      auto restored = std::make_unique<CumulativeSum>("sum1");
+      auto restored = std::make_shared<CumulativeSum>("sum1");
       restored->restore_data_from_json(state);
 
       THEN("State is preserved correctly") {
@@ -95,7 +98,7 @@ SCENARIO("CumulativeSum handles state serialization", "[CumulativeSum]") {
 
 SCENARIO("CumulativeSum handles error conditions", "[CumulativeSum]") {
   GIVEN("A CumulativeSum operator") {
-    auto sum = std::make_unique<CumulativeSum>("sum1");
+    auto sum = std::make_shared<CumulativeSum>("sum1");
 
     WHEN("Receiving wrong message type") {
       THEN("Throws type mismatch error") {

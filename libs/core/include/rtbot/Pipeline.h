@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "Logger.h"
+#include "rtbot/Collector.h"
 #include "rtbot/CompositeConnection.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -61,6 +62,7 @@ class Pipeline : public Operator {
   const std::vector<std::string>& get_input_port_types() const { return input_port_types_; }
   const std::vector<std::string>& get_output_port_types() const { return output_port_types_; }
   const std::map<std::string, std::shared_ptr<Operator>>& get_operators() const { return operators_; }
+  const std::map<std::string, std::shared_ptr<Operator>>* children_ops() const override { return &operators_; }
   const std::vector<CompositeConnection>& get_connections() const { return connections_; }
   const std::string& get_entry_operator_id() const { return entry_operator_->id(); }
   const std::map<std::string, std::vector<std::pair<size_t, size_t>>>& get_output_mappings() const {
@@ -96,18 +98,33 @@ class Pipeline : public Operator {
     }
     RTBOT_LOG_DEBUG("Adding output mapping: ", op_id, ":", op_port, " -> ", pipeline_port);
     output_mappings_[op_id].emplace_back(op_port, pipeline_port);
+
+    // Attach a collector to capture this operator's output on this port
+    std::string collector_id = op_id + "_collector_" + std::to_string(op_port);
+    if (output_collectors_.find(collector_id) == output_collectors_.end()) {
+      auto collector = std::make_shared<Collector>(
+          collector_id, std::vector<std::string>{output_port_types_[pipeline_port]});
+      it->second->connect(collector, op_port, 0);
+      output_collectors_[collector_id] = collector;
+    }
+    collector_keys_[{op_id, op_port}] = collector_id;
   }
 
-  void connect(const std::string& from_id, const std::string& to_id, size_t from_port = 0, size_t to_port = 0) {
-    auto from_it = operators_.find(from_id);
-    auto to_it = operators_.find(to_id);
+  using Operator::connect;
 
-    if (from_it == operators_.end() || to_it == operators_.end()) {
+  void connect(const std::shared_ptr<Operator>& from, const std::shared_ptr<Operator>& to, size_t from_port = 0,
+               size_t to_port = 0) {
+    if (!from || !to) {
+      throw std::runtime_error("Pipeline: null operator passed to connect");
+    }
+    const std::string& from_id = from->id();
+    const std::string& to_id = to->id();
+    if (operators_.find(from_id) == operators_.end() || operators_.find(to_id) == operators_.end()) {
       throw std::runtime_error("Pipeline: invalid operator reference in connection from " + from_id + " to " + to_id);
     }
 
     RTBOT_LOG_DEBUG("Connecting operators: ", from_id, " -> ", to_id);
-    from_it->second->connect(to_it->second, from_port, to_port);
+    from->connect(to, from_port, to_port);
     connections_.push_back({from_id, to_id, from_port, to_port});
   }
 
@@ -121,12 +138,6 @@ class Pipeline : public Operator {
     last_output_buffer_.clear();
   }
 
-  void clear_all_output_ports() override {
-    Operator::clear_all_output_ports();
-    for (auto& [_, op] : operators_) {
-      op->clear_all_output_ports();
-    }
-  }
 
   Bytes collect_bytes() override {
     Bytes bytes = Operator::collect_bytes();
@@ -315,7 +326,7 @@ class Pipeline : public Operator {
 
       if (has_key_ && new_key != current_key_) {
         // Key changed: emit buffer with boundary timestamp, reset internals, start new segment
-        emit_buffer(boundary_time);
+        emit_buffer(boundary_time, debug);
         reset_internals();
       }
       if (!has_key_) has_key_ = true;
@@ -535,20 +546,25 @@ class Pipeline : public Operator {
   // Forward data from all input ports to the entry operator, execute the mesh,
   // and buffer any internal outputs (don't emit to pipeline output).
   void forward_and_buffer(bool debug) {
+    // Reset collectors before processing
+    for (auto& [_, collector] : output_collectors_) {
+      collector->reset();
+    }
+
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& msg = get_data_queue(i).front();
       entry_operator_->receive_data(msg->clone(), i);
     }
     entry_operator_->execute(debug);
 
-    // Buffer output from mapped (terminal) operators
+    // Buffer output from collectors
     for (const auto& [op_id, mappings] : output_mappings_) {
-      auto it = operators_.find(op_id);
-      if (it != operators_.end()) {
-        auto& op = it->second;
-        for (const auto& [operator_port, pipeline_port] : mappings) {
-          if (operator_port < op->num_output_ports()) {
-            const auto& source_queue = op->get_output_queue(operator_port);
+      for (const auto& [operator_port, pipeline_port] : mappings) {
+        auto key_it = collector_keys_.find({op_id, operator_port});
+        if (key_it != collector_keys_.end()) {
+          auto col_it = output_collectors_.find(key_it->second);
+          if (col_it != output_collectors_.end()) {
+            auto& source_queue = col_it->second->get_data_queue(0);
             if (!source_queue.empty()) {
               last_output_buffer_[pipeline_port] = source_queue.back()->clone();
             }
@@ -556,19 +572,16 @@ class Pipeline : public Operator {
         }
       }
     }
-
-    // Clear internal operator output queues (but NOT their state)
-    clear_internal_output_ports();
   }
 
   // Emit buffered output to pipeline output ports, stamped with boundary timestamp
-  void emit_buffer(timestamp_t boundary_time) {
+  void emit_buffer(timestamp_t boundary_time, bool debug = false) {
     for (auto& [pipeline_port, msg] : last_output_buffer_) {
       if (pipeline_port < num_output_ports()) {
         auto output_msg = msg->clone();
         output_msg->time = boundary_time;
         RTBOT_LOG_DEBUG("Pipeline emitting buffer on port ", pipeline_port, " at time ", boundary_time);
-        get_output_queue(pipeline_port).push_back(std::move(output_msg));
+        emit_output(pipeline_port, std::move(output_msg), debug);
       }
     }
     last_output_buffer_.clear();
@@ -581,13 +594,6 @@ class Pipeline : public Operator {
     }
   }
 
-  // Clear only internal operators' output queues (not their internal state)
-  void clear_internal_output_ports() {
-    for (auto& [_, op] : operators_) {
-      op->clear_all_output_ports();
-    }
-  }
-
   std::vector<std::string> input_port_types_;
   std::vector<std::string> output_port_types_;
   std::vector<double> segment_bytecode_;
@@ -596,6 +602,8 @@ class Pipeline : public Operator {
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> output_mappings_;
+  std::map<std::string, std::shared_ptr<Collector>> output_collectors_;
+  std::map<std::pair<std::string, size_t>, std::string> collector_keys_;
 
   // Segment state
   bool has_key_{false};

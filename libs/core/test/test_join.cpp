@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Join.h"
 #include "rtbot/PortType.h"
 
@@ -7,7 +8,10 @@ using namespace rtbot;
 
 SCENARIO("Join operator handles basic synchronization", "[join]") {
   GIVEN("A binary join for number type") {
-    auto join = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto join = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    join->connect(col, 0, 0);
+    join->connect(col, 1, 1);
 
     WHEN("Receiving synchronized messages") {
       join->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
@@ -15,8 +19,8 @@ SCENARIO("Join operator handles basic synchronization", "[join]") {
       join->execute();
 
       THEN("Both messages are forwarded") {
-        const auto& output0 = join->get_output_queue(0);
-        const auto& output1 = join->get_output_queue(1);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
 
         REQUIRE(output0.size() == 1);
         REQUIRE(output1.size() == 1);
@@ -37,8 +41,8 @@ SCENARIO("Join operator handles basic synchronization", "[join]") {
       join->execute();
 
       THEN("No messages are forwarded") {
-        REQUIRE(join->get_output_queue(0).empty());
-        REQUIRE(join->get_output_queue(1).empty());
+        REQUIRE(col->get_data_queue(0).empty());
+        REQUIRE(col->get_data_queue(1).empty());
       }
     }
 
@@ -49,8 +53,8 @@ SCENARIO("Join operator handles basic synchronization", "[join]") {
       join->execute();
 
       THEN("Messages are synchronized correctly") {
-        const auto& output0 = join->get_output_queue(0);
-        const auto& output1 = join->get_output_queue(1);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
 
         REQUIRE(output0.size() == 1);
         REQUIRE(output1.size() == 1);
@@ -65,51 +69,17 @@ SCENARIO("Join operator handles basic synchronization", "[join]") {
       }
     }
 
-    WHEN("Receiving messages above the limit max_size_per_port()") {
-
-      for (int i = 0; i < join->max_size_per_port() + 2; i++) {
-        join->receive_data(create_message<NumberData>(i, NumberData{2.0 * i}), 1);
-        join->receive_data(create_message<NumberData>(i, NumberData{3.0 * i}), 0);
-      }
-    
-      join->execute();
-
-      THEN("max_size_per_port() messages are synchronized correctly, first and second message are dropped") {
-        auto& output0 = join->get_output_queue(0);
-        auto& output1 = join->get_output_queue(1);
-
-        const auto& input0 = join->get_data_queue(0);
-        const auto& input1 = join->get_data_queue(1);
-
-
-        REQUIRE(output0.size() == join->max_size_per_port());
-        REQUIRE(output1.size() == join->max_size_per_port());
-
-        REQUIRE(input0.size() == 0);
-        REQUIRE(input1.size() == 0);
-
-        const Message<NumberData>* msg0; 
-        const Message<NumberData>* msg1;        
-
-        for (int i = 0; i < join->max_size_per_port(); i++) {
-          msg0 = dynamic_cast<const Message<NumberData>*>(output0.front().get());
-          msg1 = dynamic_cast<const Message<NumberData>*>(output1.front().get());
-          REQUIRE(msg0->time == i+2);
-          REQUIRE(msg0->data.value == (i+2.0) * 3);
-          REQUIRE(msg1->time == i+2);
-          REQUIRE(msg1->data.value == (i+2.0) * 2);
-          output0.pop_front();
-          output1.pop_front();
-        }
-      }
-    }
   }
 }
 
 SCENARIO("Join operator handles multiple types", "[join]") {
   GIVEN("A join with different port types") {
-    auto join = std::make_unique<Join>(
+    auto join = std::make_shared<Join>(
         "join1", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN, PortType::VECTOR_NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean", "vector_number"});
+    join->connect(col, 0, 0);
+    join->connect(col, 1, 1);
+    join->connect(col, 2, 2);
 
     WHEN("Receiving synchronized messages of different types") {
       join->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
@@ -118,27 +88,22 @@ SCENARIO("Join operator handles multiple types", "[join]") {
       join->execute();
 
       THEN("All messages are forwarded with correct types") {
-        // Check number port
         {
-          const auto& output = join->get_output_queue(0);
+          const auto& output = col->get_data_queue(0);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
           REQUIRE(msg != nullptr);
           REQUIRE(msg->data.value == 42.0);
         }
-
-        // Check boolean port
         {
-          const auto& output = join->get_output_queue(1);
+          const auto& output = col->get_data_queue(1);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<BooleanData>*>(output.front().get());
           REQUIRE(msg != nullptr);
           REQUIRE(msg->data.value == true);
         }
-
-        // Check vector port
         {
-          const auto& output = join->get_output_queue(2);
+          const auto& output = col->get_data_queue(2);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output.front().get());
           REQUIRE(msg != nullptr);
@@ -158,20 +123,23 @@ SCENARIO("Join operator handles multiple types", "[join]") {
 
 SCENARIO("Join operator handles state serialization", "[join][State]") {
   GIVEN("A join with processed messages") {
-    auto join = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto join = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    join->connect(col, 0, 0);
+    join->connect(col, 1, 1);
 
     join->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
     join->receive_data(create_message<NumberData>(2, NumberData{24.0}), 1);
     join->execute();
 
     WHEN("State is serialized and restored") {
-      // Serialize state
       auto state = join->collect();
 
-      // Create new join with same configuration
-      auto restored = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+      auto restored = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+      restored->connect(rcol, 0, 0);
+      restored->connect(rcol, 1, 1);
 
-      // Restore state
       restored->restore_data_from_json(state);
 
       AND_WHEN("New synchronized messages are received") {
@@ -181,8 +149,8 @@ SCENARIO("Join operator handles state serialization", "[join][State]") {
         restored->execute();
 
         THEN("Messages are processed correctly") {
-          const auto& output0 = restored->get_output_queue(0);
-          const auto& output1 = restored->get_output_queue(1);
+          const auto& output0 = rcol->get_data_queue(0);
+          const auto& output1 = rcol->get_data_queue(1);
 
           REQUIRE(output0.size() == 1);
           REQUIRE(output1.size() == 1);
@@ -228,40 +196,13 @@ SCENARIO("Join operator factory functions work correctly", "[join]") {
   }
 }
 
-SCENARIO("Join operator respects custom maxSizePerPort", "[join]") {
-  GIVEN("A binary join with max_size_per_port set to 5") {
-    size_t limit = 5;
-    auto join = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER}, limit);
-
-    REQUIRE(join->max_size_per_port() == limit);
-
-    WHEN("More messages than the limit are received") {
-      for (int i = 0; i < (int)limit + 3; i++) {
-        join->receive_data(create_message<NumberData>(i, NumberData{(double)i}), 0);
-        join->receive_data(create_message<NumberData>(i, NumberData{(double)i * 2}), 1);
-      }
-      join->execute();
-
-      THEN("Only the last limit messages are emitted") {
-        const auto& output0 = join->get_output_queue(0);
-        const auto& output1 = join->get_output_queue(1);
-        REQUIRE(output0.size() == limit);
-        REQUIRE(output1.size() == limit);
-
-        // First output should start from message index 3 (oldest 3 dropped)
-        const auto* first = dynamic_cast<const Message<NumberData>*>(output0.front().get());
-        REQUIRE(first->time == 3);
-        REQUIRE(first->data.value == 3.0);
-      }
-    }
-  }
-}
-
 SCENARIO("Join operator handles cleanup of old messages", "[join]") {
   GIVEN("A binary join with accumulated messages") {
-    auto join = std::make_unique<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto join = std::make_shared<Join>("join1", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    join->connect(col, 0, 0);
+    join->connect(col, 1, 1);
 
-    // Add some messages with increasing timestamps
     join->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     join->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
     join->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
@@ -269,18 +210,17 @@ SCENARIO("Join operator handles cleanup of old messages", "[join]") {
     join->execute();
 
     WHEN("A synchronized pair is processed") {
+      col->reset();
       join->receive_data(create_message<NumberData>(3, NumberData{30.0}), 1);
       join->execute();
 
       THEN("Old messages are cleaned up") {
-        join->clear_all_output_ports();
-        // Add a new message and verify old ones are gone
+        col->reset();
         join->receive_data(create_message<NumberData>(4, NumberData{4.0}), 0);
         join->execute();
 
-        // Both output queues should be empty since we have no synchronized messages at t=4
-        REQUIRE(join->get_output_queue(0).empty());
-        REQUIRE(join->get_output_queue(1).empty());
+        REQUIRE(col->get_data_queue(0).empty());
+        REQUIRE(col->get_data_queue(1).empty());
       }
     }
   }

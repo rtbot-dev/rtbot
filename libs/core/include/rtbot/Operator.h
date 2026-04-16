@@ -1,10 +1,6 @@
 #ifndef OPERATOR_H
 #define OPERATOR_H
 
-#ifndef MAX_SIZE_PER_PORT
-#define MAX_SIZE_PER_PORT 50000
-#endif
-
 #include <cstddef>
 #include <cstdint>
 #include <deque>
@@ -48,15 +44,43 @@ struct PortInfo {
   PortInfo& operator=(PortInfo&&) noexcept = default;
 };
 
+// Output ports carry only type metadata: emitted messages go directly to
+// connected children's input queues, so there is no output-side queue.
+struct OutputPortInfo {
+  std::type_index type;
+};
+
 enum class PortKind { DATA, CONTROL };
 
 // Base operator class
 class Operator {
  public:
-  Operator(std::string id, size_t max_size_per_port = MAX_SIZE_PER_PORT) : id_(std::move(id)), max_size_per_port_(max_size_per_port) {}
+  explicit Operator(std::string id) : id_(std::move(id)) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
+
+  // Sinks (e.g. Collector) bypass virtual receive_data and take messages via
+  // a direct queue pointer cached in Connection::sink_queue. Override to true.
+  virtual bool is_sink() const { return false; }
+
+  // Whether this operator's receive_data behaves exactly like Operator::receive_data
+  // (type/index/timestamp validation + queue push). If true, upstream connections
+  // can bypass the virtual call and push directly. Override to false for operators
+  // that customize receive_data (e.g. Input swallows exceptions).
+  virtual bool uses_base_receive_data() const { return true; }
+
+  // Whether this operator's receive_control behaves exactly like Operator::receive_control.
+  // Override to false for operators that customize receive_control (e.g. Multiplexer).
+  virtual bool uses_base_receive_control() const { return true; }
+
+  // Composite operators (Pipeline, TriggerSet) override to expose their
+  // internal operators. Returning nullptr — the common case — means "no
+  // children", avoiding the dynamic_pointer_cast probes Program used to do
+  // on every collect_outputs call.
+  virtual const std::map<std::string, std::shared_ptr<Operator>>* children_ops() const {
+    return nullptr;
+  }
 
   // Collect operator state as JSON: {"name": "TypeName", "bytes": "base64..."}
   virtual nlohmann::json collect() {
@@ -81,21 +105,15 @@ class Operator {
                  reinterpret_cast<const uint8_t*>(&control_ports_count) + sizeof(control_ports_count));
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&output_ports_count),
                  reinterpret_cast<const uint8_t*>(&output_ports_count) + sizeof(output_ports_count));
-    // Serialize message queues
+    // Serialize message queues (last_timestamp is not persisted — it's only
+    // used for ordering validation under debug and is rederivable from the
+    // queue contents on replay).
     for (const auto& port : data_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&port.last_timestamp),
-                   reinterpret_cast<const uint8_t*>(&port.last_timestamp) + sizeof(port.last_timestamp));
     }
     for (const auto& port : control_ports_) {
       StateSerializer::serialize_message_queue(bytes, port.queue);
-      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&port.last_timestamp),
-                   reinterpret_cast<const uint8_t*>(&port.last_timestamp) + sizeof(port.last_timestamp));
     }
-    for (const auto& port : output_ports_) {
-      StateSerializer::serialize_message_queue(bytes, port.queue);
-    }
-
     return bytes;
   }
 
@@ -121,18 +139,10 @@ class Operator {
     // ---- Restore message queues ----
     for (auto& port : data_ports_) {
         StateSerializer::deserialize_message_queue(it, port.queue);
-        std::memcpy(&port.last_timestamp, &(*it), sizeof(port.last_timestamp));
-        it += sizeof(timestamp_t);
     }
     for (auto& port : control_ports_) {
         StateSerializer::deserialize_message_queue(it, port.queue);
-        std::memcpy(&port.last_timestamp, &(*it), sizeof(port.last_timestamp));
-        it += sizeof(timestamp_t);
     }
-    for (auto& port : output_ports_) {
-        StateSerializer::deserialize_message_queue(it, port.queue);
-    }
-
   }
 
   virtual void restore_data_from_json(const nlohmann::json& j) {
@@ -154,16 +164,16 @@ class Operator {
 
   template <typename T>
   void add_output_port() {
-    output_ports_.push_back({MessageQueue{}, std::type_index(typeid(T))});
+    output_ports_.push_back({std::type_index(typeid(T))});
   }
 
   size_t num_data_ports() const { return data_ports_.size(); }
   size_t num_control_ports() const { return control_ports_.size(); }
   size_t num_output_ports() const { return output_ports_.size(); }
-  size_t max_size_per_port() const { return max_size_per_port_; }
 
   // Runtime port access for data with type checking
-  virtual void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) {
+  virtual void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index, bool debug = false) {
+    RTBOT_PERF_SCOPE(RECEIVE_DATA);
     if (port_index >= data_ports_.size()) {
       throw std::runtime_error("Invalid data port index at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
@@ -174,8 +184,8 @@ class Operator {
                                std::to_string(port_index));
     }
 
-    // Check timestamp ordering
-    if (msg->time <= data_ports_[port_index].last_timestamp) {
+    // Check timestamp ordering (debug only)
+    if (debug && msg->time <= data_ports_[port_index].last_timestamp) {
       throw std::runtime_error("Out of order timestamp received at " + type_name() + "(" + id_ + ")" + " port " +
                                std::to_string(port_index) + ". Current timestamp: " + std::to_string(msg->time) +
                                ", Last timestamp: " + std::to_string(data_ports_[port_index].last_timestamp));
@@ -187,37 +197,17 @@ class Operator {
 #ifdef RTBOT_INSTRUMENTATION
     RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
-    
-
-    if (data_ports_[port_index].queue.size() == max_size_per_port_) {
-      data_ports_[port_index].queue.pop_front();
-    }
 
     data_ports_[port_index].queue.push_back(std::move(msg));
   }
 
   virtual void reset() {
-    // Base reset implementation clears all queues
     for (auto& port : data_ports_) {
       port.last_timestamp = std::numeric_limits<timestamp_t>::min();
       port.queue.clear();
     }
     for (auto& port : control_ports_) {
       port.last_timestamp = std::numeric_limits<timestamp_t>::min();
-      port.queue.clear();
-    }
-    for (auto& port : output_ports_) {
-      port.queue.clear();
-    }
-    for (auto& queue : debug_output_queues_) {
-      queue.clear();
-    }
-  }
-
-  // This should be called by the runtime to clear all output ports before executing
-  // the operator again
-  virtual void clear_all_output_ports() {
-    for (auto& port : output_ports_) {
       port.queue.clear();
     }
     for (auto& queue : debug_output_queues_) {
@@ -227,33 +217,54 @@ class Operator {
 
   void execute(bool debug=false) {
     SpanScope span_scope{"operator_execute"};
-    RTBOT_ADD_ATTRIBUTE("operator.id", id_);    
+    RTBOT_ADD_ATTRIBUTE("operator.id", id_);
+
+    // Initialize debug queues before process_data so emit_output can write to them
+    if (debug) {
+      if (debug_output_queues_.size() != num_output_ports()) {
+        debug_output_queues_.clear();
+        for (size_t i = 0; i < num_output_ports(); i++) {
+          debug_output_queues_.emplace_back();
+        }
+      }
+    } else if (debug_output_queues_.size() > 0) {
+      debug_output_queues_.clear();
+    }
+
+    // Save the caller's mask so recursive execute() calls on this same
+    // operator (via recurrent connections like l1 -> ts11 -> l1) do not
+    // clobber the caller's in-progress propagation state.
+    uint64_t saved_mask = propagated_mask_;
+    propagated_mask_ = 0;
 
     // Process control messages first
     if (num_control_ports() > 0) {
       SpanScope control_scope{"process_control"};
-      process_control(debug);      
+      process_control(debug);
     }
 
     // Then process data
     if (num_data_ports() > 0) {
       SpanScope data_scope{"process_data"};
-      process_data(debug);      
+      RTBOT_PERF_SCOPE(PROCESS_DATA);
+      process_data(debug);
     }
 
-#ifdef RTBOT_INSTRUMENTATION
-    for (size_t i = 0; i < output_ports_.size(); i++) {
-      for (const auto& msg : output_ports_[i].queue) {
-        RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), i, std::move(msg->clone()));
+    // Snapshot this call's mask before executing children — a child may
+    // recurse back into this->execute() and reset propagated_mask_.
+    uint64_t my_mask = propagated_mask_;
+    propagated_mask_ = saved_mask;
+
+    for (auto& conn : connections_) {
+      if (conn.child && (my_mask & (uint64_t{1} << conn.output_port))) {
+        conn.child->execute(debug);
       }
     }
-#endif
-
-    propagate_outputs(debug);
   }
 
   // Runtime port access for control messages with type checking
-  virtual void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index) {
+  virtual void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index, bool debug = false) {
+
     if (port_index >= control_ports_.size()) {
       throw std::runtime_error("Invalid control port index at " + type_name() + "(" + id_ + ")" + ":" +
                                std::to_string(port_index));
@@ -264,8 +275,8 @@ class Operator {
                                std::to_string(port_index));
     }
 
-    // Check timestamp ordering
-    if (msg->time <= control_ports_[port_index].last_timestamp) {
+    // Check timestamp ordering (debug only)
+    if (debug && msg->time <= control_ports_[port_index].last_timestamp) {
       throw std::runtime_error("Out of order timestamp received at " + type_name() + "(" + id_ + ")" +
                                " control port " + std::to_string(port_index) +
                                ". Current timestamp: " + std::to_string(msg->time) +
@@ -274,11 +285,6 @@ class Operator {
 
     // Update last timestamp
     control_ports_[port_index].last_timestamp = msg->time;
-
-    
-    if (control_ports_[port_index].queue.size() == max_size_per_port_) {      
-      control_ports_[port_index].queue.pop_front();
-    }
 
     control_ports_[port_index].queue.push_back(std::move(msg));
 
@@ -319,7 +325,41 @@ class Operator {
       }
     }
 
-    connections_.push_back({child.get(), output_port, child_port_index, child_port_kind});
+    Connection conn{child.get(), output_port, child_port_index, child_port_kind, nullptr};
+    if (child->is_sink()) {
+      auto& pi = (child_port_kind == PortKind::DATA)
+                     ? child->data_ports_[child_port_index]
+                     : child->control_ports_[child_port_index];
+      conn.sink_queue = &pi.queue;
+      conn.sink_last_ts = &pi.last_timestamp;
+    } else if (child_port_kind == PortKind::DATA && child->uses_base_receive_data()) {
+      auto& pi = child->data_ports_[child_port_index];
+      conn.sink_queue = &pi.queue;
+      conn.sink_last_ts = &pi.last_timestamp;
+    } else if (child_port_kind == PortKind::CONTROL && child->uses_base_receive_control()) {
+      auto& pi = child->control_ports_[child_port_index];
+      conn.sink_queue = &pi.queue;
+      conn.sink_last_ts = &pi.last_timestamp;
+    }
+    size_t conn_idx = connections_.size();
+    connections_.push_back(std::move(conn));
+
+    // Register the reverse edge on the child so downstream code (e.g.
+    // Program::collect_outputs) can discover who feeds each input port.
+    if (child_port_kind == PortKind::DATA) {
+      if (child->inbound_data_refs_.size() < child->data_ports_.size())
+        child->inbound_data_refs_.resize(child->data_ports_.size());
+      child->inbound_data_refs_[child_port_index].push_back({this, conn_idx});
+    } else {
+      if (child->inbound_control_refs_.size() < child->control_ports_.size())
+        child->inbound_control_refs_.resize(child->control_ports_.size());
+      child->inbound_control_refs_[child_port_index].push_back({this, conn_idx});
+    }
+
+    if (output_port >= conn_count_per_port_.size()) {
+      conn_count_per_port_.resize(output_port + 1, 0);
+    }
+    ++conn_count_per_port_[output_port];
     return child;
   }
 
@@ -340,7 +380,7 @@ class Operator {
 
   std::type_index get_output_port_type(size_t port_index) const {
     if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index for output queue");
+      throw std::runtime_error("Invalid output port index");
     }
     return output_ports_[port_index].type;
   }
@@ -357,12 +397,10 @@ class Operator {
       if (control_ports_.size() != other.control_ports_.size()) return false;
       if (output_ports_.size() != other.output_ports_.size()) return false;
 
-      // Compare data port types and last timestamps
+      // Compare data port types and buffered queues
       for (size_t i = 0; i < data_ports_.size(); ++i) {
         if (data_ports_[i].type != other.data_ports_[i].type) return false;
-        if (data_ports_[i].last_timestamp != other.data_ports_[i].last_timestamp) return false;
 
-        // Optional: compare queues
         if (data_ports_[i].queue.size() != other.data_ports_[i].queue.size()) return false;
         for (size_t j = 0; j < data_ports_[i].queue.size(); ++j) {
             if (data_ports_[i].queue[j]->hash() != other.data_ports_[i].queue[j]->hash()) return false;
@@ -370,24 +408,14 @@ class Operator {
         }
       }
 
-      // Compare control port types and last timestamps
+      // Compare control port types and buffered queues
       for (size_t i = 0; i < control_ports_.size(); ++i) {
         if (control_ports_[i].type != other.control_ports_[i].type) return false;
-        if (control_ports_[i].last_timestamp != other.control_ports_[i].last_timestamp) return false;
 
         if (control_ports_[i].queue.size() != other.control_ports_[i].queue.size()) return false;
         for (size_t j = 0; j < control_ports_[i].queue.size(); ++j) {
             if (control_ports_[i].queue[j]->hash() != other.control_ports_[i].queue[j]->hash()) return false;
             if (control_ports_[i].queue[j]->time != other.control_ports_[i].queue[j]->time) return false;
-        }
-      }
-
-      // Compare output ports queues (types can be ignored if always match)
-      for (size_t i = 0; i < output_ports_.size(); ++i) {
-        if (output_ports_[i].queue.size() != other.output_ports_[i].queue.size()) return false;
-        for (size_t j = 0; j < output_ports_[i].queue.size(); ++j) {
-            if (output_ports_[i].queue[j]->hash() != other.output_ports_[i].queue[j]->hash()) return false;
-            if (output_ports_[i].queue[j]->time != other.output_ports_[i].queue[j]->time) return false;
         }
       }
 
@@ -417,11 +445,10 @@ class Operator {
     return control_ports_[port_index].queue;
   }
 
-  MessageQueue& get_output_queue(size_t port_index) {
-    if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index for output queue");
+  void clear_debug_output_queues() {
+    for (auto& queue : debug_output_queues_) {
+      queue.clear();
     }
-    return output_ports_[port_index].queue;
   }
 
   MessageQueue& get_debug_output_queue(size_t port_index) {
@@ -432,16 +459,126 @@ class Operator {
     return debug_output_queues_[port_index];
   }
 
-  const MessageQueue& get_output_queue(size_t port_index) const {
-    if (port_index >= output_ports_.size()) {
-      throw std::runtime_error("Invalid output port index for output queue");
-    }
-    return output_ports_[port_index].queue;
+  // Outbound connection record: one entry per (this_output_port → child_port)
+  // edge. Public so downstream operators can read provenance from their
+  // inbound refs (see InboundRef / inbound_data_refs()).
+  struct Connection {
+    // B.2: raw pointer — Program owns operators via shared_ptr for its full
+    // lifetime, so this never dangles in the steady state. Previously a
+    // weak_ptr, whose atomic .lock() was ~3% of CPU on the hot path.
+    Operator* child{nullptr};
+    size_t output_port;
+    size_t child_input_port;
+    PortKind child_port_kind{PortKind::DATA};
+    // Fast-path: points directly at the child's input queue so emit_output
+    // can push without virtual receive_data. Used for both sinks (Collector,
+    // is_sink()==true) and non-sink operators using base receive_data
+    // semantics. Null when the child customizes receive_data/receive_control.
+    MessageQueue* sink_queue{nullptr};
+    // Cached pointer to the child port's last_timestamp for debug-mode
+    // ordering validation. Non-null whenever sink_queue is set.
+    timestamp_t* sink_last_ts{nullptr};
+  };
+
+  // Reverse-edge reference: "there's a connection feeding one of my input
+  // ports — it lives at parent->connections_[conn_index]". Stored by index
+  // rather than by pointer so connections_ reallocations during setup don't
+  // invalidate us.
+  struct InboundRef {
+    Operator* parent{nullptr};
+    size_t conn_index{0};
+  };
+
+  // Read-only access to an outbound connection by index. Used by consumers
+  // of InboundRef to read source provenance (output_port, etc.).
+  const Connection& get_connection(size_t conn_index) const {
+    return connections_[conn_index];
+  }
+
+  const std::vector<InboundRef>& inbound_data_refs(size_t port_index) const {
+    static const std::vector<InboundRef> empty;
+    if (port_index >= inbound_data_refs_.size()) return empty;
+    return inbound_data_refs_[port_index];
+  }
+
+  const std::vector<InboundRef>& inbound_control_refs(size_t port_index) const {
+    static const std::vector<InboundRef> empty;
+    if (port_index >= inbound_control_refs_.size()) return empty;
+    return inbound_control_refs_[port_index];
   }
 
  protected:
   virtual void process_data(bool debug) = 0;
   virtual void process_control(bool debug=false) {};
+
+  // Push a message out of the given output port. Delivers directly to
+  // connected children's input/control queues. Also copies to debug queues
+  // when debug mode is active.
+  void emit_output(size_t port_index, std::unique_ptr<BaseMessage> msg, bool debug = false) {
+    if (debug) {
+      debug_output_queues_[port_index].push_back(msg->clone());
+    }
+
+#ifdef RTBOT_INSTRUMENTATION
+    RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), port_index, msg->clone());
+#endif
+
+    // Cached count of connections on this port (maintained by connect()).
+    size_t remaining = (port_index < conn_count_per_port_.size())
+                           ? conn_count_per_port_[port_index]
+                           : 0;
+
+    if (remaining == 0) return;
+
+    propagated_mask_ |= (uint64_t{1} << port_index);
+
+    for (auto& conn : connections_) {
+      if (conn.output_port != port_index) continue;
+      --remaining;
+
+      std::unique_ptr<BaseMessage> msg_to_send;
+#if defined(RTBOT_INSTRUMENTATION)
+      msg_to_send = msg->clone();
+      RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(port_index),
+                                conn.child->id(), conn.child->type_name(),
+                                std::to_string(conn.child_input_port),
+                                conn.child_port_kind == PortKind::DATA ? "" : "[c]",
+                                msg->clone());
+#else
+      if (remaining == 0 && !debug) {
+        msg_to_send = std::move(msg);
+      } else {
+        RTBOT_PERF_SCOPE(EMIT_CLONE);
+        msg_to_send = msg->clone();
+      }
+#endif
+
+      {
+        RTBOT_PERF_SCOPE(EMIT_DISPATCH);
+        if (conn.sink_queue) {
+          // Fast path: push directly to child's input queue, bypassing
+          // virtual receive_data. Works for sinks (is_sink()==true) and
+          // base-receive_data children alike. Timestamp ordering validated
+          // only under debug.
+          if (debug) {
+            if (msg_to_send->time <= *conn.sink_last_ts) {
+              throw std::runtime_error(
+                  "Message time out of order on port " +
+                  std::to_string(conn.child_input_port) +
+                  ". Current time: " + std::to_string(msg_to_send->time) +
+                  ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
+            }
+            *conn.sink_last_ts = msg_to_send->time;
+          }          
+          conn.sink_queue->push_back(std::move(msg_to_send));
+        } else if (conn.child_port_kind == PortKind::DATA) {
+          conn.child->receive_data(std::move(msg_to_send), conn.child_input_port, debug);
+        } else {
+          conn.child->receive_control(std::move(msg_to_send), conn.child_input_port, debug);
+        }
+      }
+    }
+  }
 
   bool sync_data_inputs() {
 
@@ -523,119 +660,22 @@ class Operator {
     return false;  
   }
 
-  void propagate_outputs(bool debug=false) {
-
-    // B.1: track which output ports were propagated via a bitmask instead of
-    // an std::unordered_set. Output port counts are tiny (typically 1-2),
-    // and the per-call hashmap alloc/free was ~5% of CPU. 64 bits covers
-    // any realistic operator; we static-check in debug.
-    uint64_t propagated_mask = 0;
-    if (debug) {
-      if (output_ports_.size() > 64) {
-        throw std::runtime_error("Operator::propagate_outputs: more than 64 output ports not supported");
-      }
-      if (debug_output_queues_.size() != num_output_ports()) {
-        debug_output_queues_.clear();
-        for (int i = 0; i < num_output_ports(); i++) {
-          debug_output_queues_.emplace_back();
-        }
-      }
-
-    } else if (!debug && debug_output_queues_.size() > 0) {
-      debug_output_queues_.clear();
-    }
-
-    // Fast path: single-connection operators (the common case in generated SQL
-    // pipelines) can move messages straight out of the output queue into the
-    // child, avoiding a per-message clone (= heap allocation). Disabled under
-    // debug (debug_output_queues_ path below needs the originals) or
-    // RTBOT_INSTRUMENTATION (the telemetry macro re-clones output_queue[i]).
-#if defined(RTBOT_INSTRUMENTATION)
-    const bool can_move_single = false;
-#else
-    const bool can_move_single = !debug && connections_.size() == 1;
-#endif
-
-    // Send the messages to the connected operators
-    for (auto& conn : connections_) {
-      // B.2: Connection holds a raw Operator*; the owning Program keeps all
-      // operators alive via shared_ptr for the program's lifetime, so the
-      // weak_ptr::lock dance was ~3% of pure overhead.
-      Operator* child = conn.child;
-      if (!child) {
-        continue;
-      }
-
-      auto& output_queue = output_ports_[conn.output_port].queue;
-      if (output_queue.empty()) {
-        continue;
-      }
-
-      for (size_t i = 0; i < output_queue.size(); i++) {
-        std::unique_ptr<BaseMessage> msg_to_send;
-        if (can_move_single) {
-          msg_to_send = std::move(output_queue[i]);
-        } else {
-          msg_to_send = output_queue[i]->clone();
-        }
-#ifdef RTBOT_INSTRUMENTATION
-        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(i), child->id(), child->type_name(),
-                                  std::to_string(conn.child_input_port),
-                                  conn.child_port_kind == PortKind::DATA ? "" : "[c]", output_queue[i]->clone());
-#endif
-        // Route message based on connection port kind
-        if (conn.child_port_kind == PortKind::DATA) {
-          child->receive_data(std::move(msg_to_send), conn.child_input_port);
-        } else {
-          child->receive_control(std::move(msg_to_send), conn.child_input_port);
-        }
-        propagated_mask |= (uint64_t{1} << conn.output_port);
-      }
-    }
-
-    if (debug) {
-      for (size_t i = 0; i < num_output_ports(); i++) {
-        auto& queue = output_ports_[i].queue;
-        for (size_t j = 0; j < queue.size(); j++) {
-          auto msg_copy = queue[j]->clone();
-          debug_output_queues_[i].push_back(std::move(msg_copy));
-        }
-      }
-    }
-
-    if (propagated_mask != 0) {
-      for (size_t i = 0; i < output_ports_.size(); ++i) {
-        if (propagated_mask & (uint64_t{1} << i)) {
-          output_ports_[i].queue.clear();
-        }
-      }
-    }
-
-    // Then execute connected operators
-    for (auto& conn : connections_) {
-      if (conn.child && (propagated_mask & (uint64_t{1} << conn.output_port))) {
-        conn.child->execute(debug);
-      }
-    }
-
-  }
-  struct Connection {
-    // B.2: raw pointer — Program owns operators via shared_ptr for its full
-    // lifetime, so this never dangles in the steady state. Previously a
-    // weak_ptr, whose atomic .lock() was ~3% of CPU on the hot path.
-    Operator* child{nullptr};
-    size_t output_port;
-    size_t child_input_port;
-    PortKind child_port_kind{PortKind::DATA};
-  };
-
   std::string id_;
   std::vector<PortInfo> data_ports_;
   std::vector<PortInfo> control_ports_;
-  std::vector<PortInfo> output_ports_;
+  std::vector<OutputPortInfo> output_ports_;
   std::deque<MessageQueue> debug_output_queues_;
-  std::vector<Connection> connections_;  
-  std::size_t max_size_per_port_;
+  std::vector<Connection> connections_;
+  // Reverse index: input port → list of inbound connections feeding it.
+  // Stored as (parent_op*, conn_index) so upstream's connections_ vector can
+  // reallocate during setup without invalidating these refs. Sized lazily in
+  // connect() on the child side.
+  std::vector<std::vector<InboundRef>> inbound_data_refs_;
+  std::vector<std::vector<InboundRef>> inbound_control_refs_;
+  // Cached count of connections per output port, maintained by connect().
+  // Lets emit_output skip the count-pass loop.
+  std::vector<uint16_t> conn_count_per_port_;
+  uint64_t propagated_mask_{0};
 };
 
 }  // namespace rtbot

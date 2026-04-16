@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Logger.h"
+#include "rtbot/Collector.h"
 #include "rtbot/CompositeConnection.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
@@ -40,6 +41,7 @@ class TriggerSet : public Operator {
   const std::string& get_input_port_type() const { return input_port_type_; }
   const std::string& get_output_port_type() const { return output_port_type_; }
   const std::map<std::string, std::shared_ptr<Operator>>& get_operators() const { return operators_; }
+  const std::map<std::string, std::shared_ptr<Operator>>* children_ops() const override { return &operators_; }
   const std::vector<CompositeConnection>& get_connections() const { return connections_; }
   const std::string& get_entry_operator_id() const { return entry_operator_->id(); }
   const std::string& get_output_operator_id() const { return output_operator_->id(); }
@@ -71,18 +73,28 @@ class TriggerSet : public Operator {
     RTBOT_LOG_DEBUG("Setting output operator: ", op_id, ":", op_port);
     output_operator_ = it->second;
     output_operator_port_ = op_port;
+
+    // Attach a collector to capture the output operator's results
+    output_collector_ = std::make_shared<Collector>(
+        op_id + "_collector", std::vector<std::string>{output_port_type_});
+    output_operator_->connect(output_collector_, op_port, 0);
   }
 
-  void connect(const std::string& from_id, const std::string& to_id, size_t from_port = 0, size_t to_port = 0) {
-    auto from_it = operators_.find(from_id);
-    auto to_it = operators_.find(to_id);
+  using Operator::connect;
 
-    if (from_it == operators_.end() || to_it == operators_.end()) {
+  void connect(const std::shared_ptr<Operator>& from, const std::shared_ptr<Operator>& to, size_t from_port = 0,
+               size_t to_port = 0) {
+    if (!from || !to) {
+      throw std::runtime_error("TriggerSet: null operator passed to connect");
+    }
+    const std::string& from_id = from->id();
+    const std::string& to_id = to->id();
+    if (operators_.find(from_id) == operators_.end() || operators_.find(to_id) == operators_.end()) {
       throw std::runtime_error("TriggerSet: invalid operator reference in connection from " + from_id + " to " + to_id);
     }
 
     RTBOT_LOG_DEBUG("Connecting operators: ", from_id, " -> ", to_id);
-    from_it->second->connect(to_it->second, from_port, to_port);
+    from->connect(to, from_port, to_port);
     connections_.push_back({from_id, to_id, from_port, to_port});
   }
 
@@ -93,12 +105,6 @@ class TriggerSet : public Operator {
     }
   }
 
-  void clear_all_output_ports() override {
-    Operator::clear_all_output_ports();
-    for (auto& [_, op] : operators_) {
-      op->clear_all_output_ports();
-    }
-  }
 
   nlohmann::json collect() override {
     nlohmann::json result = {
@@ -180,16 +186,16 @@ class TriggerSet : public Operator {
       entry_operator_->execute(debug);
       input_queue.pop_front();
 
-      // Check the single output operator/port for a fired message
-      const auto& source_queue = output_operator_->get_output_queue(output_operator_port_);
+      // Check the collector for a fired message
+      auto& source_queue = output_collector_->get_data_queue(0);
       if (!source_queue.empty()) {
-        auto& target_queue = get_output_queue(0);
         const auto& fired = source_queue.front();
         RTBOT_LOG_DEBUG("Forwarding message ", fired->to_string(), " from ", output_operator_->id(),
                         ":", output_operator_port_, " -> 0");
-        target_queue.push_back(fired->clone());
+        emit_output(0, fired->clone(), debug);
         // Reset the internal mesh: a single trigger consumes the cycle
         reset();
+        output_collector_->reset();
       }
     }
   }
@@ -201,6 +207,7 @@ class TriggerSet : public Operator {
   std::map<std::string, std::shared_ptr<Operator>> operators_;
   std::shared_ptr<Operator> entry_operator_;
   std::shared_ptr<Operator> output_operator_;
+  std::shared_ptr<Collector> output_collector_;
   size_t output_operator_port_{0};
 };
 

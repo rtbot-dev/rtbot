@@ -1,19 +1,22 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/Variable.h"
 
 using namespace rtbot;
 
 SCENARIO("Variable operator handles basic operations", "[variable]") {
   GIVEN("A Variable operator with default value") {
-    auto var = make_variable("var1", 42.0);
+    auto var = std::make_shared<Variable>("var1", 42.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     WHEN("Querying before any data") {
       var->receive_control(create_message<NumberData>(1, NumberData{0.0}), 0);
       var->execute();
 
       THEN("Default value is not returned because we don't know its range end") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 0);
       }
     }
@@ -25,7 +28,7 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
       var->execute();
 
       // Query at various times
-      var->clear_all_output_ports();
+      col->reset();
       var->receive_control(create_message<NumberData>(5, NumberData{0.0}), 0);   // Before first
       var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);  // At first
       var->receive_control(create_message<NumberData>(15, NumberData{0.0}), 0);  // Between
@@ -34,7 +37,7 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
       var->execute();
 
       THEN("Correct values are returned for each query") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 4);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -59,7 +62,9 @@ SCENARIO("Variable operator handles basic operations", "[variable]") {
 
 SCENARIO("Variable operator handles state serialization", "[variable][State]") {
   GIVEN("A Variable with non-trivial state") {
-    auto var = make_variable("var1", 42.0);
+    auto var = std::make_shared<Variable>("var1", 42.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     // Add some data
     var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
@@ -71,14 +76,15 @@ SCENARIO("Variable operator handles state serialization", "[variable][State]") {
       auto state = var->collect();
 
       // Create new operator
-      auto restored = make_variable("var1", 42.0);
+      auto restored = std::make_shared<Variable>("var1", 42.0);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
 
       // Restore state
       restored->restore_data_from_json(state);
 
       // Test with same queries
-      var->clear_all_output_ports();
-      restored->clear_all_output_ports();
+      col->reset();
 
       for (auto t : {5, 10, 15, 20, 25}) {
         var->receive_control(create_message<NumberData>(t, NumberData{0.0}), 0);
@@ -90,8 +96,8 @@ SCENARIO("Variable operator handles state serialization", "[variable][State]") {
       restored->execute();
 
       THEN("Original and restored operators produce identical results") {
-        const auto& orig_output = var->get_output_queue(0);
-        const auto& rest_output = restored->get_output_queue(0);
+        const auto& orig_output = col->get_data_queue(0);
+        const auto& rest_output = rcol->get_data_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
         REQUIRE(*var == *restored);
@@ -110,7 +116,9 @@ SCENARIO("Variable operator handles state serialization", "[variable][State]") {
 
 SCENARIO("Variable operator handles message arrival order variations", "[variable]") {
   GIVEN("A Variable operator without default value") {
-    auto var = make_variable("var1");
+    auto var = std::make_shared<Variable>("var1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     WHEN("Control messages arrive before any data") {
       var->receive_control(create_message<NumberData>(10, NumberData{0.0}), 0);
@@ -118,7 +126,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("No output is produced as there's no known value range") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.empty());
       }
     }
@@ -135,7 +143,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("Previously pending queries are resolved") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 2);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -160,7 +168,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("Previously pending queries are resolved") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 2);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -175,7 +183,9 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
   }
 
   GIVEN("A Variable operator with interleaved message arrival") {
-    auto var = make_variable("var1", 42.0);
+    auto var = std::make_shared<Variable>("var1", 42.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     WHEN("Messages arrive in mixed order") {
       // First data point
@@ -197,7 +207,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("All queries are resolved correctly") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 3);
 
         const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -216,7 +226,9 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
   }
 
   GIVEN("A Variable operator handling edge cases") {
-    auto var = make_variable("var1", 42.0);
+    auto var = std::make_shared<Variable>("var1", 42.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     WHEN("Multiple data points arrive at the same timestamp") {
       var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
@@ -226,7 +238,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("The last value is used") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
 
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -237,7 +249,9 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
   }
 
   GIVEN("A Variable operator that gets reset") {
-    auto var = make_variable("var1", 42.0);
+    auto var = std::make_shared<Variable>("var1", 42.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    var->connect(col, 0, 0);
 
     // Setup initial state
     var->receive_data(create_message<NumberData>(10, NumberData{100.0}), 0);
@@ -246,6 +260,7 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
 
     WHEN("The operator is reset") {
       var->reset();
+      col->reset();
 
       // Send new data
       var->receive_data(create_message<NumberData>(20, NumberData{200.0}), 0);
@@ -255,38 +270,12 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
       var->execute();
 
       THEN("Previous state is cleared and new queries use default value") {
-        const auto& output = var->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
 
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 15);
         REQUIRE(msg->data.value == 42.0);  // Default value used
-      }
-    }
-  }
-}
-SCENARIO("Variable operator respects custom maxSizePerPort", "[variable]") {
-  GIVEN("A Variable with max_size_per_port set to 3") {
-    size_t limit = 3;
-    auto var = make_variable("var1", 0.0, limit);
-
-    REQUIRE(var->max_size_per_port() == limit);
-
-    WHEN("More data messages than the limit are queued") {
-      for (int i = 0; i < (int)limit + 2; i++) {
-        var->receive_data(create_message<NumberData>(i, NumberData{(double)i * 10}), 0);
-      }
-
-      // Query at a time matching a data message still in the queue (after overflow)
-      var->receive_control(create_message<NumberData>(2, NumberData{0.0}), 0);
-      var->execute();
-
-      THEN("The oldest data messages are dropped and queries resolve against retained ones") {
-        const auto& output = var->get_output_queue(0);
-        REQUIRE(!output.empty());
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
-        REQUIRE(msg->time == 2);
-        REQUIRE(msg->data.value == Approx(20.0));
       }
     }
   }

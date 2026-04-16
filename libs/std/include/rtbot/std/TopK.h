@@ -72,10 +72,8 @@ class TopK : public Operator {
   }
 
  protected:
-  void process_data(bool /*debug*/ = false) override {
+  void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg = static_cast<const Message<VectorNumberData>*>(
           input_queue.front().get());
@@ -89,8 +87,8 @@ class TopK : public Operator {
       insert_into_top_k(values);
 
       for (const auto& row : top_k_) {
-        output_queue.push_back(create_message<VectorNumberData>(
-            msg->time, VectorNumberData{row}));
+        emit_output(0, create_message<VectorNumberData>(
+            msg->time, VectorNumberData{row}), debug);
       }
 
       input_queue.pop_front();

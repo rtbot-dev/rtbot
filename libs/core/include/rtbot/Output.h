@@ -49,15 +49,10 @@ class Output : public Operator {
 
  protected:
   void process_data(bool debug=false) override {
-    (void)debug;
-    // Forward all messages from inputs to corresponding outputs
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& input_queue = get_data_queue(i);
-      auto& output_queue = get_output_queue(i);
-
-      // Forward all messages
       while (!input_queue.empty()) {
-        output_queue.push_back(std::move(input_queue.front()));
+        emit_output(i, input_queue.front()->clone(), debug);
         input_queue.pop_front();
       }
     }

@@ -14,8 +14,10 @@
 
 #include "OperatorJson.h"
 #include "Prototype.h"
+#include "rtbot/Collector.h"
 #include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
+#include "rtbot/PortType.h"
 #include "rtbot/jsonschema.hpp"
 
 namespace rtbot {
@@ -62,9 +64,7 @@ class Program {
   // Message processing
   ProgramMsgBatch receive(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
     send_to_entry(std::move(msg), port_id, false);
-    ProgramMsgBatch result = collect_outputs(false);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(false);
   }
 
   ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
@@ -72,10 +72,11 @@ class Program {
   }
 
   ProgramMsgBatch receive_debug(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
+    for (auto& [_, op] : operators_) {
+      op->clear_debug_output_queues();
+    }
     send_to_entry(std::move(msg), port_id, true);
-    ProgramMsgBatch result = collect_outputs(true);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(true);
   }
 
   ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
@@ -118,6 +119,12 @@ class Program {
   map<string, shared_ptr<Operator>> operators_;
   string entry_operator_id_;
   map<string, vector<size_t>> output_mappings_;
+  // Program-owned multi-port sink. One Collector with one data port per
+  // output in output_mappings_; emit_output pushes straight into the
+  // matching port queue via the is_sink() fast path (no virtual
+  // receive_data). Provenance (source operator + output port) is read from
+  // each port's inbound connection ref — no separate index needed.
+  std::shared_ptr<Collector> sink_;
 
   void init_from_json() {
     RTBOT_LOG_DEBUG("Initializing program from JSON");
@@ -150,6 +157,32 @@ class Program {
         ports.push_back(OperatorJson::parse_port_name(port).index);
       }
       output_mappings_[op_id] = ports;
+    }
+
+    // Attach Program-owned sinks to output-mapped operators.
+    setup_output_sinks_();
+  }
+
+  void setup_output_sinks_() {
+    struct OutputBinding { std::shared_ptr<Operator> op; size_t port_idx; };
+    std::vector<OutputBinding> bindings;
+    std::vector<std::string> port_types;
+
+    for (const auto& [op_id, ports] : output_mappings_) {
+      auto op_it = operators_.find(op_id);
+      if (op_it == operators_.end()) continue;
+      for (size_t port_idx : ports) {
+        port_types.push_back(
+            PortType::type_index_to_string(op_it->second->get_output_port_type(port_idx)));
+        bindings.push_back({op_it->second, port_idx});
+      }
+    }
+
+    if (bindings.empty()) return;
+
+    sink_ = make_collector("__program_sink__", port_types);
+    for (size_t i = 0; i < bindings.size(); ++i) {
+      bindings[i].op->connect(sink_, bindings[i].port_idx, /*child_port_index=*/i, PortKind::DATA);
     }
   }
 
@@ -236,47 +269,52 @@ class Program {
   ProgramMsgBatch collect_outputs(bool debug_mode = false) {
     ProgramMsgBatch batch;
 
+    if (!debug_mode) {
+      // Non-debug fast path: drain the single multi-port sink and read
+      // provenance (upstream operator id + output port) from each port's
+      // inbound connection ref.
+      if (!sink_) return batch;
+
+      const size_t n = sink_->num_data_ports();
+      for (size_t p = 0; p < n; ++p) {
+        auto& q = sink_->get_data_queue(p);
+        if (q.empty()) continue;
+
+        // Port p was wired by setup_output_sinks_() to exactly one upstream;
+        // invariant enforced by the only writer of sink_.
+        const auto& ref = sink_->inbound_data_refs(p).front();
+        const auto& conn = ref.parent->get_connection(ref.conn_index);
+
+        PortMsgBatch port_msgs;
+        port_msgs.reserve(q.size());
+        for (auto& msg : q) port_msgs.push_back(std::move(msg));
+        q.clear();
+
+        batch[ref.parent->id()]["o" + std::to_string(conn.output_port + 1)] =
+            std::move(port_msgs);
+      }
+      return batch;
+    }
+
+    // Debug mode: walk every operator (including composite children) and
+    // collect from debug output queues.
     std::function<void(const std::string&, const std::shared_ptr<Operator>&, const std::string&)>
         collect_operator_outputs =
             [&](const std::string& op_id, const std::shared_ptr<Operator>& op, const std::string& parent_prefix) {
-              // Build fully qualified ID
               std::string qualified_id = parent_prefix.empty() ? op_id : parent_prefix + "::" + op_id;
-
-              // Skip if not in debug mode and this operator is not in output_mappings_
-              if (!debug_mode && output_mappings_.find(qualified_id) == output_mappings_.end()) {
-                return;
-              }
 
               OperatorMsgBatch op_batch;
               bool has_messages = false;
 
-              // In debug mode, collect all ports
-              if (debug_mode) {
-                for (size_t i = 0; i < op->num_output_ports(); i++) {
-                  const auto& queue = op->get_debug_output_queue(i);
-                  if (!queue.empty()) {
-                    PortMsgBatch port_msgs;
-                    for (const auto& msg : queue) {
-                      port_msgs.push_back(msg->clone());
-                    }
-                    op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
-                    has_messages = true;
+              for (size_t i = 0; i < op->num_output_ports(); i++) {
+                const auto& queue = op->get_debug_output_queue(i);
+                if (!queue.empty()) {
+                  PortMsgBatch port_msgs;
+                  for (const auto& msg : queue) {
+                    port_msgs.push_back(msg->clone());
                   }
-                }
-              }
-              // Otherwise only collect mapped ports
-              else {
-                const auto& port_indices = output_mappings_[qualified_id];
-                for (size_t port_idx : port_indices) {
-                  const auto& queue = op->get_output_queue(port_idx);
-                  if (!queue.empty()) {
-                    PortMsgBatch port_msgs;
-                    for (const auto& msg : queue) {
-                      port_msgs.push_back(msg->clone());
-                    }
-                    op_batch["o" + std::to_string(port_idx + 1)] = std::move(port_msgs);
-                    has_messages = true;
-                  }
+                  op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
+                  has_messages = true;
                 }
               }
 
@@ -284,76 +322,19 @@ class Program {
                 batch[qualified_id] = std::move(op_batch);
               }
 
-              // Recursively handle TriggerSet operators
-              if (auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op)) {
-                for (const auto& [internal_id, internal_op] : trigger_set->get_operators()) {
+              // Recursively handle composite operators (Pipeline, TriggerSet).
+              if (const auto* kids = op->children_ops()) {
+                for (const auto& [internal_id, internal_op] : *kids) {
                   collect_operator_outputs(internal_id, internal_op, qualified_id);
-                }
-
-                // In debug mode, also surface the trigger set's single output operator/port
-                if (debug_mode) {
-                  const auto& out_op_id = trigger_set->get_output_operator_id();
-                  auto mapped_qualified_id = qualified_id + "::" + out_op_id;
-                  auto mapped_op = trigger_set->get_operators().find(out_op_id);
-                  if (mapped_op != trigger_set->get_operators().end()) {
-                    size_t out_port = trigger_set->get_output_operator_port();
-                    const auto& queue = mapped_op->second->get_output_queue(out_port);
-                    if (!queue.empty()) {
-                      if (batch[mapped_qualified_id].empty()) {
-                        batch[mapped_qualified_id] = OperatorMsgBatch();
-                      }
-                      PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(out_port + 1)];
-                      for (const auto& msg : queue) {
-                        port_msgs.push_back(msg->clone());
-                      }
-                    }
-                  }
-                }
-              }
-
-              // Recursively handle Pipeline operators
-              if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
-                for (const auto& [internal_id, internal_op] : pipeline->get_operators()) {
-                  // Pass qualified_id as the new parent prefix for nested operators
-                  collect_operator_outputs(internal_id, internal_op, qualified_id);
-                }
-
-                // Handle Pipeline output mappings in debug mode
-                if (debug_mode && pipeline->get_output_mappings().size() > 0) {
-                  for (const auto& [mapped_op_id, mappings] : pipeline->get_output_mappings()) {
-                    auto mapped_qualified_id = qualified_id + "::" + mapped_op_id;
-                    auto mapped_op = pipeline->get_operators().find(mapped_op_id);
-                    if (mapped_op != pipeline->get_operators().end()) {
-                      for (const auto& [op_port, pipeline_port] : mappings) {
-                        const auto& queue = mapped_op->second->get_output_queue(op_port);
-                        if (!queue.empty()) {
-                          if (batch[mapped_qualified_id].empty()) {
-                            batch[mapped_qualified_id] = OperatorMsgBatch();
-                          }
-                          PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(pipeline_port + 1)];
-                          for (const auto& msg : queue) {
-                            port_msgs.push_back(msg->clone());
-                          }
-                        }
-                      }
-                    }
-                  }
                 }
               }
             };
 
-    // Start collection from top-level operators with empty parent prefix
     for (const auto& [op_id, op] : operators_) {
       collect_operator_outputs(op_id, op, "");
     }
 
     return batch;
-  }
-
-  void clear_all_outputs() {
-    for (auto& [_, op] : operators_) {
-      op->clear_all_output_ports();
-    }
   }
 };
 

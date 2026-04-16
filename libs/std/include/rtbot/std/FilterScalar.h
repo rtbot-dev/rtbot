@@ -30,8 +30,6 @@ class FilterScalar : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
@@ -40,7 +38,7 @@ class FilterScalar : public Operator {
 
       // Forward message only if condition evaluates to true
       if (evaluate(msg->data.value)) {
-        output_queue.push_back(input_queue.front()->clone());
+        emit_output(0, input_queue.front()->clone(), debug);
       }
 
       input_queue.pop_front();

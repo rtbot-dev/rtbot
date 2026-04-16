@@ -68,10 +68,8 @@ class WindowMinMax : public Operator {
   }
 
  protected:
-  void process_data(bool /*debug*/ = false) override {
+  void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg =
           static_cast<const Message<NumberData>*>(input_queue.front().get());
@@ -98,8 +96,8 @@ class WindowMinMax : public Operator {
 
       // Only emit once the window is full (pos_ >= window_size_ - 1)
       if (pos_ >= window_size_ - 1) {
-        output_queue.push_back(create_message<NumberData>(
-            msg->time, NumberData{mono_.front().second}));
+        emit_output(0, create_message<NumberData>(
+            msg->time, NumberData{mono_.front().second}), debug);
       }
 
       ++pos_;

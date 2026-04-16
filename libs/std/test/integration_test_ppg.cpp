@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Input.h"
 #include "rtbot/Join.h"
 #include "rtbot/Output.h"
@@ -22,22 +23,16 @@ class PPGPipeline {
     peak = std::make_shared<PeakDetector>("peak", 2 * short_window + 1);
     join = std::make_shared<Join>("join", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER});
     output = std::make_shared<Output>("o1", std::vector<std::string>{PortType::NUMBER});
+    col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
 
     // Build pipeline
     input->connect(ma_short)->connect(minus, 0, 0)->connect(peak)->connect(join, 0, 0)->connect(output);
     input->connect(ma_long)->connect(minus, 0, 1);
     input->connect(join, 0, 1);
+    output->connect(col, 0, 0);
   }
 
-  void clear_all_queues() {
-    input->clear_all_output_ports();
-    ma_short->clear_all_output_ports();
-    ma_long->clear_all_output_ports();
-    minus->clear_all_output_ports();
-    peak->clear_all_output_ports();
-    join->clear_all_output_ports();
-    output->clear_all_output_ports();
-  }
+  void reset_sink() { col->reset(); }
 
   std::shared_ptr<Input> input;
   std::shared_ptr<MovingAverage> ma_short;
@@ -46,6 +41,7 @@ class PPGPipeline {
   std::shared_ptr<PeakDetector> peak;
   std::shared_ptr<Join> join;
   std::shared_ptr<Output> output;
+  std::shared_ptr<Collector> col;
 };
 
 SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
@@ -89,18 +85,17 @@ SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
       }
     }
 
-    WHEN("Output queues are cleared") {
+    WHEN("The terminal sink is reset") {
       // Fill pipeline partially
       for (int i = 0; i < short_window; i++) {
         pipeline.input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
         pipeline.input->execute();
       }
 
-      pipeline.clear_all_queues();
+      pipeline.reset_sink();
 
-      THEN("Output queues are empty but buffers retain data") {
-        REQUIRE(pipeline.ma_short->get_output_queue(0).empty());
-        REQUIRE(pipeline.ma_long->get_output_queue(0).empty());
+      THEN("Buffers retain data after clearing terminal output") {
+        REQUIRE(pipeline.col->get_data_queue(0).empty());
         REQUIRE(pipeline.ma_short->buffer_size() == short_window);
         REQUIRE(pipeline.ma_long->buffer_size() == short_window);
       }
@@ -110,16 +105,18 @@ SCENARIO("PPG Pipeline propagates messages correctly", "[PPG][Integration]") {
       std::vector<timestamp_t> peak_times;
       const int test_window = 300;
 
+      size_t last_seen = 0;
       for (int i = 0; i < test_window; i++) {
         pipeline.input->receive_data(create_message<NumberData>(s.ti[i], NumberData{s.ppg[i]}), 0);
         pipeline.input->execute(true);
 
         const auto& peak_output = pipeline.peak->get_debug_output_queue(0);
-        for (const auto& msg : peak_output) {
-          peak_times.push_back(msg->time);
+        for (size_t k = last_seen; k < peak_output.size(); k++) {
+          peak_times.push_back(peak_output[k]->time);
         }
+        last_seen = peak_output.size();
 
-        pipeline.clear_all_queues();
+        pipeline.reset_sink();
       }
 
       THEN("Peaks are detected in expected time ranges") {
@@ -180,8 +177,8 @@ SCENARIO("PPG Pipeline handles state serialization", "[PPG][Integration]") {
         restored.input->execute();
 
         THEN("Both pipelines produce identical output") {
-          const auto& orig_output = pipeline.output->get_output_queue(0);
-          const auto& rest_output = restored.output->get_output_queue(0);
+          const auto& orig_output = pipeline.col->get_data_queue(0);
+          const auto& rest_output = restored.col->get_data_queue(0);
 
           REQUIRE(orig_output.size() == rest_output.size());
           if (!orig_output.empty()) {

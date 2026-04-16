@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/KeyedPipeline.h"
 #include "rtbot/std/VectorExtract.h"
@@ -44,6 +45,8 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
   SECTION("Basic routing with 2 keys") {
     // Prototype: VectorExtract(index=1) → CumulativeSum
     auto kp = make_keyed_pipeline("kp1", 0, make_extract_cumsum_factory(1));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     REQUIRE(kp->type_name() == "KeyedPipeline");
     REQUIRE(kp->get_key_index() == 0);
@@ -54,7 +57,7 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 1);
@@ -63,14 +66,14 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE((*msg->data.values)[1] == 100.0);  // sum
     }
 
-    kp->clear_all_output_ports();
+    col->reset();
 
     // t=2: [2.0, 200.0] → key=2, extract=200, sum=200
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 200.0}}), 0);
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 2);
@@ -78,14 +81,14 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE((*msg->data.values)[1] == 200.0);  // sum
     }
 
-    kp->clear_all_output_ports();
+    col->reset();
 
     // t=3: [1.0, 150.0] → key=1, extract=150, sum=100+150=250
     kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 150.0}}), 0);
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 3);
@@ -93,14 +96,14 @@ SCENARIO("KeyedPipeline routes messages by key with persistent state", "[keyed_p
       REQUIRE((*msg->data.values)[1] == 250.0);  // cumulative sum for key=1
     }
 
-    kp->clear_all_output_ports();
+    col->reset();
 
     // t=4: [2.0, 250.0] → key=2, extract=250, sum=200+250=450
     kp->receive_data(create_message<VectorNumberData>(4, VectorNumberData{{2.0, 250.0}}), 0);
     kp->execute();
 
     {
-      auto& out = kp->get_output_queue(0);
+      auto& out = col->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 4);
@@ -116,12 +119,14 @@ SCENARIO("KeyedPipeline handles VectorNumberData output from sub-graph", "[keyed
   SECTION("VectorProject output") {
     // Prototype: VectorProject(indices=[1,2]) — outputs VectorNumberData
     auto kp = make_keyed_pipeline("kp1", 0, make_project_factory({1, 2}));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     // Input: [key, price, quantity]
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.5, 3.0}}), 0);
     kp->execute();
 
-    auto& out = kp->get_output_queue(0);
+    auto& out = col->get_data_queue(0);
     REQUIRE(out.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
     REQUIRE(msg->time == 1);
@@ -136,29 +141,33 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
   SECTION("Collect and restore preserves per-key state") {
     auto factory = make_extract_cumsum_factory(1);
     auto kp = make_keyed_pipeline("kp1", 0, factory);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     // Process 4 messages (2 keys, 2 messages each)
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 100.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 200.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 150.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(4, VectorNumberData{{2.0, 250.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     // Collect state as JSON
     auto state = kp->collect();
 
     // Restore into a new instance
     auto kp2 = make_keyed_pipeline("kp1", 0, factory);
+    auto col2 = std::make_shared<Collector>("c2", std::vector<std::string>{"vector_number"});
+    kp2->connect(col2, 0, 0);
     kp2->restore_data_from_json(state);
 
     REQUIRE(kp2->num_keys() == 2);
@@ -169,7 +178,7 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
     kp2->execute();
 
     {
-      auto& out = kp2->get_output_queue(0);
+      auto& out = col2->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 5);
@@ -177,14 +186,14 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
       REQUIRE((*msg->data.values)[1] == 300.0);  // 100 + 150 + 50
     }
 
-    kp2->clear_all_output_ports();
+    col2->reset();
 
     // key=2: previous sum was 450, new value 50 → sum=500
     kp2->receive_data(create_message<VectorNumberData>(6, VectorNumberData{{2.0, 50.0}}), 0);
     kp2->execute();
 
     {
-      auto& out = kp2->get_output_queue(0);
+      auto& out = col2->get_data_queue(0);
       REQUIRE(out.size() == 1);
       auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
       REQUIRE(msg->time == 6);
@@ -197,6 +206,8 @@ SCENARIO("KeyedPipeline serialization roundtrip", "[keyed_pipeline][State]") {
 SCENARIO("KeyedPipeline handles many keys", "[keyed_pipeline]") {
   SECTION("100 distinct keys, 10 messages each") {
     auto kp = make_keyed_pipeline("kp1", 0, make_extract_cumsum_factory(1));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
 
     timestamp_t t = 1;
     for (int round = 0; round < 10; round++) {
@@ -207,7 +218,7 @@ SCENARIO("KeyedPipeline handles many keys", "[keyed_pipeline]") {
         kp->receive_data(create_message<VectorNumberData>(t, VectorNumberData{{key_val, value}}), 0);
         kp->execute();
 
-        auto& out = kp->get_output_queue(0);
+        auto& out = col->get_data_queue(0);
         REQUIRE(out.size() == 1);
         auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out[0].get());
 
@@ -220,7 +231,7 @@ SCENARIO("KeyedPipeline handles many keys", "[keyed_pipeline]") {
         REQUIRE((*msg->data.values)[0] == key_val);
         REQUIRE((*msg->data.values)[1] == Approx(expected_sum));
 
-        kp->clear_all_output_ports();
+        col->reset();
         t++;
       }
     }
@@ -233,28 +244,30 @@ SCENARIO("KeyedPipeline new key callback", "[keyed_pipeline]") {
   SECTION("Callback called exactly once per new key") {
     std::vector<double> new_keys;
     auto kp = make_keyed_pipeline("kp1", 0, make_extract_cumsum_factory(1));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
     kp->set_new_key_callback([&new_keys](double key) { new_keys.push_back(key); });
 
     // Process messages with keys [1, 2, 1, 3, 2]
     kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 20.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 30.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(4, VectorNumberData{{3.0, 40.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     kp->receive_data(create_message<VectorNumberData>(5, VectorNumberData{{2.0, 50.0}}), 0);
     kp->execute();
-    kp->clear_all_output_ports();
+    col->reset();
 
     REQUIRE(new_keys.size() == 3);
     REQUIRE(new_keys[0] == 1.0);

@@ -1,13 +1,16 @@
 #include <catch2/catch.hpp>
 #include <memory>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/CompareScalar.h"
 
 using namespace rtbot;
 
 SCENARIO("CompareGT produces boolean output for every message", "[compare_scalar]") {
   SECTION("Basic comparisons") {
-    auto cmp = make_compare_gt("cmp1", 30.0);
+    auto cmp = std::make_shared<CompareGT>("cmp1", 30.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareGT");
     REQUIRE(cmp->get_value() == 30.0);
@@ -17,7 +20,7 @@ SCENARIO("CompareGT produces boolean output for every message", "[compare_scalar
     cmp->receive_data(create_message<NumberData>(3, NumberData{29.0}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     auto* msg0 = dynamic_cast<const Message<BooleanData>*>(output[0].get());
@@ -36,7 +39,9 @@ SCENARIO("CompareGT produces boolean output for every message", "[compare_scalar
 
 SCENARIO("CompareLT produces boolean output", "[compare_scalar]") {
   SECTION("Basic comparisons") {
-    auto cmp = make_compare_lt("cmp1", 30.0);
+    auto cmp = std::make_shared<CompareLT>("cmp1", 30.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareLT");
 
@@ -45,7 +50,7 @@ SCENARIO("CompareLT produces boolean output", "[compare_scalar]") {
     cmp->receive_data(create_message<NumberData>(3, NumberData{31.0}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == true);
@@ -56,7 +61,9 @@ SCENARIO("CompareLT produces boolean output", "[compare_scalar]") {
 
 SCENARIO("CompareGTE produces boolean output", "[compare_scalar]") {
   SECTION("Basic comparisons") {
-    auto cmp = make_compare_gte("cmp1", 30.0);
+    auto cmp = std::make_shared<CompareGTE>("cmp1", 30.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareGTE");
 
@@ -65,7 +72,7 @@ SCENARIO("CompareGTE produces boolean output", "[compare_scalar]") {
     cmp->receive_data(create_message<NumberData>(3, NumberData{29.0}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == true);
@@ -76,7 +83,9 @@ SCENARIO("CompareGTE produces boolean output", "[compare_scalar]") {
 
 SCENARIO("CompareLTE produces boolean output", "[compare_scalar]") {
   SECTION("Basic comparisons") {
-    auto cmp = make_compare_lte("cmp1", 30.0);
+    auto cmp = std::make_shared<CompareLTE>("cmp1", 30.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareLTE");
 
@@ -85,7 +94,7 @@ SCENARIO("CompareLTE produces boolean output", "[compare_scalar]") {
     cmp->receive_data(create_message<NumberData>(3, NumberData{31.0}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == true);
@@ -96,7 +105,9 @@ SCENARIO("CompareLTE produces boolean output", "[compare_scalar]") {
 
 SCENARIO("CompareEQ with tolerance", "[compare_scalar]") {
   SECTION("Within tolerance") {
-    auto cmp = make_compare_eq("cmp1", 30.0, 0.01);
+    auto cmp = std::make_shared<CompareEQ>("cmp1", 30.0, 0.01);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareEQ");
     REQUIRE(cmp->get_value() == 30.0);
@@ -106,7 +117,7 @@ SCENARIO("CompareEQ with tolerance", "[compare_scalar]") {
     cmp->receive_data(create_message<NumberData>(2, NumberData{30.1}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == true);
@@ -114,13 +125,15 @@ SCENARIO("CompareEQ with tolerance", "[compare_scalar]") {
   }
 
   SECTION("Zero tolerance — exact match") {
-    auto cmp = make_compare_eq("cmp1", 5.0, 0.0);
+    auto cmp = std::make_shared<CompareEQ>("cmp1", 5.0, 0.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     cmp->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
     cmp->receive_data(create_message<NumberData>(2, NumberData{5.1}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == true);
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[1].get())->data.value == false);
   }
@@ -128,7 +141,9 @@ SCENARIO("CompareEQ with tolerance", "[compare_scalar]") {
 
 SCENARIO("CompareNEQ with tolerance", "[compare_scalar]") {
   SECTION("Outside tolerance") {
-    auto cmp = make_compare_neq("cmp1", 30.0, 0.01);
+    auto cmp = std::make_shared<CompareNEQ>("cmp1", 30.0, 0.01);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    cmp->connect(col, 0, 0);
 
     REQUIRE(cmp->type_name() == "CompareNEQ");
 
@@ -136,7 +151,7 @@ SCENARIO("CompareNEQ with tolerance", "[compare_scalar]") {
     cmp->receive_data(create_message<NumberData>(2, NumberData{30.1}), 0);
     cmp->execute();
 
-    auto& output = cmp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == false);
@@ -146,32 +161,33 @@ SCENARIO("CompareNEQ with tolerance", "[compare_scalar]") {
 
 SCENARIO("CompareScalar serialization roundtrip", "[compare_scalar][State]") {
   SECTION("CompareGT collect and restore") {
-    auto cmp = make_compare_gt("cmp1", 30.0);
+    auto cmp = std::make_shared<CompareGT>("cmp1", 30.0);
     cmp->receive_data(create_message<NumberData>(1, NumberData{31.0}), 0);
     cmp->execute();
 
     auto state = cmp->collect();
-    auto restored = make_compare_gt("cmp1", 30.0);
+    auto restored = std::make_shared<CompareGT>("cmp1", 30.0);
+    auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    restored->connect(rcol, 0, 0);
     restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *cmp);
 
-    restored->clear_all_output_ports();
     restored->receive_data(create_message<NumberData>(2, NumberData{25.0}), 0);
     restored->execute();
 
-    auto& output = restored->get_output_queue(0);
+    auto& output = rcol->get_data_queue(0);
     REQUIRE(output.size() == 1);
     REQUIRE(dynamic_cast<const Message<BooleanData>*>(output[0].get())->data.value == false);
   }
 
   SECTION("CompareEQ collect and restore") {
-    auto cmp = make_compare_eq("cmp1", 10.0, 0.5);
+    auto cmp = std::make_shared<CompareEQ>("cmp1", 10.0, 0.5);
     cmp->receive_data(create_message<NumberData>(1, NumberData{10.3}), 0);
     cmp->execute();
 
     auto state = cmp->collect();
-    auto restored = make_compare_eq("cmp1", 10.0, 0.5);
+    auto restored = std::make_shared<CompareEQ>("cmp1", 10.0, 0.5);
     restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *cmp);

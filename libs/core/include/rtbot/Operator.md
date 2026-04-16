@@ -40,10 +40,11 @@ The RtBot Operator class serves as the fundamental building block for creating d
    - Indexed from 0 to (num_control_ports - 1)
 
 3. Output Ports (`output_ports_`)
-   - Ports for emitting processed data
+   - Logical ports for emitting processed data via `emit_output()`
    - Initially matches number of data ports
    - Can be dynamically added using `add_output_port()`
    - Indexed from 0 to (num_output_ports - 1)
+   - Have no intermediate queue: emitted messages are pushed straight into connected children's input queues. A per-port debug queue is populated only when the operator is executed in debug mode.
 
 ## Constructor
 
@@ -77,10 +78,10 @@ void execute()
 ```
 
 1. Checks if there are new messages to process
-2. Clears previous outputs
+2. Clears debug output queues (if debug mode is enabled)
 3. Processes control messages if any exist
-4. Processes data messages
-5. Propagates outputs to connected operators
+4. Processes data messages (which call `emit_output` to deliver results directly to children)
+5. Triggers execute on children that received new data
 6. Clears tracking of new data
 
 ### Connections
@@ -98,12 +99,12 @@ void connect(Operator* child, size_t output_port = 0, size_t child_input_port = 
 ### Virtual Methods
 
 ```cpp
-virtual void process_data() = 0
-virtual void process_control() {}
+virtual void process_data(bool debug) = 0
+virtual void process_control(bool debug = false) {}
 ```
 
-- `process_data()`: Must be implemented by derived classes
-- `process_control()`: Optional, default does nothing
+- `process_data()`: Must be implemented by derived classes. Use `emit_output(port, msg, debug)` to publish results.
+- `process_control()`: Optional, default does nothing.
 
 ### Helper Methods
 
@@ -124,12 +125,11 @@ std::unique_ptr<Message<T>> create_message(timestamp_t time, T data)
 ```cpp
 const MessageQueue& get_data_queue(size_t port_index) const
 const MessageQueue& get_control_queue(size_t port_index) const
-MessageQueue& get_output_queue(size_t port_index)
+void emit_output(size_t port_index, std::unique_ptr<BaseMessage> msg, bool debug = false)
 ```
 
-- Safe access to message queues
-- Const and non-const versions as appropriate
-- Used by derived classes to implement processing logic
+- `get_data_queue` / `get_control_queue`: read-only access to input queues during processing.
+- `emit_output`: publishes a message on an output port. It delivers directly to the input queues of connected children (no intermediate output queue). When `debug` is true, the message is also cloned into the per-port debug queue (see `get_debug_output_queue`).
 
 ## State Management
 
@@ -191,16 +191,16 @@ public:
     }
 
 protected:
-    void process_data() override {
-        const auto& input = get_data_queue(0);
-        if(input.empty()) return;
-
-        // Process messages...
-        auto& output = get_output_queue(0);
-        output.push_back(create_message<NumberData>(
-            input.front()->time,
-            NumberData{/* processed value */}
-        ));
+    void process_data(bool debug = false) override {
+        auto& input = get_data_queue(0);
+        while (!input.empty()) {
+            // Process messages and push results directly to children.
+            emit_output(0, create_message<NumberData>(
+                input.front()->time,
+                NumberData{/* processed value */}
+            ), debug);
+            input.pop_front();
+        }
     }
 };
 ```
