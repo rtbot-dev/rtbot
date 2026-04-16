@@ -105,10 +105,16 @@ class PPGPipelineBenchmark {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (size_t i = 0; i < data_size; ++i) {
-      // When we reach the end of dataset, reset index and increase time offset
+      // When we reach the end of dataset, reset index and bump time offset.
+      // NOTE: must be `+=` (accumulate) — prior `=` (reset-to-constant) caused
+      // every pass after the second to collide with the previous pass's
+      // timestamps, triggering Input's debug-mode ordering check. Each throw
+      // is caught and swallowed (Input.h:53–55), and the message is dropped,
+      // but exception dispatch costs ~3 µs/call. At 10M iterations that
+      // equaled ~30 s of overhead and ~99% of the benchmark's wall time.
       if (data_index >= times_.size()) {
         data_index = 0;
-        time_offset = times_[times_.size() - 1] - times_[0] + dt_;
+        time_offset += times_[times_.size() - 1] - times_[0] + dt_;
       }
 
       timestamp_t current_time = times_[data_index] + time_offset;
