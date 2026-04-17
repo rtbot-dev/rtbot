@@ -27,7 +27,16 @@ class FusedExpressionVector : public Operator {
         constants_(std::move(constants)),
         state_init_(std::move(state_init)),
         state_(state_init_),
-        packed_(rtbot::fuse::encode_legacy(bytecode_)) {
+        packed_(rtbot::fuse::encode_legacy(bytecode_)),
+        min_required_input_size_(0) {
+    // Compute once: the minimum inputs vector size this program needs.
+    // Bytecode is immutable after construction so this can be cached.
+    for (const auto& i : packed_) {
+      if (i.op == static_cast<std::uint8_t>(fused_op::INPUT)) {
+        std::size_t needed = static_cast<std::size_t>(i.arg) + 1;
+        if (needed > min_required_input_size_) min_required_input_size_ = needed;
+      }
+    }
     add_data_port<VectorNumberData>();
     add_output_port<VectorNumberData>();
 
@@ -125,16 +134,14 @@ class FusedExpressionVector : public Operator {
       timestamp_t time = msg->time;
       const std::vector<double>& inputs = *msg->data.values;
 
-      // Bounds-check INPUT opcode arguments against the incoming vector's
-      // length. evaluate_one() does no bounds checking (the scalar
-      // FusedExpression passes a fixed-size `inputs[num_ports]` array).
-      // Walking the packed form is a single pass over 4-byte records.
-      for (size_t p = 0; p < ins_size; ++p) {
-        if (ins[p].op == 0 /* INPUT */ &&
-            static_cast<size_t>(ins[p].arg) >= inputs.size()) {
-          throw std::runtime_error(
-              "FusedExpressionVector INPUT index out of bounds");
-        }
+      // Single-word bounds check using the cached maximum INPUT index.
+      // evaluate_one() does no bounds checking internally (the scalar
+      // FusedExpression passes a fixed-size `inputs[num_ports]` array), so
+      // the guard lives here — but it only needs to look at the incoming
+      // vector's size, not walk the bytecode every message.
+      if (inputs.size() < min_required_input_size_) {
+        throw std::runtime_error(
+            "FusedExpressionVector INPUT index out of bounds");
       }
 
       auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
@@ -154,6 +161,7 @@ class FusedExpressionVector : public Operator {
   std::vector<double> state_init_;
   std::vector<double> state_;
   std::vector<rtbot::fuse::Instruction> packed_;
+  std::size_t min_required_input_size_;
 };
 
 inline std::shared_ptr<FusedExpressionVector> make_fused_expression_vector(
