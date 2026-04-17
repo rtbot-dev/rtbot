@@ -46,6 +46,20 @@ constexpr double AND = 32;
 constexpr double OR = 33;
 constexpr double NOT = 34;
 
+// Tier-1 windowed/stateful opcodes (Phase 3). These collapse the standalone
+// MovingAverage / MovingSum / StandardDeviation / Difference / WindowMinMax /
+// FIR / IIR operators into FusedExpression bytecode so whole chains can fuse.
+// Each carries side-table AuxArgs for window size, coefficient offsets, etc.
+constexpr double MA_UPDATE = 35;     // running mean over window
+constexpr double MSUM_UPDATE = 36;   // running sum over window
+constexpr double STD_UPDATE = 37;    // running standard deviation over window
+constexpr double DIFF = 38;          // x[t] - x[t-1]
+constexpr double SIGN_CHANGE = 39;   // sign(x[t] - x[t-1])
+constexpr double WIN_MIN = 40;       // min over sliding window
+constexpr double WIN_MAX = 41;       // max over sliding window
+constexpr double FIR_UPDATE = 42;    // FIR dot-product with fixed coefficients
+constexpr double IIR_UPDATE = 43;    // IIR recurrence with fixed coefficients
+
 }  // namespace rtbot::fused_op
 
 #endif  // RTBOT_FUSE_OPS_H
