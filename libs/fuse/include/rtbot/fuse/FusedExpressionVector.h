@@ -8,7 +8,10 @@
 #include <string>
 #include <vector>
 
+#include <array>
+
 #include "rtbot/Operator.h"
+#include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 
@@ -28,13 +31,20 @@ class FusedExpressionVector : public Operator {
         state_init_(std::move(state_init)),
         state_(state_init_),
         packed_(rtbot::fuse::encode_legacy(bytecode_)),
-        min_required_input_size_(0) {
-    // Compute once: the minimum inputs vector size this program needs.
-    // Bytecode is immutable after construction so this can be cached.
+        min_required_input_size_(0),
+        can_batch_(true) {
+    // Compute once: the minimum inputs vector size this program needs,
+    // and whether the program can be safely batched. Bytecode is immutable
+    // after construction so this is a one-shot walk.
     for (const auto& i : packed_) {
       if (i.op == static_cast<std::uint8_t>(fused_op::INPUT)) {
         std::size_t needed = static_cast<std::size_t>(i.arg) + 1;
         if (needed > min_required_input_size_) min_required_input_size_ = needed;
+      }
+      // STATE_LOAD reads shared state; batched evaluation would contaminate
+      // it across lanes. Disable batching when present.
+      if (i.op == static_cast<std::uint8_t>(fused_op::STATE_LOAD)) {
+        can_batch_ = false;
       }
     }
     add_data_port<VectorNumberData>();
@@ -128,29 +138,64 @@ class FusedExpressionVector : public Operator {
     const size_t ins_size = packed_.size();
     const double* consts = constants_.data();
 
-    while (!input.empty()) {
-      const auto* msg =
-          static_cast<const Message<VectorNumberData>*>(input.front().get());
-      timestamp_t time = msg->time;
-      const std::vector<double>& inputs = *msg->data.values;
+    if (!can_batch_) {
+      while (!input.empty()) {
+        const auto* msg = static_cast<const Message<VectorNumberData>*>(
+            input.front().get());
+        timestamp_t time = msg->time;
+        const std::vector<double>& inputs = *msg->data.values;
+        if (inputs.size() < min_required_input_size_) {
+          throw std::runtime_error(
+              "FusedExpressionVector INPUT index out of bounds");
+        }
+        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs.data(),
+                                   state_.data(), out_vec->data(),
+                                   num_outputs_);
+        get_output_queue(0).push_back(create_message<VectorNumberData>(
+            time, VectorNumberData(std::move(out_vec))));
+        input.pop_front();
+      }
+      return;
+    }
 
-      // Single-word bounds check using the cached maximum INPUT index.
-      // evaluate_one() does no bounds checking internally (the scalar
-      // FusedExpression passes a fixed-size `inputs[num_ports]` array), so
-      // the guard lives here — but it only needs to look at the incoming
-      // vector's size, not walk the bytecode every message.
-      if (inputs.size() < min_required_input_size_) {
-        throw std::runtime_error(
-            "FusedExpressionVector INPUT index out of bounds");
+    constexpr size_t B = rtbot::fuse::kBatch;
+    std::array<std::array<double, B>, 64> batched_inputs{};
+    std::array<timestamp_t, B> times{};
+    std::vector<double> out_batch(B * num_outputs_, 0.0);
+
+    while (!input.empty()) {
+      size_t lane = 0;
+      while (lane < B && !input.empty()) {
+        const auto* msg = static_cast<const Message<VectorNumberData>*>(
+            input.front().get());
+        const std::vector<double>& values = *msg->data.values;
+        if (values.size() < min_required_input_size_) {
+          throw std::runtime_error(
+              "FusedExpressionVector INPUT index out of bounds");
+        }
+        for (size_t p = 0; p < min_required_input_size_; ++p)
+          batched_inputs[p][lane] = values[p];
+        times[lane] = msg->time;
+        input.pop_front();
+        ++lane;
       }
 
-      auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-      rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs.data(),
-                                 state_.data(), out_vec->data(), num_outputs_);
+      if (lane == 0) return;
 
-      get_output_queue(0).push_back(create_message<VectorNumberData>(
-          time, VectorNumberData(std::move(out_vec))));
-      input.pop_front();
+      rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
+                                        batched_inputs.data(), lane,
+                                        state_.data(), out_batch.data(),
+                                        num_outputs_);
+
+      for (size_t l = 0; l < lane; ++l) {
+        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        std::copy(out_batch.begin() + l * num_outputs_,
+                  out_batch.begin() + (l + 1) * num_outputs_,
+                  out_vec->begin());
+        get_output_queue(0).push_back(create_message<VectorNumberData>(
+            times[l], VectorNumberData(std::move(out_vec))));
+      }
     }
   }
 
@@ -162,6 +207,7 @@ class FusedExpressionVector : public Operator {
   std::vector<double> state_;
   std::vector<rtbot::fuse::Instruction> packed_;
   std::size_t min_required_input_size_;
+  bool can_batch_;
 };
 
 inline std::shared_ptr<FusedExpressionVector> make_fused_expression_vector(
