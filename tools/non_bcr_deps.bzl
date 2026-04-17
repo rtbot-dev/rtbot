@@ -86,6 +86,17 @@ def _non_bcr_deps_impl(module_ctx):
         url = "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip",
     )
 
+    # xsimd — header-only SIMD library. Used by libs/fuse to express
+    # opcode-level vectorization that the compiler maps to AVX2 / NEON / WASM
+    # SIMD128 without platform-specific code in call sites.
+    http_archive(
+        name = "xsimd",
+        build_file = "//tools/external:xsimd.BUILD",
+        sha256 = "8bdbbad0c3e7afa38d88d0d484d70a1671a1d8aefff03f4223ab2eb6a41110a3",
+        strip_prefix = "xsimd-13.0.0",
+        urls = ["https://github.com/xtensor-stack/xsimd/archive/refs/tags/13.0.0.tar.gz"],
+    )
+
 non_bcr_deps = module_extension(
     implementation = _non_bcr_deps_impl,
 )

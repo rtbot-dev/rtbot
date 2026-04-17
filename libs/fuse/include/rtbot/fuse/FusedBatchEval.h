@@ -13,6 +13,17 @@
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedOps.h"
 
+// RTBOT_FUSED_SIMD_ENABLED is the authoritative compile-time switch used by
+// the evaluator cases below. It's derived from RTBOT_FUSED_SIMD (the user-
+// facing flag) with a carveout for Emscripten/WASM builds — xsimd's WASM
+// arch requires -msimd128, which isn't on by default in the rtbot Emscripten
+// toolchain. Once WASM SIMD is wired through the build system this guard can
+// be lifted.
+#if defined(RTBOT_FUSED_SIMD) && !defined(__EMSCRIPTEN__)
+#define RTBOT_FUSED_SIMD_ENABLED 1
+#include "rtbot/fuse/FusedSimdOps.h"
+#endif
+
 namespace rtbot::fuse {
 
 // Batch width for lane-parallel evaluation. The compiler autovectorizes
@@ -93,26 +104,42 @@ inline void evaluate_batched(
       }
       case 2 /* ADD */: {
         --sp;
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::add_lanes<B>(stack[sp - 1], stack[sp], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] += stack[sp][l];
+#endif
         break;
       }
       case 3 /* SUB */: {
         --sp;
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::sub_lanes<B>(stack[sp - 1], stack[sp], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] -= stack[sp][l];
+#endif
         break;
       }
       case 4 /* MUL */: {
         --sp;
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::mul_lanes<B>(stack[sp - 1], stack[sp], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] *= stack[sp][l];
+#endif
         break;
       }
       case 5 /* DIV */: {
         --sp;
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::div_lanes<B>(stack[sp - 1], stack[sp], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] /= stack[sp][l];
+#endif
         break;
       }
       case 6 /* POW */: {
@@ -122,8 +149,12 @@ inline void evaluate_batched(
         break;
       }
       case 7 /* ABS */: {
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::abs_lanes<B>(stack[sp - 1], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] = std::abs(stack[sp - 1][l]);
+#endif
         break;
       }
       case 8 /* SQRT */: {
@@ -184,8 +215,12 @@ inline void evaluate_batched(
         break;
       }
       case 19 /* NEG */: {
+#if defined(RTBOT_FUSED_SIMD_ENABLED)
+        rtbot::fuse::simd::neg_lanes<B>(stack[sp - 1], active_lanes);
+#else
         for (std::size_t l = 0; l < active_lanes; ++l)
           stack[sp - 1][l] = -stack[sp - 1][l];
+#endif
         break;
       }
       case 20 /* END */: {

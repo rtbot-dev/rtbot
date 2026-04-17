@@ -134,4 +134,5 @@ use_repo(
     "linenoise",
     "lua",
     "sol2",
+    "xsimd",
 )
