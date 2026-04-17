@@ -90,7 +90,9 @@ SCENARIO("State layout reserves 2*win + 2 for WIN_MIN/MAX", "[state_layout]") {
   };
   std::vector<AuxArgs> aux = {{0, 16, 0, 0}};
   auto layout = compute_state_layout(packed, aux);
-  REQUIRE(layout.total_state_size == 34);  // 16 ring + 16 deque + 2 head/tail
-  REQUIRE(layout.initial_values[0] ==
-          -std::numeric_limits<double>::infinity());
+  // 2 counters (pos, deque_size) + 16 deque values + 16 deque positions.
+  REQUIRE(layout.total_state_size == 34);
+  // All counters/slots start at zero — the opcode's monotonic-deque algorithm
+  // compares against incoming values, no sentinel needed.
+  REQUIRE(layout.initial_values[0] == 0.0);
 }

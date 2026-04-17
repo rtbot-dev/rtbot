@@ -41,9 +41,12 @@ class FusedExpressionVector : public Operator {
         std::size_t needed = static_cast<std::size_t>(i.arg) + 1;
         if (needed > min_required_input_size_) min_required_input_size_ = needed;
       }
-      // STATE_LOAD reads shared state; batched evaluation would contaminate
-      // it across lanes. Disable batching when present.
-      if (i.op == static_cast<std::uint8_t>(fused_op::STATE_LOAD)) {
+      // Programs with STATE_LOAD or Tier-1 windowed opcodes cannot yet run
+      // through evaluate_batched — force scalar fallback.
+      const auto op = i.op;
+      if (op == static_cast<std::uint8_t>(fused_op::STATE_LOAD) ||
+          (op >= static_cast<std::uint8_t>(fused_op::MA_UPDATE) &&
+           op <= static_cast<std::uint8_t>(fused_op::IIR_UPDATE))) {
         can_batch_ = false;
       }
     }
@@ -149,13 +152,14 @@ class FusedExpressionVector : public Operator {
               "FusedExpressionVector INPUT index out of bounds");
         }
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts,
-                                   /*aux_args=*/nullptr,
-                                   /*coefficients=*/nullptr,
-                                   inputs.data(), state_.data(),
-                                   out_vec->data(), num_outputs_);
-        get_output_queue(0).push_back(create_message<VectorNumberData>(
-            time, VectorNumberData(std::move(out_vec))));
+        const bool emit = rtbot::fuse::evaluate_one(
+            ins, ins_size, consts, /*aux_args=*/nullptr,
+            /*coefficients=*/nullptr, inputs.data(), state_.data(),
+            out_vec->data(), num_outputs_);
+        if (emit) {
+          get_output_queue(0).push_back(create_message<VectorNumberData>(
+              time, VectorNumberData(std::move(out_vec))));
+        }
         input.pop_front();
       }
       return;
@@ -192,13 +196,14 @@ class FusedExpressionVector : public Operator {
         for (size_t p = 0; p < min_required_input_size_; ++p)
           inputs1[p] = batched_inputs[p][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts,
-                                   /*aux_args=*/nullptr,
-                                   /*coefficients=*/nullptr,
-                                   inputs1, state_.data(),
-                                   out_vec->data(), num_outputs_);
-        get_output_queue(0).push_back(create_message<VectorNumberData>(
-            times[0], VectorNumberData(std::move(out_vec))));
+        const bool emit = rtbot::fuse::evaluate_one(
+            ins, ins_size, consts, /*aux_args=*/nullptr,
+            /*coefficients=*/nullptr, inputs1, state_.data(),
+            out_vec->data(), num_outputs_);
+        if (emit) {
+          get_output_queue(0).push_back(create_message<VectorNumberData>(
+              times[0], VectorNumberData(std::move(out_vec))));
+        }
         continue;
       }
 

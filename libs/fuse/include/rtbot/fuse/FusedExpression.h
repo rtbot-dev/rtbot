@@ -42,13 +42,15 @@ class FusedExpression : public VectorCompose {
         state_(state_init_),
         packed_(rtbot::fuse::encode_legacy(bytecode_)),
         can_batch_(true) {
-    // STATE_LOAD reads the current shared state array; its scalar semantics
-    // depend on state as mutated by stateful opcodes at each lane's own
-    // processing step. Batched evaluation has all lanes' stateful ops run
-    // before STATE_LOAD, so state is contaminated. Disable batching when
-    // STATE_LOAD is present.
+    // Programs with STATE_LOAD or Tier-1 windowed opcodes cannot yet run
+    // through evaluate_batched (STATE_LOAD reads contaminated shared state
+    // across lanes; windowed opcodes are not implemented in the batched
+    // evaluator). Force scalar fallback for any of those — correctness first.
     for (const auto& i : packed_) {
-      if (i.op == static_cast<std::uint8_t>(fused_op::STATE_LOAD)) {
+      const auto op = i.op;
+      if (op == static_cast<std::uint8_t>(fused_op::STATE_LOAD) ||
+          (op >= static_cast<std::uint8_t>(fused_op::MA_UPDATE) &&
+           op <= static_cast<std::uint8_t>(fused_op::IIR_UPDATE))) {
         can_batch_ = false;
         break;
       }
@@ -150,13 +152,14 @@ class FusedExpression : public VectorCompose {
         for (size_t i = 0; i < np; i++) get_data_queue(i).pop_front();
 
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts,
-                                   /*aux_args=*/nullptr,
-                                   /*coefficients=*/nullptr,
-                                   inputs, state_.data(),
-                                   out_vec->data(), num_outputs_);
-        get_output_queue(0).push_back(create_message<VectorNumberData>(
-            time, VectorNumberData(std::move(out_vec))));
+        const bool emit = rtbot::fuse::evaluate_one(
+            ins, ins_size, consts, /*aux_args=*/nullptr,
+            /*coefficients=*/nullptr, inputs, state_.data(),
+            out_vec->data(), num_outputs_);
+        if (emit) {
+          get_output_queue(0).push_back(create_message<VectorNumberData>(
+              time, VectorNumberData(std::move(out_vec))));
+        }
       }
     }
 
@@ -200,13 +203,14 @@ class FusedExpression : public VectorCompose {
         double inputs1[64];
         for (size_t i = 0; i < np; ++i) inputs1[i] = batched_inputs[i][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts,
-                                   /*aux_args=*/nullptr,
-                                   /*coefficients=*/nullptr,
-                                   inputs1, state_.data(),
-                                   out_vec->data(), num_outputs_);
-        get_output_queue(0).push_back(create_message<VectorNumberData>(
-            times[0], VectorNumberData(std::move(out_vec))));
+        const bool emit = rtbot::fuse::evaluate_one(
+            ins, ins_size, consts, /*aux_args=*/nullptr,
+            /*coefficients=*/nullptr, inputs1, state_.data(),
+            out_vec->data(), num_outputs_);
+        if (emit) {
+          get_output_queue(0).push_back(create_message<VectorNumberData>(
+              times[0], VectorNumberData(std::move(out_vec))));
+        }
         continue;
       }
 

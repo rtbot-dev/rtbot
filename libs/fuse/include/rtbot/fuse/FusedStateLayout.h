@@ -88,19 +88,24 @@ inline StateLayout compute_state_layout(
     } else if (op == static_cast<std::uint8_t>(STD_UPDATE)) {
       const AuxArgs& a = aux[ins.arg];
       detail::reserve_slots(out, a.a, std::size_t{a.b} + 4, 0.0);
-    } else if (op == static_cast<std::uint8_t>(WIN_MIN)) {
+    } else if (op == static_cast<std::uint8_t>(WIN_MIN) ||
+               op == static_cast<std::uint8_t>(WIN_MAX)) {
+      // State: [pos, deque_size, deque_values(W), deque_positions(W)].
+      // All slots zero — pos/size are counters and the ring is overwritten
+      // as values are pushed.
       const AuxArgs& a = aux[ins.arg];
-      detail::reserve_slots(out, a.a, 2 * std::size_t{a.b} + 2, kPosInf);
-    } else if (op == static_cast<std::uint8_t>(WIN_MAX)) {
-      const AuxArgs& a = aux[ins.arg];
-      detail::reserve_slots(out, a.a, 2 * std::size_t{a.b} + 2, kNegInf);
+      detail::reserve_slots(out, a.a, 2 * std::size_t{a.b} + 2, 0.0);
+      (void)kPosInf;
+      (void)kNegInf;
     } else if (op == static_cast<std::uint8_t>(FIR_UPDATE)) {
       const AuxArgs& a = aux[ins.arg];
       detail::reserve_slots(out, a.a, std::size_t{a.b} + 2, 0.0);
     } else if (op == static_cast<std::uint8_t>(IIR_UPDATE)) {
+      // AuxArgs for IIR: {state_off, b_len, a_len, coeff_off}.
+      // State: x_head, x_count, y_head, y_count, x_ring(b_len), y_ring(a_len).
       const AuxArgs& a = aux[ins.arg];
-      const std::size_t max_len = std::max(std::size_t{a.b}, std::size_t{a.d});
-      detail::reserve_slots(out, a.a, max_len * 2 + 4, 0.0);
+      detail::reserve_slots(out, a.a,
+                             std::size_t{a.b} + std::size_t{a.c} + 4, 0.0);
     }
     // STATE_LOAD borrows another opcode's slot — no reservation here.
   }
