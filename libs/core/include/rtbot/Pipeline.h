@@ -552,8 +552,7 @@ class Pipeline : public Operator {
     }
 
     for (size_t i = 0; i < num_data_ports(); ++i) {
-      auto& msg = get_data_queue(i).front();
-      entry_operator_->receive_data(msg->clone(), i);
+      entry_operator_->receive_data(std::move(get_data_queue(i).front()), i);
     }
     entry_operator_->execute(debug);
 
@@ -578,10 +577,9 @@ class Pipeline : public Operator {
   void emit_buffer(timestamp_t boundary_time, bool debug = false) {
     for (auto& [pipeline_port, msg] : last_output_buffer_) {
       if (pipeline_port < num_output_ports()) {
-        auto output_msg = msg->clone();
-        output_msg->time = boundary_time;
+        msg->time = boundary_time;
         RTBOT_LOG_DEBUG("Pipeline emitting buffer on port ", pipeline_port, " at time ", boundary_time);
-        emit_output(pipeline_port, std::move(output_msg), debug);
+        emit_output(pipeline_port, std::move(msg), debug);
       }
     }
     last_output_buffer_.clear();

@@ -181,18 +181,17 @@ class TriggerSet : public Operator {
     // Forward input messages from the single input port to the entry operator's data port 0
     auto& input_queue = get_data_queue(0);
     while (!input_queue.empty()) {
-      auto& msg = input_queue.front();
-      entry_operator_->receive_data(msg->clone(), 0);
+      entry_operator_->receive_data(std::move(input_queue.front()), 0);
       entry_operator_->execute(debug);
       input_queue.pop_front();
 
       // Check the collector for a fired message
       auto& source_queue = output_collector_->get_data_queue(0);
       if (!source_queue.empty()) {
-        const auto& fired = source_queue.front();
+        auto& fired = source_queue.front();
         RTBOT_LOG_DEBUG("Forwarding message ", fired->to_string(), " from ", output_operator_->id(),
                         ":", output_operator_port_, " -> 0");
-        emit_output(0, fired->clone(), debug);
+        emit_output(0, std::move(fired), debug);
         // Reset the internal mesh: a single trigger consumes the cycle
         reset();
         output_collector_->reset();

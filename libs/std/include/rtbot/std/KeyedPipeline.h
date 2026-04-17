@@ -181,7 +181,7 @@ class KeyedPipeline : public Operator {
       sg.collector->reset();
 
       // Feed the full input vector to the entry operator
-      sg.entry->receive_data(input_queue.front()->clone(), 0);
+      sg.entry->receive_data(std::move(input_queue.front()), 0);
       sg.entry->execute(debug);
 
       // Collect from collector's data queue, prepend key

@@ -52,7 +52,7 @@ class Output : public Operator {
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& input_queue = get_data_queue(i);
       while (!input_queue.empty()) {
-        emit_output(i, input_queue.front()->clone(), debug);
+        emit_output(i, std::move(input_queue.front()), debug);
         input_queue.pop_front();
       }
     }

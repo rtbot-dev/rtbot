@@ -118,7 +118,7 @@ class Join : public Operator {
       if (!is_sync) return;
 
       for (int i=0; i < num_data_ports(); i++) {
-        emit_output(i, get_data_queue(i).front()->clone(), debug);
+        emit_output(i, std::move(get_data_queue(i).front()), debug);
         get_data_queue(i).pop_front();
       }
 

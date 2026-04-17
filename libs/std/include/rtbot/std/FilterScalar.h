@@ -36,9 +36,8 @@ class FilterScalar : public Operator {
         throw std::runtime_error("Invalid message type in FilterScalar");
       }
 
-      // Forward message only if condition evaluates to true
       if (evaluate(msg->data.value)) {
-        emit_output(0, input_queue.front()->clone(), debug);
+        emit_output(0, std::move(input_queue.front()), debug);
       }
 
       input_queue.pop_front();
