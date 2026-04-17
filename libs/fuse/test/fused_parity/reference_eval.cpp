@@ -1,5 +1,6 @@
 #include "fused_parity/reference_eval.h"
 
+#include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 
 namespace rtbot::fused_parity {
@@ -18,14 +19,17 @@ RefResult evaluate_scalar(
   result.state = std::move(state_init);
   result.outputs.resize(inputs_per_message.size() * num_outputs);
 
-  const double* bc = bytecode.data();
-  const std::size_t bc_size = bytecode.size();
+  // Encode the legacy double-bytecode once; run the packed evaluator on
+  // every message.
+  const auto packed = rtbot::fuse::encode_legacy(bytecode);
+  const rtbot::fuse::Instruction* ins = packed.data();
+  const std::size_t ins_size = packed.size();
   const double* consts = constants.data();
   double* out_ptr = result.outputs.data();
 
   for (std::size_t m = 0; m < inputs_per_message.size(); ++m) {
     rtbot::fuse::evaluate_one(
-        bc, bc_size, consts,
+        ins, ins_size, consts,
         inputs_per_message[m].data(),
         result.state.data(),
         out_ptr + m * num_outputs,

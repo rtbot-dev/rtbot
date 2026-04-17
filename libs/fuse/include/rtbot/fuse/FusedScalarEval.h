@@ -6,10 +6,11 @@
 #include <stdexcept>
 #include <string>
 
+#include "rtbot/fuse/FusedBytecode.h"
+
 // NOTE: opcode numeric literals below correspond to the `rtbot::fused_op`
-// namespace constants declared in FusedExpression.h. We use literals instead
-// of the named constants to avoid a circular include — FusedExpression.h
-// includes this header so the operator can call into evaluate_one().
+// namespace constants declared in FusedExpression.h. FusedBytecode.h pulls in
+// FusedExpression.h transitively.
 
 namespace rtbot::fuse {
 
@@ -24,20 +25,19 @@ namespace rtbot::fuse {
 // Phase 2+ batched / SIMD variants are parity-tested.
 //
 // Contract:
-//   - `bytecode[bytecode_size]` is a legacy double[] bytecode stream (opcodes
-//     interleaved with inline args for INPUT/CONST/stateful ops).
+//   - `ins[ins_size]` is the packed bytecode (4-byte Instruction records).
 //   - `constants` is indexed by the CONST opcode's inline argument.
 //   - `inputs` holds one double per scalar input port for the current tuple.
 //   - `state` is in/out; size must equal the operator's configured state size.
-//   - `out_ptr` receives `num_outputs` doubles (one per END marker in the
-//     bytecode). Caller guarantees capacity.
+//   - `out_ptr` receives `num_outputs` doubles (one per END marker). Caller
+//     guarantees capacity.
 //
 // Floating-point semantics: scalar libm for transcendentals; no fused-
 // multiply-add reordering (caller's TU must be built with
 // -ffp-contract=off -fno-associative-math for bit-exact parity guarantees).
 inline void evaluate_one(
-    const double* bytecode,
-    std::size_t bytecode_size,
+    const Instruction* ins,
+    std::size_t ins_size,
     const double* constants,
     const double* inputs,
     double* state,
@@ -46,18 +46,16 @@ inline void evaluate_one(
   double stack[64];
   std::size_t sp = 0;
   std::size_t out_idx = 0;
-  std::size_t pc = 0;
 
-  while (pc < bytecode_size) {
-    int opcode = static_cast<int>(bytecode[pc++]);
-
-    switch (opcode) {
+  for (std::size_t pc = 0; pc < ins_size; ++pc) {
+    const Instruction i = ins[pc];
+    switch (i.op) {
       case 0 /* INPUT */: {
-        stack[sp++] = inputs[static_cast<int>(bytecode[pc++])];
+        stack[sp++] = inputs[i.arg];
         break;
       }
       case 1 /* CONST */: {
-        stack[sp++] = constants[static_cast<int>(bytecode[pc++])];
+        stack[sp++] = constants[i.arg];
         break;
       }
       case 2 /* ADD */: {
@@ -145,7 +143,7 @@ inline void evaluate_one(
         break;
       }
       case 21 /* CUMSUM */: {
-        int si = static_cast<int>(bytecode[pc++]);
+        const std::uint16_t si = i.arg;
         double y = stack[--sp] - state[si + 1];
         double t = state[si] + y;
         state[si + 1] = (t - state[si]) - y;
@@ -154,28 +152,27 @@ inline void evaluate_one(
         break;
       }
       case 22 /* COUNT */: {
-        int si = static_cast<int>(bytecode[pc++]);
+        const std::uint16_t si = i.arg;
         state[si] += 1.0;
         stack[sp++] = state[si];
         break;
       }
       case 23 /* MAX_AGG */: {
-        int si = static_cast<int>(bytecode[pc++]);
+        const std::uint16_t si = i.arg;
         double v = stack[--sp];
         if (v > state[si]) state[si] = v;
         stack[sp++] = state[si];
         break;
       }
       case 24 /* MIN_AGG */: {
-        int si = static_cast<int>(bytecode[pc++]);
+        const std::uint16_t si = i.arg;
         double v = stack[--sp];
         if (v < state[si]) state[si] = v;
         stack[sp++] = state[si];
         break;
       }
       case 25 /* STATE_LOAD */: {
-        int si = static_cast<int>(bytecode[pc++]);
-        stack[sp++] = state[si];
+        stack[sp++] = state[i.arg];
         break;
       }
       case 26 /* GT */: {
@@ -226,7 +223,7 @@ inline void evaluate_one(
       }
       default:
         throw std::runtime_error(
-            "FusedScalarEval: unknown opcode " + std::to_string(opcode));
+            "FusedScalarEval: unknown opcode " + std::to_string(i.op));
     }
   }
 

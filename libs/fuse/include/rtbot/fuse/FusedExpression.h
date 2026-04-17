@@ -9,51 +9,16 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/fuse/FusedBytecode.h"
+#include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 #include "rtbot/std/VectorCompose.h"
 
 namespace rtbot {
 
-// Bytecode opcodes for FusedExpression RPN evaluation.
-// Each opcode is encoded as a double in the bytecode array.
-// Opcodes with arguments consume the next double as the argument.
-namespace fused_op {
-constexpr double INPUT = 0;   // push v[next_double]
-constexpr double CONST = 1;   // push constants[next_double]
-constexpr double ADD = 2;     // pop b, a; push a+b
-constexpr double SUB = 3;     // pop b, a; push a-b
-constexpr double MUL = 4;     // pop b, a; push a*b
-constexpr double DIV = 5;     // pop b, a; push a/b
-constexpr double POW = 6;     // pop b, a; push pow(a,b)
-constexpr double ABS = 7;     // pop a; push abs(a)
-constexpr double SQRT = 8;    // pop a; push sqrt(a)
-constexpr double LOG = 9;     // pop a; push log(a)
-constexpr double LOG10 = 10;  // pop a; push log10(a)
-constexpr double EXP = 11;    // pop a; push exp(a)
-constexpr double SIN = 12;    // pop a; push sin(a)
-constexpr double COS = 13;    // pop a; push cos(a)
-constexpr double TAN = 14;    // pop a; push tan(a)
-constexpr double SIGN = 15;   // pop a; push sign(a)
-constexpr double FLOOR = 16;  // pop a; push floor(a)
-constexpr double CEIL = 17;   // pop a; push ceil(a)
-constexpr double ROUND = 18;  // pop a; push round(a)
-constexpr double NEG = 19;    // pop a; push -a
-constexpr double END = 20;    // end of expression, top of stack is result
-constexpr double CUMSUM = 21;     // pop a; state[arg] += a (Kahan); push state[arg]. Uses 2 state slots: [sum, kahan_comp]
-constexpr double COUNT = 22;      // state[arg] += 1; push state[arg]. Uses 1 state slot. Does NOT pop.
-constexpr double MAX_AGG = 23;    // pop a; state[arg] = max(state[arg], a); push state[arg]. Uses 1 slot (init -inf)
-constexpr double MIN_AGG = 24;    // pop a; state[arg] = min(state[arg], a); push state[arg]. Uses 1 slot (init +inf)
-constexpr double STATE_LOAD = 25; // push state[arg] (read-only, no modification). For shared COUNT references.
-constexpr double GT = 26;        // pop b, a; push (a > b) ? 1.0 : 0.0
-constexpr double GTE = 27;       // pop b, a; push (a >= b) ? 1.0 : 0.0
-constexpr double LT = 28;        // pop b, a; push (a < b) ? 1.0 : 0.0
-constexpr double LTE = 29;       // pop b, a; push (a <= b) ? 1.0 : 0.0
-constexpr double EQ = 30;        // pop b, a; push (a == b) ? 1.0 : 0.0
-constexpr double NEQ = 31;       // pop b, a; push (a != b) ? 1.0 : 0.0
-constexpr double AND = 32;       // pop b, a; push (a != 0.0 && b != 0.0) ? 1.0 : 0.0
-constexpr double OR = 33;        // pop b, a; push (a != 0.0 || b != 0.0) ? 1.0 : 0.0
-constexpr double NOT = 34;       // pop a; push (a == 0.0) ? 1.0 : 0.0
-}  // namespace fused_op
+// Opcode constants are defined in rtbot/fuse/FusedOps.h so that lower-level
+// headers (FusedBytecode.h, FusedScalarEval.h) can reference them without a
+// circular include on this header.
 
 class FusedExpression : public VectorCompose {
  public:
@@ -71,7 +36,8 @@ class FusedExpression : public VectorCompose {
         bytecode_(std::move(bytecode)),
         constants_(std::move(constants)),
         state_init_(std::move(state_init)),
-        state_(state_init_) {
+        state_(state_init_),
+        packed_(rtbot::fuse::encode_legacy(bytecode_)) {
     if (num_outputs_ < 1) {
       throw std::runtime_error(
           "FusedExpression requires at least 1 output expression");
@@ -142,8 +108,8 @@ class FusedExpression : public VectorCompose {
  protected:
   void process_data(bool debug = false) override {
     const size_t np = get_num_ports();
-    const double* bc = bytecode_.data();
-    const size_t bc_size = bytecode_.size();
+    const rtbot::fuse::Instruction* ins = packed_.data();
+    const size_t ins_size = packed_.size();
     const double* consts = constants_.data();
 
     while (true) {
@@ -176,7 +142,7 @@ class FusedExpression : public VectorCompose {
 
       // Allocate output vector once — evaluate_one writes directly into it.
       auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-      rtbot::fuse::evaluate_one(bc, bc_size, consts, inputs, state_.data(),
+      rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs, state_.data(),
                                  out_vec->data(), num_outputs_);
 
       get_output_queue(0).push_back(create_message<VectorNumberData>(
@@ -190,6 +156,7 @@ class FusedExpression : public VectorCompose {
   std::vector<double> constants_;
   std::vector<double> state_init_;
   std::vector<double> state_;
+  std::vector<rtbot::fuse::Instruction> packed_;
 };
 
 inline std::shared_ptr<FusedExpression> make_fused_expression(
