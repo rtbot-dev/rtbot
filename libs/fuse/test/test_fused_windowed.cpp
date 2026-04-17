@@ -373,6 +373,78 @@ SCENARIO(
   }
 }
 
+SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
+         "[windowed][ma][serialize]") {
+  using namespace rtbot;
+  const std::size_t W = 20;
+  const std::size_t N = 200;
+  auto values = random_values(0x5E21A11EULL, N);
+
+  std::vector<double> bytecode = {INPUT, 0, MA_UPDATE, 0, END};
+  std::vector<AuxArgs> aux = {{0, static_cast<std::uint16_t>(W), 0, 0}};
+
+  // Reference: uninterrupted run through one FE instance.
+  auto ref_op = make_fused_expression("ref", 1, 1, bytecode, /*constants=*/{},
+                                        /*state_init=*/{}, aux);
+  std::vector<double> ref_out;
+  for (std::size_t i = 0; i < N; ++i) {
+    ref_op->receive_data(create_message<NumberData>(
+                              static_cast<std::int64_t>(i + 1),
+                              NumberData{values[i]}),
+                          0);
+    ref_op->execute();
+  }
+  auto& ref_q = ref_op->get_output_queue(0);
+  for (std::size_t i = 0; i < ref_q.size(); ++i) {
+    const auto* m = dynamic_cast<const Message<VectorNumberData>*>(
+        ref_q[i].get());
+    ref_out.push_back((*m->data.values)[0]);
+  }
+
+  // Under test: feed half the messages through one instance, serialize, then
+  // restore into a fresh instance and feed the rest. Output stream must match
+  // the uninterrupted reference bit-exactly.
+  auto fe_a = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{},
+                                      /*state_init=*/{}, aux);
+  const std::size_t half = N / 2;
+  for (std::size_t i = 0; i < half; ++i) {
+    fe_a->receive_data(create_message<NumberData>(
+                           static_cast<std::int64_t>(i + 1),
+                           NumberData{values[i]}),
+                        0);
+    fe_a->execute();
+  }
+  auto bytes = fe_a->collect_bytes();
+
+  auto fe_b = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{},
+                                      /*state_init=*/{}, aux);
+  auto it = bytes.cbegin();
+  fe_b->restore(it);
+  for (std::size_t i = half; i < N; ++i) {
+    fe_b->receive_data(create_message<NumberData>(
+                           static_cast<std::int64_t>(i + 1),
+                           NumberData{values[i]}),
+                        0);
+    fe_b->execute();
+  }
+
+  // Operator::collect_bytes serializes the output queue along with state, so
+  // fe_b's queue — after restore + continued processing — already holds the
+  // full stream (fe_a's pre-serialize emissions + fe_b's post-restore ones).
+  std::vector<double> got;
+  auto& qb = fe_b->get_output_queue(0);
+  for (std::size_t i = 0; i < qb.size(); ++i) {
+    const auto* m = dynamic_cast<const Message<VectorNumberData>*>(qb[i].get());
+    got.push_back((*m->data.values)[0]);
+  }
+
+  REQUIRE(got.size() == ref_out.size());
+  for (std::size_t i = 0; i < got.size(); ++i) {
+    INFO("i=" << i);
+    REQUIRE(dbits(got[i]) == dbits(ref_out[i]));
+  }
+}
+
 SCENARIO("IIR_UPDATE opcode matches standalone IIR bit-exactly",
          "[windowed][iir]") {
   const std::vector<double> b = {0.25, 0.5, 0.25};
