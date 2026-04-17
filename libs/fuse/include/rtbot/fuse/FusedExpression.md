@@ -127,6 +127,7 @@ Each opcode is encoded as a double. Opcodes with arguments consume the next doub
 | 41   | WIN_MAX    | W    | pop a; push max over sliding window W (suppresses output during warmup) |
 | 42   | FIR_UPDATE | cs,cl| pop a; push FIR dot-product over coefficients[cs..cs+cl) (suppresses during warmup) |
 | 43   | IIR_UPDATE | b,a,cs| pop a; push IIR output; coefficients[cs..cs+b) = b-coefs, [cs+b..cs+b+a) = a-coefs |
+| 44   | GATE       | -    | pop pred; if 0, suppress this message's emission (resets stack) |
 
 The bytecode must contain exactly `numOutputs` END markers. Each END terminates one expression and resets the evaluation stack.
 

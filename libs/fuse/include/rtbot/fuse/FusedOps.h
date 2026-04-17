@@ -60,6 +60,13 @@ constexpr double WIN_MAX = 41;       // max over sliding window
 constexpr double FIR_UPDATE = 42;    // FIR dot-product with fixed coefficients
 constexpr double IIR_UPDATE = 43;    // IIR recurrence with fixed coefficients
 
+// Emission gate. Pops the top of stack; if zero, sets the emit flag to
+// false so the surrounding FE/FEV suppresses this message's output. Used to
+// absorb WHERE predicates into a projection's bytecode — the predicate
+// sub-expression is evaluated with comparison/logical opcodes, then GATE
+// replaces the standalone Demultiplexer that would have dropped the tuple.
+constexpr double GATE = 44;
+
 }  // namespace rtbot::fused_op
 
 #endif  // RTBOT_FUSE_OPS_H

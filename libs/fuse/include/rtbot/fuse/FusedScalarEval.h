@@ -237,6 +237,15 @@ inline bool evaluate_one(
         stack[sp - 1] = (stack[sp - 1] == 0.0) ? 1.0 : 0.0;
         break;
       }
+      case 44 /* GATE */: {
+        // Predicate gate: if zero, suppress the whole message's output.
+        // Caller checks the returned emit flag and drops the output message.
+        // Stack is rewound so subsequent expressions start fresh.
+        const double pred = stack[--sp];
+        if (pred == 0.0) emit = false;
+        sp = 0;
+        break;
+      }
       case 38 /* DIFF */: {
         // State: [prev_value, has_prev]. Two-sample window — matches
         // standalone rtbot::Difference which suppresses the first message.

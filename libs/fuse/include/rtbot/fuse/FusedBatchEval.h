@@ -330,6 +330,17 @@ inline void evaluate_batched(
           stack[sp - 1][l] = (stack[sp - 1][l] == 0.0) ? 1.0 : 0.0;
         break;
       }
+      case 44 /* GATE */: {
+        // Per-lane emission gate: if the predicate lane value is zero, this
+        // lane's output is suppressed. Resets the stack for the subsequent
+        // SELECT bytecode.
+        --sp;
+        for (std::size_t l = 0; l < active_lanes; ++l) {
+          if (stack[sp][l] == 0.0) lane_emit[l] = false;
+        }
+        sp = 0;
+        break;
+      }
       // Tier-1 windowed opcodes. All run serially per lane since they mutate
       // shared state; each lane reads post-update state matching its position
       // in the message sequence. lane_emit is cleared for lanes whose window
