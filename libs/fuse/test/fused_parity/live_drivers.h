@@ -12,7 +12,9 @@ namespace rtbot::fused_parity {
 
 // Drive the production FusedExpression through its scalar-port interface
 // over a synchronized input sequence. Returns the flattened output stream
-// (same shape as RefResult::outputs — [msg * num_outputs + k]).
+// (same shape as RefResult::outputs — [msg * num_outputs + k]). state_init
+// is forwarded as an optional override of pack_bytecode's auto-derived
+// defaults (used by STATE_LOAD parity tests that seed external values).
 inline std::vector<double> drive_fused_expression(
     const std::vector<double>& bytecode,
     const std::vector<double>& constants,
@@ -21,7 +23,8 @@ inline std::vector<double> drive_fused_expression(
     std::size_t num_ports,
     std::size_t num_outputs) {
   auto op = make_fused_expression("fe", num_ports, num_outputs, bytecode,
-                                    constants, state_init);
+                                    constants, /*coefficients=*/{},
+                                    state_init);
   for (std::size_t t = 0; t < inputs_per_message.size(); ++t) {
     for (std::size_t p = 0; p < num_ports; ++p) {
       op->receive_data(create_message<NumberData>(
@@ -51,7 +54,8 @@ inline std::vector<double> drive_fused_expression_vector(
     const std::vector<double>& state_init,
     std::size_t num_outputs) {
   auto op = make_fused_expression_vector("fev", num_outputs, bytecode,
-                                           constants, state_init);
+                                           constants, /*coefficients=*/{},
+                                           state_init);
   for (std::size_t t = 0; t < inputs_per_message.size(); ++t) {
     auto v = std::make_shared<std::vector<double>>(inputs_per_message[t]);
     op->receive_data(create_message<VectorNumberData>(

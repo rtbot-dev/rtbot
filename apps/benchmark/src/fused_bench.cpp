@@ -128,7 +128,6 @@ struct Case {
   std::vector<double> bytecode;
   std::vector<double> constants;
   std::vector<double> state_init;
-  std::vector<rtbot::fuse::AuxArgs> aux_args;
   std::vector<double> coefficients;
   std::size_t num_messages;
   std::uint64_t seed;
@@ -157,8 +156,8 @@ std::vector<std::vector<double>> gen_inputs(std::size_t num_inputs,
 Result run_fe(const Case& c, std::size_t chunk) {
   auto inputs = gen_inputs(c.num_inputs, c.num_messages, c.seed);
   auto op = make_fused_expression(c.name + "_fe", c.num_inputs, c.num_outputs,
-                                    c.bytecode, c.constants, c.state_init,
-                                    c.aux_args, c.coefficients);
+                                    c.bytecode, c.constants, c.coefficients,
+                                    c.state_init);
 
   auto t0 = std::chrono::steady_clock::now();
   std::size_t queued = 0;
@@ -198,8 +197,7 @@ Result run_fev(const Case& c, std::size_t chunk) {
   auto inputs = gen_inputs(c.num_inputs, c.num_messages, c.seed);
   auto op = make_fused_expression_vector(c.name + "_fev", c.num_outputs,
                                            c.bytecode, c.constants,
-                                           c.state_init, c.aux_args,
-                                           c.coefficients);
+                                           c.coefficients, c.state_init);
 
   auto t0 = std::chrono::steady_clock::now();
   std::size_t queued = 0;
@@ -288,10 +286,11 @@ int main() {
   ma50.name = "ma_window_50";
   ma50.num_inputs = 1;
   ma50.num_outputs = 1;
-  ma50.bytecode = {INPUT, 0, MA_UPDATE, 0, END};
+  // MA_UPDATE carries its window size inline; pack_bytecode auto-allocates
+  // state and builds the internal aux_args side table.
+  ma50.bytecode = {INPUT, 0, MA_UPDATE, 50, END};
   ma50.constants = {};
-  ma50.state_init = {};  // auto-derived from compute_state_layout
-  ma50.aux_args = {{0, 50, 0, 0}};
+  ma50.state_init = {};
   ma50.coefficients = {};
   ma50.num_messages = 1'000'000;
   ma50.seed = 0xBEEF04;

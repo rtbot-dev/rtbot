@@ -46,8 +46,7 @@ SCENARIO("FusedExpressionVector JSON roundtrip", "[fused_expression_vector]") {
   auto original = make_fused_expression_vector(
       "fev_json", 2,
       {INPUT, 0, END, INPUT, 1, CONST, 0, ADD, END},
-      {10.0},
-      {0.0, 0.0});
+      {10.0});
 
   auto encoded = OperatorJson::write_op(original);
   auto restored = OperatorJson::read_op(encoded);
@@ -59,5 +58,4 @@ SCENARIO("FusedExpressionVector JSON roundtrip", "[fused_expression_vector]") {
   REQUIRE(fev->get_bytecode() == std::vector<double>{
                                      INPUT, 0, END, INPUT, 1, CONST, 0, ADD, END});
   REQUIRE(fev->get_constants() == std::vector<double>{10.0});
-  REQUIRE(fev->get_state_init() == std::vector<double>{0.0, 0.0});
 }

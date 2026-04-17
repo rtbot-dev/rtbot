@@ -334,13 +334,14 @@ SCENARIO(
   const std::size_t N = 300;
   auto values = random_values(0x1A11E, N);
 
-  std::vector<double> legacy_bytecode = {INPUT, 0, MA_UPDATE, 0, END};
-  std::vector<AuxArgs> aux = {{0, static_cast<std::uint16_t>(W), 0, 0}};
+  // Inline-arg form: MA_UPDATE carries W; state and aux_args are derived by
+  // the FE's packer.
+  std::vector<double> source_bytecode = {
+      INPUT, 0, MA_UPDATE, static_cast<double>(W), END};
 
   auto fe = rtbot::make_fused_expression("fe_ma", /*num_ports=*/1,
-                                           /*num_outputs=*/1, legacy_bytecode,
-                                           /*constants=*/{},
-                                           /*state_init=*/{}, aux);
+                                           /*num_outputs=*/1, source_bytecode,
+                                           /*constants=*/{});
   auto ma = rtbot::make_moving_average("ma", W);
   for (std::size_t i = 0; i < N; ++i) {
     fe->receive_data(rtbot::create_message<rtbot::NumberData>(
@@ -455,12 +456,11 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
   const std::size_t N = 200;
   auto values = random_values(0x5E21A11EULL, N);
 
-  std::vector<double> bytecode = {INPUT, 0, MA_UPDATE, 0, END};
-  std::vector<AuxArgs> aux = {{0, static_cast<std::uint16_t>(W), 0, 0}};
+  std::vector<double> bytecode = {
+      INPUT, 0, MA_UPDATE, static_cast<double>(W), END};
 
   // Reference: uninterrupted run through one FE instance.
-  auto ref_op = make_fused_expression("ref", 1, 1, bytecode, /*constants=*/{},
-                                        /*state_init=*/{}, aux);
+  auto ref_op = make_fused_expression("ref", 1, 1, bytecode, /*constants=*/{});
   std::vector<double> ref_out;
   for (std::size_t i = 0; i < N; ++i) {
     ref_op->receive_data(create_message<NumberData>(
@@ -479,8 +479,7 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
   // Under test: feed half the messages through one instance, serialize, then
   // restore into a fresh instance and feed the rest. Output stream must match
   // the uninterrupted reference bit-exactly.
-  auto fe_a = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{},
-                                      /*state_init=*/{}, aux);
+  auto fe_a = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{});
   const std::size_t half = N / 2;
   for (std::size_t i = 0; i < half; ++i) {
     fe_a->receive_data(create_message<NumberData>(
@@ -491,8 +490,7 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
   }
   auto bytes = fe_a->collect_bytes();
 
-  auto fe_b = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{},
-                                      /*state_init=*/{}, aux);
+  auto fe_b = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{});
   auto it = bytes.cbegin();
   fe_b->restore(it);
   for (std::size_t i = half; i < N; ++i) {

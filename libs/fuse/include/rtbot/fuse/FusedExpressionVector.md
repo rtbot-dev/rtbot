@@ -31,12 +31,12 @@ jsonschema:
       items:
         type: number
       examples: [[1.0, 2.0]]
-    stateInit:
+    coefficients:
       type: array
-      description: Initial values for persistent state slots used by stateful opcodes (CUMSUM, COUNT, MAX_AGG, MIN_AGG). Empty for pure expressions.
+      description: FIR/IIR coefficient storage indexed by FIR_UPDATE/IIR_UPDATE inline args. Empty unless the program contains those opcodes.
       items:
         type: number
-      examples: [[0.0, 0.0, 0.0]]
+      examples: [[0.25, 0.5, 0.25]]
   required: ["id", "numOutputs", "bytecode"]
 ---
 
@@ -50,7 +50,7 @@ Evaluates multiple arithmetic expressions over a single VectorNumberData input u
 - `numOutputs`: Number of output columns (one per expression)
 - `bytecode`: Flat array of RPN opcodes (same opcode set as FusedExpression)
 - `constants`: Array of compile-time constants referenced by CONST opcodes (optional, defaults to empty)
-- `stateInit`: Array of initial values for persistent state slots used by stateful opcodes (optional, defaults to empty)
+- `coefficients`: FIR/IIR coefficients (optional, only for DSP opcodes)
 
 ## Ports
 

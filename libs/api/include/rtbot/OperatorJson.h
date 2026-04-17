@@ -227,13 +227,13 @@ class OperatorJson {
           parsed["numOutputs"].get<size_t>(),
           parsed["bytecode"].get<std::vector<double>>(),
           parsed.value("constants", std::vector<double>{}),
-          parsed.value("stateInit", std::vector<double>{}));
+          parsed.value("coefficients", std::vector<double>{}));
     } else if (type == "FusedExpressionVector") {
       return make_fused_expression_vector(
           id, parsed["numOutputs"].get<size_t>(),
           parsed["bytecode"].get<std::vector<double>>(),
           parsed.value("constants", std::vector<double>{}),
-          parsed.value("stateInit", std::vector<double>{}));
+          parsed.value("coefficients", std::vector<double>{}));
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
@@ -593,16 +593,16 @@ class OperatorJson {
       j["numOutputs"] = fe->get_num_outputs();
       j["bytecode"] = fe->get_bytecode();
       j["constants"] = fe->get_constants();
-      if (!fe->get_state_init().empty()) {
-        j["stateInit"] = fe->get_state_init();
+      if (!fe->get_coefficients().empty()) {
+        j["coefficients"] = fe->get_coefficients();
       }
     } else if (type == "FusedExpressionVector") {
       auto fev = std::dynamic_pointer_cast<FusedExpressionVector>(op);
       j["numOutputs"] = fev->get_num_outputs();
       j["bytecode"] = fev->get_bytecode();
       j["constants"] = fev->get_constants();
-      if (!fev->get_state_init().empty()) {
-        j["stateInit"] = fev->get_state_init();
+      if (!fev->get_coefficients().empty()) {
+        j["coefficients"] = fev->get_coefficients();
       }
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();

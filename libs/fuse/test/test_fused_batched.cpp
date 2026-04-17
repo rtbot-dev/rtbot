@@ -37,7 +37,8 @@ SCENARIO("Batched eval matches scalar reference on a full batch",
   constexpr std::size_t B = kBatch;
 
   std::vector<double> legacy = {INPUT, 0, INPUT, 1, ADD, CONST, 0, MUL, END};
-  auto packed = pack_bytecode(legacy);
+  auto pack = pack_bytecode(legacy);
+  const auto& packed = pack.packed;
   std::vector<double> consts = {1.5};
 
   std::vector<std::array<double, B>> batched_inputs(2);
@@ -68,7 +69,8 @@ SCENARIO("Batched eval handles partial batches bit-exactly",
   constexpr std::size_t B = kBatch;
 
   std::vector<double> legacy = {INPUT, 0, INPUT, 1, SUB, END};
-  auto packed = pack_bytecode(legacy);
+  auto pack = pack_bytecode(legacy);
+  const auto& packed = pack.packed;
 
   std::vector<std::array<double, B>> batched_inputs(2);
   std::vector<std::vector<double>> ref_inputs;
@@ -104,7 +106,8 @@ SCENARIO(
     auto prog = rtbot::fused_parity::generate_program(
         seed, /*max_inputs=*/6, /*max_outputs=*/3,
         /*include_transcendentals=*/true, /*include_stateful=*/false);
-    auto packed = pack_bytecode(prog.bytecode);
+    auto pack = pack_bytecode(prog.bytecode);
+    const auto& packed = pack.packed;
 
     for (std::size_t active = 1; active <= B; ++active) {
       auto ref_inputs = rtbot::fused_parity::generate_input_sequence(
@@ -143,7 +146,8 @@ SCENARIO(
     "[batched][state]") {
   constexpr std::size_t B = kBatch;
   std::vector<double> legacy = {INPUT, 0, CUMSUM, 0, END};
-  auto packed = pack_bytecode(legacy);
+  auto pack = pack_bytecode(legacy);
+  const auto& packed = pack.packed;
 
   const std::size_t kMsgs = 4 * B + 3;  // partial final batch
   std::mt19937_64 rng(0xC0DEULL);
@@ -237,9 +241,9 @@ SCENARIO(
   auto ref = evaluate_scalar(bc, {}, ref_inputs, state_init, 3);
 
   // FE: queue all messages, then execute once. process_data drains in
-  // batches of up to B.
-  auto op = make_fused_expression("fe_sl", 1, 3, bc, std::vector<double>{},
-                                    state_init);
+  // batches of up to B. state_init is auto-derived by pack_bytecode from
+  // the CUMSUM/COUNT opcodes' inline offsets — matches the reference path.
+  auto op = make_fused_expression("fe_sl", 1, 3, bc, std::vector<double>{});
   for (std::size_t i = 0; i < N; ++i) {
     op->receive_data(
         create_message<NumberData>(static_cast<std::int64_t>(i + 1),

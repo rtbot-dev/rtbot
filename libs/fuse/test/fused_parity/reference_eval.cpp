@@ -23,16 +23,23 @@ RefResult evaluate_scalar(
   result.state = std::move(state_init);
   result.outputs.reserve(inputs_per_message.size() * num_outputs);
 
-  const auto packed = rtbot::fuse::pack_bytecode(bytecode);
-  const rtbot::fuse::Instruction* ins = packed.data();
-  const std::size_t ins_size = packed.size();
+  auto pack = rtbot::fuse::pack_bytecode(bytecode);
+  const rtbot::fuse::Instruction* ins = pack.packed.data();
+  const std::size_t ins_size = pack.packed.size();
   const double* consts = constants.data();
+  const auto* aux = pack.aux_args.empty() ? nullptr : pack.aux_args.data();
+
+  // If the caller didn't supply a state vector, seed from pack_bytecode so
+  // windowed opcodes (MA_UPDATE, etc.) have their ring buffers.
+  if (result.state.empty() && !pack.state_init.empty()) {
+    result.state = pack.state_init;
+  }
 
   std::vector<double> scratch(num_outputs);
   for (std::size_t m = 0; m < inputs_per_message.size(); ++m) {
     const bool emit = rtbot::fuse::evaluate_one(
         ins, ins_size, consts,
-        /*aux_args=*/nullptr,
+        aux,
         /*coefficients=*/nullptr,
         inputs_per_message[m].data(),
         result.state.data(),

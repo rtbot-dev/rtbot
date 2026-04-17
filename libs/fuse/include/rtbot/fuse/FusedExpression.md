@@ -36,12 +36,12 @@ jsonschema:
       items:
         type: number
       examples: [[1.0, 2.0]]
-    stateInit:
+    coefficients:
       type: array
-      description: Initial values for persistent state slots used by stateful opcodes (CUMSUM, COUNT, MAX_AGG, MIN_AGG). Empty for pure expressions.
+      description: FIR/IIR coefficient storage indexed by FIR_UPDATE/IIR_UPDATE inline args. Empty unless the program contains those opcodes.
       items:
         type: number
-      examples: [[0.0, 0.0, 0.0]]
+      examples: [[0.25, 0.5, 0.25]]
   required: ["id", "numPorts", "numOutputs", "bytecode"]
 ---
 
@@ -58,7 +58,7 @@ Inherits from VectorCompose (which inherits from Join) for timestamp synchroniza
 - `numOutputs`: Number of output columns (one per expression)
 - `bytecode`: Flat array of RPN opcodes (see Opcodes below)
 - `constants`: Array of compile-time constants referenced by CONST opcodes (optional, defaults to empty)
-- `stateInit`: Array of initial values for persistent state slots used by stateful opcodes (optional, defaults to empty)
+- `coefficients`: FIR/IIR coefficients (optional, only for DSP opcodes)
 
 ```json
 {
@@ -118,6 +118,15 @@ Each opcode is encoded as a double. Opcodes with arguments consume the next doub
 | 32   | AND        | -    | pop b, a; push (a&&b)?1:0  |
 | 33   | OR         | -    | pop b, a; push (a\|\|b)?1:0|
 | 34   | NOT        | -    | pop a; push (!a)?1:0       |
+| 35   | MA_UPDATE  | W    | pop a; push running mean over window W (suppresses output during warmup) |
+| 36   | MSUM_UPDATE| W    | pop a; push running sum over window W (suppresses output during warmup) |
+| 37   | STD_UPDATE | W    | pop a; push running standard deviation over window W (suppresses output during warmup) |
+| 38   | DIFF       | off  | pop a; push a - prev; state[off..off+2] = (prev, has_prev) (suppresses first) |
+| 39   | SIGN_CHANGE| off  | pop a; push sign(a - prev); state[off..off+2] = (prev, has_prev) (suppresses first) |
+| 40   | WIN_MIN    | W    | pop a; push min over sliding window W (suppresses output during warmup) |
+| 41   | WIN_MAX    | W    | pop a; push max over sliding window W (suppresses output during warmup) |
+| 42   | FIR_UPDATE | cs,cl| pop a; push FIR dot-product over coefficients[cs..cs+cl) (suppresses during warmup) |
+| 43   | IIR_UPDATE | b,a,cs| pop a; push IIR output; coefficients[cs..cs+b) = b-coefs, [cs+b..cs+b+a) = a-coefs |
 
 The bytecode must contain exactly `numOutputs` END markers. Each END terminates one expression and resets the evaluation stack.
 

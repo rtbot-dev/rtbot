@@ -29,32 +29,38 @@ class FusedExpression : public VectorCompose {
  public:
   // num_ports: number of scalar NUMBER input ports (same as VectorCompose)
   // num_outputs: number of output columns in the emitted VectorNumberData
-  // bytecode: flat double array encoding M expression trees in postfix notation
+  // bytecode: flat double array encoding M expression trees in postfix notation.
+  //           Windowed opcodes (MA_UPDATE..IIR_UPDATE) carry their window size
+  //           and coefficient pointers inline. State offsets and aux_args are
+  //           auto-derived by pack_bytecode — callers never construct them.
   // constants: flat double array of compile-time constants referenced by bytecode
-  // state_init: initial values for persistent state slots (empty = pure expressions)
+  // coefficients: FIR/IIR coefficient storage indexed by FIR_UPDATE/IIR_UPDATE
+  //               inline args; empty unless the program contains those opcodes.
+  // state_init: optional initial values that overlay the auto-derived state.
+  //             If non-empty, its entries replace the first N slots of the
+  //             default (zero / ±inf) state vector. Use this to seed
+  //             STATE_LOAD-read slots or to override accumulator starting
+  //             values. Size must not exceed the total state size implied
+  //             by the bytecode.
   FusedExpression(std::string id, size_t num_ports, size_t num_outputs,
                   std::vector<double> bytecode, std::vector<double> constants,
-                  std::vector<double> state_init = {},
-                  std::vector<rtbot::fuse::AuxArgs> aux_args = {},
                   std::vector<double> coefficients = {},
+                  std::vector<double> state_init = {},
                   size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : VectorCompose(std::move(id), num_ports, max_size_per_port),
         num_outputs_(num_outputs),
         constants_(std::move(constants)),
-        state_init_(std::move(state_init)),
-        state_(state_init_),
-        packed_(rtbot::fuse::pack_bytecode(bytecode)),
-        aux_args_(std::move(aux_args)),
         coefficients_(std::move(coefficients)),
         can_batch_(true) {
-    // When the caller passes an empty state_init, auto-derive it from the
-    // packed bytecode + aux_args. Non-empty state_init wins (existing tests
-    // and callers that want explicit seeding are unaffected).
-    if (state_init_.empty()) {
-      auto layout = rtbot::fuse::compute_state_layout(packed_, aux_args_);
-      state_init_ = std::move(layout.initial_values);
-      state_ = state_init_;
+    auto pack = rtbot::fuse::pack_bytecode(bytecode);
+    packed_ = std::move(pack.packed);
+    aux_args_ = std::move(pack.aux_args);
+    state_init_ = std::move(pack.state_init);
+    if (!state_init.empty()) {
+      if (state_init.size() > state_init_.size()) state_init_.resize(state_init.size(), 0.0);
+      for (std::size_t k = 0; k < state_init.size(); ++k) state_init_[k] = state_init[k];
     }
+    state_ = state_init_;
     // Route through the scalar fallback when:
     //   - STATE_LOAD is present: shared-state reads contaminate across lanes
     //     in the batched path, so correctness requires scalar-per-message.
@@ -97,16 +103,12 @@ class FusedExpression : public VectorCompose {
   // Decodes packed instructions back to the caller-facing double bytecode
   // format. Used by JSON serialization; not on any hot path.
   std::vector<double> get_bytecode() const {
-    return rtbot::fuse::unpack_bytecode(packed_);
+    return rtbot::fuse::unpack_bytecode(packed_, aux_args_);
   }
   const std::vector<rtbot::fuse::Instruction>& get_packed() const {
     return packed_;
   }
   const std::vector<double>& get_constants() const { return constants_; }
-  const std::vector<double>& get_state_init() const { return state_init_; }
-  const std::vector<rtbot::fuse::AuxArgs>& get_aux_args() const {
-    return aux_args_;
-  }
   const std::vector<double>& get_coefficients() const { return coefficients_; }
 
   void reset() override {
@@ -272,13 +274,11 @@ class FusedExpression : public VectorCompose {
 inline std::shared_ptr<FusedExpression> make_fused_expression(
     std::string id, size_t num_ports, size_t num_outputs,
     std::vector<double> bytecode, std::vector<double> constants,
-    std::vector<double> state_init = {},
-    std::vector<rtbot::fuse::AuxArgs> aux_args = {},
-    std::vector<double> coefficients = {}) {
+    std::vector<double> coefficients = {},
+    std::vector<double> state_init = {}) {
   return std::make_shared<FusedExpression>(
       std::move(id), num_ports, num_outputs, std::move(bytecode),
-      std::move(constants), std::move(state_init), std::move(aux_args),
-      std::move(coefficients));
+      std::move(constants), std::move(coefficients), std::move(state_init));
 }
 
 }  // namespace rtbot
