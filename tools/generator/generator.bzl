@@ -50,8 +50,9 @@ _rtbot_generate = rule(
         "srcs": attr.label_list(
             allow_files = [".md"],
             default = [
+              "//libs/core:md",
+              "//libs/fuse:md",
               "//libs/std:md",
-              "//libs/core:md"
             ],
         ),
         "generate": attr.label(
