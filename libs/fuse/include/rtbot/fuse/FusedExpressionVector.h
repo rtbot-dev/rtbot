@@ -51,8 +51,10 @@ class FusedExpressionVector : public Operator {
         std::size_t needed = static_cast<std::size_t>(i.arg) + 1;
         if (needed > min_required_input_size_) min_required_input_size_ = needed;
       }
-      // Programs with STATE_LOAD or Tier-1 windowed opcodes cannot yet run
-      // through evaluate_batched — force scalar fallback.
+      // Scalar fallback for STATE_LOAD (shared-state contamination across
+      // lanes) and Tier-1 windowed opcodes (serial-per-lane only — batching
+      // adds overhead without vectorization wins). See the matching comment
+      // in FusedExpression.h for rationale.
       const auto op = i.op;
       if (op == static_cast<std::uint8_t>(fused_op::STATE_LOAD) ||
           (op >= static_cast<std::uint8_t>(fused_op::MA_UPDATE) &&
@@ -226,14 +228,17 @@ class FusedExpressionVector : public Operator {
         continue;
       }
 
+      std::array<bool, B> lane_emit;
+      lane_emit.fill(true);
       rtbot::fuse::evaluate_batched<B>(
           ins, ins_size, consts,
           aux_args_.empty() ? nullptr : aux_args_.data(),
           coefficients_.empty() ? nullptr : coefficients_.data(),
           batched_inputs.data(), lane, state_.data(), out_batch.data(),
-          num_outputs_);
+          num_outputs_, lane_emit);
 
       for (size_t l = 0; l < lane; ++l) {
+        if (!lane_emit[l]) continue;
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         std::copy(out_batch.begin() + l * num_outputs_,
                   out_batch.begin() + (l + 1) * num_outputs_,

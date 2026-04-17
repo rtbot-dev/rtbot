@@ -55,10 +55,15 @@ class FusedExpression : public VectorCompose {
       state_init_ = std::move(layout.initial_values);
       state_ = state_init_;
     }
-    // Programs with STATE_LOAD or Tier-1 windowed opcodes cannot yet run
-    // through evaluate_batched (STATE_LOAD reads contaminated shared state
-    // across lanes; windowed opcodes are not implemented in the batched
-    // evaluator). Force scalar fallback for any of those — correctness first.
+    // Route through the scalar fallback when:
+    //   - STATE_LOAD is present: shared-state reads contaminate across lanes
+    //     in the batched path, so correctness requires scalar-per-message.
+    //   - Any Tier-1 windowed opcode (35-43) is present: these must run
+    //     serially per lane anyway (state mutation order matters), so the
+    //     batched path adds pure outer-loop overhead with zero vectorization
+    //     benefit. Scalar-path throughput is strictly higher. The batched
+    //     implementations of these opcodes exist (see FusedBatchEval.h) as
+    //     latent capability for future phases that extract real SIMD wins.
     for (const auto& i : packed_) {
       const auto op = i.op;
       if (op == static_cast<std::uint8_t>(fused_op::STATE_LOAD) ||
@@ -185,13 +190,16 @@ class FusedExpression : public VectorCompose {
     while (true) {
       size_t lane = 0;
       while (lane < B) {
-        const bool is_sync = sync_data_inputs();
+        // Check queues before calling sync_data_inputs — saves a redundant
+        // sync call per message at chunk=1 (where the inner loop finds no
+        // second tuple available).
         bool any_empty = false;
         for (size_t i = 0; i < np; i++) {
           if (get_data_queue(i).empty()) { any_empty = true; break; }
         }
-        if (!is_sync && any_empty) break;
-        if (!is_sync) continue;
+        if (any_empty) break;
+
+        if (!sync_data_inputs()) continue;  // sync dropped something; retry
 
         timestamp_t t = 0;
         for (size_t i = 0; i < np; i++) {
@@ -229,14 +237,17 @@ class FusedExpression : public VectorCompose {
         continue;
       }
 
+      std::array<bool, B> lane_emit;
+      lane_emit.fill(true);
       rtbot::fuse::evaluate_batched<B>(
           ins, ins_size, consts,
           aux_args_.empty() ? nullptr : aux_args_.data(),
           coefficients_.empty() ? nullptr : coefficients_.data(),
           batched_inputs.data(), lane, state_.data(), out_batch.data(),
-          num_outputs_);
+          num_outputs_, lane_emit);
 
       for (size_t l = 0; l < lane; ++l) {
+        if (!lane_emit[l]) continue;
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         std::copy(out_batch.begin() + l * num_outputs_,
                   out_batch.begin() + (l + 1) * num_outputs_,

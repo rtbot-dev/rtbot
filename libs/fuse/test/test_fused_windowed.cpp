@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "rtbot/fuse/FusedAuxArgs.h"
+#include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedOps.h"
@@ -370,6 +371,80 @@ SCENARIO(
     REQUIRE(fe_m->data.values->size() == 1);
     INFO("i=" << i);
     REQUIRE(dbits((*fe_m->data.values)[0]) == dbits(ma_m->data.value));
+  }
+}
+
+// Windowed opcodes have complete implementations in evaluate_batched (see
+// FusedBatchEval.h). FE/FEV route windowed programs to the scalar fallback
+// path because batching them is a net perf regression for realistic
+// workloads (they run serially per lane anyway; the batched outer loop
+// adds overhead without vectorization wins). This test keeps the batched
+// windowed code exercised and bit-exact against the scalar evaluator.
+SCENARIO("evaluate_batched MA_UPDATE matches evaluate_one lane-for-lane",
+         "[windowed][ma][batched]") {
+  const std::size_t W = 24;
+  constexpr std::size_t B = kBatch;
+  const std::size_t N = 5 * B + 3;  // multiple full batches plus a partial
+  auto values = random_values(0xBA1CEDULL, N);
+
+  std::vector<Instruction> packed = {
+      {static_cast<std::uint8_t>(INPUT), 0, 0},
+      {static_cast<std::uint8_t>(MA_UPDATE), 0, 0},
+      {static_cast<std::uint8_t>(END), 0, 0},
+  };
+  std::vector<AuxArgs> aux = {{0, static_cast<std::uint16_t>(W), 0, 0}};
+  auto layout = compute_state_layout(packed, aux);
+
+  // Reference: scalar evaluate_one over the full sequence.
+  std::vector<double> scalar_state = layout.initial_values;
+  std::vector<double> scalar_outputs;
+  scalar_outputs.reserve(N);
+  {
+    double scratch = 0.0;
+    for (std::size_t i = 0; i < N; ++i) {
+      const double v = values[i];
+      const bool emit = evaluate_one(packed.data(), packed.size(),
+                                      /*constants=*/nullptr, aux.data(),
+                                      /*coefficients=*/nullptr, &v,
+                                      scalar_state.data(), &scratch, 1);
+      if (emit) scalar_outputs.push_back(scratch);
+    }
+  }
+
+  // Under test: drive evaluate_batched in cycles of up to B lanes.
+  std::vector<double> batched_state = layout.initial_values;
+  std::vector<double> batched_outputs;
+  batched_outputs.reserve(N);
+  std::size_t pos = 0;
+  while (pos < N) {
+    const std::size_t active = std::min(B, N - pos);
+    std::vector<std::array<double, B>> in(1);
+    for (std::size_t l = 0; l < active; ++l) in[0][l] = values[pos + l];
+    std::vector<double> out(B, 0.0);
+    std::array<bool, B> lane_emit;
+    lane_emit.fill(true);
+    evaluate_batched<B>(packed.data(), packed.size(),
+                        /*constants=*/nullptr, aux.data(),
+                        /*coefficients=*/nullptr, in.data(), active,
+                        batched_state.data(), out.data(), 1, lane_emit);
+    for (std::size_t l = 0; l < active; ++l) {
+      if (lane_emit[l]) batched_outputs.push_back(out[l]);
+    }
+    pos += active;
+  }
+
+  REQUIRE(batched_outputs.size() == scalar_outputs.size());
+  REQUIRE(batched_outputs.size() == N - W + 1);
+  for (std::size_t i = 0; i < batched_outputs.size(); ++i) {
+    INFO("i=" << i);
+    REQUIRE(dbits(batched_outputs[i]) == dbits(scalar_outputs[i]));
+  }
+
+  // Final state must match too — no lane-to-lane drift.
+  REQUIRE(batched_state.size() == scalar_state.size());
+  for (std::size_t k = 0; k < batched_state.size(); ++k) {
+    INFO("state[" << k << "]");
+    REQUIRE(dbits(batched_state[k]) == dbits(scalar_state[k]));
   }
 }
 
