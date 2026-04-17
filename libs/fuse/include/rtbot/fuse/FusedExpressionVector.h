@@ -183,6 +183,21 @@ class FusedExpressionVector : public Operator {
 
       if (lane == 0) return;
 
+      if (lane == 1) {
+        // Short-circuit single-tuple case — recovers scalar throughput when
+        // no backlog is available (the realistic per-message execute pattern).
+        double inputs1[64];
+        for (size_t p = 0; p < min_required_input_size_; ++p)
+          inputs1[p] = batched_inputs[p][0];
+        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs1,
+                                   state_.data(), out_vec->data(),
+                                   num_outputs_);
+        get_output_queue(0).push_back(create_message<VectorNumberData>(
+            times[0], VectorNumberData(std::move(out_vec))));
+        continue;
+      }
+
       rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
                                         batched_inputs.data(), lane,
                                         state_.data(), out_batch.data(),

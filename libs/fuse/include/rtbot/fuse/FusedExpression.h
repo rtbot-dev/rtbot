@@ -188,6 +188,23 @@ class FusedExpression : public VectorCompose {
 
       if (lane == 0) return;
 
+      if (lane == 1) {
+        // Short-circuit the single-tuple case. The batched evaluator's
+        // lane-parallel inner loops add ~40-50% overhead when active_lanes==1
+        // because stack[64][B] layout and indirect accesses defeat the
+        // scalar hot path. This branch recovers Phase 1 throughput under the
+        // realistic per-message execute() pattern.
+        double inputs1[64];
+        for (size_t i = 0; i < np; ++i) inputs1[i] = batched_inputs[i][0];
+        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs1,
+                                   state_.data(), out_vec->data(),
+                                   num_outputs_);
+        get_output_queue(0).push_back(create_message<VectorNumberData>(
+            times[0], VectorNumberData(std::move(out_vec))));
+        continue;
+      }
+
       rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
                                         batched_inputs.data(), lane,
                                         state_.data(), out_batch.data(),
