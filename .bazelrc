@@ -59,6 +59,10 @@ build:asan --linkopt=-fsanitize=address
 build:asan --strip=never
 build:asan --compilation_mode=dbg
 
+# Deterministic floating-point for FusedExpression parity tests.
+build:parity --copt=-ffp-contract=off
+build:parity --copt=-fno-associative-math
+
 # Emscripten flags (non-Windows)
 build:linux --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"
 build:macos --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"
