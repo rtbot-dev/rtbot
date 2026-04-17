@@ -23,7 +23,7 @@ RefResult evaluate_scalar(
   result.state = std::move(state_init);
   result.outputs.reserve(inputs_per_message.size() * num_outputs);
 
-  const auto packed = rtbot::fuse::encode_legacy(bytecode);
+  const auto packed = rtbot::fuse::pack_bytecode(bytecode);
   const rtbot::fuse::Instruction* ins = packed.data();
   const std::size_t ins_size = packed.size();
   const double* consts = constants.data();

@@ -30,7 +30,9 @@ static_assert(std::is_standard_layout_v<Instruction>,
 
 // Opcodes that consume the following double as an inline argument in the
 // legacy bytecode format. Kept in sync with FusedExpression's validator and
-// evaluate_one switch semantics.
+// evaluate_one switch semantics. Tier-1 windowed opcodes (35-43) all carry
+// exactly one inline arg: either a state offset (DIFF, SIGN_CHANGE) or an
+// index into the operator's AuxArgs side table (everything else).
 inline constexpr bool has_inline_arg(std::uint8_t op) {
   using namespace rtbot::fused_op;
   return op == static_cast<std::uint8_t>(INPUT) ||
@@ -39,13 +41,17 @@ inline constexpr bool has_inline_arg(std::uint8_t op) {
          op == static_cast<std::uint8_t>(COUNT) ||
          op == static_cast<std::uint8_t>(MAX_AGG) ||
          op == static_cast<std::uint8_t>(MIN_AGG) ||
-         op == static_cast<std::uint8_t>(STATE_LOAD);
+         op == static_cast<std::uint8_t>(STATE_LOAD) ||
+         (op >= static_cast<std::uint8_t>(MA_UPDATE) &&
+          op <= static_cast<std::uint8_t>(IIR_UPDATE));
 }
 
-// Convert the legacy double-encoded bytecode to the packed Instruction form.
+// Convert a double-encoded bytecode stream to the packed Instruction form.
 // Preserves opcode order; inline args become the `arg` field of the same
-// instruction.
-inline std::vector<Instruction> encode_legacy(const std::vector<double>& bc) {
+// instruction. This is the input side of the caller-facing bytecode API:
+// compilers and tests build programs as `std::vector<double>`, operators
+// store them internally as `std::vector<Instruction>`.
+inline std::vector<Instruction> pack_bytecode(const std::vector<double>& bc) {
   std::vector<Instruction> out;
   out.reserve(bc.size());
   std::size_t pc = 0;
@@ -60,10 +66,9 @@ inline std::vector<Instruction> encode_legacy(const std::vector<double>& bc) {
   return out;
 }
 
-// Inverse of encode_legacy. Used during the transition so the existing
-// FusedExpression / FusedExpressionVector JSON schema and legacy callers
-// keep working.
-inline std::vector<double> decode_legacy(const std::vector<Instruction>& ins) {
+// Inverse of pack_bytecode — used by JSON serialization and test helpers
+// that want to round-trip a program back to the caller-facing double form.
+inline std::vector<double> unpack_bytecode(const std::vector<Instruction>& ins) {
   std::vector<double> out;
   out.reserve(ins.size() * 2);
   for (auto i : ins) {

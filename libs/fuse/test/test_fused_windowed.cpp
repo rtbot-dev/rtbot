@@ -12,6 +12,7 @@
 
 #include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBytecode.h"
+#include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 #include "rtbot/fuse/FusedStateLayout.h"
@@ -322,6 +323,53 @@ SCENARIO("FIR_UPDATE opcode matches standalone FIR bit-exactly",
   for (std::size_t i = 0; i < fused_out.size(); ++i) {
     INFO("i=" << i);
     REQUIRE(dbits(fused_out[i]) == dbits(standalone_out[i]));
+  }
+}
+
+SCENARIO(
+    "FusedExpression with MA_UPDATE matches standalone MovingAverage via ports",
+    "[windowed][ma][live_driver]") {
+  const std::size_t W = 32;
+  const std::size_t N = 300;
+  auto values = random_values(0x1A11E, N);
+
+  std::vector<double> legacy_bytecode = {INPUT, 0, MA_UPDATE, 0, END};
+  std::vector<AuxArgs> aux = {{0, static_cast<std::uint16_t>(W), 0, 0}};
+
+  auto fe = rtbot::make_fused_expression("fe_ma", /*num_ports=*/1,
+                                           /*num_outputs=*/1, legacy_bytecode,
+                                           /*constants=*/{},
+                                           /*state_init=*/{}, aux);
+  auto ma = rtbot::make_moving_average("ma", W);
+  for (std::size_t i = 0; i < N; ++i) {
+    fe->receive_data(rtbot::create_message<rtbot::NumberData>(
+                          static_cast<std::int64_t>(i + 1),
+                          rtbot::NumberData{values[i]}),
+                      0);
+    fe->execute();
+    ma->receive_data(rtbot::create_message<rtbot::NumberData>(
+                          static_cast<std::int64_t>(i + 1),
+                          rtbot::NumberData{values[i]}),
+                      0);
+    ma->execute();
+  }
+
+  auto& fe_q = fe->get_output_queue(0);
+  auto& ma_q = ma->get_output_queue(0);
+  REQUIRE(fe_q.size() == N - W + 1);
+  REQUIRE(ma_q.size() == N - W + 1);
+
+  for (std::size_t i = 0; i < fe_q.size(); ++i) {
+    const auto* fe_m = dynamic_cast<const rtbot::Message<rtbot::VectorNumberData>*>(
+        fe_q[i].get());
+    const auto* ma_m = dynamic_cast<const rtbot::Message<rtbot::NumberData>*>(
+        ma_q[i].get());
+    REQUIRE(fe_m != nullptr);
+    REQUIRE(ma_m != nullptr);
+    REQUIRE(fe_m->time == ma_m->time);
+    REQUIRE(fe_m->data.values->size() == 1);
+    INFO("i=" << i);
+    REQUIRE(dbits((*fe_m->data.values)[0]) == dbits(ma_m->data.value));
   }
 }
 

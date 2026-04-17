@@ -11,9 +11,11 @@
 #include <array>
 
 #include "rtbot/Operator.h"
+#include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedScalarEval.h"
+#include "rtbot/fuse/FusedStateLayout.h"
 
 namespace rtbot {
 
@@ -23,16 +25,24 @@ class FusedExpressionVector : public Operator {
                         std::vector<double> bytecode,
                         std::vector<double> constants,
                         std::vector<double> state_init = {},
+                        std::vector<rtbot::fuse::AuxArgs> aux_args = {},
+                        std::vector<double> coefficients = {},
                         size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : Operator(std::move(id), max_size_per_port),
         num_outputs_(num_outputs),
-        bytecode_(std::move(bytecode)),
         constants_(std::move(constants)),
         state_init_(std::move(state_init)),
         state_(state_init_),
-        packed_(rtbot::fuse::encode_legacy(bytecode_)),
+        packed_(rtbot::fuse::pack_bytecode(bytecode)),
+        aux_args_(std::move(aux_args)),
+        coefficients_(std::move(coefficients)),
         min_required_input_size_(0),
         can_batch_(true) {
+    if (state_init_.empty()) {
+      auto layout = rtbot::fuse::compute_state_layout(packed_, aux_args_);
+      state_init_ = std::move(layout.initial_values);
+      state_ = state_init_;
+    }
     // Compute once: the minimum inputs vector size this program needs,
     // and whether the program can be safely batched. Bytecode is immutable
     // after construction so this is a one-shot walk.
@@ -59,20 +69,8 @@ class FusedExpressionVector : public Operator {
     }
 
     size_t end_count = 0;
-    size_t pc = 0;
-    while (pc < bytecode_.size()) {
-      int opcode = static_cast<int>(bytecode_[pc++]);
-      if (opcode == static_cast<int>(fused_op::INPUT) ||
-          opcode == static_cast<int>(fused_op::CONST) ||
-          opcode == static_cast<int>(fused_op::CUMSUM) ||
-          opcode == static_cast<int>(fused_op::COUNT) ||
-          opcode == static_cast<int>(fused_op::MAX_AGG) ||
-          opcode == static_cast<int>(fused_op::MIN_AGG) ||
-          opcode == static_cast<int>(fused_op::STATE_LOAD)) {
-        ++pc;
-      } else if (opcode == static_cast<int>(fused_op::END)) {
-        ++end_count;
-      }
+    for (const auto& i : packed_) {
+      if (i.op == static_cast<std::uint8_t>(fused_op::END)) ++end_count;
     }
 
     if (end_count != num_outputs_) {
@@ -85,9 +83,18 @@ class FusedExpressionVector : public Operator {
   std::string type_name() const override { return "FusedExpressionVector"; }
 
   size_t get_num_outputs() const { return num_outputs_; }
-  const std::vector<double>& get_bytecode() const { return bytecode_; }
+  std::vector<double> get_bytecode() const {
+    return rtbot::fuse::unpack_bytecode(packed_);
+  }
+  const std::vector<rtbot::fuse::Instruction>& get_packed() const {
+    return packed_;
+  }
   const std::vector<double>& get_constants() const { return constants_; }
   const std::vector<double>& get_state_init() const { return state_init_; }
+  const std::vector<rtbot::fuse::AuxArgs>& get_aux_args() const {
+    return aux_args_;
+  }
+  const std::vector<double>& get_coefficients() const { return coefficients_; }
 
   void reset() override {
     Operator::reset();
@@ -119,7 +126,15 @@ class FusedExpressionVector : public Operator {
   }
 
   bool equals(const FusedExpressionVector& other) const {
-    return (num_outputs_ == other.num_outputs_ && bytecode_ == other.bytecode_ &&
+    if (packed_.size() != other.packed_.size()) return false;
+    for (std::size_t k = 0; k < packed_.size(); ++k) {
+      if (packed_[k].op != other.packed_[k].op ||
+          packed_[k].flags != other.packed_[k].flags ||
+          packed_[k].arg != other.packed_[k].arg) {
+        return false;
+      }
+    }
+    return (num_outputs_ == other.num_outputs_ &&
             constants_ == other.constants_ && state_init_ == other.state_init_ &&
             state_ == other.state_ && Operator::equals(other));
   }
@@ -153,8 +168,10 @@ class FusedExpressionVector : public Operator {
         }
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
-            ins, ins_size, consts, /*aux_args=*/nullptr,
-            /*coefficients=*/nullptr, inputs.data(), state_.data(),
+            ins, ins_size, consts,
+            aux_args_.empty() ? nullptr : aux_args_.data(),
+            coefficients_.empty() ? nullptr : coefficients_.data(),
+            inputs.data(), state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
           get_output_queue(0).push_back(create_message<VectorNumberData>(
@@ -197,8 +214,10 @@ class FusedExpressionVector : public Operator {
           inputs1[p] = batched_inputs[p][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
-            ins, ins_size, consts, /*aux_args=*/nullptr,
-            /*coefficients=*/nullptr, inputs1, state_.data(),
+            ins, ins_size, consts,
+            aux_args_.empty() ? nullptr : aux_args_.data(),
+            coefficients_.empty() ? nullptr : coefficients_.data(),
+            inputs1, state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
           get_output_queue(0).push_back(create_message<VectorNumberData>(
@@ -207,12 +226,12 @@ class FusedExpressionVector : public Operator {
         continue;
       }
 
-      rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
-                                        /*aux_args=*/nullptr,
-                                        /*coefficients=*/nullptr,
-                                        batched_inputs.data(), lane,
-                                        state_.data(), out_batch.data(),
-                                        num_outputs_);
+      rtbot::fuse::evaluate_batched<B>(
+          ins, ins_size, consts,
+          aux_args_.empty() ? nullptr : aux_args_.data(),
+          coefficients_.empty() ? nullptr : coefficients_.data(),
+          batched_inputs.data(), lane, state_.data(), out_batch.data(),
+          num_outputs_);
 
       for (size_t l = 0; l < lane; ++l) {
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
@@ -227,21 +246,24 @@ class FusedExpressionVector : public Operator {
 
  private:
   size_t num_outputs_;
-  std::vector<double> bytecode_;
   std::vector<double> constants_;
   std::vector<double> state_init_;
   std::vector<double> state_;
   std::vector<rtbot::fuse::Instruction> packed_;
+  std::vector<rtbot::fuse::AuxArgs> aux_args_;
+  std::vector<double> coefficients_;
   std::size_t min_required_input_size_;
   bool can_batch_;
 };
 
 inline std::shared_ptr<FusedExpressionVector> make_fused_expression_vector(
     std::string id, size_t num_outputs, std::vector<double> bytecode,
-    std::vector<double> constants, std::vector<double> state_init = {}) {
+    std::vector<double> constants, std::vector<double> state_init = {},
+    std::vector<rtbot::fuse::AuxArgs> aux_args = {},
+    std::vector<double> coefficients = {}) {
   return std::make_shared<FusedExpressionVector>(
       std::move(id), num_outputs, std::move(bytecode), std::move(constants),
-      std::move(state_init));
+      std::move(state_init), std::move(aux_args), std::move(coefficients));
 }
 
 }  // namespace rtbot

@@ -11,10 +11,12 @@
 
 #include <array>
 
+#include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
+#include "rtbot/fuse/FusedStateLayout.h"
 #include "rtbot/std/VectorCompose.h"
 
 namespace rtbot {
@@ -33,15 +35,26 @@ class FusedExpression : public VectorCompose {
   FusedExpression(std::string id, size_t num_ports, size_t num_outputs,
                   std::vector<double> bytecode, std::vector<double> constants,
                   std::vector<double> state_init = {},
+                  std::vector<rtbot::fuse::AuxArgs> aux_args = {},
+                  std::vector<double> coefficients = {},
                   size_t max_size_per_port = MAX_SIZE_PER_PORT)
       : VectorCompose(std::move(id), num_ports, max_size_per_port),
         num_outputs_(num_outputs),
-        bytecode_(std::move(bytecode)),
         constants_(std::move(constants)),
         state_init_(std::move(state_init)),
         state_(state_init_),
-        packed_(rtbot::fuse::encode_legacy(bytecode_)),
+        packed_(rtbot::fuse::pack_bytecode(bytecode)),
+        aux_args_(std::move(aux_args)),
+        coefficients_(std::move(coefficients)),
         can_batch_(true) {
+    // When the caller passes an empty state_init, auto-derive it from the
+    // packed bytecode + aux_args. Non-empty state_init wins (existing tests
+    // and callers that want explicit seeding are unaffected).
+    if (state_init_.empty()) {
+      auto layout = rtbot::fuse::compute_state_layout(packed_, aux_args_);
+      state_init_ = std::move(layout.initial_values);
+      state_ = state_init_;
+    }
     // Programs with STATE_LOAD or Tier-1 windowed opcodes cannot yet run
     // through evaluate_batched (STATE_LOAD reads contaminated shared state
     // across lanes; windowed opcodes are not implemented in the batched
@@ -59,25 +72,12 @@ class FusedExpression : public VectorCompose {
       throw std::runtime_error(
           "FusedExpression requires at least 1 output expression");
     }
-    // Validate bytecode has exactly num_outputs END markers.
-    // Must walk opcodes respecting argument structure — INPUT, CONST, and
-    // stateful opcodes consume the next double as an argument, so those
-    // positions must not be counted as opcodes.
+    // Validate bytecode has exactly num_outputs END markers by walking the
+    // packed instruction stream directly (one record per opcode; no inline-
+    // arg skipping needed since args live in the instruction itself).
     size_t end_count = 0;
-    size_t pc = 0;
-    while (pc < bytecode_.size()) {
-      int opcode = static_cast<int>(bytecode_[pc++]);
-      if (opcode == static_cast<int>(fused_op::INPUT) ||
-          opcode == static_cast<int>(fused_op::CONST) ||
-          opcode == static_cast<int>(fused_op::CUMSUM) ||
-          opcode == static_cast<int>(fused_op::COUNT) ||
-          opcode == static_cast<int>(fused_op::MAX_AGG) ||
-          opcode == static_cast<int>(fused_op::MIN_AGG) ||
-          opcode == static_cast<int>(fused_op::STATE_LOAD)) {
-        ++pc;  // skip argument
-      } else if (opcode == static_cast<int>(fused_op::END)) {
-        ++end_count;
-      }
+    for (const auto& i : packed_) {
+      if (i.op == static_cast<std::uint8_t>(fused_op::END)) ++end_count;
     }
     if (end_count != num_outputs_) {
       throw std::runtime_error(
@@ -89,9 +89,20 @@ class FusedExpression : public VectorCompose {
   std::string type_name() const override { return "FusedExpression"; }
 
   size_t get_num_outputs() const { return num_outputs_; }
-  const std::vector<double>& get_bytecode() const { return bytecode_; }
+  // Decodes packed instructions back to the caller-facing double bytecode
+  // format. Used by JSON serialization; not on any hot path.
+  std::vector<double> get_bytecode() const {
+    return rtbot::fuse::unpack_bytecode(packed_);
+  }
+  const std::vector<rtbot::fuse::Instruction>& get_packed() const {
+    return packed_;
+  }
   const std::vector<double>& get_constants() const { return constants_; }
   const std::vector<double>& get_state_init() const { return state_init_; }
+  const std::vector<rtbot::fuse::AuxArgs>& get_aux_args() const {
+    return aux_args_;
+  }
+  const std::vector<double>& get_coefficients() const { return coefficients_; }
 
   void reset() override {
     VectorCompose::reset();
@@ -153,8 +164,10 @@ class FusedExpression : public VectorCompose {
 
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
-            ins, ins_size, consts, /*aux_args=*/nullptr,
-            /*coefficients=*/nullptr, inputs, state_.data(),
+            ins, ins_size, consts,
+            aux_args_.empty() ? nullptr : aux_args_.data(),
+            coefficients_.empty() ? nullptr : coefficients_.data(),
+            inputs, state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
           get_output_queue(0).push_back(create_message<VectorNumberData>(
@@ -204,8 +217,10 @@ class FusedExpression : public VectorCompose {
         for (size_t i = 0; i < np; ++i) inputs1[i] = batched_inputs[i][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
-            ins, ins_size, consts, /*aux_args=*/nullptr,
-            /*coefficients=*/nullptr, inputs1, state_.data(),
+            ins, ins_size, consts,
+            aux_args_.empty() ? nullptr : aux_args_.data(),
+            coefficients_.empty() ? nullptr : coefficients_.data(),
+            inputs1, state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
           get_output_queue(0).push_back(create_message<VectorNumberData>(
@@ -214,12 +229,12 @@ class FusedExpression : public VectorCompose {
         continue;
       }
 
-      rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
-                                        /*aux_args=*/nullptr,
-                                        /*coefficients=*/nullptr,
-                                        batched_inputs.data(), lane,
-                                        state_.data(), out_batch.data(),
-                                        num_outputs_);
+      rtbot::fuse::evaluate_batched<B>(
+          ins, ins_size, consts,
+          aux_args_.empty() ? nullptr : aux_args_.data(),
+          coefficients_.empty() ? nullptr : coefficients_.data(),
+          batched_inputs.data(), lane, state_.data(), out_batch.data(),
+          num_outputs_);
 
       for (size_t l = 0; l < lane; ++l) {
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
@@ -234,22 +249,25 @@ class FusedExpression : public VectorCompose {
 
  private:
   size_t num_outputs_;
-  std::vector<double> bytecode_;
   std::vector<double> constants_;
   std::vector<double> state_init_;
   std::vector<double> state_;
   std::vector<rtbot::fuse::Instruction> packed_;
+  std::vector<rtbot::fuse::AuxArgs> aux_args_;
+  std::vector<double> coefficients_;
   bool can_batch_;
 };
 
 inline std::shared_ptr<FusedExpression> make_fused_expression(
     std::string id, size_t num_ports, size_t num_outputs,
     std::vector<double> bytecode, std::vector<double> constants,
-    std::vector<double> state_init = {}) {
-  return std::make_shared<FusedExpression>(std::move(id), num_ports,
-                                            num_outputs, std::move(bytecode),
-                                            std::move(constants),
-                                            std::move(state_init));
+    std::vector<double> state_init = {},
+    std::vector<rtbot::fuse::AuxArgs> aux_args = {},
+    std::vector<double> coefficients = {}) {
+  return std::make_shared<FusedExpression>(
+      std::move(id), num_ports, num_outputs, std::move(bytecode),
+      std::move(constants), std::move(state_init), std::move(aux_args),
+      std::move(coefficients));
 }
 
 }  // namespace rtbot

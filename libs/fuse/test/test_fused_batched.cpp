@@ -37,7 +37,7 @@ SCENARIO("Batched eval matches scalar reference on a full batch",
   constexpr std::size_t B = kBatch;
 
   std::vector<double> legacy = {INPUT, 0, INPUT, 1, ADD, CONST, 0, MUL, END};
-  auto packed = encode_legacy(legacy);
+  auto packed = pack_bytecode(legacy);
   std::vector<double> consts = {1.5};
 
   std::vector<std::array<double, B>> batched_inputs(2);
@@ -65,7 +65,7 @@ SCENARIO("Batched eval handles partial batches bit-exactly",
   constexpr std::size_t B = kBatch;
 
   std::vector<double> legacy = {INPUT, 0, INPUT, 1, SUB, END};
-  auto packed = encode_legacy(legacy);
+  auto packed = pack_bytecode(legacy);
 
   std::vector<std::array<double, B>> batched_inputs(2);
   std::vector<std::vector<double>> ref_inputs;
@@ -99,7 +99,7 @@ SCENARIO(
     auto prog = rtbot::fused_parity::generate_program(
         seed, /*max_inputs=*/6, /*max_outputs=*/3,
         /*include_transcendentals=*/true, /*include_stateful=*/false);
-    auto packed = encode_legacy(prog.bytecode);
+    auto packed = pack_bytecode(prog.bytecode);
 
     for (std::size_t active = 1; active <= B; ++active) {
       auto ref_inputs = rtbot::fused_parity::generate_input_sequence(
@@ -136,7 +136,7 @@ SCENARIO(
     "[batched][state]") {
   constexpr std::size_t B = kBatch;
   std::vector<double> legacy = {INPUT, 0, CUMSUM, 0, END};
-  auto packed = encode_legacy(legacy);
+  auto packed = pack_bytecode(legacy);
 
   const std::size_t kMsgs = 4 * B + 3;  // partial final batch
   std::mt19937_64 rng(0xC0DEULL);

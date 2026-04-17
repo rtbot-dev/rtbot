@@ -6,8 +6,8 @@
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedExpression.h"  // for fused_op namespace constants
 
-using rtbot::fuse::decode_legacy;
-using rtbot::fuse::encode_legacy;
+using rtbot::fuse::unpack_bytecode;
+using rtbot::fuse::pack_bytecode;
 using rtbot::fuse::Instruction;
 using namespace rtbot::fused_op;
 
@@ -24,10 +24,10 @@ SCENARIO("Instruction fields pack correctly", "[fused_bytecode]") {
   REQUIRE(i.arg == 0xBEEF);
 }
 
-SCENARIO("encode_legacy converts double bytecode to packed",
+SCENARIO("pack_bytecode converts double bytecode to packed",
          "[fused_bytecode][adapter]") {
   std::vector<double> legacy = {INPUT, 0, INPUT, 1, ADD, END};
-  auto packed = encode_legacy(legacy);
+  auto packed = pack_bytecode(legacy);
   REQUIRE(packed.size() == 4);
   REQUIRE(packed[0].op == static_cast<std::uint8_t>(INPUT));
   REQUIRE(packed[0].arg == 0);
@@ -38,12 +38,12 @@ SCENARIO("encode_legacy converts double bytecode to packed",
   REQUIRE(packed[3].op == static_cast<std::uint8_t>(END));
 }
 
-SCENARIO("encode_legacy and decode_legacy roundtrip",
+SCENARIO("pack_bytecode and unpack_bytecode roundtrip",
          "[fused_bytecode][adapter]") {
   std::vector<double> original = {INPUT, 2, CONST, 5, POW, END,
                                     CUMSUM, 0, END};
-  auto packed = encode_legacy(original);
-  auto roundtrip = decode_legacy(packed);
+  auto packed = pack_bytecode(original);
+  auto roundtrip = unpack_bytecode(packed);
   REQUIRE(roundtrip == original);
 }
 
@@ -52,7 +52,7 @@ SCENARIO("Stateful opcodes carry inline args in packed form",
   std::vector<double> legacy = {INPUT, 0, MAX_AGG, 3, END,
                                   COUNT, 7, END,
                                   STATE_LOAD, 2, END};
-  auto packed = encode_legacy(legacy);
+  auto packed = pack_bytecode(legacy);
   // 3 opcodes with inline args (MAX_AGG, COUNT, STATE_LOAD) + 1 INPUT + 3 ENDs
   //   = 7 instructions total
   REQUIRE(packed.size() == 7);
