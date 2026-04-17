@@ -6,7 +6,7 @@
 #include "rtbot/std/KeyedPipeline.h"
 #include "rtbot/std/VectorExtract.h"
 #include "rtbot/std/VectorProject.h"
-#include "rtbot/std/FusedExpression.h"
+#include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/OperatorJson.h"
 
 using namespace rtbot;

@@ -4,7 +4,7 @@
 #include <memory>
 #include <type_traits>
 
-#include "rtbot/std/FusedExpression.h"
+#include "rtbot/fuse/FusedExpression.h"
 
 using namespace rtbot;
 using namespace fused_op;

@@ -1,7 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_test")
 
-exports_files(["tools.h"])
-
 cc_test(
     name = "test",
     srcs = glob([
@@ -11,15 +9,15 @@ cc_test(
     data = glob([
         "**/*.json",
         "**/*.csv",
-    ], allow_empty = True) + [
-        "//examples/data:ppg.csv",
-    ],
-    #defines = ["CATCH_CONFIG_MAIN"],
+    ], allow_empty = True),
     copts = [
         "-DCATCH_CONFIG_POSIX_SIGNALS",
         "-g",
         "-fsanitize=address",
-        "-Wno-macro-redefined"
+        "-Wno-macro-redefined",
+        "-ffp-contract=off",
+        "-fno-associative-math",
+        "-Ilibs/fuse/test",
     ],
     linkopts = [
         "-fsanitize=address",

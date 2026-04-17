@@ -5,7 +5,7 @@
 #include "rtbot/Pipeline.h"
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Count.h"
-#include "rtbot/std/FusedExpression.h"
+#include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
 #include "rtbot/std/VectorExtract.h"

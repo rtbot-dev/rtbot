@@ -39,6 +39,7 @@ cc_library(
         # "//libs/api/proto",
         "//libs/core:rtbot",
         "//libs/finance:rtbot-finance",
+        "//libs/fuse:rtbot-fuse",
         "//libs/std:rtbot-std",
         "@json-cpp//:lib",
         "@json-schema-validator//:lib",

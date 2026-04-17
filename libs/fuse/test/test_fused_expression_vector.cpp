@@ -1,7 +1,7 @@
 #include <catch2/catch.hpp>
 
 #include "rtbot/OperatorJson.h"
-#include "rtbot/std/FusedExpressionVector.h"
+#include "rtbot/fuse/FusedExpressionVector.h"
 
 using namespace rtbot;
 using namespace fused_op;

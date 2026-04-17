@@ -53,8 +53,8 @@
 #include "rtbot/std/TopK.h"
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
-#include "rtbot/std/FusedExpression.h"
-#include "rtbot/std/FusedExpressionVector.h"
+#include "rtbot/fuse/FusedExpression.h"
+#include "rtbot/fuse/FusedExpressionVector.h"
 
 using json = nlohmann::json;
 
