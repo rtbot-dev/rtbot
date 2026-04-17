@@ -7,6 +7,16 @@
 //   - FE  = FusedExpression (N scalar input ports)
 //   - FEV = FusedExpressionVector (1 vector input port)
 //
+// Each case is run across a sweep of chunk sizes (messages queued per port
+// before execute()). chunk=1 is the realistic per-message streaming pattern
+// (active_lanes=1 in the batched evaluator); larger chunks simulate upstream
+// backlog and let the batched path see active_lanes > 1. The sweep gives a
+// single-shot characterization of how the evaluator scales with backlog.
+//
+// Output CSV columns: name,driver,chunk,total_ns,throughput_msg_per_s,output_sha256.
+// The output_sha256 column is independent of chunk — any divergence signals
+// a batching-correctness bug.
+//
 // Note (2026-04-17): rtbot has empirically seen -O3 underperform the default
 // -c opt on some workloads. This target is intentionally built without a
 // hardcoded -O3 so the Bazel compilation mode (fastbuild / opt / dbg) drives
@@ -124,6 +134,7 @@ struct Case {
 struct Result {
   std::string name;
   std::string driver;          // "FE" or "FEV"
+  std::size_t chunk;           // messages queued before each execute()
   double total_ns;
   double throughput_msg_per_s;
   std::string output_sha256;
@@ -140,12 +151,13 @@ std::vector<std::vector<double>> gen_inputs(std::size_t num_inputs,
   return out;
 }
 
-Result run_fe(const Case& c) {
+Result run_fe(const Case& c, std::size_t chunk) {
   auto inputs = gen_inputs(c.num_inputs, c.num_messages, c.seed);
   auto op = make_fused_expression(c.name + "_fe", c.num_inputs, c.num_outputs,
                                     c.bytecode, c.constants, c.state_init);
 
   auto t0 = std::chrono::steady_clock::now();
+  std::size_t queued = 0;
   for (std::size_t t = 0; t < c.num_messages; ++t) {
     for (std::size_t p = 0; p < c.num_inputs; ++p) {
       op->receive_data(create_message<NumberData>(
@@ -153,8 +165,12 @@ Result run_fe(const Case& c) {
                            NumberData{inputs[t][p]}),
                        p);
     }
-    op->execute();
+    if (++queued >= chunk) {
+      op->execute();
+      queued = 0;
+    }
   }
+  if (queued > 0) op->execute();
   auto t1 = std::chrono::steady_clock::now();
 
   Sha256 h;
@@ -167,27 +183,33 @@ Result run_fe(const Case& c) {
   Result r;
   r.name = c.name;
   r.driver = "FE";
+  r.chunk = chunk;
   r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
   r.throughput_msg_per_s = double(c.num_messages) * 1e9 / r.total_ns;
   r.output_sha256 = h.finalize();
   return r;
 }
 
-Result run_fev(const Case& c) {
+Result run_fev(const Case& c, std::size_t chunk) {
   auto inputs = gen_inputs(c.num_inputs, c.num_messages, c.seed);
   auto op = make_fused_expression_vector(c.name + "_fev", c.num_outputs,
                                            c.bytecode, c.constants,
                                            c.state_init);
 
   auto t0 = std::chrono::steady_clock::now();
+  std::size_t queued = 0;
   for (std::size_t t = 0; t < c.num_messages; ++t) {
     auto v = std::make_shared<std::vector<double>>(inputs[t]);
     op->receive_data(create_message<VectorNumberData>(
                          static_cast<std::int64_t>(t + 1),
                          VectorNumberData(std::move(v))),
                      0);
-    op->execute();
+    if (++queued >= chunk) {
+      op->execute();
+      queued = 0;
+    }
   }
+  if (queued > 0) op->execute();
   auto t1 = std::chrono::steady_clock::now();
 
   Sha256 h;
@@ -200,6 +222,7 @@ Result run_fev(const Case& c) {
   Result r;
   r.name = c.name;
   r.driver = "FEV";
+  r.chunk = chunk;
   r.total_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
   r.throughput_msg_per_s = double(c.num_messages) * 1e9 / r.total_ns;
   r.output_sha256 = h.finalize();
@@ -253,16 +276,25 @@ int main() {
   fin.seed = 0xBEEF03;
   cases.push_back(fin);
 
-  std::printf("name,driver,total_ns,throughput_msg_per_s,output_sha256\n");
+  // Chunk sizes to sweep. 1 = realistic per-message execute (active_lanes=1);
+  // kBatch (8) = exactly one full batch per execute; larger values simulate
+  // deeper backlog.
+  const std::vector<std::size_t> chunks = {1, 2, 4, 8, 16, 64, 1000};
+
+  std::printf("name,driver,chunk,total_ns,throughput_msg_per_s,output_sha256\n");
   for (const auto& c : cases) {
-    auto rfe  = run_fe(c);
-    std::printf("%s,%s,%.0f,%.1f,%s\n",
-                rfe.name.c_str(), rfe.driver.c_str(), rfe.total_ns,
-                rfe.throughput_msg_per_s, rfe.output_sha256.c_str());
-    auto rfev = run_fev(c);
-    std::printf("%s,%s,%.0f,%.1f,%s\n",
-                rfev.name.c_str(), rfev.driver.c_str(), rfev.total_ns,
-                rfev.throughput_msg_per_s, rfev.output_sha256.c_str());
+    for (std::size_t chunk : chunks) {
+      auto rfe = run_fe(c, chunk);
+      std::printf("%s,%s,%zu,%.0f,%.1f,%s\n",
+                  rfe.name.c_str(), rfe.driver.c_str(), rfe.chunk,
+                  rfe.total_ns, rfe.throughput_msg_per_s,
+                  rfe.output_sha256.c_str());
+      auto rfev = run_fev(c, chunk);
+      std::printf("%s,%s,%zu,%.0f,%.1f,%s\n",
+                  rfev.name.c_str(), rfev.driver.c_str(), rfev.chunk,
+                  rfev.total_ns, rfev.throughput_msg_per_s,
+                  rfev.output_sha256.c_str());
+    }
   }
   return 0;
 }
