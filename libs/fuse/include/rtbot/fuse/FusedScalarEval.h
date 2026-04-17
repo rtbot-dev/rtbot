@@ -6,11 +6,14 @@
 #include <stdexcept>
 #include <string>
 
+#include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBytecode.h"
 
 // NOTE: opcode numeric literals below correspond to the `rtbot::fused_op`
-// namespace constants declared in FusedExpression.h. FusedBytecode.h pulls in
-// FusedExpression.h transitively.
+// namespace constants declared in FusedOps.h. Opcodes that use multi-field
+// inline args (windowed/DSP ops like MA_UPDATE, FIR_UPDATE) read them from
+// the AuxArgs side table; the Instruction::arg of those opcodes is an index
+// into aux_args.
 
 namespace rtbot::fuse {
 
@@ -39,10 +42,14 @@ inline void evaluate_one(
     const Instruction* ins,
     std::size_t ins_size,
     const double* constants,
+    const AuxArgs* aux_args,
+    const double* coefficients,
     const double* inputs,
     double* state,
     double* out_ptr,
     std::size_t num_outputs) {
+  (void)aux_args;      // consumed by tier-1 windowed opcodes (phase 3)
+  (void)coefficients;  // consumed by FIR/IIR opcodes (phase 3)
   double stack[64];
   std::size_t sp = 0;
   std::size_t out_idx = 0;

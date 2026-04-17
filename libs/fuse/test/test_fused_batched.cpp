@@ -51,6 +51,7 @@ SCENARIO("Batched eval matches scalar reference on a full batch",
   std::vector<double> state;
   std::vector<double> out(B * 1);
   evaluate_batched<B>(packed.data(), packed.size(), consts.data(),
+                      /*aux_args=*/nullptr, /*coefficients=*/nullptr,
                       batched_inputs.data(), B, state.data(), out.data(), 1);
 
   auto ref = evaluate_scalar(legacy, consts, ref_inputs, {}, 1);
@@ -77,6 +78,7 @@ SCENARIO("Batched eval handles partial batches bit-exactly",
   std::vector<double> state;
   std::vector<double> out(B * 1, 0.0);
   evaluate_batched<B>(packed.data(), packed.size(), /*constants=*/nullptr,
+                      /*aux_args=*/nullptr, /*coefficients=*/nullptr,
                       batched_inputs.data(), /*active_lanes=*/3, state.data(),
                       out.data(), 1);
 
@@ -111,6 +113,7 @@ SCENARIO(
       std::vector<double> state = prog.state_init;
       std::vector<double> out(B * prog.num_outputs, 0.0);
       evaluate_batched<B>(packed.data(), packed.size(), prog.constants.data(),
+                          /*aux_args=*/nullptr, /*coefficients=*/nullptr,
                           batched_inputs.data(), active, state.data(),
                           out.data(), prog.num_outputs);
 
@@ -151,8 +154,9 @@ SCENARIO(
     std::vector<std::array<double, B>> batched(1);
     for (std::size_t l = 0; l < active; ++l) batched[0][l] = msgs[pos + l][0];
     std::vector<double> out(B, 0.0);
-    evaluate_batched<B>(packed.data(), packed.size(), nullptr, batched.data(),
-                        active, state.data(), out.data(), 1);
+    evaluate_batched<B>(packed.data(), packed.size(), nullptr,
+                        /*aux_args=*/nullptr, /*coefficients=*/nullptr,
+                        batched.data(), active, state.data(), out.data(), 1);
     for (std::size_t l = 0; l < active; ++l) all_outputs.push_back(out[l]);
     pos += active;
   }

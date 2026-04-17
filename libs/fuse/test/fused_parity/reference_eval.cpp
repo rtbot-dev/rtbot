@@ -30,6 +30,8 @@ RefResult evaluate_scalar(
   for (std::size_t m = 0; m < inputs_per_message.size(); ++m) {
     rtbot::fuse::evaluate_one(
         ins, ins_size, consts,
+        /*aux_args=*/nullptr,
+        /*coefficients=*/nullptr,
         inputs_per_message[m].data(),
         result.state.data(),
         out_ptr + m * num_outputs,

@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedOps.h"
 
@@ -56,11 +57,15 @@ inline void evaluate_batched(
     const Instruction* ins,
     std::size_t ins_size,
     const double* constants,
+    const AuxArgs* aux_args,
+    const double* coefficients,
     const std::array<double, B>* inputs,
     std::size_t active_lanes,
     double* state,
     double* out,
     std::size_t num_outputs) {
+  (void)aux_args;      // consumed by tier-1 windowed opcodes (phase 3)
+  (void)coefficients;  // consumed by FIR/IIR opcodes (phase 3)
   std::array<std::array<double, B>, 64> stack;
   std::size_t sp = 0;
   std::array<std::size_t, B> out_idx{};

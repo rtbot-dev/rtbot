@@ -150,7 +150,10 @@ class FusedExpression : public VectorCompose {
         for (size_t i = 0; i < np; i++) get_data_queue(i).pop_front();
 
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs, state_.data(),
+        rtbot::fuse::evaluate_one(ins, ins_size, consts,
+                                   /*aux_args=*/nullptr,
+                                   /*coefficients=*/nullptr,
+                                   inputs, state_.data(),
                                    out_vec->data(), num_outputs_);
         get_output_queue(0).push_back(create_message<VectorNumberData>(
             time, VectorNumberData(std::move(out_vec))));
@@ -197,15 +200,19 @@ class FusedExpression : public VectorCompose {
         double inputs1[64];
         for (size_t i = 0; i < np; ++i) inputs1[i] = batched_inputs[i][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs1,
-                                   state_.data(), out_vec->data(),
-                                   num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts,
+                                   /*aux_args=*/nullptr,
+                                   /*coefficients=*/nullptr,
+                                   inputs1, state_.data(),
+                                   out_vec->data(), num_outputs_);
         get_output_queue(0).push_back(create_message<VectorNumberData>(
             times[0], VectorNumberData(std::move(out_vec))));
         continue;
       }
 
       rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
+                                        /*aux_args=*/nullptr,
+                                        /*coefficients=*/nullptr,
                                         batched_inputs.data(), lane,
                                         state_.data(), out_batch.data(),
                                         num_outputs_);

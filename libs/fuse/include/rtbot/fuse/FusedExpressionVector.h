@@ -149,9 +149,11 @@ class FusedExpressionVector : public Operator {
               "FusedExpressionVector INPUT index out of bounds");
         }
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs.data(),
-                                   state_.data(), out_vec->data(),
-                                   num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts,
+                                   /*aux_args=*/nullptr,
+                                   /*coefficients=*/nullptr,
+                                   inputs.data(), state_.data(),
+                                   out_vec->data(), num_outputs_);
         get_output_queue(0).push_back(create_message<VectorNumberData>(
             time, VectorNumberData(std::move(out_vec))));
         input.pop_front();
@@ -190,15 +192,19 @@ class FusedExpressionVector : public Operator {
         for (size_t p = 0; p < min_required_input_size_; ++p)
           inputs1[p] = batched_inputs[p][0];
         auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
-        rtbot::fuse::evaluate_one(ins, ins_size, consts, inputs1,
-                                   state_.data(), out_vec->data(),
-                                   num_outputs_);
+        rtbot::fuse::evaluate_one(ins, ins_size, consts,
+                                   /*aux_args=*/nullptr,
+                                   /*coefficients=*/nullptr,
+                                   inputs1, state_.data(),
+                                   out_vec->data(), num_outputs_);
         get_output_queue(0).push_back(create_message<VectorNumberData>(
             times[0], VectorNumberData(std::move(out_vec))));
         continue;
       }
 
       rtbot::fuse::evaluate_batched<B>(ins, ins_size, consts,
+                                        /*aux_args=*/nullptr,
+                                        /*coefficients=*/nullptr,
                                         batched_inputs.data(), lane,
                                         state_.data(), out_batch.data(),
                                         num_outputs_);
