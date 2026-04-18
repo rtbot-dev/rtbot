@@ -39,6 +39,7 @@ rtbot/
 ├── libs/
 │   ├── core/          # fundamental operator framework and core operators
 │   ├── std/           # standard operators library (~40 operators)
+│   ├── fuse/          # fused-expression bytecode + batched/SIMD evaluator
 │   ├── finance/       # finance-specific operators (RSI)
 │   ├── api/           # public API: Program, ProgramManager, WASM/JS bindings
 │   ├── extension/     # extension mechanism (Lua scripting)
@@ -108,8 +109,9 @@ Operators serialize state to bytes (base64-encoded JSON). Deterministic replay: 
 
 | Operator | Purpose |
 |----------|---------|
-| `Input` | multiplexed entry point to program |
-| `Output` | multiplexed exit point from program |
+| `Input` | multi-port entry / router into program (typed ports, monotonicity check) |
+| `Output` | multi-port labelled exit (still supported; newer programs use `Collector`) |
+| `Collector` | program-owned sink; accumulates outputs for external reading, no queue-size limit |
 | `Buffer` | sliding window base class with Kahan sum and Welford variance |
 | `Pipeline` | segment-scoped computation with control signal demarcation |
 | `TriggerSet` | conditional multiplexing with output on trigger event |
@@ -131,9 +133,18 @@ Operators serialize state to bytes (base64-encoded JSON). Deterministic replay: 
 
 **Boolean logic**: BooleanSync (LogicalAnd, Or, Xor, Nand, Nor, Implication), BooleanToNumber
 
-**Stateful**: Count, Variable, KeyedVariable, Linear (weighted sum), FusedExpression (bytecode-based expressions), Function (piecewise-linear interpolation)
+**Stateful**: Count, Variable, KeyedVariable, Linear (weighted sum), Function (piecewise-linear interpolation)
 
 **Advanced composites**: KeyedPipeline (prototype-based dynamic sub-graphs for keyed data, e.g. per-symbol aggregations)
+
+### Fused expressions (`libs/fuse/`)
+
+Compiled bytecode evaluator for fused arithmetic, windowed aggregates, and projection. Moved out of `libs/std/` to host:
+- `FusedExpression` / `FusedExpressionVector` -- scalar and vector expression operators
+- Packed 4-byte bytecode interpreter, scalar + SIMD (xsimd) batched evaluators
+- Tier-1 windowed opcodes (moving aggregates) with mid-stream serialize/restore
+- Gate opcode for predicate-based emission suppression
+- `BurstAggregate` -- burst-oriented aggregation operator; overrides `Operator::receive_data_buffer` to skip per-row `Message` allocation
 
 ### Finance (`libs/finance/`)
 
@@ -178,10 +189,16 @@ JSON deserialization factory: `libs/api/include/rtbot/OperatorJson.h`.
 Program program(json_string);
 ProgramMsgBatch receive(const Message<NumberData>& msg, port_id = "i1");
 ProgramMsgBatch receive_batch(const map<string, vector<BaseMessage>>& port_messages);
+// Raw row-major double buffer ingress — skips Message allocation when the
+// entry operator overrides Operator::receive_data_buffer (e.g. BurstAggregate).
+ProgramMsgBatch receive_buffer(port_id, const double* data, size_t num_rows,
+                               size_t num_cols, const timestamp_t* times);
 ProgramMsgBatch receive_debug(const Message<NumberData>& msg);  // all intermediates
 string serialize_data();
 void restore_data_from_json(const string& json_state);
 ```
+
+Outputs are accumulated in a Program-owned `Collector` sink (one data port per mapped program output) and returned by each `receive*` call as a `ProgramMsgBatch`.
 
 `ProgramManager` for multi-program contexts: `create_program()`, `add_to_message_buffer()`, `process_message_buffer()`.
 
@@ -251,15 +268,18 @@ Dev server: `bazel run //docs/site:start`
 
 | File | Purpose |
 |------|---------|
-| `libs/core/include/rtbot/Operator.h` | base operator class (~670 lines) |
+| `libs/core/include/rtbot/Operator.h` | base operator class (includes `receive_data_buffer` / `receive_data_batch` hooks) |
 | `libs/core/include/rtbot/Message.h` | message types and serialization |
 | `libs/core/include/rtbot/Buffer.h` | sliding window base |
 | `libs/core/include/rtbot/Pipeline.h` | segment-scoped computation |
-| `libs/api/include/rtbot/Program.h` | program execution engine |
+| `libs/core/include/rtbot/Collector.h` | program-output sink operator |
+| `libs/api/include/rtbot/Program.h` | program execution engine (Collector-backed sink) |
 | `libs/api/include/rtbot/OperatorJson.h` | JSON deserialization factory |
 | `libs/api/include/rtbot/Prototype.h` | prototype expansion |
 | `libs/std/include/rtbot/std/KeyedPipeline.h` | dynamic keyed aggregation |
 | `libs/std/include/rtbot/std/MovingAverage.h` | representative windowed operator |
+| `libs/fuse/include/rtbot/fuse/FusedExpression.h` | bytecode expression operator |
+| `libs/fuse/include/rtbot/fuse/BurstAggregate.h` | buffer-aware burst aggregation |
 | `libs/wrappers/python/rtbot.py` | Python interface |
 | `libs/api/wasm/emscripten-bindings.cpp` | JavaScript/WASM bindings |
 
