@@ -97,6 +97,25 @@ class Program {
     return collect_outputs(false);
   }
 
+  // Raw-buffer ingress. `data` is a row-major double buffer of `num_rows` ×
+  // `num_cols`; `times[r]` is the monotone timestamp of row r. When the entry
+  // operator overrides Operator::receive_data_buffer (e.g. BurstAggregate)
+  // this skips Message allocation entirely and streams the buffer straight
+  // into the operator's kernel. Operators that don't override fall back to
+  // per-row Message creation (default Operator impl). Semantically equivalent
+  // to receive_batch over a parallel vector of Message<VectorNumberData>.
+  ProgramMsgBatch receive_buffer(const std::string& port_id,
+                                   const double* data, size_t num_rows,
+                                   size_t num_cols,
+                                   const timestamp_t* times) {
+    auto port_info = OperatorJson::parse_port_name(port_id);
+    auto& entry = operators_[entry_operator_id_];
+    entry->receive_data_buffer(data, num_rows, num_cols, times,
+                                 port_info.index, /*debug=*/false);
+    entry->execute(false);
+    return collect_outputs(false);
+  }
+
   ProgramMsgBatch receive_batch_debug(
       const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
     for (auto& [_, op] : operators_) {

@@ -204,6 +204,35 @@ class Operator {
     }
   }
 
+  // Raw-buffer variant — hand a flat row-major double* buffer plus a parallel
+  // timestamps array to the operator in one call. Designed for producers that
+  // already have columnar or row-major data in memory (sensor drivers, file
+  // replay, WASM ArrayBuffer) so they can avoid wrapping each row in a
+  // Message<VectorNumberData>. Layout: `data[row * num_cols + col]` for
+  // `num_rows` rows of `num_cols` doubles each; `times[row]` is the monotone
+  // timestamp of row `row`.
+  //
+  // Default implementation wraps each row in a pooled VectorNumberData and
+  // delegates to receive_data — so existing operators keep working unchanged
+  // for the rare case they receive a raw buffer. Operators that want the
+  // full allocation-free path (e.g. BurstAggregate) override this and read
+  // the span directly.
+  virtual void receive_data_buffer(const double* data, size_t num_rows,
+                                     size_t num_cols,
+                                     const timestamp_t* times,
+                                     size_t port_index,
+                                     bool debug = false) {
+    for (size_t r = 0; r < num_rows; ++r) {
+      auto row_buf = make_pooled_vector_double(num_cols);
+      for (size_t c = 0; c < num_cols; ++c) {
+        (*row_buf)[c] = data[r * num_cols + c];
+      }
+      receive_data(create_message<VectorNumberData>(
+                        times[r], VectorNumberData(std::move(row_buf))),
+                    port_index, debug);
+    }
+  }
+
   virtual void reset() {
     for (auto& port : data_ports_) {
       port.last_timestamp = std::numeric_limits<timestamp_t>::min();
