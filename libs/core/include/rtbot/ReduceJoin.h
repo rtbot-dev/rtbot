@@ -10,10 +10,9 @@ template <typename T>
 class ReduceJoin : public Join {
  public:
   // Constructor without initial value - single output
-  explicit ReduceJoin(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
+  explicit ReduceJoin(std::string id, size_t num_ports)
       : Join(std::move(id), std::vector<std::string>(num_ports, PortType::get_port_type<T>()),  // input ports
-             std::vector<std::string>{PortType::get_port_type<T>()},                            // single output port
-             max_size_per_port)
+             std::vector<std::string>{PortType::get_port_type<T>()})                            // single output port
         ,
         initial_value_(std::nullopt) {
     if (num_ports < 2) {
@@ -22,11 +21,9 @@ class ReduceJoin : public Join {
   }
 
   // Constructor with initial value - single output
-  ReduceJoin(std::string id, size_t num_ports, const T& initial_value,
-             size_t max_size_per_port = MAX_SIZE_PER_PORT)
+  ReduceJoin(std::string id, size_t num_ports, const T& initial_value)
       : Join(std::move(id), std::vector<std::string>(num_ports, PortType::get_port_type<T>()),  // input ports
-             std::vector<std::string>{PortType::get_port_type<T>()},                            // single output port
-             max_size_per_port)
+             std::vector<std::string>{PortType::get_port_type<T>()})                            // single output port
         ,
         initial_value_(initial_value) {
     if (num_ports < 2) {
@@ -95,7 +92,7 @@ class ReduceJoin : public Join {
         get_data_queue(i).pop_front();
 
       if (result.has_value()) {
-        get_output_queue(0).push_back(create_message<T>(time, *result));
+        emit_output(0, create_message<T>(time, *result), debug);
       }
     }
   }

@@ -33,7 +33,7 @@ void to_json(json& j, const ProgramMsgBatch& batch) {
         } else if (auto* bool_msg = dynamic_cast<const Message<BooleanData>*>(msg.get())) {
           j[op_id][port_name].push_back({{"time", bool_msg->time}, {"value", bool_msg->data.value}});
         } else if (auto* vec_bool_msg = dynamic_cast<const Message<VectorBooleanData>*>(msg.get())) {
-          j[op_id][port_name].push_back({{"time", vec_bool_msg->time}, {"value", vec_bool_msg->data.values}});
+          j[op_id][port_name].push_back({{"time", vec_bool_msg->time}, {"value", *vec_bool_msg->data.values}});
         }
       }
     }

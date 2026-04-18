@@ -3,17 +3,20 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/Replace.h"
 
 using namespace rtbot;
 
 SCENARIO("Replace derived classes handle basic filtering", "[replace_op]") {
   SECTION("LessThanOrEqualToReplace operator") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", 3.0, 1.0);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", 3.0, 1.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ltR->connect(col, 0, 0);
 
     REQUIRE(ltR->type_name() == "LessThanOrEqualToReplace");
-    REQUIRE(dynamic_cast<LessThanOrEqualToReplace*>(ltR.get())->get_threshold() == 3.0);
-    REQUIRE(dynamic_cast<LessThanOrEqualToReplace*>(ltR.get())->get_replace_by() == 1.0);
+    REQUIRE(ltR->get_threshold() == 3.0);
+    REQUIRE(ltR->get_replace_by() == 1.0);
 
     std::vector<std::pair<timestamp_t, double>> inputs = {
         {1, 1.0},  // Should be replaced
@@ -29,7 +32,7 @@ SCENARIO("Replace derived classes handle basic filtering", "[replace_op]") {
     }
     ltR->execute();
 
-    auto& output = ltR->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == expected.size());
 
     for (size_t i = 0; i < output.size(); ++i) {
@@ -42,35 +45,39 @@ SCENARIO("Replace derived classes handle basic filtering", "[replace_op]") {
 
 SCENARIO("LessThanOrEqualToReplace handles edge cases", "[replace_op]") {
   SECTION("NaN values") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", 1.0, 0.0);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", 1.0, 0.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ltR->connect(col, 0, 0);
 
     ltR->receive_data(create_message<NumberData>(1, NumberData{std::numeric_limits<double>::quiet_NaN()}), 0);
     ltR->execute();
 
-    auto& output = ltR->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.empty());  // NaN comparisons should fail
   }
 
   SECTION("Infinity values") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", std::numeric_limits<double>::infinity(), 0.0);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", std::numeric_limits<double>::infinity(), 0.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ltR->connect(col, 0, 0);
 
     ltR->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     ltR->execute();
 
-    auto& output = ltR->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(!output.empty());  // Finite values should be less than infinity
   }
 }
 
 SCENARIO("LessThanOrEqualToReplace handles error cases", "[replace_op]") {
   SECTION("Invalid message type") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", 3.0, 1.9);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", 3.0, 1.9);
 
     REQUIRE_THROWS_AS(ltR->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
   }
 
   SECTION("Invalid port index") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", 3.0, 9.0);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", 3.0, 9.0);
 
     REQUIRE_THROWS_AS(ltR->receive_data(create_message<NumberData>(1, NumberData{1.0}), 1), std::runtime_error);
   }
@@ -78,7 +85,7 @@ SCENARIO("LessThanOrEqualToReplace handles error cases", "[replace_op]") {
 
 SCENARIO("ReplaceOp handles serialization", "[replace_op][State]") {
   SECTION("LessThanOrEqualToReplace operator serialization") {
-    auto ltR = make_less_than_or_equal_to_replace("ltR", 3.0, 2.0);
+    auto ltR = std::make_shared<LessThanOrEqualToReplace>("ltR", 3.0, 2.0);
 
     // Fill with some data
     ltR->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -89,23 +96,22 @@ SCENARIO("ReplaceOp handles serialization", "[replace_op][State]") {
     auto state = ltR->collect();
 
     // Create new operator and restore state
-    auto restored = make_less_than_or_equal_to_replace("ltR", 3.0, 2.0);
+    auto restored = std::make_shared<LessThanOrEqualToReplace>("ltR", 3.0, 2.0);
+    auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    restored->connect(rcol, 0, 0);
     restored->restore_data_from_json(state);
 
     // Verify restored state
     REQUIRE(*restored == *ltR);
     REQUIRE(restored->type_name() == ltR->type_name());
-    REQUIRE(dynamic_cast<LessThanOrEqualToReplace*>(restored.get())->get_threshold() ==
-            dynamic_cast<LessThanOrEqualToReplace*>(ltR.get())->get_threshold());
-    REQUIRE(dynamic_cast<LessThanOrEqualToReplace*>(restored.get())->get_replace_by() ==
-            dynamic_cast<LessThanOrEqualToReplace*>(ltR.get())->get_replace_by());
+    REQUIRE(restored->get_threshold() == ltR->get_threshold());
+    REQUIRE(restored->get_replace_by() == ltR->get_replace_by());
 
     // Process new data and verify behavior
-    restored->clear_all_output_ports();
     restored->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
     restored->execute();
 
-    auto& output = restored->get_output_queue(0);
+    auto& output = rcol->get_data_queue(0);
     REQUIRE(!output.empty());
     auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
     REQUIRE(msg->time == 3);

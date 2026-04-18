@@ -109,8 +109,6 @@ class ResamplerConstant : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg = static_cast<const Message<T>*>(input_queue.front().get());
       if (!msg) {
@@ -154,13 +152,13 @@ class ResamplerConstant : public Operator {
 
       // While current message is past next emit time, emit at fixed intervals
       while (next_emit_ < msg->time) {
-        output_queue.push_back(create_message<T>(next_emit_, last_value_));
+        emit_output(0, create_message<T>(next_emit_, last_value_), debug);
         next_emit_ += dt_;
       }
 
       // If message exactly on grid point, use its value
       if (next_emit_ == msg->time) {
-        output_queue.push_back(create_message<T>(msg->time, msg->data));
+        emit_output(0, create_message<T>(msg->time, msg->data), debug);
         next_emit_ += dt_;
       }
 

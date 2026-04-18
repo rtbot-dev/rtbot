@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Input.h"
 #include "rtbot/TriggerSet.h"
 #include "rtbot/std/MovingSum.h"
@@ -34,6 +35,8 @@ SCENARIO("TriggerSet handles basic configuration", "[trigger_set]") {
 SCENARIO("TriggerSet handles internal operator configuration", "[trigger_set]") {
   GIVEN("A trigger set with input and moving sum") {
     auto ts = std::make_unique<TriggerSet>("analysis_ts", PortType::NUMBER, PortType::NUMBER);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ts->connect(col, 0, 0);
 
     auto in = make_number_input("in1");
     auto sum = make_moving_sum("sum1", 3);
@@ -42,22 +45,22 @@ SCENARIO("TriggerSet handles internal operator configuration", "[trigger_set]") 
       ts->register_operator(in);
       ts->register_operator(sum);
       ts->set_entry("in1");
-      ts->connect("in1", "sum1");
+      ts->connect(in, sum);
       ts->set_output("sum1", 0);
 
       THEN("Trigger fires only after the moving window is full") {
         ts->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
         ts->execute();
-        REQUIRE(ts->get_output_queue(0).empty());
+        REQUIRE(col->get_data_queue(0).empty());
 
         ts->receive_data(create_message<NumberData>(2, NumberData{2.0}), 0);
         ts->execute();
-        REQUIRE(ts->get_output_queue(0).empty());
+        REQUIRE(col->get_data_queue(0).empty());
 
         ts->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
         ts->execute();
 
-        const auto& output = ts->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg != nullptr);
@@ -69,7 +72,10 @@ SCENARIO("TriggerSet handles internal operator configuration", "[trigger_set]") 
     WHEN("Trying to connect non-existent operators") {
       ts->register_operator(in);
 
-      THEN("Error is thrown") { REQUIRE_THROWS_AS(ts->connect("in1", "non_existent"), std::runtime_error); }
+      THEN("Error is thrown") {
+        auto ghost = make_moving_sum("non_existent", 3);
+        REQUIRE_THROWS_AS(ts->connect(in, ghost), std::runtime_error);
+      }
     }
 
     WHEN("Setting invalid entry point") {
@@ -110,6 +116,8 @@ SCENARIO("TriggerSet handles internal operator configuration", "[trigger_set]") 
 SCENARIO("TriggerSet handles state reset correctly", "[trigger_set]") {
   GIVEN("A trigger set with a stateful moving sum") {
     auto ts = std::make_unique<TriggerSet>("stateful_ts", PortType::NUMBER, PortType::NUMBER);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ts->connect(col, 0, 0);
 
     auto sum = make_moving_sum("sum1", 2);
     ts->register_operator(sum);
@@ -124,25 +132,25 @@ SCENARIO("TriggerSet handles state reset correctly", "[trigger_set]") {
       ts->execute();
 
       THEN("Output is produced") {
-        const auto& output = ts->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 2);
         REQUIRE(msg->data.value == Approx(3.0));  // 1 + 2
 
         AND_THEN("State is reset for next cycle") {
-          ts->clear_all_output_ports();
+          col->reset();
 
           // After reset, the moving window is empty again. A single message
           // is not enough to fill it, so no output should be produced yet.
           ts->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
           ts->execute();
-          REQUIRE(ts->get_output_queue(0).empty());
+          REQUIRE(col->get_data_queue(0).empty());
 
           // A second message refills the window and triggers again.
           ts->receive_data(create_message<NumberData>(4, NumberData{4.0}), 0);
           ts->execute();
-          const auto& out2 = ts->get_output_queue(0);
+          const auto& out2 = col->get_data_queue(0);
           REQUIRE(out2.size() == 1);
           const auto* msg2 = dynamic_cast<const Message<NumberData>*>(out2[0].get());
           REQUIRE(msg2->data.value == Approx(7.0));  // 3 + 4
@@ -190,6 +198,8 @@ SCENARIO("TriggerSet handles state serialization correctly", "[trigger_set][Stat
 
   GIVEN("A trigger set with registered operators and connections") {
     auto ts = std::make_unique<TriggerSet>("complex_ts", PortType::NUMBER, PortType::NUMBER);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ts->connect(col, 0, 0);
 
     auto in = make_number_input("in1");
     auto sum = make_moving_sum("sum1", 3);
@@ -197,7 +207,7 @@ SCENARIO("TriggerSet handles state serialization correctly", "[trigger_set][Stat
     ts->register_operator(in);
     ts->register_operator(sum);
     ts->set_entry("in1");
-    ts->connect("in1", "sum1");
+    ts->connect(in, sum);
     ts->set_output("sum1", 0);
 
     WHEN("TriggerSet state is serialized") {
@@ -205,6 +215,8 @@ SCENARIO("TriggerSet handles state serialization correctly", "[trigger_set][Stat
 
       AND_WHEN("State is restored to a new trigger set") {
         auto restored = std::make_unique<TriggerSet>("complex_ts", PortType::NUMBER, PortType::NUMBER);
+        auto rcol = std::make_shared<Collector>("rc", std::vector<std::string>{"number"});
+        restored->connect(rcol, 0, 0);
         restored->restore_data_from_json(state);
 
         THEN("TriggerSet requires operator re-registration") {
@@ -213,7 +225,7 @@ SCENARIO("TriggerSet handles state serialization correctly", "[trigger_set][Stat
           restored->register_operator(in_restored);
           restored->register_operator(sum_restored);
           restored->set_entry("in1");
-          restored->connect("in1", "sum1");
+          restored->connect(in_restored, sum_restored);
           restored->set_output("sum1", 0);
 
           // Verify both trigger sets process data identically
@@ -225,8 +237,8 @@ SCENARIO("TriggerSet handles state serialization correctly", "[trigger_set][Stat
           ts->execute();
           restored->execute();
 
-          const auto& orig_output = ts->get_output_queue(0);
-          const auto& rest_output = restored->get_output_queue(0);
+          const auto& orig_output = col->get_data_queue(0);
+          const auto& rest_output = rcol->get_data_queue(0);
           REQUIRE(orig_output.size() == rest_output.size());
         }
       }

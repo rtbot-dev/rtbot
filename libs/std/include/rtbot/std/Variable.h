@@ -15,8 +15,8 @@ namespace rtbot {
 class Variable : public Operator {
  
  public:
-  Variable(std::string id, double default_value = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : Operator(std::move(id), max_size_per_port), default_value_(default_value) {
+  Variable(std::string id, double default_value = 0.0)
+      : Operator(std::move(id)), default_value_(default_value) {
     add_data_port<NumberData>();     // For value updates
     add_control_port<NumberData>();  // For queries
     add_output_port<NumberData>();   // For responses    
@@ -42,25 +42,23 @@ class Variable : public Operator {
   void process_data(bool debug=false) override {
 
     if (!get_data_queue(0).empty() && !get_control_queue(0).empty())
-    process_pending_queries();
-    
+    process_pending_queries(debug);
+
   }
 
   void process_control(bool debug=false) override {
-    
+
     if (!get_data_queue(0).empty() && !get_control_queue(0).empty())
-    process_pending_queries();
+    process_pending_queries(debug);
   }
 
  private:
   double default_value_;
-  
-  void process_pending_queries() {
+
+  void process_pending_queries(bool debug = false) {
 
     auto& data_queue = get_data_queue(0);
     auto& control_queue = get_control_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     if (data_queue.empty() || control_queue.empty()) return;
 
     while (!control_queue.empty()) {
@@ -121,7 +119,7 @@ class Variable : public Operator {
 
       if (!found) {
         if (query_time < first_msg->time) {
-          output_queue.push_back(create_message<NumberData>(query_time, NumberData{default_value_}));
+          emit_output(0, create_message<NumberData>(query_time, NumberData{default_value_}), debug);
           control_queue.pop_front();          
         }
         else if (query_time > last_msg->time) {
@@ -131,7 +129,7 @@ class Variable : public Operator {
           break;
         }
       } else {
-        output_queue.push_back(create_message<NumberData>(result_time, NumberData{result_value}));
+        emit_output(0, create_message<NumberData>(result_time, NumberData{result_value}), debug);
         control_queue.pop_front();        
         while (!data_queue.empty()) {
           const auto* msg = static_cast<const Message<NumberData>*>(data_queue.front().get());
@@ -148,8 +146,8 @@ class Variable : public Operator {
 };
 
 // Factory function
-inline std::unique_ptr<Variable> make_variable(std::string id, double default_value = 0.0, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_unique<Variable>(std::move(id), default_value, max_size_per_port);
+inline std::unique_ptr<Variable> make_variable(std::string id, double default_value = 0.0) {
+  return std::make_unique<Variable>(std::move(id), default_value);
 }
 
 }  // namespace rtbot

@@ -1,12 +1,15 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/ResamplerHermite.h"
 
 using namespace rtbot;
 
 SCENARIO("ResamplerHermite handles basic resampling", "[resampler][hermite]") {
   GIVEN("A hermite resampler with interval 5") {
-    auto resampler = make_resampler_hermite("test", 5);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 5);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Receiving sequential messages") {
       // Feed 4 points to fill the buffer
@@ -22,10 +25,10 @@ SCENARIO("ResamplerHermite handles basic resampling", "[resampler][hermite]") {
       }
 
       AND_THEN("Interpolation produces correct points") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        REQUIRE(output_queue.size() == 1);  // Should emit for t=2
+        const auto& received = col->get_data_queue(0);
+        REQUIRE(received.size() == 1);  // Should emit for t=2
 
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue[0].get());
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(received[0].get());
         REQUIRE(msg->time == 2);
         REQUIRE(msg->data.value == Approx(4.0).margin(0.1));
       }
@@ -35,7 +38,9 @@ SCENARIO("ResamplerHermite handles basic resampling", "[resampler][hermite]") {
 
 SCENARIO("ResamplerHermite handles custom start time", "[resampler][hermite]") {
   GIVEN("A hermite resampler with interval 5 and t0=10") {
-    auto resampler = make_resampler_hermite("test", 5, 10);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 5, 10);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Receiving messages starting before t0") {
       resampler->receive_data(create_message<NumberData>(8, NumberData{16.0}), 0);
@@ -45,9 +50,9 @@ SCENARIO("ResamplerHermite handles custom start time", "[resampler][hermite]") {
       resampler->execute();
 
       THEN("First emission is at t0") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        REQUIRE(!output_queue.empty());
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue[0].get());
+        const auto& received = col->get_data_queue(0);
+        REQUIRE(!received.empty());
+        const auto* msg = dynamic_cast<const Message<NumberData>*>(received[0].get());
         REQUIRE(msg->time == 10);
       }
     }
@@ -56,7 +61,9 @@ SCENARIO("ResamplerHermite handles custom start time", "[resampler][hermite]") {
 
 SCENARIO("ResamplerHermite handles various data patterns", "[resampler][hermite]") {
   GIVEN("A hermite resampler with interval 2") {
-    auto resampler = make_resampler_hermite("test", 2);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Receiving linear sequence") {
       for (int i = 0; i < 8; i += 2) {
@@ -65,11 +72,11 @@ SCENARIO("ResamplerHermite handles various data patterns", "[resampler][hermite]
       }
 
       THEN("Interpolation follows linear pattern") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        REQUIRE(output_queue.size() >= 2);
+        const auto& received = col->get_data_queue(0);
+        REQUIRE(received.size() >= 2);
 
-        for (size_t i = 0; i < output_queue.size(); i++) {
-          const auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue[i].get());
+        for (size_t i = 0; i < received.size(); i++) {
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(received[i].get());
           REQUIRE(msg->data.value == Approx(msg->time).margin(0.1));
         }
       }
@@ -84,11 +91,11 @@ SCENARIO("ResamplerHermite handles various data patterns", "[resampler][hermite]
       }
 
       THEN("Interpolation follows quadratic curve") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        REQUIRE(!output_queue.empty());
+        const auto& received = col->get_data_queue(0);
+        REQUIRE(!received.empty());
 
         // Verify interpolated points follow quadratic pattern approximately
-        for (const auto& msg_ptr : output_queue) {
+        for (const auto& msg_ptr : received) {
           const auto* msg = dynamic_cast<const Message<NumberData>*>(msg_ptr.get());
           double expected = msg->time * msg->time;                   // quadratic function
           REQUIRE(msg->data.value == Approx(expected).margin(2.0));  // Larger margin due to interpolation
@@ -100,12 +107,14 @@ SCENARIO("ResamplerHermite handles various data patterns", "[resampler][hermite]
 
 SCENARIO("ResamplerHermite handles edge cases", "[resampler][hermite]") {
   SECTION("Invalid interval") {
-    REQUIRE_THROWS_AS(make_resampler_hermite("test", 0), std::runtime_error);
-    REQUIRE_THROWS_AS(make_resampler_hermite("test", -1), std::runtime_error);
+    REQUIRE_THROWS_AS(std::make_shared<ResamplerHermite>("test", 0), std::runtime_error);
+    REQUIRE_THROWS_AS(std::make_shared<ResamplerHermite>("test", -1), std::runtime_error);
   }
 
   GIVEN("A hermite resampler with interval 3") {
-    auto resampler = make_resampler_hermite("test", 3);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Receiving sparse data") {
       resampler->receive_data(create_message<NumberData>(0, NumberData{0.0}), 0);
@@ -115,10 +124,10 @@ SCENARIO("ResamplerHermite handles edge cases", "[resampler][hermite]") {
       resampler->execute();
 
       THEN("Interpolation still produces valid points") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        REQUIRE(!output_queue.empty());
+        const auto& received = col->get_data_queue(0);
+        REQUIRE(!received.empty());
 
-        for (const auto& msg_ptr : output_queue) {
+        for (const auto& msg_ptr : received) {
           const auto* msg = dynamic_cast<const Message<NumberData>*>(msg_ptr.get());
           // Check timestamps are multiples of interval
           REQUIRE((msg->time - 1) % 3 == 0);
@@ -133,7 +142,9 @@ SCENARIO("ResamplerHermite handles edge cases", "[resampler][hermite]") {
 
 SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][State]") {
   GIVEN("A hermite resampler with interval 4") {
-    auto resampler = make_resampler_hermite("test", 4);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 4);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("State is serialized and restored") {
       // Add some data
@@ -147,7 +158,9 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][Sta
       auto state = resampler->collect();
 
       // Create new resampler and restore state
-      auto restored = make_resampler_hermite("test", 4);
+      auto restored = std::make_shared<ResamplerHermite>("test", 4);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
       THEN("Restored resampler maintains same properties") {
@@ -158,6 +171,7 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][Sta
       }
 
       AND_WHEN("New data is processed") {
+        col->reset();
         restored->receive_data(create_message<NumberData>(8, NumberData{8.0}), 0);
         resampler->receive_data(create_message<NumberData>(8, NumberData{8.0}), 0);
 
@@ -165,8 +179,8 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][Sta
         resampler->execute();
 
         THEN("Both produce identical output") {
-          const auto& orig_output = resampler->get_output_queue(0);
-          const auto& rest_output = restored->get_output_queue(0);
+          const auto& orig_output = col->get_data_queue(0);
+          const auto& rest_output = rcol->get_data_queue(0);
 
           REQUIRE(orig_output.size() == rest_output.size());
 
@@ -185,7 +199,9 @@ SCENARIO("ResamplerHermite maintains state correctly", "[resampler][hermite][Sta
 
 SCENARIO("ResamplerHermite handles non-uniform input times", "[resampler][hermite]") {
   GIVEN("A hermite resampler with interval 5") {
-    auto resampler = make_resampler_hermite("test", 5, 0);
+    auto resampler = std::make_shared<ResamplerHermite>("test", 5, 0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Receiving irregularly spaced timestamps") {
       resampler->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -196,8 +212,8 @@ SCENARIO("ResamplerHermite handles non-uniform input times", "[resampler][hermit
       resampler->execute();
 
       THEN("Output times are properly aligned to interval") {
-        const auto& output_queue = resampler->get_output_queue(0);
-        for (const auto& msg_ptr : output_queue) {
+        const auto& received = col->get_data_queue(0);
+        for (const auto& msg_ptr : received) {
           const auto* msg = dynamic_cast<const Message<NumberData>*>(msg_ptr.get());
           // Verify timestamps align with interval
           REQUIRE(msg->time % 5 == 0);
@@ -209,7 +225,9 @@ SCENARIO("ResamplerHermite handles non-uniform input times", "[resampler][hermit
 
 SCENARIO("ResamplerHermite correctly interpolates a parabola over extended interval", "[resampler][hermite]") {
   GIVEN("A resampler configured for intervals of 5 time units") {
-    auto resampler = make_resampler_hermite("test_resampler", 5, 5);
+    auto resampler = std::make_shared<ResamplerHermite>("test_resampler", 5, 5);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Fed integer-time points from the parabola y = (x/10)^2") {
       // Feed points with enough spacing to test interpolation
@@ -220,7 +238,7 @@ SCENARIO("ResamplerHermite correctly interpolates a parabola over extended inter
       resampler->execute();
 
       THEN("It should emit values matching y = (x/10)^2 at 5-unit intervals") {
-        const auto& output = resampler->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 3);  // Should emit values at t = 10,15,20
 
         // Check interpolated values
@@ -242,7 +260,9 @@ SCENARIO("ResamplerHermite correctly interpolates a parabola over extended inter
 
 SCENARIO("ResamplerHermite correctly interpolates a complex oscillating function", "[resampler][hermite]") {
   GIVEN("A resampler configured for 100-unit intervals") {
-    auto resampler = make_resampler_hermite("test_resampler", 100, 100);
+    auto resampler = std::make_shared<ResamplerHermite>("test_resampler", 100, 100);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    resampler->connect(col, 0, 0);
 
     WHEN("Fed points from y = sin(x/200) + (x/1000)^2") {
       // Helper function to calculate expected values
@@ -256,7 +276,7 @@ SCENARIO("ResamplerHermite correctly interpolates a complex oscillating function
       resampler->execute();
 
       THEN("It should emit accurate interpolated values at 100-unit intervals") {
-        const auto& output = resampler->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
 
         // Should emit values at t = 200,300,...,800
         REQUIRE(output.size() == 7);

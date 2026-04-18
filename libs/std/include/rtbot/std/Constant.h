@@ -36,17 +36,32 @@ class Constant : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<InputT>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in Constant");
+        }
 
-    while (!input_queue.empty()) {
-      const auto* msg = static_cast<const Message<InputT>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in Constant");
+        // Create output message with same timestamp but constant value
+        batch.push_back(create_message<OutputT>(msg->time, value_));
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<InputT>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in Constant");
+        }
 
-      // Create output message with same timestamp but constant value
-      output_queue.push_back(create_message<OutputT>(msg->time, value_));
-      input_queue.pop_front();
+        // Create output message with same timestamp but constant value
+        emit_output(0, create_message<OutputT>(msg->time, value_), debug);
+        input_queue.pop_front();
+      }
     }
   }
 

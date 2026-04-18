@@ -19,11 +19,6 @@ jsonschemas:
         minimum: 2
         default: 2
         description: Number of input ports
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: SyncLessThan
@@ -39,11 +34,6 @@ jsonschemas:
         minimum: 2
         default: 2
         description: Number of input ports
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: SyncEqual
@@ -64,11 +54,6 @@ jsonschemas:
         exclusiveMinimum: 0
         default: 1e-10
         description: Tolerance for equality comparison
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
   - type: object
     title: SyncNotEqual
@@ -89,11 +74,6 @@ jsonschemas:
         exclusiveMinimum: 0
         default: 1e-10
         description: Tolerance for not-equal comparison
-      maxSizePerPort:
-        type: integer
-        minimum: 1
-        default: 17280
-        description: Maximum number of messages buffered per port
     required: ["id"]
 ---
 

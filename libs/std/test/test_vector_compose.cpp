@@ -2,6 +2,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Join.h"
 #include "rtbot/std/VectorCompose.h"
 
@@ -10,6 +11,8 @@ using namespace rtbot;
 SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]") {
   SECTION("Two scalar inputs") {
     auto comp = make_vector_compose("comp1", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    comp->connect(col, 0, 0);
 
     REQUIRE(comp->type_name() == "VectorCompose");
     REQUIRE(comp->get_num_ports() == 2);
@@ -18,7 +21,7 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     comp->receive_data(create_message<NumberData>(1, NumberData{10.0}), 1);
     comp->execute();
 
-    auto& output = comp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
@@ -29,12 +32,14 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
 
   SECTION("Scalar composition preserves port order") {
     auto comp = make_vector_compose("comp1", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    comp->connect(col, 0, 0);
 
     comp->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     comp->receive_data(create_message<NumberData>(1, NumberData{3.0}), 1);
     comp->execute();
 
-    auto& output = comp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->data.values->size() == 2);
@@ -44,13 +49,15 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
 
   SECTION("Three ports") {
     auto comp = make_vector_compose("comp1", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    comp->connect(col, 0, 0);
 
     comp->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     comp->receive_data(create_message<NumberData>(1, NumberData{2.0}), 1);
     comp->receive_data(create_message<NumberData>(1, NumberData{3.0}), 2);
     comp->execute();
 
-    auto& output = comp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->data.values->size() == 3);
@@ -61,6 +68,8 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
 
   SECTION("Timestamp synchronization — mismatched timestamps drop stale") {
     auto comp = make_vector_compose("comp1", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    comp->connect(col, 0, 0);
 
     // Port 0 gets t=1, port 1 gets t=2 first — t=1 on port 0 should be dropped
     comp->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
@@ -69,7 +78,7 @@ SCENARIO("VectorCompose combines inputs into single vector", "[vector_compose]")
     comp->receive_data(create_message<NumberData>(2, NumberData{30.0}), 0);
     comp->execute();
 
-    auto& output = comp->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 2);
@@ -106,6 +115,8 @@ SCENARIO("VectorCompose serialization roundtrip", "[vector_compose][State]") {
 
     auto state = comp->collect();
     auto restored = make_vector_compose("comp1", 2);
+    auto rcol = std::make_shared<Collector>("rc", std::vector<std::string>{"vector_number"});
+    restored->connect(rcol, 0, 0);
     restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *comp);
@@ -114,7 +125,7 @@ SCENARIO("VectorCompose serialization roundtrip", "[vector_compose][State]") {
     restored->receive_data(create_message<NumberData>(1, NumberData{10.0}), 1);
     restored->execute();
 
-    auto& output = restored->get_output_queue(0);
+    auto& output = rcol->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);

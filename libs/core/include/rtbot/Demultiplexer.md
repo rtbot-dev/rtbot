@@ -20,11 +20,6 @@ jsonschema:
       default: 1
       minimum: 1
       examples: [2]
-    maxSizePerPort:
-      type: integer
-      minimum: 1
-      default: 17280
-      description: Maximum number of messages buffered per port
   required: ["id"]
 ---
 

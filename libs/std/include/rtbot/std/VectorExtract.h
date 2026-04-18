@@ -33,19 +33,36 @@ class VectorExtract : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
-    while (!input_queue.empty()) {
-      const auto* msg = static_cast<const Message<VectorNumberData>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in VectorExtract");
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<VectorNumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in VectorExtract");
+        }
+        if (static_cast<size_t>(index_) >= msg->data.values->size()) {
+          throw std::runtime_error("VectorExtract index " + std::to_string(index_) +
+                                   " out of bounds for vector of size " + std::to_string(msg->data.values->size()));
+        }
+        batch.push_back(create_message<NumberData>(msg->time, NumberData{(*msg->data.values)[index_]}));
+        input_queue.pop_front();
       }
-      if (static_cast<size_t>(index_) >= msg->data.values->size()) {
-        throw std::runtime_error("VectorExtract index " + std::to_string(index_) +
-                                 " out of bounds for vector of size " + std::to_string(msg->data.values->size()));
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<VectorNumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in VectorExtract");
+        }
+        if (static_cast<size_t>(index_) >= msg->data.values->size()) {
+          throw std::runtime_error("VectorExtract index " + std::to_string(index_) +
+                                   " out of bounds for vector of size " + std::to_string(msg->data.values->size()));
+        }
+        emit_output(0, create_message<NumberData>(msg->time, NumberData{(*msg->data.values)[index_]}), debug);
+        input_queue.pop_front();
       }
-      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{(*msg->data.values)[index_]}));
-      input_queue.pop_front();
     }
   }
 

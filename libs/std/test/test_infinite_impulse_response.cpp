@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/InfiniteImpulseResponse.h"
 
 using namespace rtbot;
@@ -8,14 +9,16 @@ SCENARIO("InfiniteImpulseResponse operator handles basic filtering", "[iir]") {
   GIVEN("A simple first-order IIR filter") {
     std::vector<double> b = {1.0};
     std::vector<double> a = {0.5};
-    auto iir = std::make_unique<InfiniteImpulseResponse>("iir1", b, a);
+    auto iir = std::make_shared<InfiniteImpulseResponse>("iir1", b, a);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    iir->connect(col, 0, 0);
 
     WHEN("Processing a sequence of inputs") {
       iir->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
       iir->execute();
 
       THEN("First output is purely feed-forward") {
-        const auto& output = iir->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->data.value == Approx(1.0));
@@ -26,7 +29,7 @@ SCENARIO("InfiniteImpulseResponse operator handles basic filtering", "[iir]") {
         iir->execute();
 
         THEN("Output includes feedback term") {
-          const auto& output = iir->get_output_queue(0);
+          const auto& output = col->get_data_queue(0);
           REQUIRE(output.size() == 2);
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output[1].get());
           REQUIRE(msg->data.value == Approx(0.5));  // 1.0 - 0.5*1.0
@@ -38,19 +41,21 @@ SCENARIO("InfiniteImpulseResponse operator handles basic filtering", "[iir]") {
   GIVEN("A second-order IIR filter") {
     std::vector<double> b = {1.0, -0.5};
     std::vector<double> a = {0.2, 0.1};
-    auto iir = std::make_unique<InfiniteImpulseResponse>("iir2", b, a);
+    auto iir = std::make_shared<InfiniteImpulseResponse>("iir2", b, a);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    iir->connect(col, 0, 0);
 
     WHEN("Processing a sequence of inputs") {
       // First input just gets buffered
       iir->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
       iir->execute();
-      REQUIRE(iir->get_output_queue(0).empty());
+      REQUIRE(col->get_data_queue(0).empty());
 
       // Second input produces first output using only feed-forward terms
       iir->receive_data(create_message<NumberData>(2, NumberData{1.0}), 0);
       iir->execute();
       {
-        const auto& output = iir->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 2);
@@ -58,11 +63,11 @@ SCENARIO("InfiniteImpulseResponse operator handles basic filtering", "[iir]") {
       }
 
       // Third input includes first feedback term
-      iir->clear_all_output_ports();
+      col->reset();
       iir->receive_data(create_message<NumberData>(3, NumberData{1.0}), 0);
       iir->execute();
       {
-        const auto& output = iir->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 3);
@@ -70,11 +75,11 @@ SCENARIO("InfiniteImpulseResponse operator handles basic filtering", "[iir]") {
       }
 
       // Fourth input includes both feedback terms
-      iir->clear_all_output_ports();
+      col->reset();
       iir->receive_data(create_message<NumberData>(4, NumberData{1.0}), 0);
       iir->execute();
       {
-        const auto& output = iir->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 4);
@@ -94,8 +99,8 @@ SCENARIO("InfiniteImpulseResponse operator validates input", "[iir]") {
   }
 
   SECTION("Invalid message type") {
-    auto iir = InfiniteImpulseResponse("iir", std::vector<double>{1.0}, std::vector<double>{0.5});
-    REQUIRE_THROWS_AS(iir.receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
+    auto iir = std::make_shared<InfiniteImpulseResponse>("iir", std::vector<double>{1.0}, std::vector<double>{0.5});
+    REQUIRE_THROWS_AS(iir->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
   }
 }
 
@@ -103,7 +108,9 @@ SCENARIO("InfiniteImpulseResponse operator maintains buffer size", "[iir]") {
   GIVEN("A first-order IIR filter") {
     std::vector<double> b = {1.0};
     std::vector<double> a = {0.5};
-    auto iir = std::make_unique<InfiniteImpulseResponse>("iir1", b, a);
+    auto iir = std::make_shared<InfiniteImpulseResponse>("iir1", b, a);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    iir->connect(col, 0, 0);
 
     WHEN("Processing many inputs") {
       for (int i = 0; i < 10; i++) {
@@ -112,7 +119,7 @@ SCENARIO("InfiniteImpulseResponse operator maintains buffer size", "[iir]") {
       iir->execute();
 
       THEN("Output remains stable") {
-        const auto& output = iir->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 10);
         // Check last few outputs converge to steady state
         auto* last = dynamic_cast<const Message<NumberData>*>(output.back().get());
@@ -126,7 +133,9 @@ SCENARIO("InfiniteImpulseResponse operator handles serialization", "[iir]") {
   GIVEN("A second-order IIR filter with processed data") {
     std::vector<double> b = {1.0, -0.5};
     std::vector<double> a = {0.2, 0.1};
-    auto iir = std::make_unique<InfiniteImpulseResponse>("iir2", b, a);
+    auto iir = std::make_shared<InfiniteImpulseResponse>("iir2", b, a);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    iir->connect(col, 0, 0);
 
     // Process enough data to fill buffers
     iir->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -139,20 +148,23 @@ SCENARIO("InfiniteImpulseResponse operator handles serialization", "[iir]") {
       auto state = iir->collect();
 
       // Create new operator with same configuration
-      auto restored = std::make_unique<InfiniteImpulseResponse>("iir2", b, a);
+      auto restored = std::make_shared<InfiniteImpulseResponse>("iir2", b, a);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
 
       // Restore state
       restored->restore_data_from_json(state);
 
       // Process new data on both operators
+      col->reset();
       iir->receive_data(create_message<NumberData>(4, NumberData{0.7}), 0);
       restored->receive_data(create_message<NumberData>(4, NumberData{0.7}), 0);
       iir->execute();
       restored->execute();
 
       THEN("Both operators produce identical outputs") {
-        const auto& orig_output = iir->get_output_queue(0);
-        const auto& rest_output = restored->get_output_queue(0);
+        const auto& orig_output = col->get_data_queue(0);
+        const auto& rest_output = rcol->get_data_queue(0);
 
         REQUIRE(orig_output.size() == rest_output.size());
         REQUIRE(*iir == *restored);

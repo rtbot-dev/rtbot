@@ -2,6 +2,7 @@
 #include <cmath>
 #include <nlohmann/json.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Program.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 
@@ -252,7 +253,9 @@ SCENARIO("RSI JSON program produces same output as RelativeStrengthIndex operato
     const size_t n = 14;
     auto json_program = create_rsi_program(n);
     Program program(json_program);
-    RelativeStrengthIndex rsi("rsi", n);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", n);
+    auto rsi_col = std::make_shared<Collector>("rc", std::vector<std::string>{"number"});
+    rsi->connect(rsi_col, 0, 0);
 
     std::vector<std::pair<timestamp_t, double>> test_data = {
         {1, 54.8},   {2, 56.8},   {3, 57.85},  {4, 59.85},  {5, 60.57},  {6, 61.1},   {7, 62.17},  {8, 60.6},
@@ -274,14 +277,14 @@ SCENARIO("RSI JSON program produces same output as RelativeStrengthIndex operato
         }
 
         // Process through finance operator
-        rsi.receive_data(create_message<NumberData>(time, NumberData{price}), 0);
-        rsi.execute();
-        const auto& output = rsi.get_output_queue(0);
+        rsi->receive_data(create_message<NumberData>(time, NumberData{price}), 0);
+        rsi->execute();
+        const auto& output = rsi_col->get_data_queue(0);
         if (!output.empty()) {
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
           operator_outputs[msg->time] = msg->data.value;
         }
-        rsi.clear_all_output_ports();
+        rsi_col->reset();
       }
 
       THEN("Both produce the same RSI values for overlapping timestamps") {

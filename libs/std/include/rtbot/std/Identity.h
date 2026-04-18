@@ -32,17 +32,20 @@ class Identity : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
-    while (!input_queue.empty()) {
-      const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in Identity");
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        batch.push_back(std::move(input_queue.front()));
+        input_queue.pop_front();
       }
-
-      // Forward message by cloning
-      output_queue.push_back(input_queue.front()->clone());
-      input_queue.pop_front();
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        emit_output(0, std::move(input_queue.front()), debug);
+        input_queue.pop_front();
+      }
     }
   }
 };

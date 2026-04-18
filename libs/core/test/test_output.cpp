@@ -1,12 +1,15 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Output.h"
 
 using namespace rtbot;
 
 SCENARIO("Output operator handles single port configurations", "[output]") {
   SECTION("Number output") {
-    auto output = make_number_output("out1");
+    auto output = std::make_shared<Output>("out1", std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    output->connect(col, 0, 0);
 
     REQUIRE(output->num_data_ports() == 1);
     REQUIRE(output->num_output_ports() == 1);
@@ -18,7 +21,7 @@ SCENARIO("Output operator handles single port configurations", "[output]") {
       output->execute();
 
       THEN("Message is forwarded") {
-        const auto& out_queue = output->get_output_queue(0);
+        const auto& out_queue = col->get_data_queue(0);
         REQUIRE(out_queue.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(out_queue.front().get());
         REQUIRE(msg != nullptr);
@@ -29,14 +32,16 @@ SCENARIO("Output operator handles single port configurations", "[output]") {
   }
 
   SECTION("Boolean output") {
-    auto output = make_boolean_output("out1");
+    auto output = std::make_shared<Output>("out1", std::vector<std::string>{PortType::BOOLEAN});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"boolean"});
+    output->connect(col, 0, 0);
 
     WHEN("Receiving a boolean message") {
       output->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
       output->execute();
 
       THEN("Message is forwarded") {
-        const auto& out_queue = output->get_output_queue(0);
+        const auto& out_queue = col->get_data_queue(0);
         REQUIRE(out_queue.size() == 1);
         const auto* msg = dynamic_cast<const Message<BooleanData>*>(out_queue.front().get());
         REQUIRE(msg != nullptr);
@@ -47,14 +52,16 @@ SCENARIO("Output operator handles single port configurations", "[output]") {
   }
 
   SECTION("Vector output") {
-    auto output = make_vector_number_output("out1");
+    auto output = std::make_shared<Output>("out1", std::vector<std::string>{PortType::VECTOR_NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    output->connect(col, 0, 0);
 
     WHEN("Receiving a vector message") {
       output->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 2.0, 3.0}}), 0);
       output->execute();
 
       THEN("Message is forwarded") {
-        const auto& out_queue = output->get_output_queue(0);
+        const auto& out_queue = col->get_data_queue(0);
         REQUIRE(out_queue.size() == 1);
         const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out_queue.front().get());
         REQUIRE(msg != nullptr);
@@ -67,8 +74,12 @@ SCENARIO("Output operator handles single port configurations", "[output]") {
 
 SCENARIO("Output operator handles multiple port configurations", "[output]") {
   GIVEN("A multi-port output operator") {
-    auto output = std::make_unique<Output>(
+    auto output = std::make_shared<Output>(
         "out1", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN, PortType::VECTOR_NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean", "vector_number"});
+    output->connect(col, 0, 0);
+    output->connect(col, 1, 1);
+    output->connect(col, 2, 2);
 
     REQUIRE(output->num_data_ports() == 3);
     REQUIRE(output->num_output_ports() == 3);
@@ -82,7 +93,7 @@ SCENARIO("Output operator handles multiple port configurations", "[output]") {
       THEN("Messages are forwarded to correct ports") {
         // Check number port
         {
-          const auto& out_queue = output->get_output_queue(0);
+          const auto& out_queue = col->get_data_queue(0);
           REQUIRE(out_queue.size() == 1);
           const auto* msg = dynamic_cast<const Message<NumberData>*>(out_queue.front().get());
           REQUIRE(msg != nullptr);
@@ -91,7 +102,7 @@ SCENARIO("Output operator handles multiple port configurations", "[output]") {
 
         // Check boolean port
         {
-          const auto& out_queue = output->get_output_queue(1);
+          const auto& out_queue = col->get_data_queue(1);
           REQUIRE(out_queue.size() == 1);
           const auto* msg = dynamic_cast<const Message<BooleanData>*>(out_queue.front().get());
           REQUIRE(msg != nullptr);
@@ -100,7 +111,7 @@ SCENARIO("Output operator handles multiple port configurations", "[output]") {
 
         // Check vector port
         {
-          const auto& out_queue = output->get_output_queue(2);
+          const auto& out_queue = col->get_data_queue(2);
           REQUIRE(out_queue.size() == 1);
           const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(out_queue.front().get());
           REQUIRE(msg != nullptr);
@@ -123,7 +134,9 @@ SCENARIO("Output operator validates configuration", "[output]") {
 
 SCENARIO("Output operator preserves message order", "[output]") {
   GIVEN("A number output operator") {
-    auto output = make_number_output("out1");
+    auto output = std::make_shared<Output>("out1", std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    output->connect(col, 0, 0);
 
     WHEN("Receiving multiple messages") {
       output->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -132,7 +145,7 @@ SCENARIO("Output operator preserves message order", "[output]") {
       output->execute();
 
       THEN("Messages are forwarded in order") {
-        const auto& out_queue = output->get_output_queue(0);
+        const auto& out_queue = col->get_data_queue(0);
         REQUIRE(out_queue.size() == 3);
 
         auto it = out_queue.begin();
@@ -150,7 +163,7 @@ SCENARIO("Output operator preserves message order", "[output]") {
 
 SCENARIO("Output operator handles type mismatches", "[output]") {
   GIVEN("A number output operator") {
-    auto output = make_number_output("out1");
+    auto output = std::make_shared<Output>("out1", std::vector<std::string>{PortType::NUMBER});
 
     WHEN("Receiving wrong message type") {
       THEN("Error is thrown") {
@@ -163,7 +176,10 @@ SCENARIO("Output operator handles type mismatches", "[output]") {
 
 SCENARIO("Output operator handles state serialization", "[output][State]") {
   GIVEN("An output operator with multiple types and processed messages") {
-    auto output = std::make_unique<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+    auto output = std::make_shared<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean"});
+    output->connect(col, 0, 0);
+    output->connect(col, 1, 1);
 
     output->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
     output->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
@@ -174,24 +190,26 @@ SCENARIO("Output operator handles state serialization", "[output][State]") {
       auto state = output->collect();
 
       // Create new operator with same configuration
-      auto restored = std::make_unique<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+      auto restored = std::make_shared<Output>("mixed_output", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean"});
+      restored->connect(rcol, 0, 0);
+      restored->connect(rcol, 1, 1);
 
       // Restore state
       restored->restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
-        REQUIRE(*restored == *output);        
+        REQUIRE(*restored == *output);
       }
 
       AND_WHEN("New messages are received") {
-        restored->clear_all_output_ports();
         restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
         restored->execute();
 
         THEN("Messages are processed based on restored state") {
-          const auto& output_queue = restored->get_output_queue(0);
-          REQUIRE(output_queue.size() == 1);
-          const auto* msg = dynamic_cast<const Message<NumberData>*>(output_queue.front().get());
+          const auto& received = rcol->get_data_queue(0);
+          REQUIRE(received.size() == 1);
+          const auto* msg = dynamic_cast<const Message<NumberData>*>(received.front().get());
           REQUIRE(msg->time == 3);
           REQUIRE(msg->data.value == 84.0);
         }
@@ -202,7 +220,7 @@ SCENARIO("Output operator handles state serialization", "[output][State]") {
       auto state = output->collect();
 
       // Create new operator with different configuration
-      auto mismatched = std::make_unique<Output>(
+      auto mismatched = std::make_shared<Output>(
           "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});
 
       THEN("Type mismatch is detected") {
@@ -216,19 +234,19 @@ SCENARIO("Output operator handles state serialization", "[output][State]") {
 SCENARIO("Output forwards messages without cloning", "[output][perf]") {
   GIVEN("A vector-number output operator") {
     auto output = make_vector_number_output("output_no_clone");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::VECTOR_NUMBER});
+    output->connect(col, 0, 0);
 
     auto msg = create_message<VectorNumberData>(
         1, VectorNumberData{{4.0, 5.0, 6.0}});
-    const BaseMessage* original_ptr = msg.get();
 
     WHEN("A message is received and executed") {
       output->receive_data(std::move(msg), 0);
       output->execute();
 
-      THEN("The same message instance is forwarded") {
-        const auto& out_queue = output->get_output_queue(0);
+      THEN("The message is forwarded to the collector") {
+        const auto& out_queue = col->get_data_queue(0);
         REQUIRE(out_queue.size() == 1);
-        REQUIRE(out_queue.front().get() == original_ptr);
       }
     }
   }

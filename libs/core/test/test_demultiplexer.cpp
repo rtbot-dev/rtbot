@@ -1,13 +1,17 @@
 #include <catch2/catch.hpp>
 #include <iostream>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Demultiplexer.h"
 
 using namespace rtbot;
 
 SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplexer]") {
   GIVEN("A demultiplexer with two output ports") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    demux->connect(col, 0, 0);
+    demux->connect(col, 1, 1);
 
     WHEN("Multiple control ports are active") {
       // Controls for t=100
@@ -17,8 +21,8 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
       demux->execute();
 
       THEN("Message is routed to both ports") {
-        const auto& first_output = demux->get_output_queue(0);
-        const auto& second_output = demux->get_output_queue(1);
+        const auto& first_output = col->get_data_queue(0);
+        const auto& second_output = col->get_data_queue(1);
 
         REQUIRE(first_output.size() == 1);
         REQUIRE(second_output.size() == 1);
@@ -40,45 +44,24 @@ SCENARIO("Demultiplexer routes messages based on control signals", "[demultiplex
       demux->execute();
 
       THEN("Message is not routed to any port") {
-        const auto& first_output = demux->get_output_queue(0);
-        const auto& second_output = demux->get_output_queue(1);
+        const auto& first_output = col->get_data_queue(0);
+        const auto& second_output = col->get_data_queue(1);
 
         REQUIRE(first_output.empty());
         REQUIRE(second_output.empty());
       }
     }
 
-    WHEN("Multiple control ports are active and messages exceeds the max_size_per_port()") {
-      
-      for (int i = 0; i < demux->max_size_per_port() + 2; i++) {
-        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 0);
-        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 1);
-        demux->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
-      }
-      demux->execute();
-
-      THEN("Message is routed to both ports") {
-        const auto& first_output = demux->get_output_queue(0);
-        const auto& second_output = demux->get_output_queue(1);
-
-        REQUIRE(first_output.size() == demux->max_size_per_port());
-        REQUIRE(second_output.size() == demux->max_size_per_port());
-
-        auto* msg1 = dynamic_cast<const Message<NumberData>*>(first_output[0].get());
-        auto* msg2 = dynamic_cast<const Message<NumberData>*>(second_output[0].get());
-
-        REQUIRE(msg1->time == 2);
-        REQUIRE(msg1->data.value == 4.0);
-        REQUIRE(msg2->time == 2);
-        REQUIRE(msg2->data.value == 4.0);
-      }
-    }
   }
 }
 
 SCENARIO("Demultiplexer handles sequential routing patterns", "[demultiplexer]") {
   GIVEN("A demultiplexer with three output ports") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 3);
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number", "number"});
+    demux->connect(col, 0, 0);
+    demux->connect(col, 1, 1);
+    demux->connect(col, 2, 2);
 
     WHEN("Control patterns change over time with increasing timestamps") {
       // t=100: Route to first port only
@@ -103,9 +86,9 @@ SCENARIO("Demultiplexer handles sequential routing patterns", "[demultiplexer]")
       demux->execute();
 
       THEN("Messages are routed correctly with proper timestamps") {
-        const auto& output0 = demux->get_output_queue(0);
-        const auto& output1 = demux->get_output_queue(1);
-        const auto& output2 = demux->get_output_queue(2);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
+        const auto& output2 = col->get_data_queue(2);
 
         // Check first output (messages from t=100, t=300)
         REQUIRE(output0.size() == 2);
@@ -140,15 +123,18 @@ SCENARIO("Demultiplexer handles sequential routing patterns", "[demultiplexer]")
 
 SCENARIO("Demultiplexer handles timing and cleanup", "[demultiplexer]") {
   GIVEN("A demultiplexer with two ports") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    demux->connect(col, 0, 0);
+    demux->connect(col, 1, 1);
 
     WHEN("Data arrives with missing control messages") {
       demux->receive_data(create_message<NumberData>(100, NumberData{10.0}), 0);
       demux->execute();
 
       THEN("No output is produced") {
-        const auto& output0 = demux->get_output_queue(0);
-        const auto& output1 = demux->get_output_queue(1);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
 
         REQUIRE(output0.empty());
         REQUIRE(output1.empty());
@@ -159,17 +145,20 @@ SCENARIO("Demultiplexer handles timing and cleanup", "[demultiplexer]") {
 
 SCENARIO("Demultiplexer fires exception when invalid data is sent to controls", "[demultiplexer]") {
   GIVEN("A demultiplexer with two ports") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    demux->connect(col, 0, 0);
+    demux->connect(col, 1, 1);
 
     WHEN("Data arrives but controls arrives wit bad data") {
       demux->receive_data(create_message<NumberData>(100, NumberData{10.0}), 0);
       demux->execute();
-      
+
 
       THEN("No output is produced and exception is fired") {
         REQUIRE_THROWS_AS(demux->receive_control(create_message<NumberData>(100, NumberData{10.0}), 0),std::runtime_error);
-        const auto& output0 = demux->get_output_queue(0);
-        const auto& output1 = demux->get_output_queue(1);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
 
         REQUIRE(output0.empty());
         REQUIRE(output1.empty());
@@ -188,39 +177,12 @@ SCENARIO("Demultiplexer fires exception when invalid data is sent to controls", 
   }
 }
 
-SCENARIO("Demultiplexer respects custom maxSizePerPort", "[demultiplexer]") {
-  GIVEN("A demultiplexer with max_size_per_port set to 4") {
-    size_t limit = 4;
-    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2, limit);
-
-    REQUIRE(demux->max_size_per_port() == limit);
-
-    WHEN("More messages than the limit are queued on data and control ports") {
-      for (int i = 0; i < (int)limit + 2; i++) {
-        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 0);
-        demux->receive_control(create_message<BooleanData>(i, BooleanData{true}), 1);
-        demux->receive_data(create_message<NumberData>(i, NumberData{(double)i}), 0);
-      }
-      demux->execute();
-
-      THEN("Only limit messages are routed to each output") {
-        const auto& out0 = demux->get_output_queue(0);
-        const auto& out1 = demux->get_output_queue(1);
-        REQUIRE(out0.size() == limit);
-        REQUIRE(out1.size() == limit);
-
-        // Oldest 2 messages dropped, first surviving is index 2
-        const auto* first = dynamic_cast<const Message<NumberData>*>(out0.front().get());
-        REQUIRE(first->time == 2);
-        REQUIRE(first->data.value == 2.0);
-      }
-    }
-  }
-}
-
 SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") {
   GIVEN("A demultiplexer with active state") {
-    auto demux = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+    auto demux = std::make_shared<Demultiplexer<NumberData>>("demux", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+    demux->connect(col, 0, 0);
+    demux->connect(col, 1, 1);
 
     // Set up initial state
     demux->receive_control(create_message<BooleanData>(100, BooleanData{true}), 0);
@@ -229,7 +191,10 @@ SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") 
 
     WHEN("State is serialized and restored") {
       auto state = demux->collect();
-      auto restored = std::make_unique<Demultiplexer<NumberData>>("demux", 2);
+      auto restored = std::make_shared<Demultiplexer<NumberData>>("demux", 2);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number"});
+      restored->connect(rcol, 0, 0);
+      restored->connect(rcol, 1, 1);
       restored->restore_data_from_json(state);
 
       THEN("Behavior matches original") {
@@ -238,10 +203,10 @@ SCENARIO("Demultiplexer handles state serialization", "[demultiplexer][State]") 
 
         REQUIRE(*demux == *restored);
 
-        const auto& orig_output0 = demux->get_output_queue(0);
-        const auto& orig_output1 = demux->get_output_queue(1);
-        const auto& rest_output0 = restored->get_output_queue(0);
-        const auto& rest_output1 = restored->get_output_queue(1);
+        const auto& orig_output0 = col->get_data_queue(0);
+        const auto& orig_output1 = col->get_data_queue(1);
+        const auto& rest_output0 = rcol->get_data_queue(0);
+        const auto& rest_output1 = rcol->get_data_queue(1);
 
         REQUIRE(orig_output0.size() == rest_output0.size());
         REQUIRE(orig_output1.size() == rest_output1.size());

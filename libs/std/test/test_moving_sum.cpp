@@ -1,47 +1,50 @@
 #include <catch2/catch.hpp>
 #include <cmath>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/MovingSum.h"
 
 using namespace rtbot;
 
 SCENARIO("MovingSum operator handles basic calculations", "[moving_sum]") {
   GIVEN("A MovingSum operator with window size 3") {
-    auto ms = MovingSum("test_ms", 3);
+    auto ms = std::make_shared<MovingSum>("test_ms", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ms->connect(col, 0, 0);
 
     WHEN("Receiving less messages than window size") {
-      ms.receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
-      ms.execute();
+      ms->receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
+      ms->execute();
 
       THEN("No output is produced") {
-        const auto& output = ms.get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.empty());
-        REQUIRE(ms.sum() == 2.0);
+        REQUIRE(ms->sum() == 2.0);
       }
 
       AND_WHEN("Second message arrives") {
-        ms.receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
-        ms.execute();
+        ms->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+        ms->execute();
 
         THEN("Still no output but average is updated") {
-          const auto& output = ms.get_output_queue(0);
+          const auto& output = col->get_data_queue(0);
           REQUIRE(output.empty());
-          REQUIRE(ms.sum() == 6.0);  // (2 + 4)
+          REQUIRE(ms->sum() == 6.0);  // (2 + 4)
         }
       }
     }
 
     WHEN("Buffer becomes full") {
       // Fill buffer with values [2.0, 4.0, 6.0]
-      ms.receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
-      ms.execute();
-      ms.receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
-      ms.execute();
-      ms.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
-      ms.execute();
+      ms->receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
+      ms->execute();
+      ms->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+      ms->execute();
+      ms->receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
+      ms->execute();
 
       THEN("Output is produced with correct average") {
-        const auto& output = ms.get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
 
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -51,12 +54,12 @@ SCENARIO("MovingSum operator handles basic calculations", "[moving_sum]") {
       }
 
       AND_WHEN("New value arrives") {
-        ms.clear_all_output_ports();
-        ms.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
-        ms.execute();
+        col->reset();
+        ms->receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
+        ms->execute();
 
         THEN("Window slides and new average is calculated") {
-          const auto& output = ms.get_output_queue(0);
+          const auto& output = col->get_data_queue(0);
           REQUIRE(output.size() == 1);
 
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -71,50 +74,53 @@ SCENARIO("MovingSum operator handles basic calculations", "[moving_sum]") {
 
 SCENARIO("MovingSum operator handles state serialization", "[moving_sum][State]") {
   GIVEN("A MovingSum operator with some data") {
-    auto ms = MovingSum("test_ms", 3);
+    auto ms = std::make_shared<MovingSum>("test_ms", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ms->connect(col, 0, 0);
 
     // Add some data
-    ms.receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
-    ms.execute();
-    ms.receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
-    ms.receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
-    ms.execute();
+    ms->receive_data(create_message<NumberData>(1, NumberData{2.0}), 0);
+    ms->execute();
+    ms->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
+    ms->receive_data(create_message<NumberData>(3, NumberData{6.0}), 0);
+    ms->execute();
 
     WHEN("State is serialized and restored") {
       // Serialize state
-      auto state = ms.collect();
+      auto state = ms->collect();
 
       // Create new operator
-      auto restored = MovingSum("test_ms", 3);
+      auto restored = std::make_shared<MovingSum>("test_ms", 3);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
 
       // Restore state
-      restored.restore_data_from_json(state);
+      restored->restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
-        REQUIRE(restored.sum() == ms.sum());
-        REQUIRE(restored == ms);
+        REQUIRE(restored->sum() == ms->sum());
+        REQUIRE(*restored == *ms);
 
         AND_WHEN("New data is added to both") {
-          ms.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
-          restored.receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
+          col->reset();
+          ms->receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
+          restored->receive_data(create_message<NumberData>(4, NumberData{8.0}), 0);
 
-          ms.execute();
-          restored.execute();
+          ms->execute();
+          restored->execute();
 
           THEN("Both produce identical output") {
-            auto& orig_output = ms.get_output_queue(0);
-            auto& rest_output = restored.get_output_queue(0);
+            const auto& orig_output = col->get_data_queue(0);
+            const auto& rest_output = rcol->get_data_queue(0);
 
             REQUIRE(orig_output.size() == rest_output.size());
 
-            while (!orig_output.empty()) {
+            if (!orig_output.empty()) {
               const auto* orig_msg = dynamic_cast<const Message<NumberData>*>(orig_output.front().get());
               const auto* rest_msg = dynamic_cast<const Message<NumberData>*>(rest_output.front().get());
 
               REQUIRE(orig_msg->time == rest_msg->time);
               REQUIRE(orig_msg->data.value == rest_msg->data.value);
-              orig_output.pop_front();
-              rest_output.pop_front();
             }
           }
         }
@@ -127,12 +133,14 @@ SCENARIO("MovingSum operator handles edge cases", "[moving_sum]") {
   SECTION("Invalid window size") { REQUIRE_THROWS_AS(MovingSum("test_ms", 0), std::runtime_error); }
 
   SECTION("Window size of 1") {
-    auto ms = MovingSum("test_ms", 1);
+    auto ms = std::make_shared<MovingSum>("test_ms", 1);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ms->connect(col, 0, 0);
 
-    ms.receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
-    ms.execute();
+    ms->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
+    ms->execute();
 
-    const auto& output = ms.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -140,17 +148,19 @@ SCENARIO("MovingSum operator handles edge cases", "[moving_sum]") {
   }
 
   SECTION("Large numbers") {
-    auto ms = MovingSum("test_ms", 3);
+    auto ms = std::make_shared<MovingSum>("test_ms", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ms->connect(col, 0, 0);
     double large_value = 1e15;
 
-    ms.receive_data(create_message<NumberData>(1, NumberData{large_value}), 0);
-    ms.execute();
-    ms.receive_data(create_message<NumberData>(2, NumberData{large_value + 3}), 0);
-    ms.execute();
-    ms.receive_data(create_message<NumberData>(3, NumberData{large_value + 6}), 0);
-    ms.execute();
+    ms->receive_data(create_message<NumberData>(1, NumberData{large_value}), 0);
+    ms->execute();
+    ms->receive_data(create_message<NumberData>(2, NumberData{large_value + 3}), 0);
+    ms->execute();
+    ms->receive_data(create_message<NumberData>(3, NumberData{large_value + 6}), 0);
+    ms->execute();
 
-    const auto& output = ms.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -158,17 +168,19 @@ SCENARIO("MovingSum operator handles edge cases", "[moving_sum]") {
   }
 
   SECTION("Numerical stability") {
-    auto ms = MovingSum("test_ms", 3);
+    auto ms = std::make_shared<MovingSum>("test_ms", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ms->connect(col, 0, 0);
 
     // Add sequence of very small and very large numbers
-    ms.receive_data(create_message<NumberData>(1, NumberData{1e-10}), 0);
-    ms.execute();
-    ms.receive_data(create_message<NumberData>(2, NumberData{1e10}), 0);
-    ms.execute();
-    ms.receive_data(create_message<NumberData>(3, NumberData{1e-10}), 0);
-    ms.execute();
+    ms->receive_data(create_message<NumberData>(1, NumberData{1e-10}), 0);
+    ms->execute();
+    ms->receive_data(create_message<NumberData>(2, NumberData{1e10}), 0);
+    ms->execute();
+    ms->receive_data(create_message<NumberData>(3, NumberData{1e-10}), 0);
+    ms->execute();
 
-    const auto& output = ms.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());

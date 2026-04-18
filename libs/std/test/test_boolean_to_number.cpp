@@ -1,19 +1,22 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/BooleanToNumber.h"
 
 using namespace rtbot;
 
 SCENARIO("BooleanToNumber operator converts boolean values to numbers", "[boolean_to_number]") {
   GIVEN("A BooleanToNumber operator") {
-    auto b2n = make_boolean_to_number("b2n1");
+    auto b2n = std::make_shared<BooleanToNumber>("b2n1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    b2n->connect(col, 0, 0);
 
     WHEN("Receiving a true message") {
       b2n->receive_data(create_message<BooleanData>(10, BooleanData{true}), 0);
       b2n->execute();
 
       THEN("Output is NumberData{1.0} with preserved timestamp") {
-        const auto& output = b2n->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg != nullptr);
@@ -27,7 +30,7 @@ SCENARIO("BooleanToNumber operator converts boolean values to numbers", "[boolea
       b2n->execute();
 
       THEN("Output is NumberData{0.0} with preserved timestamp") {
-        const auto& output = b2n->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg != nullptr);
@@ -45,7 +48,7 @@ SCENARIO("BooleanToNumber operator converts boolean values to numbers", "[boolea
       b2n->execute();
 
       THEN("All 5 messages are converted correctly in order") {
-        const auto& output = b2n->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 5);
 
         auto it = output.begin();
@@ -66,7 +69,9 @@ SCENARIO("BooleanToNumber operator converts boolean values to numbers", "[boolea
 
 SCENARIO("BooleanToNumber operator handles state serialization", "[boolean_to_number][State]") {
   GIVEN("A BooleanToNumber operator with processed messages") {
-    auto b2n = make_boolean_to_number("b2n1");
+    auto b2n = std::make_shared<BooleanToNumber>("b2n1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    b2n->connect(col, 0, 0);
 
     // Add some messages
     b2n->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0);
@@ -78,18 +83,19 @@ SCENARIO("BooleanToNumber operator handles state serialization", "[boolean_to_nu
       auto state = b2n->collect();
 
       // Create new operator
-      auto restored = make_boolean_to_number("b2n1");
+      auto restored = std::make_shared<BooleanToNumber>("b2n1");
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
 
       // Restore state
       restored->restore_data_from_json(state);
 
       THEN("Behavior is preserved") {
         REQUIRE(*restored == *b2n);
-        restored->clear_all_output_ports();
         restored->receive_data(create_message<BooleanData>(5, BooleanData{true}), 0);
         restored->execute();
 
-        const auto& output = restored->get_output_queue(0);
+        const auto& output = rcol->get_data_queue(0);
         REQUIRE(output.size() == 1);
 
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -103,7 +109,7 @@ SCENARIO("BooleanToNumber operator handles state serialization", "[boolean_to_nu
 
 SCENARIO("BooleanToNumber operator validates message types", "[boolean_to_number]") {
   GIVEN("A BooleanToNumber operator") {
-    auto b2n = make_boolean_to_number("b2n1");
+    auto b2n = std::make_shared<BooleanToNumber>("b2n1");
 
     THEN("It rejects invalid message types") {
       REQUIRE_THROWS_AS(b2n->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0),

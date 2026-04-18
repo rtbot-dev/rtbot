@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Message.h"
 #include "rtbot/Operator.h"
 
@@ -17,6 +18,7 @@ struct SubGraph {
   std::map<std::string, std::shared_ptr<Operator>> operators;
   std::shared_ptr<Operator> entry;
   std::shared_ptr<Operator> output;
+  std::shared_ptr<Collector> collector;
 };
 
 class KeyedPipeline : public Operator {
@@ -81,14 +83,6 @@ class KeyedPipeline : public Operator {
     sub_graphs_.clear();
   }
 
-  void clear_all_output_ports() override {
-    Operator::clear_all_output_ports();
-    for (auto& [_, sg] : sub_graphs_) {
-      for (auto& [__, op] : sg.operators) {
-        op->clear_all_output_ports();
-      }
-    }
-  }
 
   nlohmann::json collect() override {
     nlohmann::json result = {
@@ -121,8 +115,7 @@ class KeyedPipeline : public Operator {
     sub_graphs_.clear();
     for (auto& [key_str, key_ops] : content.items()) {
       double key = std::stod(key_str);
-      sub_graphs_[key] = factory_();
-      auto& sg = sub_graphs_[key];
+      auto& sg = get_or_create_subgraph_(key);
       for (auto& [op_id, op] : sg.operators) {
         op->restore_data_from_json(key_ops.at(op_id));
       }
@@ -156,8 +149,6 @@ class KeyedPipeline : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
       const auto* msg = static_cast<const Message<VectorNumberData>*>(input_queue.front().get());
       if (!msg) {
@@ -184,35 +175,23 @@ class KeyedPipeline : public Operator {
         key = (*msg->data.values)[key_index_];
       }
 
-      // Get or create sub-graph for this key
-      auto it = sub_graphs_.find(key);
-      if (it == sub_graphs_.end()) {
-        sub_graphs_[key] = factory_();
-        if (new_key_callback_) {
-          new_key_callback_(key);
-        }
-        it = sub_graphs_.find(key);
-      }
+      auto& sg = get_or_create_subgraph_(key);
 
-      auto& sg = it->second;
-
-      // Clear output of the sub-graph's output operator before processing
-      sg.output->clear_all_output_ports();
+      // Clear collector before processing
+      sg.collector->reset();
 
       // Feed the full input vector to the entry operator
-      sg.entry->receive_data(input_queue.front()->clone(), 0);
+      sg.entry->receive_data(std::move(input_queue.front()), 0);
       sg.entry->execute(debug);
 
-      // Collect from output operator
-      auto& sg_output = sg.output->get_output_queue(0);
-      for (const auto& out_msg : sg_output) {
+      // Collect from collector's data queue, prepend key
+      auto& sg_output = sg.collector->get_data_queue(0);
+      for (auto& out_msg : sg_output) {
         if (has_computed_key()) {
           // Computed key mode: pass through prototype output as-is (no key prepend)
-          output_queue.push_back(out_msg->clone());
-          // Fix timestamp to match input
-          auto& last = output_queue.back();
-          auto* vec_out = dynamic_cast<Message<VectorNumberData>*>(last.get());
+          auto* vec_out = dynamic_cast<Message<VectorNumberData>*>(out_msg.get());
           if (vec_out) vec_out->time = time;
+          emit_output(0, std::move(out_msg), debug);
         } else {
           // Classic mode: prepend key to output
           VectorNumberData result;
@@ -227,7 +206,7 @@ class KeyedPipeline : public Operator {
             result.values->push_back(num_msg->data.value);
           }
 
-          output_queue.push_back(create_message<VectorNumberData>(time, std::move(result)));
+          emit_output(0, create_message<VectorNumberData>(time, std::move(result)), debug);
         }
       }
 
@@ -236,6 +215,28 @@ class KeyedPipeline : public Operator {
   }
 
  private:
+  SubGraph& get_or_create_subgraph_(double key) {
+    auto it = sub_graphs_.find(key);
+    if (it != sub_graphs_.end()) return it->second;
+
+    sub_graphs_[key] = factory_();
+    auto& sg = sub_graphs_[key];
+
+    // Attach a collector to capture the output operator's results
+    std::vector<std::string> col_types;
+    for (size_t i = 0; i < sg.output->num_output_ports(); i++) {
+      col_types.push_back(PortType::type_index_to_string(sg.output->get_output_port_type(i)));
+    }
+    sg.collector = std::make_shared<Collector>(
+        sg.output->id() + "_collector", col_types);
+    sg.output->connect(sg.collector, 0, 0);
+
+    if (new_key_callback_) {
+      new_key_callback_(key);
+    }
+    return sg;
+  }
+
   int key_index_;
   SubGraphFactory factory_;
   NewKeyCallback new_key_callback_;

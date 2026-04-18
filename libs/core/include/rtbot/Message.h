@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rtbot/PerfCounters.h"
+
 namespace rtbot {
 
 using timestamp_t = int64_t;
@@ -168,11 +170,19 @@ struct VectorNumberData {
 };
 
 struct VectorBooleanData {
-  std::vector<bool> values;
+  // Shared-immutable buffer: clone() of Message<VectorBooleanData> copies the
+  // shared_ptr (one atomic increment) instead of the entire vector.
+  std::shared_ptr<std::vector<bool>> values;
+
+  VectorBooleanData() : values(std::make_shared<std::vector<bool>>()) {}
+  VectorBooleanData(std::vector<bool> v)
+      : values(std::make_shared<std::vector<bool>>(std::move(v))) {}
+  VectorBooleanData(std::shared_ptr<std::vector<bool>> v)
+      : values(std::move(v)) {}
 
   Bytes serialize() const {
     Bytes bytes;
-    size_t size = values.size();
+    size_t size = values->size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
                  reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
 
@@ -181,7 +191,7 @@ struct VectorBooleanData {
     std::vector<uint8_t> packed_bools(byte_count, 0);
 
     for (size_t i = 0; i < size; ++i) {
-      if (values[i]) {
+      if ((*values)[i]) {
         packed_bools[i / 8] |= (1 << (i % 8));
       }
     }
@@ -200,13 +210,13 @@ struct VectorBooleanData {
 
     // Number of bytes in the packed bitfield
     size_t byte_count = (size + 7) / 8;
-    data.values.reserve(size);
+    data.values->reserve(size);
 
     // ---- decode packed bits ----
     for (size_t i = 0; i < size; ++i) {
         uint8_t byte = *(it + (i / 8));
         bool value = (byte & (uint8_t(1) << (i % 8))) != 0;
-        data.values.push_back(value);
+        data.values->push_back(value);
     }
 
     // Advance iterator past the packed bytes
@@ -216,9 +226,9 @@ struct VectorBooleanData {
 
   uint64_t hash() const {
     uint64_t result = 0;
-    for (int i=0; i < values.size(); i++) {
+    for (int i=0; i < values->size(); i++) {
       uint64_t u;
-      if (values.at(i)) u = 1;
+      if (values->at(i)) u = 1;
       else u = 0;
       result = result + u;
     }
@@ -302,9 +312,11 @@ class Message : public BaseMessage {
     if (sz == sizeof(Message<T>)) {
       Pool& pool = tls_pool();
       if (pool.count > 0) {
+        RTBOT_PERF_COUNT(MSG_ALLOC_POOL_HIT);
         return pool.slots[--pool.count];
       }
     }
+    RTBOT_PERF_COUNT(MSG_ALLOC_POOL_MISS);
     return ::operator new(sz);
   }
 
@@ -348,9 +360,9 @@ class Message : public BaseMessage {
       ss << "]";
     } else if constexpr (std::is_same_v<T, VectorBooleanData>) {
       ss << "[";
-      for (size_t i = 0; i < data.values.size(); ++i) {
+      for (size_t i = 0; i < data.values->size(); ++i) {
         if (i > 0) ss << ", ";
-        ss << (data.values[i] ? "true" : "false");
+        ss << ((*data.values)[i] ? "true" : "false");
       }
       ss << "]";
     }

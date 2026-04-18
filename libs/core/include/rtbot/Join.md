@@ -20,11 +20,6 @@ jsonschema:
       items:
         type: string
         enum: ["number", "boolean", "vector_number", "vector_boolean"]
-    maxSizePerPort:
-      type: integer
-      minimum: 1
-      default: 17280
-      description: Maximum number of messages buffered per port
   required: ["id", "portTypes"]
 ---
 

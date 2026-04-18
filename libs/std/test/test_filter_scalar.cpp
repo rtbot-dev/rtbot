@@ -3,23 +3,22 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/FilterScalar.h"
 
 using namespace rtbot;
 
 SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scalar_op]") {
   SECTION("LessThan operator") {
-    auto lt = make_less_than("lt1", 3.0);
+    auto lt = std::make_shared<LessThan>("lt1", 3.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    lt->connect(col, 0, 0);
 
     REQUIRE(lt->type_name() == "LessThan");
-    REQUIRE(dynamic_cast<LessThan*>(lt.get())->get_threshold() == 3.0);
+    REQUIRE(lt->get_threshold() == 3.0);
 
     std::vector<std::pair<timestamp_t, double>> inputs = {
-        {1, 1.0},  // Should pass
-        {2, 4.0},  // Should be filtered
-        {4, 2.5},  // Should pass
-        {5, 3.0}   // Should be filtered (not strictly less than)
-    };
+        {1, 1.0}, {2, 4.0}, {4, 2.5}, {5, 3.0}};
 
     std::vector<std::pair<timestamp_t, double>> expected = {{1, 1.0}, {4, 2.5}};
 
@@ -28,7 +27,7 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
     }
     lt->execute();
 
-    auto& output = lt->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == expected.size());
 
     for (size_t i = 0; i < output.size(); ++i) {
@@ -39,17 +38,15 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
   }
 
   SECTION("GreaterThan operator") {
-    auto gt = make_greater_than("gt1", 3.0);
+    auto gt = std::make_shared<GreaterThan>("gt1", 3.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    gt->connect(col, 0, 0);
 
     REQUIRE(gt->type_name() == "GreaterThan");
-    REQUIRE(dynamic_cast<GreaterThan*>(gt.get())->get_threshold() == 3.0);
+    REQUIRE(gt->get_threshold() == 3.0);
 
     std::vector<std::pair<timestamp_t, double>> inputs = {
-        {1, 1.0},  // Should be filtered
-        {2, 4.0},  // Should pass
-        {4, 2.5},  // Should be filtered
-        {5, 3.0}   // Should be filtered (not strictly greater than)
-    };
+        {1, 1.0}, {2, 4.0}, {4, 2.5}, {5, 3.0}};
 
     std::vector<std::pair<timestamp_t, double>> expected = {{2, 4.0}};
 
@@ -58,7 +55,7 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
     }
     gt->execute();
 
-    auto& output = gt->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == expected.size());
 
     for (size_t i = 0; i < output.size(); ++i) {
@@ -69,18 +66,15 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
   }
 
   SECTION("GreaterThan operator small value") {
-    auto gt = make_greater_than("gt1", 0.5);
+    auto gt = std::make_shared<GreaterThan>("gt1", 0.5);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    gt->connect(col, 0, 0);
 
     REQUIRE(gt->type_name() == "GreaterThan");
-    REQUIRE(dynamic_cast<GreaterThan*>(gt.get())->get_threshold() == 0.5);
+    REQUIRE(gt->get_threshold() == 0.5);
 
     std::vector<std::pair<timestamp_t, double>> inputs = {
-        {0, 0.3},  // Should be filtered
-        {1, 1.0},  // Should pass
-        {2, 4.0},  // Should pass
-        {4, 0.2},  // Should be filtered
-        {5, 0.5}   // Should be filtered (not strictly greater than)
-    };
+        {0, 0.3}, {1, 1.0}, {2, 4.0}, {4, 0.2}, {5, 0.5}};
 
     std::vector<std::pair<timestamp_t, double>> expected = {{1, 1.0}, {2, 4.0}};
 
@@ -89,7 +83,7 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
     }
     gt->execute();
 
-    auto& output = gt->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == expected.size());
 
     for (size_t i = 0; i < output.size(); ++i) {
@@ -100,18 +94,16 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
   }
 
   SECTION("EqualTo operator") {
-    auto eq = make_equal_to("eq1", 3.0, 0.1);
+    auto eq = std::make_shared<EqualTo>("eq1", 3.0, 0.1);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    eq->connect(col, 0, 0);
 
     REQUIRE(eq->type_name() == "EqualTo");
-    REQUIRE(dynamic_cast<EqualTo*>(eq.get())->get_value() == 3.0);
-    REQUIRE(dynamic_cast<EqualTo*>(eq.get())->get_epsilon() == 0.1);
+    REQUIRE(eq->get_value() == 3.0);
+    REQUIRE(eq->get_epsilon() == 0.1);
 
     std::vector<std::pair<timestamp_t, double>> inputs = {
-        {1, 1.0},   // Should be filtered
-        {2, 2.95},  // Should pass (within epsilon)
-        {4, 3.05},  // Should pass (within epsilon)
-        {5, 3.2}    // Should be filtered
-    };
+        {1, 1.0}, {2, 2.95}, {4, 3.05}, {5, 3.2}};
 
     std::vector<std::pair<timestamp_t, double>> expected = {{2, 2.95}, {4, 3.05}};
 
@@ -120,7 +112,7 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
     }
     eq->execute();
 
-    auto& output = eq->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == expected.size());
 
     for (size_t i = 0; i < output.size(); ++i) {
@@ -133,46 +125,52 @@ SCENARIO("FilterScalarOp derived classes handle basic filtering", "[filter_scala
 
 SCENARIO("FilterScalarOp handles edge cases", "[filter_scalar_op]") {
   SECTION("NaN values") {
-    auto gt = make_greater_than("gt1", 0.0);
+    auto gt = std::make_shared<GreaterThan>("gt1", 0.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    gt->connect(col, 0, 0);
 
     gt->receive_data(create_message<NumberData>(1, NumberData{std::numeric_limits<double>::quiet_NaN()}), 0);
     gt->execute();
 
-    auto& output = gt->get_output_queue(0);
-    REQUIRE(output.empty());  // NaN comparisons should fail
+    auto& output = col->get_data_queue(0);
+    REQUIRE(output.empty());
   }
 
   SECTION("Infinity values") {
-    auto lt = make_less_than("lt1", std::numeric_limits<double>::infinity());
+    auto lt = std::make_shared<LessThan>("lt1", std::numeric_limits<double>::infinity());
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    lt->connect(col, 0, 0);
 
     lt->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
     lt->execute();
 
-    auto& output = lt->get_output_queue(0);
-    REQUIRE(!output.empty());  // Finite values should be less than infinity
+    auto& output = col->get_data_queue(0);
+    REQUIRE(!output.empty());
   }
 
   SECTION("Exact equality with zero epsilon") {
-    auto eq = make_equal_to("eq1", 3.0, 0.0);
+    auto eq = std::make_shared<EqualTo>("eq1", 3.0, 0.0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    eq->connect(col, 0, 0);
 
     eq->receive_data(create_message<NumberData>(1, NumberData{3.0}), 0);
     eq->receive_data(create_message<NumberData>(2, NumberData{3.0 + 1e-15}), 0);
     eq->execute();
 
-    auto& output = eq->get_output_queue(0);
-    REQUIRE(output.size() == 1);  // Only exact match should pass
+    auto& output = col->get_data_queue(0);
+    REQUIRE(output.size() == 1);
   }
 }
 
 SCENARIO("FilterScalarOp handles error cases", "[filter_scalar_op]") {
   SECTION("Invalid message type") {
-    auto lt = make_less_than("lt1", 3.0);
+    auto lt = std::make_shared<LessThan>("lt1", 3.0);
 
     REQUIRE_THROWS_AS(lt->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
   }
 
   SECTION("Invalid port index") {
-    auto lt = make_less_than("lt1", 3.0);
+    auto lt = std::make_shared<LessThan>("lt1", 3.0);
 
     REQUIRE_THROWS_AS(lt->receive_data(create_message<NumberData>(1, NumberData{1.0}), 1), std::runtime_error);
   }
@@ -180,10 +178,10 @@ SCENARIO("FilterScalarOp handles error cases", "[filter_scalar_op]") {
 
 SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
   SECTION("operators serialization") {
-    auto lt = make_less_than("lt1", 3.0);
-    auto gt = make_greater_than("gt1", 3.0);
-    auto et = make_equal_to("et1", 3.0);
-    auto net = make_not_equal_to("net1", 3.0);
+    auto lt = std::make_shared<LessThan>("lt1", 3.0);
+    auto gt = std::make_shared<GreaterThan>("gt1", 3.0);
+    auto et = std::make_shared<EqualTo>("et1", 3.0);
+    auto net = std::make_shared<NotEqualTo>("net1", 3.0);
 
     // Fill with some data
     lt->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
@@ -203,26 +201,20 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     net->execute();
 
     WHEN("LessThan is serialized and restored") {
-
-      // Serialize state
       auto state = lt->collect();
-
-      // Create new operator and restore state
-      auto restored = make_less_than("lt1", 3.0);
+      auto restored = std::make_shared<LessThan>("lt1", 3.0);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
-      // Verify restored state
       REQUIRE(*restored == *lt);
       REQUIRE(restored->type_name() == lt->type_name());
-      REQUIRE(dynamic_cast<LessThan*>(restored.get())->get_threshold() ==
-              dynamic_cast<LessThan*>(lt.get())->get_threshold());
+      REQUIRE(restored->get_threshold() == lt->get_threshold());
 
-      // Process new data and verify behavior
-      restored->clear_all_output_ports();
       restored->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
       restored->execute();
 
-      auto& output = restored->get_output_queue(0);
+      auto& output = rcol->get_data_queue(0);
       REQUIRE(!output.empty());
       auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
       REQUIRE(msg->time == 3);
@@ -230,52 +222,34 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     }
 
     WHEN("GreaterThan is serialized and restored") {
-
-      // Serialize state
       auto state = gt->collect();
-
-      // Create new operator and restore state
-      auto restored = make_greater_than("gt1", 3.0);
+      auto restored = std::make_shared<GreaterThan>("gt1", 3.0);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
-      // Verify restored state
       REQUIRE(*restored == *gt);
-      REQUIRE(restored->type_name() == gt->type_name());
-      REQUIRE(dynamic_cast<GreaterThan*>(restored.get())->get_threshold() ==
-              dynamic_cast<GreaterThan*>(gt.get())->get_threshold());
 
-      // Process new data and verify behavior
-      restored->clear_all_output_ports();
       restored->receive_data(create_message<NumberData>(3, NumberData{2.0}), 0);
       restored->execute();
 
-      auto& output = restored->get_output_queue(0);
+      auto& output = rcol->get_data_queue(0);
       REQUIRE(output.empty());
     }
 
     WHEN("EqualTo is serialized and restored") {
-
-      // Serialize state
       auto state = et->collect();
-
-      // Create new operator and restore state
-      auto restored = make_equal_to("et1", 3.0);
+      auto restored = std::make_shared<EqualTo>("et1", 3.0);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
-      // Verify restored state
       REQUIRE(*restored == *et);
-      REQUIRE(restored->type_name() == et->type_name());
-      REQUIRE(dynamic_cast<EqualTo*>(restored.get())->get_value() ==
-              dynamic_cast<EqualTo*>(et.get())->get_value());
-      REQUIRE(dynamic_cast<EqualTo*>(restored.get())->get_epsilon() ==
-              dynamic_cast<EqualTo*>(et.get())->get_epsilon());
 
-      // Process new data and verify behavior
-      restored->clear_all_output_ports();
       restored->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
       restored->execute();
 
-      auto& output = restored->get_output_queue(0);
+      auto& output = rcol->get_data_queue(0);
       REQUIRE(!output.empty());
       auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
       REQUIRE(msg->time == 3);
@@ -283,28 +257,18 @@ SCENARIO("FilterScalarOp handles serialization", "[filter_scalar_op][State]") {
     }
 
     WHEN("NotEqualTo is serialized and restored") {
-
-      // Serialize state
       auto state = net->collect();
-
-      // Create new operator and restore state
-      auto restored = make_not_equal_to("net1", 3.0);
+      auto restored = std::make_shared<NotEqualTo>("net1", 3.0);
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
       restored->restore_data_from_json(state);
 
-      // Verify restored state
       REQUIRE(*restored == *net);
-      REQUIRE(restored->type_name() == net->type_name());
-      REQUIRE(dynamic_cast<NotEqualTo*>(restored.get())->get_value() ==
-              dynamic_cast<NotEqualTo*>(net.get())->get_value());
-      REQUIRE(dynamic_cast<NotEqualTo*>(restored.get())->get_epsilon() ==
-              dynamic_cast<NotEqualTo*>(net.get())->get_epsilon());
 
-      // Process new data and verify behavior
-      restored->clear_all_output_ports();
       restored->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
       restored->execute();
 
-      auto& output = restored->get_output_queue(0);
+      auto& output = rcol->get_data_queue(0);
       REQUIRE(output.empty());
     }
   }

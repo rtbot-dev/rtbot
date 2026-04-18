@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/OperatorJson.h"
 #include "rtbot/fuse/FusedExpressionVector.h"
 
@@ -9,12 +10,14 @@ using namespace fused_op;
 SCENARIO("FusedExpressionVector evaluates bytecode on vector input", "[fused_expression_vector]") {
   auto op = make_fused_expression_vector(
       "fev1", 1, {INPUT, 0, INPUT, 1, ADD, END}, {});
+  auto col = make_vector_number_collector("c1");
+  op->connect(col, 0, 0);
 
   op->receive_data(
       create_message<VectorNumberData>(1, VectorNumberData{{2.0, 3.5}}), 0);
   op->execute();
 
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 1);
   auto* msg = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
   REQUIRE(msg != nullptr);
@@ -27,13 +30,15 @@ SCENARIO("FusedExpressionVector supports multiple outputs", "[fused_expression_v
   auto op = make_fused_expression_vector(
       "fev2", 2,
       {INPUT, 0, END, INPUT, 1, INPUT, 2, MUL, END}, {});
+  auto col = make_vector_number_collector("c2");
+  op->connect(col, 0, 0);
 
   op->receive_data(
       create_message<VectorNumberData>(10, VectorNumberData{{4.0, 1.5, 2.0}}),
       0);
   op->execute();
 
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 1);
   auto* msg = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
   REQUIRE(msg != nullptr);

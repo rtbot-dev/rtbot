@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 #include <memory>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/VectorExtract.h"
 
 using namespace rtbot;
@@ -8,6 +9,8 @@ using namespace rtbot;
 SCENARIO("VectorExtract extracts single field from vector", "[vector_extract]") {
   SECTION("Extract middle element") {
     auto ext = make_vector_extract("ext1", 1);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ext->connect(col, 0, 0);
 
     REQUIRE(ext->type_name() == "VectorExtract");
     REQUIRE(ext->get_index() == 1);
@@ -15,7 +18,7 @@ SCENARIO("VectorExtract extracts single field from vector", "[vector_extract]") 
     ext->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0}}), 0);
     ext->execute();
 
-    auto& output = ext->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
@@ -24,11 +27,13 @@ SCENARIO("VectorExtract extracts single field from vector", "[vector_extract]") 
 
   SECTION("Extract first element") {
     auto ext = make_vector_extract("ext1", 0);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ext->connect(col, 0, 0);
 
     ext->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{5.0}}), 0);
     ext->execute();
 
-    auto& output = ext->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
@@ -37,12 +42,14 @@ SCENARIO("VectorExtract extracts single field from vector", "[vector_extract]") 
 
   SECTION("Multiple messages") {
     auto ext = make_vector_extract("ext1", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    ext->connect(col, 0, 0);
 
     ext->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0}}), 0);
     ext->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{40.0, 50.0, 60.0}}), 0);
     ext->execute();
 
-    auto& output = ext->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     auto* msg0 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -75,15 +82,16 @@ SCENARIO("VectorExtract serialization roundtrip", "[vector_extract][State]") {
 
     auto state = ext->collect();
     auto restored = make_vector_extract("ext1", 1);
+    auto rcol = std::make_shared<Collector>("rc", std::vector<std::string>{"number"});
+    restored->connect(rcol, 0, 0);
     restored->restore_data_from_json(state);
 
     REQUIRE(*restored == *ext);
 
-    restored->clear_all_output_ports();
     restored->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{40.0, 50.0, 60.0}}), 0);
     restored->execute();
 
-    auto& output = restored->get_output_queue(0);
+    auto& output = rcol->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
     REQUIRE(msg->time == 2);
