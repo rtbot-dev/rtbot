@@ -347,7 +347,7 @@ int main() {
 
   BenchmarkResults results2;
   constexpr size_t kSize = 5000000;
-  constexpr size_t kRuns = 5;
+  constexpr size_t kRuns = 2;
 
 #ifndef RTBOT_PERF
   // Warmup pass — one run per workload, discarded. Primes CPU boost clocks,
