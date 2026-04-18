@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedExpressionVector.h"
 
@@ -25,6 +26,8 @@ inline std::vector<double> drive_fused_expression(
   auto op = make_fused_expression("fe", num_ports, num_outputs, bytecode,
                                     constants, /*coefficients=*/{},
                                     state_init);
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   for (std::size_t t = 0; t < inputs_per_message.size(); ++t) {
     for (std::size_t p = 0; p < num_ports; ++p) {
       op->receive_data(create_message<NumberData>(
@@ -34,7 +37,7 @@ inline std::vector<double> drive_fused_expression(
     }
     op->execute();
   }
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   std::vector<double> flat;
   flat.reserve(q.size() * num_outputs);
   for (std::size_t t = 0; t < q.size(); ++t) {
@@ -56,6 +59,8 @@ inline std::vector<double> drive_fused_expression_vector(
   auto op = make_fused_expression_vector("fev", num_outputs, bytecode,
                                            constants, /*coefficients=*/{},
                                            state_init);
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   for (std::size_t t = 0; t < inputs_per_message.size(); ++t) {
     auto v = std::make_shared<std::vector<double>>(inputs_per_message[t]);
     op->receive_data(create_message<VectorNumberData>(
@@ -64,7 +69,7 @@ inline std::vector<double> drive_fused_expression_vector(
                      0);
     op->execute();
   }
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   std::vector<double> flat;
   flat.reserve(q.size() * num_outputs);
   for (std::size_t t = 0; t < q.size(); ++t) {

@@ -7,6 +7,7 @@
 
 #include "fused_parity/fuzz_bytecode.h"
 #include "fused_parity/reference_eval.h"
+#include "rtbot/Collector.h"
 #include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedExpression.h"
@@ -190,6 +191,8 @@ SCENARIO(
                                     std::vector<double>{INPUT, 0, INPUT, 1,
                                                          ADD, END},
                                     std::vector<double>{});
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   // 3 messages — fewer than kBatch (either 4 or 8), so this exercises the
   // partial-final-batch code path. Per tick t: port0=10*t, port1=20*t, so
   // the fused ADD output is 30*t.
@@ -203,7 +206,7 @@ SCENARIO(
   }
   op->execute();
 
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 3);
   for (std::size_t i = 0; i < 3; ++i) {
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(q[i].get());
@@ -244,6 +247,8 @@ SCENARIO(
   // batches of up to B. state_init is auto-derived by pack_bytecode from
   // the CUMSUM/COUNT opcodes' inline offsets — matches the reference path.
   auto op = make_fused_expression("fe_sl", 1, 3, bc, std::vector<double>{});
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   for (std::size_t i = 0; i < N; ++i) {
     op->receive_data(
         create_message<NumberData>(static_cast<std::int64_t>(i + 1),
@@ -252,7 +257,7 @@ SCENARIO(
   }
   op->execute();
 
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == N);
   for (std::size_t i = 0; i < N; ++i) {
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(q[i].get());
@@ -271,6 +276,8 @@ SCENARIO(
   auto op = make_fused_expression_vector(
       "fev", 1, std::vector<double>{INPUT, 0, INPUT, 1, ADD, END},
       std::vector<double>{});
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   for (std::size_t t = 1; t <= 3; ++t) {
     auto vec = std::make_shared<std::vector<double>>(
         std::vector<double>{10.0 * static_cast<double>(t),
@@ -282,7 +289,7 @@ SCENARIO(
   }
   op->execute();
 
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 3);
   for (std::size_t i = 0; i < 3; ++i) {
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(q[i].get());

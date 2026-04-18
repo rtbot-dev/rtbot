@@ -70,11 +70,13 @@ std::vector<double> build_single_op_bytecode(const OpcodeSpec& spec) {
 double run_live(const std::vector<double>& bc, int num_ports,
                 const std::vector<double>& inputs) {
   auto op = make_fused_expression("op", num_ports, 1, bc, {});
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   for (int i = 0; i < num_ports; ++i) {
     op->receive_data(create_message<NumberData>(1, NumberData{inputs[i]}), i);
   }
   op->execute();
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 1);
   const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
   REQUIRE(msg != nullptr);
@@ -84,13 +86,15 @@ double run_live(const std::vector<double>& bc, int num_ports,
 double run_live_vector(const std::vector<double>& bc, int num_ports,
                         const std::vector<double>& inputs) {
   auto op = make_fused_expression_vector("opv", 1, bc, {});
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
   auto vec = std::make_shared<std::vector<double>>(inputs);
   (void)num_ports;
   op->receive_data(create_message<VectorNumberData>(
                        1, VectorNumberData(std::move(vec))),
                    0);
   op->execute();
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   REQUIRE(q.size() == 1);
   const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
   REQUIRE(msg != nullptr);

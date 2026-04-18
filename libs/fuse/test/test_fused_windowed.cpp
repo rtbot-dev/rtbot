@@ -10,6 +10,7 @@
 #include <random>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedBytecode.h"
@@ -72,13 +73,15 @@ std::vector<double> drive_standalone_scalar(Op& op,
                                               const std::vector<double>& values) {
   std::vector<double> out;
   out.reserve(values.size());
+  auto col = rtbot::make_number_collector("col_standalone");
+  op.connect(col, 0, 0);
   for (std::size_t i = 0; i < values.size(); ++i) {
     op.receive_data(rtbot::create_message<rtbot::NumberData>(
                          static_cast<std::int64_t>(i + 1),
                          rtbot::NumberData{values[i]}),
                      0);
     op.execute();
-    auto& q = op.get_output_queue(0);
+    auto& q = col->get_data_queue(0);
     while (out.size() < q.size()) {
       const auto* m = static_cast<const rtbot::Message<rtbot::NumberData>*>(
           q[out.size()].get());
@@ -343,6 +346,10 @@ SCENARIO(
                                            /*num_outputs=*/1, source_bytecode,
                                            /*constants=*/{});
   auto ma = rtbot::make_moving_average("ma", W);
+  auto fe_col = rtbot::make_vector_number_collector("fe_col");
+  auto ma_col = rtbot::make_number_collector("ma_col");
+  fe->connect(fe_col, 0, 0);
+  ma->connect(ma_col, 0, 0);
   for (std::size_t i = 0; i < N; ++i) {
     fe->receive_data(rtbot::create_message<rtbot::NumberData>(
                           static_cast<std::int64_t>(i + 1),
@@ -356,8 +363,8 @@ SCENARIO(
     ma->execute();
   }
 
-  auto& fe_q = fe->get_output_queue(0);
-  auto& ma_q = ma->get_output_queue(0);
+  auto& fe_q = fe_col->get_data_queue(0);
+  auto& ma_q = ma_col->get_data_queue(0);
   REQUIRE(fe_q.size() == N - W + 1);
   REQUIRE(ma_q.size() == N - W + 1);
 
@@ -461,6 +468,8 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
 
   // Reference: uninterrupted run through one FE instance.
   auto ref_op = make_fused_expression("ref", 1, 1, bytecode, /*constants=*/{});
+  auto ref_col = make_vector_number_collector("ref_col");
+  ref_op->connect(ref_col, 0, 0);
   std::vector<double> ref_out;
   for (std::size_t i = 0; i < N; ++i) {
     ref_op->receive_data(create_message<NumberData>(
@@ -469,7 +478,7 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
                           0);
     ref_op->execute();
   }
-  auto& ref_q = ref_op->get_output_queue(0);
+  auto& ref_q = ref_col->get_data_queue(0);
   for (std::size_t i = 0; i < ref_q.size(); ++i) {
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(
         ref_q[i].get());
@@ -480,6 +489,8 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
   // restore into a fresh instance and feed the rest. Output stream must match
   // the uninterrupted reference bit-exactly.
   auto fe_a = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{});
+  auto fe_a_col = make_vector_number_collector("fe_a_col");
+  fe_a->connect(fe_a_col, 0, 0);
   const std::size_t half = N / 2;
   for (std::size_t i = 0; i < half; ++i) {
     fe_a->receive_data(create_message<NumberData>(
@@ -491,6 +502,8 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
   auto bytes = fe_a->collect_bytes();
 
   auto fe_b = make_fused_expression("a", 1, 1, bytecode, /*constants=*/{});
+  auto fe_b_col = make_vector_number_collector("fe_b_col");
+  fe_b->connect(fe_b_col, 0, 0);
   auto it = bytes.cbegin();
   fe_b->restore(it);
   for (std::size_t i = half; i < N; ++i) {
@@ -501,11 +514,17 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
     fe_b->execute();
   }
 
-  // Operator::collect_bytes serializes the output queue along with state, so
-  // fe_b's queue — after restore + continued processing — already holds the
-  // full stream (fe_a's pre-serialize emissions + fe_b's post-restore ones).
+  // With the Collector-based sink architecture, each operator emits directly
+  // to its connected sink: there is no internal output queue to serialize.
+  // The full stream is fe_a's pre-serialize emissions (in fe_a_col) plus
+  // fe_b's post-restore emissions (in fe_b_col).
   std::vector<double> got;
-  auto& qb = fe_b->get_output_queue(0);
+  auto& qa = fe_a_col->get_data_queue(0);
+  auto& qb = fe_b_col->get_data_queue(0);
+  for (std::size_t i = 0; i < qa.size(); ++i) {
+    const auto* m = dynamic_cast<const Message<VectorNumberData>*>(qa[i].get());
+    got.push_back((*m->data.values)[0]);
+  }
   for (std::size_t i = 0; i < qb.size(); ++i) {
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(qb[i].get());
     got.push_back((*m->data.values)[0]);
