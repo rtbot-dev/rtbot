@@ -108,6 +108,7 @@ class Pipeline : public Operator {
       output_collectors_[collector_id] = collector;
     }
     collector_keys_[{op_id, op_port}] = collector_id;
+    rebuild_output_cache_();
   }
 
   using Operator::connect;
@@ -544,11 +545,12 @@ class Pipeline : public Operator {
   }
 
   // Forward data from all input ports to the entry operator, execute the mesh,
-  // and buffer any internal outputs (don't emit to pipeline output).
+  // and buffer any internal outputs (don't emit to pipeline output). The hot
+  // path walks a flat cache built at setup time; the three std::map lookups
+  // this replaces were showing ~5% of total CPU on the IMS profile.
   void forward_and_buffer(bool debug) {
-    // Reset collectors before processing
-    for (auto& [_, collector] : output_collectors_) {
-      collector->reset();
+    for (auto& entry : output_mapping_cache_) {
+      entry.collector->reset();
     }
 
     for (size_t i = 0; i < num_data_ports(); ++i) {
@@ -556,19 +558,10 @@ class Pipeline : public Operator {
     }
     entry_operator_->execute(debug);
 
-    // Buffer output from collectors
-    for (const auto& [op_id, mappings] : output_mappings_) {
-      for (const auto& [operator_port, pipeline_port] : mappings) {
-        auto key_it = collector_keys_.find({op_id, operator_port});
-        if (key_it != collector_keys_.end()) {
-          auto col_it = output_collectors_.find(key_it->second);
-          if (col_it != output_collectors_.end()) {
-            auto& source_queue = col_it->second->get_data_queue(0);
-            if (!source_queue.empty()) {
-              last_output_buffer_[pipeline_port] = source_queue.back()->clone();
-            }
-          }
-        }
+    for (const auto& entry : output_mapping_cache_) {
+      auto& source_queue = entry.collector->get_data_queue(0);
+      if (!source_queue.empty()) {
+        last_output_buffer_[entry.pipeline_port] = source_queue.back()->clone();
       }
     }
   }
@@ -592,6 +585,26 @@ class Pipeline : public Operator {
     }
   }
 
+  // Flat cache rebuilt whenever add_output_mapping runs. Lets
+  // forward_and_buffer walk raw pointers instead of three nested std::map
+  // lookups per emitted output per segment boundary.
+  struct OutputMappingFlat {
+    Collector* collector;
+    size_t pipeline_port;
+  };
+  void rebuild_output_cache_() {
+    output_mapping_cache_.clear();
+    for (const auto& [op_id, mappings] : output_mappings_) {
+      for (const auto& [operator_port, pipeline_port] : mappings) {
+        auto key_it = collector_keys_.find({op_id, operator_port});
+        if (key_it == collector_keys_.end()) continue;
+        auto col_it = output_collectors_.find(key_it->second);
+        if (col_it == output_collectors_.end()) continue;
+        output_mapping_cache_.push_back({col_it->second.get(), pipeline_port});
+      }
+    }
+  }
+
   std::vector<std::string> input_port_types_;
   std::vector<std::string> output_port_types_;
   std::vector<double> segment_bytecode_;
@@ -602,6 +615,7 @@ class Pipeline : public Operator {
   std::map<std::string, std::vector<std::pair<size_t, size_t>>> output_mappings_;
   std::map<std::string, std::shared_ptr<Collector>> output_collectors_;
   std::map<std::pair<std::string, size_t>, std::string> collector_keys_;
+  std::vector<OutputMappingFlat> output_mapping_cache_;
 
   // Segment state
   bool has_key_{false};
