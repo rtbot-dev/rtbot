@@ -192,6 +192,18 @@ class Operator {
     data_ports_[port_index].queue.push_back(std::move(msg));
   }
 
+  // Batch variant — hand a whole port's worth of messages to the operator in
+  // one call. Default implementation loops over `messages` and calls
+  // receive_data for each. Operators that can skip per-message queueing (e.g.
+  // BurstAggregate that runs a vectorized kernel directly over the buffer)
+  // override this and bypass the queue entirely.
+  virtual void receive_data_batch(std::vector<std::unique_ptr<BaseMessage>>& messages,
+                                    size_t port_index, bool debug = false) {
+    for (auto& msg : messages) {
+      receive_data(std::move(msg), port_index, debug);
+    }
+  }
+
   virtual void reset() {
     for (auto& port : data_ports_) {
       port.last_timestamp = std::numeric_limits<timestamp_t>::min();

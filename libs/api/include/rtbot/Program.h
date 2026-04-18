@@ -258,9 +258,15 @@ class Program {
     for (const auto& [port_id, messages] : port_messages) {
       if (messages.empty()) continue;
       auto port_info = OperatorJson::parse_port_name(port_id);
+      // Clone the caller's batch into a local vector so receive_data_batch can
+      // take ownership. Operators that override the batch path (e.g.
+      // BurstAggregate) then skip the per-message queue hop entirely.
+      std::vector<std::unique_ptr<BaseMessage>> cloned;
+      cloned.reserve(messages.size());
       for (const auto& msg : messages) {
-        entry->receive_data(msg->clone(), port_info.index);
+        cloned.push_back(msg->clone());
       }
+      entry->receive_data_batch(cloned, port_info.index, debug);
     }
     entry->execute(debug);
   }
