@@ -102,6 +102,50 @@ struct BooleanData {
 
 };
 
+// Thread-local freelist for per-message std::vector<double> buffers.
+//
+// Every VectorNumberData emission today does a make_shared<vector<double>>.
+// On the IMS hot path that's one malloc+free per message for the shared_ptr
+// control block and one malloc+free for the underlying double buffer — the
+// remaining allocator tier after the Message<T> pool (see below) is gone.
+// Recycle buffers through a TL ring; on last-shared_ptr death the custom
+// deleter returns the vector to the freelist with its capacity retained.
+struct VectorBufferPool {
+  static constexpr std::size_t kCap = 1024;
+  std::vector<std::vector<double>*> slots;
+  ~VectorBufferPool() {
+    for (auto* v : slots) delete v;
+  }
+};
+
+inline VectorBufferPool& tls_vector_double_pool() noexcept {
+  thread_local VectorBufferPool pool;
+  return pool;
+}
+
+inline std::shared_ptr<std::vector<double>> make_pooled_vector_double(
+    std::size_t size) {
+  auto& pool = tls_vector_double_pool();
+  std::vector<double>* raw;
+  if (!pool.slots.empty()) {
+    raw = pool.slots.back();
+    pool.slots.pop_back();
+    raw->resize(size);
+  } else {
+    raw = new std::vector<double>(size);
+  }
+  return std::shared_ptr<std::vector<double>>(
+      raw, [](std::vector<double>* v) noexcept {
+        auto& p = tls_vector_double_pool();
+        if (p.slots.size() < VectorBufferPool::kCap) {
+          v->clear();
+          p.slots.push_back(v);
+        } else {
+          delete v;
+        }
+      });
+}
+
 struct VectorNumberData {
   // Shared-immutable buffer: clone() of Message<VectorNumberData> copies the
   // shared_ptr (one atomic increment) instead of the entire vector (~161 KB
@@ -109,9 +153,13 @@ struct VectorNumberData {
   // then wrap it with make_shared or use the convenience constructor.
   std::shared_ptr<std::vector<double>> values;
 
-  VectorNumberData() : values(std::make_shared<std::vector<double>>()) {}
-  VectorNumberData(std::vector<double> v)
-      : values(std::make_shared<std::vector<double>>(std::move(v))) {}
+  VectorNumberData() : values(make_pooled_vector_double(0)) {}
+  // Copy into a pooled buffer — `v`'s allocator can't be recycled since we
+  // don't own it. Hot-path emitters (FE/FEV) should build directly into a
+  // buffer obtained from make_pooled_vector_double and pass a shared_ptr.
+  VectorNumberData(std::vector<double> v) : values(make_pooled_vector_double(v.size())) {
+    for (std::size_t i = 0; i < v.size(); ++i) (*values)[i] = v[i];
+  }
   VectorNumberData(std::shared_ptr<std::vector<double>> v)
       : values(std::move(v)) {}
 

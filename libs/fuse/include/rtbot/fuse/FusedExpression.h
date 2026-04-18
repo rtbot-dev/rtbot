@@ -45,9 +45,8 @@ class FusedExpression : public VectorCompose {
   FusedExpression(std::string id, size_t num_ports, size_t num_outputs,
                   std::vector<double> bytecode, std::vector<double> constants,
                   std::vector<double> coefficients = {},
-                  std::vector<double> state_init = {},
-                  size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : VectorCompose(std::move(id), num_ports, max_size_per_port),
+                  std::vector<double> state_init = {})
+      : VectorCompose(std::move(id), num_ports),
         num_outputs_(num_outputs),
         constants_(std::move(constants)),
         coefficients_(std::move(coefficients)),
@@ -169,7 +168,7 @@ class FusedExpression : public VectorCompose {
         }
         for (size_t i = 0; i < np; i++) get_data_queue(i).pop_front();
 
-        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        auto out_vec = make_pooled_vector_double(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
             ins, ins_size, consts,
             aux_args_.empty() ? nullptr : aux_args_.data(),
@@ -177,8 +176,10 @@ class FusedExpression : public VectorCompose {
             inputs, state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
-          get_output_queue(0).push_back(create_message<VectorNumberData>(
-              time, VectorNumberData(std::move(out_vec))));
+          emit_output(0,
+                      create_message<VectorNumberData>(
+                          time, VectorNumberData(std::move(out_vec))),
+                      debug);
         }
       }
     }
@@ -225,7 +226,7 @@ class FusedExpression : public VectorCompose {
         // realistic per-message execute() pattern.
         double inputs1[64];
         for (size_t i = 0; i < np; ++i) inputs1[i] = batched_inputs[i][0];
-        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        auto out_vec = make_pooled_vector_double(num_outputs_);
         const bool emit = rtbot::fuse::evaluate_one(
             ins, ins_size, consts,
             aux_args_.empty() ? nullptr : aux_args_.data(),
@@ -233,8 +234,10 @@ class FusedExpression : public VectorCompose {
             inputs1, state_.data(),
             out_vec->data(), num_outputs_);
         if (emit) {
-          get_output_queue(0).push_back(create_message<VectorNumberData>(
-              times[0], VectorNumberData(std::move(out_vec))));
+          emit_output(0,
+                      create_message<VectorNumberData>(
+                          times[0], VectorNumberData(std::move(out_vec))),
+                      debug);
         }
         continue;
       }
@@ -250,12 +253,14 @@ class FusedExpression : public VectorCompose {
 
       for (size_t l = 0; l < lane; ++l) {
         if (!lane_emit[l]) continue;
-        auto out_vec = std::make_shared<std::vector<double>>(num_outputs_);
+        auto out_vec = make_pooled_vector_double(num_outputs_);
         std::copy(out_batch.begin() + l * num_outputs_,
                   out_batch.begin() + (l + 1) * num_outputs_,
                   out_vec->begin());
-        get_output_queue(0).push_back(create_message<VectorNumberData>(
-            times[l], VectorNumberData(std::move(out_vec))));
+        emit_output(0,
+                    create_message<VectorNumberData>(
+                        times[l], VectorNumberData(std::move(out_vec))),
+                    debug);
       }
     }
   }
