@@ -71,7 +71,7 @@ class PortType {
     } else if (port_type == VECTOR_NUMBER) {
       return rtbot::create_message<VectorNumberData>(time, VectorNumberData{});
     } else if (port_type == VECTOR_BOOLEAN) {
-      return rtbot::create_message<VectorBooleanData>(time, {{}});
+      return rtbot::create_message<VectorBooleanData>(time, VectorBooleanData{});
     } else {
       throw std::runtime_error("Unknown port type: " + port_type);
     }
