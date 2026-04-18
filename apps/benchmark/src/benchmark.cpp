@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <iostream>
 #include <random>
+#include <sstream>
 #include <thread>
 #include <vector>
 
@@ -22,15 +23,10 @@
 using namespace rtbot;
 
 std::string format_throughput(double messages_per_second) {
-  const std::vector<std::pair<double, std::string>> units = {{1e9, "G"}, {1e6, "M"}, {1e3, "K"}};
-
-  for (const auto& [threshold, prefix] : units) {
-    if (messages_per_second >= threshold) {
-      return std::to_string(static_cast<int>(messages_per_second * 1000 / threshold) / 1000) + " " + prefix + "/s";
-    }
-  }
-
-  return std::to_string(static_cast<int>(messages_per_second)) + "/s";
+  std::ostringstream os;
+  os.imbue(std::locale(""));
+  os << std::fixed << std::setprecision(0) << messages_per_second << " msgs/s";
+  return os.str();
 }
 
 // Common utility classes
@@ -46,10 +42,10 @@ class BenchmarkResults {
   void print_results() const {
     std::cout << "\nBenchmark Results:\n";
     std::cout << std::setw(20) << "Test" << std::setw(12) << "Size" << std::setw(14) << "Median (ms)" << std::setw(12)
-              << "Min (ms)" << std::setw(12) << "Max (ms)" << std::setw(10) << "Spread%" << std::setw(14)
-              << "Median M/s"
+              << "Min (ms)" << std::setw(12) << "Max (ms)" << std::setw(10) << "Spread%" << std::setw(20)
+              << "Median msgs/s"
               << "\n";
-    std::cout << std::string(94, '-') << "\n";
+    std::cout << std::string(100, '-') << "\n";
 
     for (const auto& r : results) {
       if (r.times_ns.empty()) continue;
@@ -61,7 +57,7 @@ class BenchmarkResults {
       std::cout << std::setw(20) << r.name << std::setw(12) << r.data_size << std::setw(14) << std::fixed
                 << std::setprecision(2) << median_ns / 1e6 << std::setw(12) << min_ns / 1e6 << std::setw(12)
                 << max_ns / 1e6 << std::setw(9) << std::fixed << std::setprecision(2) << spread_pct << "%"
-                << std::setw(14) << format_throughput(median_mps) << "\n";
+                << std::setw(20) << format_throughput(median_mps) << "\n";
     }
   }
 
