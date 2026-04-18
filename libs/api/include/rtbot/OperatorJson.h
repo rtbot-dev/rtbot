@@ -54,6 +54,7 @@
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
 #include "rtbot/fuse/FusedExpression.h"
+#include "rtbot/fuse/BurstAggregate.h"
 #include "rtbot/fuse/FusedExpressionVector.h"
 
 using json = nlohmann::json;
@@ -233,6 +234,20 @@ class OperatorJson {
           parsed["bytecode"].get<std::vector<double>>(),
           parsed.value("constants", std::vector<double>{}),
           parsed.value("coefficients", std::vector<double>{}));
+    } else if (type == "BurstAggregate") {
+      auto key_cols_int = parsed.value("keyColumns", std::vector<int>{});
+      std::vector<std::size_t> key_cols;
+      key_cols.reserve(key_cols_int.size());
+      for (int k : key_cols_int) key_cols.push_back(static_cast<std::size_t>(k));
+      return make_burst_aggregate(
+          id,
+          parsed["aggBytecode"].get<std::vector<double>>(),
+          parsed.value("aggConstants", std::vector<double>{}),
+          parsed.value("segBytecode", std::vector<double>{}),
+          parsed.value("segConstants", std::vector<double>{}),
+          std::move(key_cols),
+          parsed["numAggOutputs"].get<std::size_t>(),
+          parsed["numInputCols"].get<std::size_t>());
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
