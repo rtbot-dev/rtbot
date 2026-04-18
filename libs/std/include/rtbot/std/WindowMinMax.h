@@ -70,38 +70,78 @@ class WindowMinMax : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    while (!input_queue.empty()) {
-      const auto* msg =
-          static_cast<const Message<NumberData>*>(input_queue.front().get());
-      if (!msg) throw std::runtime_error("WindowMinMax: invalid message type");
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg =
+            static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) throw std::runtime_error("WindowMinMax: invalid message type");
 
-      double value = msg->data.value;
+        double value = msg->data.value;
 
-      // Update monotonic deque: remove back elements that are dominated
-      if (is_min_) {
-        while (!mono_.empty() && mono_.back().second >= value) {
-          mono_.pop_back();
+        // Update monotonic deque: remove back elements that are dominated
+        if (is_min_) {
+          while (!mono_.empty() && mono_.back().second >= value) {
+            mono_.pop_back();
+          }
+        } else {
+          while (!mono_.empty() && mono_.back().second <= value) {
+            mono_.pop_back();
+          }
         }
-      } else {
-        while (!mono_.empty() && mono_.back().second <= value) {
-          mono_.pop_back();
+        mono_.push_back({pos_, value});
+
+        // Evict front if it falls outside the window [pos_ - window_size_ + 1, pos_]
+        while (mono_.front().first + window_size_ <= pos_) {
+          mono_.pop_front();
         }
-      }
-      mono_.push_back({pos_, value});
 
-      // Evict front if it falls outside the window [pos_ - window_size_ + 1, pos_]
-      while (mono_.front().first + window_size_ <= pos_) {
-        mono_.pop_front();
-      }
+        // Only emit once the window is full (pos_ >= window_size_ - 1)
+        if (pos_ >= window_size_ - 1) {
+          batch.push_back(create_message<NumberData>(
+              msg->time, NumberData{mono_.front().second}));
+        }
 
-      // Only emit once the window is full (pos_ >= window_size_ - 1)
-      if (pos_ >= window_size_ - 1) {
-        emit_output(0, create_message<NumberData>(
-            msg->time, NumberData{mono_.front().second}), debug);
+        ++pos_;
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg =
+            static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) throw std::runtime_error("WindowMinMax: invalid message type");
 
-      ++pos_;
-      input_queue.pop_front();
+        double value = msg->data.value;
+
+        // Update monotonic deque: remove back elements that are dominated
+        if (is_min_) {
+          while (!mono_.empty() && mono_.back().second >= value) {
+            mono_.pop_back();
+          }
+        } else {
+          while (!mono_.empty() && mono_.back().second <= value) {
+            mono_.pop_back();
+          }
+        }
+        mono_.push_back({pos_, value});
+
+        // Evict front if it falls outside the window [pos_ - window_size_ + 1, pos_]
+        while (mono_.front().first + window_size_ <= pos_) {
+          mono_.pop_front();
+        }
+
+        // Only emit once the window is full (pos_ >= window_size_ - 1)
+        if (pos_ >= window_size_ - 1) {
+          emit_output(0, create_message<NumberData>(
+              msg->time, NumberData{mono_.front().second}), debug);
+        }
+
+        ++pos_;
+        input_queue.pop_front();
+      }
     }
   }
 

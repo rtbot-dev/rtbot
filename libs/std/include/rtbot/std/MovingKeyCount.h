@@ -96,37 +96,76 @@ class MovingKeyCount : public Operator {
  protected:
   void process_data(bool debug = false) override {
     auto& input_queue = get_data_queue(0);
-    while (!input_queue.empty()) {
-      const auto* msg =
-          static_cast<const Message<NumberData>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in MovingKeyCount");
-      }
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg =
+            static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in MovingKeyCount");
+        }
 
-      double key = msg->data.value;
+        double key = msg->data.value;
 
-      // Evict oldest key from window if at capacity
-      if (ring_.size() >= window_size_) {
-        double old_key = ring_.front();
-        ring_.pop_front();
-        auto it = counts_.find(old_key);
-        if (it != counts_.end()) {
-          if (it->second <= 1) {
-            counts_.erase(it);
-          } else {
-            it->second--;
+        // Evict oldest key from window if at capacity
+        if (ring_.size() >= window_size_) {
+          double old_key = ring_.front();
+          ring_.pop_front();
+          auto it = counts_.find(old_key);
+          if (it != counts_.end()) {
+            if (it->second <= 1) {
+              counts_.erase(it);
+            } else {
+              it->second--;
+            }
           }
         }
+
+        // Insert new key
+        ring_.push_back(key);
+        counts_[key]++;
+
+        // Emit count of this key in the current window
+        batch.push_back(create_message<NumberData>(
+            msg->time, NumberData{static_cast<double>(counts_[key])}));
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg =
+            static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in MovingKeyCount");
+        }
 
-      // Insert new key
-      ring_.push_back(key);
-      counts_[key]++;
+        double key = msg->data.value;
 
-      // Emit count of this key in the current window
-      emit_output(0, create_message<NumberData>(
-          msg->time, NumberData{static_cast<double>(counts_[key])}), debug);
-      input_queue.pop_front();
+        // Evict oldest key from window if at capacity
+        if (ring_.size() >= window_size_) {
+          double old_key = ring_.front();
+          ring_.pop_front();
+          auto it = counts_.find(old_key);
+          if (it != counts_.end()) {
+            if (it->second <= 1) {
+              counts_.erase(it);
+            } else {
+              it->second--;
+            }
+          }
+        }
+
+        // Insert new key
+        ring_.push_back(key);
+        counts_[key]++;
+
+        // Emit count of this key in the current window
+        emit_output(0, create_message<NumberData>(
+            msg->time, NumberData{static_cast<double>(counts_[key])}), debug);
+        input_queue.pop_front();
+      }
     }
   }
 

@@ -109,12 +109,16 @@ class FusedExpressionVector : public Operator {
 
  protected:
   void process_data(bool debug = false) override {
-    (void)debug;
     auto& input = get_data_queue(0);
+    if (input.empty()) return;
 
     const double* bc = bytecode_.data();
     const size_t bc_size = bytecode_.size();
     const double* consts = constants_.data();
+
+    const bool use_batch = input.size() >= kEmitBatchThreshold;
+    std::vector<std::unique_ptr<BaseMessage>> batch;
+    if (use_batch) batch.reserve(input.size());
 
     while (!input.empty()) {
       const auto* msg =
@@ -319,9 +323,18 @@ class FusedExpressionVector : public Operator {
         }
       }
 
-      emit_output(0, create_message<VectorNumberData>(
-          time, VectorNumberData(std::move(out_vec))), debug);
+      if (use_batch) {
+        batch.push_back(create_message<VectorNumberData>(
+            time, VectorNumberData(std::move(out_vec))));
+      } else {
+        emit_output(0, create_message<VectorNumberData>(
+            time, VectorNumberData(std::move(out_vec))), debug);
+      }
       input.pop_front();
+    }
+
+    if (use_batch) {
+      emit_output(0, std::move(batch), debug);
     }
   }
 

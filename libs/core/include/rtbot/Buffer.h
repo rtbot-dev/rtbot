@@ -186,37 +186,74 @@ class Buffer : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<T>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in Buffer");
+        }
 
-    while (!input_queue.empty()) {
-      const auto* msg = static_cast<const Message<T>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in Buffer");
+        std::optional<double> removed_value;
+        if (buffer_.size() == window_size_) {
+          removed_value = buffer_.front()->data.value;
+          buffer_.pop_front();
+        }
+
+        // Add new message to buffer
+        auto cloned = input_queue.front()->clone();
+        auto* typed_clone = static_cast<Message<T>*>(cloned.get());
+        if (!typed_clone) {
+          throw std::runtime_error("Failed to cast cloned message in Buffer");
+        }
+        cloned.release();  // Safe: cast validated above
+        buffer_.push_back(std::unique_ptr<Message<T>>(typed_clone));
+
+        // Update statistics with added and removed values
+        update_statistics(msg->data.value, removed_value);
+
+        auto output_msgs = process_message(msg);
+        for (auto& output_msg : output_msgs) {
+          batch.push_back(std::move(output_msg));
+        }
+
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<T>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in Buffer");
+        }
 
-      std::optional<double> removed_value;
-      if (buffer_.size() == window_size_) {
-        removed_value = buffer_.front()->data.value;
-        buffer_.pop_front();
+        std::optional<double> removed_value;
+        if (buffer_.size() == window_size_) {
+          removed_value = buffer_.front()->data.value;
+          buffer_.pop_front();
+        }
+
+        // Add new message to buffer
+        auto cloned = input_queue.front()->clone();
+        auto* typed_clone = static_cast<Message<T>*>(cloned.get());
+        if (!typed_clone) {
+          throw std::runtime_error("Failed to cast cloned message in Buffer");
+        }
+        cloned.release();  // Safe: cast validated above
+        buffer_.push_back(std::unique_ptr<Message<T>>(typed_clone));
+
+        // Update statistics with added and removed values
+        update_statistics(msg->data.value, removed_value);
+
+        auto output_msgs = process_message(msg);
+        for (auto& output_msg : output_msgs) {
+          emit_output(0, std::move(output_msg), debug);
+        }
+
+        input_queue.pop_front();
       }
-
-      // Add new message to buffer
-      auto cloned = input_queue.front()->clone();
-      auto* typed_clone = static_cast<Message<T>*>(cloned.get());
-      if (!typed_clone) {
-        throw std::runtime_error("Failed to cast cloned message in Buffer");
-      }
-      cloned.release();  // Safe: cast validated above
-      buffer_.push_back(std::unique_ptr<Message<T>>(typed_clone));
-
-      // Update statistics with added and removed values
-      update_statistics(msg->data.value, removed_value);
-
-      auto output_msgs = process_message(msg);
-      for (auto& output_msg : output_msgs) {
-        emit_output(0, std::move(output_msg), debug);
-      }
-
-      input_queue.pop_front();
     }
   }
 

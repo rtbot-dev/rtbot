@@ -51,9 +51,20 @@ class Output : public Operator {
   void process_data(bool debug=false) override {
     for (size_t i = 0; i < num_data_ports(); ++i) {
       auto& input_queue = get_data_queue(i);
-      while (!input_queue.empty()) {
-        emit_output(i, std::move(input_queue.front()), debug);
-        input_queue.pop_front();
+      if (input_queue.empty()) continue;
+      if (input_queue.size() >= kEmitBatchThreshold) {
+        std::vector<std::unique_ptr<BaseMessage>> batch;
+        batch.reserve(input_queue.size());
+        while (!input_queue.empty()) {
+          batch.push_back(std::move(input_queue.front()));
+          input_queue.pop_front();
+        }
+        emit_output(i, std::move(batch), debug);
+      } else {
+        while (!input_queue.empty()) {
+          emit_output(i, std::move(input_queue.front()), debug);
+          input_queue.pop_front();
+        }
       }
     }
   }

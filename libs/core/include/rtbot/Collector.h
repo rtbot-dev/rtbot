@@ -30,8 +30,6 @@ class Collector : public Operator {
 
   std::string type_name() const override { return "Collector"; }
 
-  bool is_sink() const override { return true; }
-
   const std::vector<std::string>& get_port_types() const { return port_type_names_; }
 
   // Override to accept messages without timestamp ordering or queue-size limits —

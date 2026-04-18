@@ -22,6 +22,11 @@
 
 namespace rtbot {
 
+// Callers with an input queue this size or larger should prefer the batch
+// emit_output overload; smaller queues pay more in vector allocation than
+// they save in per-connection amortization.
+inline constexpr size_t kEmitBatchThreshold = 20;
+
 // Queue of messages for ports
 using MessageQueue = std::deque<std::unique_ptr<BaseMessage>>;
 
@@ -59,20 +64,6 @@ class Operator {
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
-
-  // Sinks (e.g. Collector) bypass virtual receive_data and take messages via
-  // a direct queue pointer cached in Connection::sink_queue. Override to true.
-  virtual bool is_sink() const { return false; }
-
-  // Whether this operator's receive_data behaves exactly like Operator::receive_data
-  // (type/index/timestamp validation + queue push). If true, upstream connections
-  // can bypass the virtual call and push directly. Override to false for operators
-  // that customize receive_data (e.g. Input swallows exceptions).
-  virtual bool uses_base_receive_data() const { return true; }
-
-  // Whether this operator's receive_control behaves exactly like Operator::receive_control.
-  // Override to false for operators that customize receive_control (e.g. Multiplexer).
-  virtual bool uses_base_receive_control() const { return true; }
 
   // Composite operators (Pipeline, TriggerSet) override to expose their
   // internal operators. Returning nullptr — the common case — means "no
@@ -326,21 +317,11 @@ class Operator {
     }
 
     Connection conn{child.get(), output_port, child_port_index, child_port_kind, nullptr};
-    if (child->is_sink()) {
-      auto& pi = (child_port_kind == PortKind::DATA)
-                     ? child->data_ports_[child_port_index]
-                     : child->control_ports_[child_port_index];
-      conn.sink_queue = &pi.queue;
-      conn.sink_last_ts = &pi.last_timestamp;
-    } else if (child_port_kind == PortKind::DATA && child->uses_base_receive_data()) {
-      auto& pi = child->data_ports_[child_port_index];
-      conn.sink_queue = &pi.queue;
-      conn.sink_last_ts = &pi.last_timestamp;
-    } else if (child_port_kind == PortKind::CONTROL && child->uses_base_receive_control()) {
-      auto& pi = child->control_ports_[child_port_index];
-      conn.sink_queue = &pi.queue;
-      conn.sink_last_ts = &pi.last_timestamp;
-    }
+    auto& pi = (child_port_kind == PortKind::DATA)
+                   ? child->data_ports_[child_port_index]
+                   : child->control_ports_[child_port_index];
+    conn.sink_queue = &pi.queue;
+    conn.sink_last_ts = &pi.last_timestamp;
     size_t conn_idx = connections_.size();
     connections_.push_back(std::move(conn));
 
@@ -470,13 +451,14 @@ class Operator {
     size_t output_port;
     size_t child_input_port;
     PortKind child_port_kind{PortKind::DATA};
-    // Fast-path: points directly at the child's input queue so emit_output
-    // can push without virtual receive_data. Used for both sinks (Collector,
-    // is_sink()==true) and non-sink operators using base receive_data
-    // semantics. Null when the child customizes receive_data/receive_control.
+    // Direct pointer to the child's input queue: emit_output pushes here,
+    // bypassing the virtual receive_data/receive_control. Always set at
+    // connect() time — every downstream operator in the graph receives via
+    // this fast path (Input, the only operator with custom receive logic,
+    // is always the graph entry and never a connection child).
     MessageQueue* sink_queue{nullptr};
     // Cached pointer to the child port's last_timestamp for debug-mode
-    // ordering validation. Non-null whenever sink_queue is set.
+    // ordering validation.
     timestamp_t* sink_last_ts{nullptr};
   };
 
@@ -555,27 +537,83 @@ class Operator {
 
       {
         RTBOT_PERF_SCOPE(EMIT_DISPATCH);
-        if (conn.sink_queue) {
-          // Fast path: push directly to child's input queue, bypassing
-          // virtual receive_data. Works for sinks (is_sink()==true) and
-          // base-receive_data children alike. Timestamp ordering validated
-          // only under debug.
-          if (debug) {
-            if (msg_to_send->time <= *conn.sink_last_ts) {
-              throw std::runtime_error(
-                  "Message time out of order on port " +
-                  std::to_string(conn.child_input_port) +
-                  ". Current time: " + std::to_string(msg_to_send->time) +
-                  ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
-            }
-            *conn.sink_last_ts = msg_to_send->time;
-          }          
-          conn.sink_queue->push_back(std::move(msg_to_send));
-        } else if (conn.child_port_kind == PortKind::DATA) {
-          conn.child->receive_data(std::move(msg_to_send), conn.child_input_port, debug);
-        } else {
-          conn.child->receive_control(std::move(msg_to_send), conn.child_input_port, debug);
+        if (debug) {
+          if (msg_to_send->time <= *conn.sink_last_ts) {
+            throw std::runtime_error(
+                "Message time out of order on port " +
+                std::to_string(conn.child_input_port) +
+                ". Current time: " + std::to_string(msg_to_send->time) +
+                ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
+          }
+          *conn.sink_last_ts = msg_to_send->time;
         }
+        conn.sink_queue->push_back(std::move(msg_to_send));
+      }
+    }
+  }
+
+  // Batch overload: drain an entire vector of messages out of `port_index`
+  // in one pass. Connections are iterated once per batch (vs once per
+  // message in the single-msg overload), so the sink_queue tail node stays
+  // hot across messages to the same child.
+  void emit_output(size_t port_index,
+                   std::vector<std::unique_ptr<BaseMessage>> msgs,
+                   bool debug = false) {
+    if (msgs.empty()) return;
+
+    if (debug) {
+      for (const auto& m : msgs) {
+        debug_output_queues_[port_index].push_back(m->clone());
+      }
+    }
+
+#ifdef RTBOT_INSTRUMENTATION
+    for (const auto& m : msgs) {
+      RTBOT_RECORD_OPERATOR_OUTPUT(id_, type_name(), port_index, m->clone());
+    }
+#endif
+
+    size_t total_conns = (port_index < conn_count_per_port_.size())
+                             ? conn_count_per_port_[port_index]
+                             : 0;
+    if (total_conns == 0) return;
+
+    propagated_mask_ |= (uint64_t{1} << port_index);
+
+    size_t seen = 0;
+    for (auto& conn : connections_) {
+      if (conn.output_port != port_index) continue;
+      ++seen;
+      const bool can_move = (seen == total_conns) && !debug;
+
+      for (size_t i = 0; i < msgs.size(); ++i) {
+        std::unique_ptr<BaseMessage> msg_to_send;
+#if defined(RTBOT_INSTRUMENTATION)
+        msg_to_send = msgs[i]->clone();
+        RTBOT_RECORD_MESSAGE_SENT(id_, type_name(), std::to_string(port_index),
+                                  conn.child->id(), conn.child->type_name(),
+                                  std::to_string(conn.child_input_port),
+                                  conn.child_port_kind == PortKind::DATA ? "" : "[c]",
+                                  msgs[i]->clone());
+#else
+        if (can_move) {
+          msg_to_send = std::move(msgs[i]);
+        } else {
+          RTBOT_PERF_SCOPE(EMIT_CLONE);
+          msg_to_send = msgs[i]->clone();
+        }
+#endif
+        if (debug) {
+          if (msg_to_send->time <= *conn.sink_last_ts) {
+            throw std::runtime_error(
+                "Message time out of order on port " +
+                std::to_string(conn.child_input_port) +
+                ". Current time: " + std::to_string(msg_to_send->time) +
+                ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
+          }
+          *conn.sink_last_ts = msg_to_send->time;
+        }
+        conn.sink_queue->push_back(std::move(msg_to_send));
       }
     }
   }

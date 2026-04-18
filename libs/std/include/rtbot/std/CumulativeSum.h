@@ -62,21 +62,44 @@ class CumulativeSum : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    while (!input_queue.empty()) {
-      const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in CumulativeSum");
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in CumulativeSum");
+        }
+
+        // Kahan-compensated addition: keeps drift at O(1·ε) instead of O(N·ε)
+        // for this unbounded cumulative sum.
+        double y = msg->data.value - sum_comp_;
+        double t = sum_ + y;
+        sum_comp_ = (t - sum_) - y;
+        sum_ = t;
+        batch.push_back(create_message<NumberData>(msg->time, NumberData{sum_}));
+
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in CumulativeSum");
+        }
 
-      // Kahan-compensated addition: keeps drift at O(1·ε) instead of O(N·ε)
-      // for this unbounded cumulative sum.
-      double y = msg->data.value - sum_comp_;
-      double t = sum_ + y;
-      sum_comp_ = (t - sum_) - y;
-      sum_ = t;
-      emit_output(0, create_message<NumberData>(msg->time, NumberData{sum_}), debug);
+        // Kahan-compensated addition: keeps drift at O(1·ε) instead of O(N·ε)
+        // for this unbounded cumulative sum.
+        double y = msg->data.value - sum_comp_;
+        double t = sum_ + y;
+        sum_comp_ = (t - sum_) - y;
+        sum_ = t;
+        emit_output(0, create_message<NumberData>(msg->time, NumberData{sum_}), debug);
 
-      input_queue.pop_front();
+        input_queue.pop_front();
+      }
     }
   }
 

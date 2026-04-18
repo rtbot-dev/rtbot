@@ -63,16 +63,25 @@ class Input : public Operator {
     }
   }
 
-  bool uses_base_receive_data() const override { return false; }
-
  protected:
   void process_data(bool debug=false) override {
-    // Process each port independently to allow concurrent timestamps
+    // Process each port independently to allow concurrent timestamps.
     for (int port_index = 0; port_index < num_data_ports(); port_index++) {
       auto& input_queue = get_data_queue(port_index);
-      while (!input_queue.empty()) {
-        emit_output(port_index, std::move(input_queue.front()), debug);
-        input_queue.pop_front();
+      if (input_queue.empty()) continue;
+      if (input_queue.size() >= kEmitBatchThreshold) {
+        std::vector<std::unique_ptr<BaseMessage>> batch;
+        batch.reserve(input_queue.size());
+        while (!input_queue.empty()) {
+          batch.push_back(std::move(input_queue.front()));
+          input_queue.pop_front();
+        }
+        emit_output(port_index, std::move(batch), debug);
+      } else {
+        while (!input_queue.empty()) {
+          emit_output(port_index, std::move(input_queue.front()), debug);
+          input_queue.pop_front();
+        }
       }
     }
   }

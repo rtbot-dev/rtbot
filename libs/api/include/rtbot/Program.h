@@ -120,7 +120,7 @@ class Program {
   map<string, vector<size_t>> output_mappings_;
   // Program-owned multi-port sink. One Collector with one data port per
   // output in output_mappings_; emit_output pushes straight into the
-  // matching port queue via the is_sink() fast path (no virtual
+  // matching port queue via the sink_queue fast path (no virtual
   // receive_data). Provenance (source operator + output port) is read from
   // each port's inbound connection ref — no separate index needed.
   std::shared_ptr<Collector> sink_;
