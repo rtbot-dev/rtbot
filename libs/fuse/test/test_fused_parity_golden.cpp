@@ -68,9 +68,30 @@ std::vector<std::vector<double>> random_walk_corpus(std::size_t num_messages,
   return msgs;
 }
 
+// Hash a decimal serialization of each output rather than the raw bytes.
+// The scalar evaluator calls libm (std::sin/std::cos/std::exp/std::pow), whose
+// last-bit results differ across libm implementations (glibc vs macOS libc vs
+// musl) even on the same ISA. Hashing raw bytes would make this test
+// architecture- and stdlib-specific. Quantizing to 12 significant digits
+// absorbs sub-ULP drift while still detecting any meaningful evaluator
+// regression — the acceptable loss of precision is ~1e-12 relative.
 std::string hash_outputs(const std::vector<double>& outputs) {
   Sha256Stream h;
-  for (double v : outputs) h.update(v);
+  char buf[32];
+  for (double v : outputs) {
+    // %.12g produces up to 12 significant digits in the shortest
+    // representation; for finite values this is platform-agnostic under
+    // IEEE 754 rounding rules.
+    int n = std::snprintf(buf, sizeof(buf), "%.12g", v);
+    if (n > 0) {
+      h.update(reinterpret_cast<const std::uint8_t*>(buf),
+               static_cast<std::size_t>(n));
+    }
+    // Include a separator so adjacent values can't merge into the same
+    // byte stream (e.g. "1|2" ≠ "12").
+    const std::uint8_t sep = '|';
+    h.update(&sep, 1);
+  }
   return h.finalize();
 }
 
@@ -151,7 +172,7 @@ SCENARIO("Synthetic corpus produces the frozen golden hash",
   c.num_messages = 10000;
   c.seed = 0xF05EDBEEFULL;
   c.expected_digest =
-      "152722b1b73374386cd099157bc853df77944cd82868b8ff953405ffe7eb1b3d";
+      "d67c01a0bd7f93dd43d2388dae5199849b814be4a406aca2fae49feba60402ca";
 
   auto inputs = synthetic_corpus(c.num_inputs, c.num_messages, c.seed);
   run_golden(c, inputs);
@@ -186,7 +207,7 @@ SCENARIO("IMS-like projection produces the frozen golden hash",
   c.num_messages = 10000;
   c.seed = 0x115DA7AULL;
   c.expected_digest =
-      "b8460d323dbca8d74419ca8a7300ae1792a57499bc95d003d909eea18d680e7c";
+      "4eeeaaae847891b4448216cfbdd5cb069ae622e00ca5078e32d4f9c93eea6398";
 
   auto inputs = synthetic_corpus(c.num_inputs, c.num_messages, c.seed);
   run_golden(c, inputs);
@@ -213,7 +234,7 @@ SCENARIO("Finance-like projection over random-walk produces the frozen hash",
   c.num_messages = 20000;
   c.seed = 0xF11A4CE1ULL;
   c.expected_digest =
-      "21c46dea97ac619e56a392ca5c553b15482db56b3d328f06e2a92e92642ed105";
+      "d8b0216aa2406bf232566a9eee9f857979e5811899b881911514a3aba19f3e56";
 
   auto inputs = random_walk_corpus(c.num_messages, c.seed);
   run_golden(c, inputs);
