@@ -25,14 +25,51 @@ using namespace rtbot::fused_parity;
 
 namespace {
 
+// Portable PRNG + distributions. Deliberately does not use
+// std::uniform_real_distribution / std::normal_distribution because those
+// are implementation-defined in the C++ standard — libc++ (macOS default)
+// and libstdc++ (Linux default) produce different samples from the same
+// seed, which makes any hash-based golden test architecture-specific.
+//
+// Arithmetic here avoids transcendentals (no sqrt/log/exp/sin/cos) so the
+// input corpora are bit-exact across every IEEE 754 platform with the
+// same compile flags.
+struct PortableRng {
+  std::uint64_t state;
+  explicit PortableRng(std::uint64_t seed) : state(seed) {}
+  // SplitMix64 — a well-known small PRNG with good statistical properties
+  // whose output depends only on integer arithmetic.
+  std::uint64_t next_u64() {
+    state += 0x9E3779B97F4A7C15ULL;
+    std::uint64_t z = state;
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    return z ^ (z >> 31);
+  }
+  // Map the high 53 bits to [0, 1). Constant 2^53 is exactly representable.
+  double uniform_unit() {
+    return static_cast<double>(next_u64() >> 11) /
+           static_cast<double>(1ULL << 53);
+  }
+  double uniform(double lo, double hi) {
+    return lo + uniform_unit() * (hi - lo);
+  }
+  // Irwin-Hall approximation of N(0, 1): sum of 12 uniforms minus 6. Not
+  // as statistically pure as Box-Muller but avoids sqrt/log and is plenty
+  // good for exercising a wide value range in tests.
+  double normal(double mean, double sigma) {
+    double sum = 0.0;
+    for (int i = 0; i < 12; ++i) sum += uniform_unit();
+    return mean + (sum - 6.0) * sigma;
+  }
+};
+
 // Generate a synthetic input corpus exercising a wide value range.
-// Deterministic by seed.
+// Deterministic by seed, portable across libc++ / libstdc++.
 std::vector<std::vector<double>> synthetic_corpus(std::size_t num_inputs,
                                                     std::size_t num_messages,
                                                     std::uint64_t seed) {
-  std::mt19937_64 rng(seed);
-  std::uniform_real_distribution<double> uniform(-1e3, 1e3);
-  std::normal_distribution<double> normal(0.0, 50.0);
+  PortableRng rng(seed);
   std::vector<std::vector<double>> msgs(num_messages,
                                          std::vector<double>(num_inputs));
   for (std::size_t t = 0; t < num_messages; ++t) {
@@ -43,9 +80,9 @@ std::vector<std::vector<double>> synthetic_corpus(std::size_t num_inputs,
       } else if (t % 199 == 0 && p == 0) {
         msgs[t][p] = -1.0;
       } else if (p % 2 == 0) {
-        msgs[t][p] = uniform(rng);
+        msgs[t][p] = rng.uniform(-1e3, 1e3);
       } else {
-        msgs[t][p] = normal(rng);
+        msgs[t][p] = rng.normal(0.0, 50.0);
       }
     }
   }
@@ -55,15 +92,14 @@ std::vector<std::vector<double>> synthetic_corpus(std::size_t num_inputs,
 // Random-walk generator used for the finance-like corpus.
 std::vector<std::vector<double>> random_walk_corpus(std::size_t num_messages,
                                                       std::uint64_t seed) {
-  std::mt19937_64 rng(seed);
-  std::normal_distribution<double> step(0.0, 1.0);
+  PortableRng rng(seed);
   std::vector<std::vector<double>> msgs(num_messages,
                                          std::vector<double>(2));
   double price = 100.0;
   for (std::size_t t = 0; t < num_messages; ++t) {
-    price += step(rng);
+    price += rng.normal(0.0, 1.0);
     msgs[t][0] = price;
-    msgs[t][1] = step(rng);  // secondary noise channel
+    msgs[t][1] = rng.normal(0.0, 1.0);
   }
   return msgs;
 }
@@ -172,7 +208,7 @@ SCENARIO("Synthetic corpus produces the frozen golden hash",
   c.num_messages = 10000;
   c.seed = 0xF05EDBEEFULL;
   c.expected_digest =
-      "d67c01a0bd7f93dd43d2388dae5199849b814be4a406aca2fae49feba60402ca";
+      "17c981b190b019db1c6e175990caf29a1679dc6242235116b8051e68ba47a3a3";
 
   auto inputs = synthetic_corpus(c.num_inputs, c.num_messages, c.seed);
   run_golden(c, inputs);
@@ -207,7 +243,7 @@ SCENARIO("IMS-like projection produces the frozen golden hash",
   c.num_messages = 10000;
   c.seed = 0x115DA7AULL;
   c.expected_digest =
-      "4eeeaaae847891b4448216cfbdd5cb069ae622e00ca5078e32d4f9c93eea6398";
+      "006eee34ddb274e213e98f165d8bd8dd97580ff4491e5de6eb757137f391a0af";
 
   auto inputs = synthetic_corpus(c.num_inputs, c.num_messages, c.seed);
   run_golden(c, inputs);
@@ -234,7 +270,7 @@ SCENARIO("Finance-like projection over random-walk produces the frozen hash",
   c.num_messages = 20000;
   c.seed = 0xF11A4CE1ULL;
   c.expected_digest =
-      "d8b0216aa2406bf232566a9eee9f857979e5811899b881911514a3aba19f3e56";
+      "b59e239bf0d71ad1f001b2da6f09cbdde54a8b84642603e141f255a849233e31";
 
   auto inputs = random_walk_corpus(c.num_messages, c.seed);
   run_golden(c, inputs);
