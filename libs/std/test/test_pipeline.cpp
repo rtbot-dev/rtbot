@@ -1212,6 +1212,44 @@ SCENARIO("Pipeline segment bytecode: backwards compat with empty bytecode", "[pi
   REQUIRE(dynamic_cast<const Message<NumberData>*>(out[0].get())->data.value == Approx(30.0));
 }
 
+SCENARIO("Pipeline segment bytecode: ctor validates stack usage", "[pipeline][segment_bytecode][validation]") {
+  using namespace fused_op;
+
+  SECTION("accepts well-formed deep expression at the stack limit") {
+    // Push 64 INPUTs, chain 63 ADDs, END. Exactly fills the 64-slot stack.
+    std::vector<double> bc;
+    for (int i = 0; i < 64; ++i) { bc.push_back(INPUT); bc.push_back(0); }
+    for (int i = 0; i < 63; ++i) bc.push_back(ADD);
+    bc.push_back(END);
+    REQUIRE_NOTHROW(make_segment_bc_pipeline("stack_ok", bc));
+  }
+
+  SECTION("rejects bytecode that overflows the stack") {
+    // 65 INPUTs with no reductions — stack depth 65 > 64.
+    std::vector<double> bc;
+    for (int i = 0; i < 65; ++i) { bc.push_back(INPUT); bc.push_back(0); }
+    for (int i = 0; i < 64; ++i) bc.push_back(ADD);
+    bc.push_back(END);
+    REQUIRE_THROWS_AS(make_segment_bc_pipeline("stack_over", bc), std::runtime_error);
+  }
+
+  SECTION("rejects bytecode with stack underflow") {
+    // ADD without operands on the stack.
+    std::vector<double> bc = {ADD, END};
+    REQUIRE_THROWS_AS(make_segment_bc_pipeline("stack_under", bc), std::runtime_error);
+  }
+
+  SECTION("rejects bytecode missing END opcode") {
+    std::vector<double> bc = {INPUT, 0, CONST, 0, ADD};
+    REQUIRE_THROWS_AS(make_segment_bc_pipeline("no_end", bc), std::runtime_error);
+  }
+
+  SECTION("rejects unknown opcode") {
+    std::vector<double> bc = {INPUT, 0, 99.0 /* undefined */, END};
+    REQUIRE_THROWS_AS(make_segment_bc_pipeline("bad_op", bc), std::runtime_error);
+  }
+}
+
 SCENARIO("Pipeline segment bytecode: serialization roundtrip", "[pipeline][segment_bytecode]") {
   using namespace fused_op;
   auto pipeline = make_segment_bc_pipeline("seg_ser",
