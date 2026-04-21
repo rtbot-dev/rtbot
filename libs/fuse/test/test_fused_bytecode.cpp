@@ -84,3 +84,56 @@ SCENARIO("pack_bytecode auto-allocates state and aux_args for windowed opcodes",
   auto roundtrip = unpack_bytecode(pack.packed, pack.aux_args);
   REQUIRE(roundtrip == source);
 }
+
+SCENARIO("pack_bytecode rejects arguments that overflow uint16_t",
+         "[fused_bytecode][adapter][validation]") {
+  const double too_big = 65536.0;  // 1 past uint16_t max
+
+  SECTION("INPUT index overflow") {
+    std::vector<double> bc = {INPUT, too_big, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("CONST index overflow") {
+    std::vector<double> bc = {CONST, too_big, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("MA_UPDATE window overflow") {
+    std::vector<double> bc = {INPUT, 0, MA_UPDATE, too_big, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("FIR coeff_start overflow") {
+    std::vector<double> bc = {INPUT, 0, FIR_UPDATE, too_big, 1, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("IIR b_len overflow") {
+    std::vector<double> bc = {INPUT, 0, IIR_UPDATE, too_big, 1, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+}
+
+SCENARIO("pack_bytecode rejects zero-length windowed opcodes",
+         "[fused_bytecode][adapter][validation]") {
+  SECTION("MA_UPDATE W=0") {
+    std::vector<double> bc = {INPUT, 0, MA_UPDATE, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("STD_UPDATE W=0") {
+    std::vector<double> bc = {INPUT, 0, STD_UPDATE, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("WIN_MIN W=0") {
+    std::vector<double> bc = {INPUT, 0, WIN_MIN, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("FIR coeff_len=0") {
+    std::vector<double> bc = {INPUT, 0, FIR_UPDATE, 0, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bc), std::runtime_error);
+  }
+  SECTION("IIR b_len=0 rejected, a_len=0 accepted (FIR-as-IIR)") {
+    std::vector<double> bad = {INPUT, 0, IIR_UPDATE, 0, 1, 0, END};
+    REQUIRE_THROWS_AS(pack_bytecode(bad), std::runtime_error);
+    // a_len=0 is a legal degenerate case (pure feed-forward).
+    std::vector<double> ok = {INPUT, 0, IIR_UPDATE, 2, 0, 0, END};
+    REQUIRE_NOTHROW(pack_bytecode(ok));
+  }
+}
