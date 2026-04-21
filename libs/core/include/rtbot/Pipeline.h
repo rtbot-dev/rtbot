@@ -19,6 +19,8 @@ namespace rtbot {
 class Pipeline : public Operator {
  public:
 
+  static constexpr size_t kSegmentStackSize = 64;
+
   Pipeline(std::string id, const std::vector<std::string>& input_port_types,
            const std::vector<std::string>& output_port_types,
            std::vector<double> segment_bytecode = {},
@@ -49,6 +51,12 @@ class Pipeline : public Operator {
         input_port_types_[0] != PortType::VECTOR_NUMBER)) {
       throw std::runtime_error(
           "Segment bytecode mode requires first input port to be VECTOR_NUMBER");
+    }
+
+    // Validate segment bytecode stack usage at construction so the hot-path
+    // interpreter can use a fixed-size stack without per-op bounds checks.
+    if (!segment_bytecode_.empty()) {
+      validate_segment_bytecode_stack_();
     }
 
     // Control port: only created when no segment bytecode is provided
@@ -377,6 +385,57 @@ class Pipeline : public Operator {
     }
   }
 
+  // Symbolically execute the segment bytecode to verify that the RPN stack
+  // never exceeds kSegmentStackSize and never underflows. Runs once at
+  // construction so evaluate_segment_bytecode can stay branchless on the
+  // hot path.
+  void validate_segment_bytecode_stack_() const {
+    const double* bc = segment_bytecode_.data();
+    const size_t bc_size = segment_bytecode_.size();
+    size_t sp = 0;
+    size_t max_sp = 0;
+    size_t pc = 0;
+    auto need = [&](size_t n) {
+      if (sp < n) {
+        throw std::runtime_error(
+            "Pipeline segment bytecode: stack underflow at pc=" +
+            std::to_string(pc));
+      }
+    };
+    auto push = [&]() {
+      if (++sp > max_sp) max_sp = sp;
+      if (sp > kSegmentStackSize) {
+        throw std::runtime_error(
+            "Pipeline segment bytecode: stack overflow (depth " +
+            std::to_string(sp) + " > " +
+            std::to_string(kSegmentStackSize) + ") at pc=" +
+            std::to_string(pc));
+      }
+    };
+    while (pc < bc_size) {
+      int opcode = static_cast<int>(bc[pc++]);
+      switch (opcode) {
+        case 0: case 1: /* INPUT, CONST */
+          ++pc; push(); break;
+        case 2: case 3: case 4: case 5: case 6: /* ADD..DIV, POW */
+        case 26: case 27: case 28: case 29: case 30: case 31: /* cmp */
+        case 32: case 33: /* AND, OR */
+          need(2); --sp; break;
+        case 7: case 8: case 9: case 10: case 11: case 12:
+        case 13: case 14: case 15: case 16: case 17: case 18:
+        case 19: case 34: /* unary */
+          need(1); break;
+        case 20: /* END */
+          need(1); return;
+        default:
+          throw std::runtime_error(
+              "Pipeline segment bytecode: unknown opcode " +
+              std::to_string(opcode) + " at pc=" + std::to_string(pc - 1));
+      }
+    }
+    throw std::runtime_error("Pipeline segment bytecode: missing END opcode");
+  }
+
   // RPN bytecode interpreter for segment key evaluation.
   // Evaluates against a vector — INPUT reads vec[argument] directly.
   // Only stateless opcodes (0-20, 26-34) are supported; stateful aggregate
@@ -390,7 +449,7 @@ class Pipeline : public Operator {
     const size_t bc_size = segment_bytecode_.size();
     const double* consts = segment_constants_.data();
 
-    double stack[64];
+    double stack[kSegmentStackSize];
     size_t sp = 0;
     size_t pc = 0;
 
