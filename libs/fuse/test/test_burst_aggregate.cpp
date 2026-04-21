@@ -164,6 +164,70 @@ SCENARIO("BurstAggregate raw-buffer path matches batch path",
   REQUIRE(dbits((*m->data.values)[0]) == dbits(2.5));
 }
 
+SCENARIO("BurstAggregate handles a single-row segment", "[burst_aggregate][edge]") {
+  // One row, then a gate-close. Mean over a single value must equal that value.
+  auto op = make_mean_with_zero_gate("b_single");
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
+
+  feed_row(*op, 1, {7.5});   // one row in the open segment
+  feed_row(*op, 2, {0.0});   // gate closes → emit
+
+  auto& q = col->get_data_queue(0);
+  REQUIRE(q.size() == 1);
+  const auto* m = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
+  REQUIRE(m->time == 2);
+  REQUIRE(dbits((*m->data.values)[0]) == dbits(7.5));
+}
+
+SCENARIO("BurstAggregate emits nothing without a segment transition",
+         "[burst_aggregate][edge]") {
+  // Rows arrive but the predicate stays TRUE for the entire stream — no
+  // transition means nothing to flush. Ensures we never emit with zero
+  // observations banked and never crash on an empty aggregate state at end
+  // of stream.
+  auto op = make_mean_with_zero_gate("b_noflush");
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
+
+  for (std::int64_t t = 1; t <= 4; ++t) {
+    feed_row(*op, t, {static_cast<double>(t)});
+  }
+  auto& q = col->get_data_queue(0);
+  REQUIRE(q.empty());
+}
+
+SCENARIO("BurstAggregate back-to-back gate rows do not corrupt state",
+         "[burst_aggregate][edge]") {
+  // Two consecutive zero-amplitude rows: the same-predicate second row must
+  // NOT trigger a transition (segment continues to accumulate). The mean of
+  // segment 2, containing rows {0, 0}, is 0 when the next TRUE row arrives.
+  auto op = make_mean_with_zero_gate("b_bounce");
+  auto col = make_vector_number_collector("c");
+  op->connect(col, 0, 0);
+
+  feed_row(*op, 1, {3.0});   // segment 1 opens with {3}
+  feed_row(*op, 2, {5.0});   // segment 1 = {3, 5}
+  feed_row(*op, 3, {0.0});   // pred flips → emit segment 1 at t=3 (mean 4),
+                              // segment 2 opens with {0}
+  feed_row(*op, 4, {0.0});   // pred unchanged → segment 2 = {0, 0}
+  feed_row(*op, 5, {10.0});  // pred flips → emit segment 2 at t=5 (mean 0),
+                              // segment 3 opens with {10}
+  feed_row(*op, 6, {0.0});   // pred flips → emit segment 3 at t=6 (mean 10)
+
+  auto& q = col->get_data_queue(0);
+  REQUIRE(q.size() == 3);
+  const auto* m1 = dynamic_cast<const Message<VectorNumberData>*>(q[0].get());
+  const auto* m2 = dynamic_cast<const Message<VectorNumberData>*>(q[1].get());
+  const auto* m3 = dynamic_cast<const Message<VectorNumberData>*>(q[2].get());
+  REQUIRE(m1->time == 3);
+  REQUIRE(dbits((*m1->data.values)[0]) == dbits(4.0));
+  REQUIRE(m2->time == 5);
+  REQUIRE(dbits((*m2->data.values)[0]) == dbits(0.0));
+  REQUIRE(m3->time == 6);
+  REQUIRE(dbits((*m3->data.values)[0]) == dbits(10.0));
+}
+
 SCENARIO("BurstAggregate fallback per-message path matches batch path",
          "[burst_aggregate][per_message]") {
   auto op = make_mean_with_zero_gate("b4");
