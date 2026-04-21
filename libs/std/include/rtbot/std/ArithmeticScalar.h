@@ -31,17 +31,32 @@ class ArithmeticScalar : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
+    if (input_queue.empty()) return;
+    if (input_queue.size() >= kEmitBatchThreshold) {
+      std::vector<std::unique_ptr<BaseMessage>> batch;
+      batch.reserve(input_queue.size());
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in ArithmeticScalar");
+        }
 
-    while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
-      if (!msg) {
-        throw std::runtime_error("Invalid message type in ArithmeticScalar");
+        // Apply the mathematical operation and create output message
+        batch.push_back(create_message<NumberData>(msg->time, NumberData{apply(msg->data.value)}));
+        input_queue.pop_front();
       }
+      emit_output(0, std::move(batch), debug);
+    } else {
+      while (!input_queue.empty()) {
+        const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
+        if (!msg) {
+          throw std::runtime_error("Invalid message type in ArithmeticScalar");
+        }
 
-      // Apply the mathematical operation and create output message
-      output_queue.push_back(create_message<NumberData>(msg->time, NumberData{apply(msg->data.value)}));
-      input_queue.pop_front();
+        // Apply the mathematical operation and create output message
+        emit_output(0, create_message<NumberData>(msg->time, NumberData{apply(msg->data.value)}), debug);
+        input_queue.pop_front();
+      }
     }
   }
 };

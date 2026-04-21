@@ -43,10 +43,21 @@ class Input : public Operator {
     return !(*this == other);
   }
 
-  // Do not throw exceptions in receive_data
-  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index) override {
+  // Input is the system boundary — ignore the caller's debug flag and always
+  // enforce timestamp ordering on ingress. Downstream operators trust their
+  // producers, so the base check is debug-gated; Input's is not.
+  // Exceptions are swallowed so invalid ingress messages are silently dropped.
+  void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
     try {
-      Operator::receive_data(std::move(msg), port_index);
+      Operator::receive_data(std::move(msg), port_index, /*debug=*/true);
+    } catch (const std::exception& e) {
+      // Do nothing
+    }
+  }
+
+  void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
+    try {
+      Operator::receive_control(std::move(msg), port_index, /*debug=*/true);
     } catch (const std::exception& e) {
       // Do nothing
     }
@@ -54,20 +65,24 @@ class Input : public Operator {
 
  protected:
   void process_data(bool debug=false) override {
-    // Process each port independently to allow concurrent timestamps
+    // Process each port independently to allow concurrent timestamps.
     for (int port_index = 0; port_index < num_data_ports(); port_index++) {
-      const auto& input_queue = get_data_queue(port_index);
+      auto& input_queue = get_data_queue(port_index);
       if (input_queue.empty()) continue;
-
-      auto& output_queue = get_output_queue(port_index);
-
-      // Process all messages in input queue
-      for (const auto& msg : input_queue) {        
-          output_queue.push_back(std::move(msg->clone()));       
+      if (input_queue.size() >= kEmitBatchThreshold) {
+        std::vector<std::unique_ptr<BaseMessage>> batch;
+        batch.reserve(input_queue.size());
+        while (!input_queue.empty()) {
+          batch.push_back(std::move(input_queue.front()));
+          input_queue.pop_front();
+        }
+        emit_output(port_index, std::move(batch), debug);
+      } else {
+        while (!input_queue.empty()) {
+          emit_output(port_index, std::move(input_queue.front()), debug);
+          input_queue.pop_front();
+        }
       }
-
-      // Clear processed messages
-      get_data_queue(port_index).clear();
     }
   }
 

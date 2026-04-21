@@ -8,8 +8,8 @@ namespace rtbot {
 template <typename T>
 class FilterSync : public ReduceJoin<T> {
  public:
-  explicit FilterSync(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : ReduceJoin<T>(std::move(id), num_ports, max_size_per_port) {}
+  explicit FilterSync(std::string id, size_t num_ports)
+      : ReduceJoin<T>(std::move(id), num_ports) {}
   virtual ~FilterSync() noexcept = default;
   virtual bool filter_condition(const T& first, const T& acc) const = 0;
 
@@ -21,8 +21,8 @@ class FilterSync : public ReduceJoin<T> {
 
 class SyncGreaterThan : public FilterSync<NumberData> {
  public:
-  explicit SyncGreaterThan(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : FilterSync<NumberData>(std::move(id), num_ports, max_size_per_port) {}
+  explicit SyncGreaterThan(std::string id, size_t num_ports = 2)
+      : FilterSync<NumberData>(std::move(id), num_ports) {}
 
   std::string type_name() const override { return "SyncGreaterThan"; }
 
@@ -33,8 +33,8 @@ class SyncGreaterThan : public FilterSync<NumberData> {
 
 class SyncLessThan : public FilterSync<NumberData> {
  public:
-  explicit SyncLessThan(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : FilterSync<NumberData>(std::move(id), num_ports, max_size_per_port) {}
+  explicit SyncLessThan(std::string id, size_t num_ports = 2)
+      : FilterSync<NumberData>(std::move(id), num_ports) {}
 
   std::string type_name() const override { return "SyncLessThan"; }
 
@@ -45,9 +45,8 @@ class SyncLessThan : public FilterSync<NumberData> {
 
 class SyncEqual : public FilterSync<NumberData> {
  public:
-  explicit SyncEqual(std::string id, size_t num_ports = 2, double epsilon = 1e-10,
-                     size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : FilterSync<NumberData>(std::move(id), num_ports, max_size_per_port), epsilon_(epsilon) {
+  explicit SyncEqual(std::string id, size_t num_ports = 2, double epsilon = 1e-10)
+      : FilterSync<NumberData>(std::move(id), num_ports), epsilon_(epsilon) {
     if (epsilon <= 0.0) {
       throw std::runtime_error("Epsilon must be positive");
     }
@@ -67,9 +66,8 @@ class SyncEqual : public FilterSync<NumberData> {
 
 class SyncNotEqual : public FilterSync<NumberData> {
  public:
-  explicit SyncNotEqual(std::string id, size_t num_ports = 2, double epsilon = 1e-10,
-                        size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : FilterSync<NumberData>(std::move(id), num_ports, max_size_per_port), epsilon_(epsilon) {
+  explicit SyncNotEqual(std::string id, size_t num_ports = 2, double epsilon = 1e-10)
+      : FilterSync<NumberData>(std::move(id), num_ports), epsilon_(epsilon) {
     if (epsilon <= 0.0) {
       throw std::runtime_error("Epsilon must be positive");
     }
@@ -88,20 +86,20 @@ class SyncNotEqual : public FilterSync<NumberData> {
 };
 
 // Factory functions
-inline std::shared_ptr<SyncGreaterThan> make_sync_greater_than(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<SyncGreaterThan>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<SyncGreaterThan> make_sync_greater_than(std::string id, size_t num_ports = 2) {
+  return std::make_shared<SyncGreaterThan>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<SyncLessThan> make_sync_less_than(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<SyncLessThan>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<SyncLessThan> make_sync_less_than(std::string id, size_t num_ports = 2) {
+  return std::make_shared<SyncLessThan>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<SyncEqual> make_sync_equal(std::string id, size_t num_ports = 2, double epsilon = 1e-10, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<SyncEqual>(std::move(id), num_ports, epsilon, max_size_per_port);
+inline std::shared_ptr<SyncEqual> make_sync_equal(std::string id, size_t num_ports = 2, double epsilon = 1e-10) {
+  return std::make_shared<SyncEqual>(std::move(id), num_ports, epsilon);
 }
 
-inline std::shared_ptr<SyncNotEqual> make_sync_not_equal(std::string id, size_t num_ports = 2, double epsilon = 1e-10, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<SyncNotEqual>(std::move(id), num_ports, epsilon, max_size_per_port);
+inline std::shared_ptr<SyncNotEqual> make_sync_not_equal(std::string id, size_t num_ports = 2, double epsilon = 1e-10) {
+  return std::make_shared<SyncNotEqual>(std::move(id), num_ports, epsilon);
 }
 
 }  // namespace rtbot

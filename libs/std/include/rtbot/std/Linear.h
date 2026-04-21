@@ -9,11 +9,9 @@ namespace rtbot {
 
 class Linear : public Join {
  public:
-  Linear(std::string id, const std::vector<double>& coeffs,
-         size_t max_size_per_port = MAX_SIZE_PER_PORT)
+  Linear(std::string id, const std::vector<double>& coeffs)
       : Join(std::move(id), std::vector<std::string>(coeffs.size(), PortType::NUMBER),  // input ports
-             std::vector<std::string>{PortType::NUMBER},                                // single output port
-             max_size_per_port)
+             std::vector<std::string>{PortType::NUMBER})                                // single output port
         ,
         coeffs_(coeffs) {
     if (coeffs.size() < 2) {
@@ -61,7 +59,7 @@ class Linear : public Join {
       // Process each synchronized set of messages
       for (int i=0; i < num_data_ports(); i++) {
         typed_messages.reserve(num_data_ports());
-        const auto* typed_msg = dynamic_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
+        const auto* typed_msg = static_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
         if (!typed_msg) {
           throw std::runtime_error("Invalid message type in Linear");
         }
@@ -77,7 +75,7 @@ class Linear : public Join {
       for (int i = 0; i < num_data_ports(); i++)
         get_data_queue(i).pop_front();
 
-      get_output_queue(0).push_back(create_message<NumberData>(time, NumberData{result}));
+      emit_output(0, create_message<NumberData>(time, NumberData{result}), debug);
     }
   }
 
@@ -86,8 +84,8 @@ class Linear : public Join {
 };
 
 // Factory function
-inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<Linear>(std::move(id), coeffs, max_size_per_port);
+inline std::shared_ptr<Linear> make_linear(std::string id, const std::vector<double>& coeffs) {
+  return std::make_shared<Linear>(std::move(id), coeffs);
 }
 
 }  // namespace rtbot

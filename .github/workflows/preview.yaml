@@ -44,5 +44,11 @@ jobs:
           repository-cache: true
       - name: Build all targets
         run: bazel build //...
+      - name: FusedExpression parity gate
+        run: >
+          bazel test //libs/fuse/test:test
+          --test_arg="[per_opcode],[fuzz],[golden]"
+          --test_arg="--reporter=console"
+          --test_output=errors
       - name: Run test suite
         run: bazel test //...

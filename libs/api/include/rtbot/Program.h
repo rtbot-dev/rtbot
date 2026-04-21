@@ -14,8 +14,10 @@
 
 #include "OperatorJson.h"
 #include "Prototype.h"
+#include "rtbot/Collector.h"
 #include "rtbot/Logger.h"
 #include "rtbot/OperatorJson.h"
+#include "rtbot/PortType.h"
 #include "rtbot/jsonschema.hpp"
 
 namespace rtbot {
@@ -62,9 +64,7 @@ class Program {
   // Message processing
   ProgramMsgBatch receive(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
     send_to_entry(std::move(msg), port_id, false);
-    ProgramMsgBatch result = collect_outputs(false);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(false);
   }
 
   ProgramMsgBatch receive(const Message<NumberData>& msg, const std::string& port_id = "i1") {
@@ -72,14 +72,57 @@ class Program {
   }
 
   ProgramMsgBatch receive_debug(std::unique_ptr<BaseMessage> msg, const std::string& port_id = "i1") {
+    for (auto& [_, op] : operators_) {
+      op->clear_debug_output_queues();
+    }
     send_to_entry(std::move(msg), port_id, true);
-    ProgramMsgBatch result = collect_outputs(true);
-    clear_all_outputs();
-    return result;
+    return collect_outputs(true);
   }
 
   ProgramMsgBatch receive_debug(const Message<NumberData>& msg, const std::string& port_id = "i1") {
     return receive_debug(create_message<NumberData>(msg.time, msg.data), port_id);
+  }
+
+  // Batch entry: push all messages from a multi-port buffer into the entry
+  // operator's queues, then run a single execute() pass, then collect+clear
+  // outputs once. Semantically equivalent to calling receive() once per
+  // message in arrival order, but amortizes the per-message scheduling cost
+  // (virtual dispatch, propagate_outputs recursion, collect/clear) over the
+  // whole burst. Relies on the rtbot invariant that messages within a port
+  // are monotone in time; sync_data_inputs is state-preserving regardless of
+  // how many messages are queued on each port.
+  ProgramMsgBatch receive_batch(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
+    send_batch_to_entry(port_messages, false);
+    return collect_outputs(false);
+  }
+
+  // Raw-buffer ingress. `data` is a row-major double buffer of `num_rows` ×
+  // `num_cols`; `times[r]` is the monotone timestamp of row r. When the entry
+  // operator overrides Operator::receive_data_buffer (e.g. BurstAggregate)
+  // this skips Message allocation entirely and streams the buffer straight
+  // into the operator's kernel. Operators that don't override fall back to
+  // per-row Message creation (default Operator impl). Semantically equivalent
+  // to receive_batch over a parallel vector of Message<VectorNumberData>.
+  ProgramMsgBatch receive_buffer(const std::string& port_id,
+                                   const double* data, size_t num_rows,
+                                   size_t num_cols,
+                                   const timestamp_t* times) {
+    auto port_info = OperatorJson::parse_port_name(port_id);
+    auto& entry = operators_[entry_operator_id_];
+    entry->receive_data_buffer(data, num_rows, num_cols, times,
+                                 port_info.index, /*debug=*/false);
+    entry->execute(false);
+    return collect_outputs(false);
+  }
+
+  ProgramMsgBatch receive_batch_debug(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages) {
+    for (auto& [_, op] : operators_) {
+      op->clear_debug_output_queues();
+    }
+    send_batch_to_entry(port_messages, true);
+    return collect_outputs(true);
   }
 
   // Getters
@@ -94,6 +137,12 @@ class Program {
   map<string, shared_ptr<Operator>> operators_;
   string entry_operator_id_;
   map<string, vector<size_t>> output_mappings_;
+  // Program-owned multi-port sink. One Collector with one data port per
+  // output in output_mappings_; emit_output pushes straight into the
+  // matching port queue via the sink_queue fast path (no virtual
+  // receive_data). Provenance (source operator + output port) is read from
+  // each port's inbound connection ref — no separate index needed.
+  std::shared_ptr<Collector> sink_;
 
   void init_from_json() {
     RTBOT_LOG_DEBUG("Initializing program from JSON");
@@ -126,6 +175,32 @@ class Program {
         ports.push_back(OperatorJson::parse_port_name(port).index);
       }
       output_mappings_[op_id] = ports;
+    }
+
+    // Attach Program-owned sinks to output-mapped operators.
+    setup_output_sinks_();
+  }
+
+  void setup_output_sinks_() {
+    struct OutputBinding { std::shared_ptr<Operator> op; size_t port_idx; };
+    std::vector<OutputBinding> bindings;
+    std::vector<std::string> port_types;
+
+    for (const auto& [op_id, ports] : output_mappings_) {
+      auto op_it = operators_.find(op_id);
+      if (op_it == operators_.end()) continue;
+      for (size_t port_idx : ports) {
+        port_types.push_back(
+            PortType::type_index_to_string(op_it->second->get_output_port_type(port_idx)));
+        bindings.push_back({op_it->second, port_idx});
+      }
+    }
+
+    if (bindings.empty()) return;
+
+    sink_ = make_collector("__program_sink__", port_types);
+    for (size_t i = 0; i < bindings.size(); ++i) {
+      bindings[i].op->connect(sink_, bindings[i].port_idx, /*child_port_index=*/i, PortKind::DATA);
     }
   }
 
@@ -196,50 +271,74 @@ class Program {
     operators_[entry_operator_id_]->execute(debug);
   }
 
+  void send_batch_to_entry(
+      const std::map<std::string, std::vector<std::unique_ptr<BaseMessage>>>& port_messages, bool debug) {
+    auto& entry = operators_[entry_operator_id_];
+    for (const auto& [port_id, messages] : port_messages) {
+      if (messages.empty()) continue;
+      auto port_info = OperatorJson::parse_port_name(port_id);
+      // Clone the caller's batch into a local vector so receive_data_batch can
+      // take ownership. Operators that override the batch path (e.g.
+      // BurstAggregate) then skip the per-message queue hop entirely.
+      std::vector<std::unique_ptr<BaseMessage>> cloned;
+      cloned.reserve(messages.size());
+      for (const auto& msg : messages) {
+        cloned.push_back(msg->clone());
+      }
+      entry->receive_data_batch(cloned, port_info.index, debug);
+    }
+    entry->execute(debug);
+  }
+
   ProgramMsgBatch collect_outputs(bool debug_mode = false) {
     ProgramMsgBatch batch;
 
+    if (!debug_mode) {
+      // Non-debug fast path: drain the single multi-port sink and read
+      // provenance (upstream operator id + output port) from each port's
+      // inbound connection ref.
+      if (!sink_) return batch;
+
+      const size_t n = sink_->num_data_ports();
+      for (size_t p = 0; p < n; ++p) {
+        auto& q = sink_->get_data_queue(p);
+        if (q.empty()) continue;
+
+        // Port p was wired by setup_output_sinks_() to exactly one upstream;
+        // invariant enforced by the only writer of sink_.
+        const auto& ref = sink_->inbound_data_refs(p).front();
+        const auto& conn = ref.parent->get_connection(ref.conn_index);
+
+        PortMsgBatch port_msgs;
+        port_msgs.reserve(q.size());
+        for (auto& msg : q) port_msgs.push_back(std::move(msg));
+        q.clear();
+
+        batch[ref.parent->id()]["o" + std::to_string(conn.output_port + 1)] =
+            std::move(port_msgs);
+      }
+      return batch;
+    }
+
+    // Debug mode: walk every operator (including composite children) and
+    // collect from debug output queues.
     std::function<void(const std::string&, const std::shared_ptr<Operator>&, const std::string&)>
         collect_operator_outputs =
             [&](const std::string& op_id, const std::shared_ptr<Operator>& op, const std::string& parent_prefix) {
-              // Build fully qualified ID
               std::string qualified_id = parent_prefix.empty() ? op_id : parent_prefix + "::" + op_id;
-
-              // Skip if not in debug mode and this operator is not in output_mappings_
-              if (!debug_mode && output_mappings_.find(qualified_id) == output_mappings_.end()) {
-                return;
-              }
 
               OperatorMsgBatch op_batch;
               bool has_messages = false;
 
-              // In debug mode, collect all ports
-              if (debug_mode) {
-                for (size_t i = 0; i < op->num_output_ports(); i++) {
-                  const auto& queue = op->get_debug_output_queue(i);
-                  if (!queue.empty()) {
-                    PortMsgBatch port_msgs;
-                    for (const auto& msg : queue) {
-                      port_msgs.push_back(msg->clone());
-                    }
-                    op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
-                    has_messages = true;
+              for (size_t i = 0; i < op->num_output_ports(); i++) {
+                const auto& queue = op->get_debug_output_queue(i);
+                if (!queue.empty()) {
+                  PortMsgBatch port_msgs;
+                  for (const auto& msg : queue) {
+                    port_msgs.push_back(msg->clone());
                   }
-                }
-              }
-              // Otherwise only collect mapped ports
-              else {
-                const auto& port_indices = output_mappings_[qualified_id];
-                for (size_t port_idx : port_indices) {
-                  const auto& queue = op->get_output_queue(port_idx);
-                  if (!queue.empty()) {
-                    PortMsgBatch port_msgs;
-                    for (const auto& msg : queue) {
-                      port_msgs.push_back(msg->clone());
-                    }
-                    op_batch["o" + std::to_string(port_idx + 1)] = std::move(port_msgs);
-                    has_messages = true;
-                  }
+                  op_batch["o" + std::to_string(i + 1)] = std::move(port_msgs);
+                  has_messages = true;
                 }
               }
 
@@ -247,76 +346,19 @@ class Program {
                 batch[qualified_id] = std::move(op_batch);
               }
 
-              // Recursively handle TriggerSet operators
-              if (auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op)) {
-                for (const auto& [internal_id, internal_op] : trigger_set->get_operators()) {
+              // Recursively handle composite operators (Pipeline, TriggerSet).
+              if (const auto* kids = op->children_ops()) {
+                for (const auto& [internal_id, internal_op] : *kids) {
                   collect_operator_outputs(internal_id, internal_op, qualified_id);
-                }
-
-                // In debug mode, also surface the trigger set's single output operator/port
-                if (debug_mode) {
-                  const auto& out_op_id = trigger_set->get_output_operator_id();
-                  auto mapped_qualified_id = qualified_id + "::" + out_op_id;
-                  auto mapped_op = trigger_set->get_operators().find(out_op_id);
-                  if (mapped_op != trigger_set->get_operators().end()) {
-                    size_t out_port = trigger_set->get_output_operator_port();
-                    const auto& queue = mapped_op->second->get_output_queue(out_port);
-                    if (!queue.empty()) {
-                      if (batch[mapped_qualified_id].empty()) {
-                        batch[mapped_qualified_id] = OperatorMsgBatch();
-                      }
-                      PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(out_port + 1)];
-                      for (const auto& msg : queue) {
-                        port_msgs.push_back(msg->clone());
-                      }
-                    }
-                  }
-                }
-              }
-
-              // Recursively handle Pipeline operators
-              if (auto pipeline = std::dynamic_pointer_cast<Pipeline>(op)) {
-                for (const auto& [internal_id, internal_op] : pipeline->get_operators()) {
-                  // Pass qualified_id as the new parent prefix for nested operators
-                  collect_operator_outputs(internal_id, internal_op, qualified_id);
-                }
-
-                // Handle Pipeline output mappings in debug mode
-                if (debug_mode && pipeline->get_output_mappings().size() > 0) {
-                  for (const auto& [mapped_op_id, mappings] : pipeline->get_output_mappings()) {
-                    auto mapped_qualified_id = qualified_id + "::" + mapped_op_id;
-                    auto mapped_op = pipeline->get_operators().find(mapped_op_id);
-                    if (mapped_op != pipeline->get_operators().end()) {
-                      for (const auto& [op_port, pipeline_port] : mappings) {
-                        const auto& queue = mapped_op->second->get_output_queue(op_port);
-                        if (!queue.empty()) {
-                          if (batch[mapped_qualified_id].empty()) {
-                            batch[mapped_qualified_id] = OperatorMsgBatch();
-                          }
-                          PortMsgBatch& port_msgs = batch[mapped_qualified_id]["o" + std::to_string(pipeline_port + 1)];
-                          for (const auto& msg : queue) {
-                            port_msgs.push_back(msg->clone());
-                          }
-                        }
-                      }
-                    }
-                  }
                 }
               }
             };
 
-    // Start collection from top-level operators with empty parent prefix
     for (const auto& [op_id, op] : operators_) {
       collect_operator_outputs(op_id, op, "");
     }
 
     return batch;
-  }
-
-  void clear_all_outputs() {
-    for (auto& [_, op] : operators_) {
-      op->clear_all_output_ports();
-    }
   }
 };
 
@@ -402,19 +444,14 @@ class ProgramManager {
       throw runtime_error("Program " + program_id + " not found");
     }
 
-    ProgramMsgBatch result;
     auto& prog = programs_.at(program_id);
-
     auto buffer_it = message_buffer_.find(program_id);
-    if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
-      for (const auto& [port_id, messages] : buffer_it->second) {
-        for (const auto& msg : messages) {
-          auto batch = prog.receive(msg->clone(), port_id);
-          merge_batches(result, batch);
-        }
-      }
-      message_buffer_.erase(buffer_it);
+    if (buffer_it == message_buffer_.end() || buffer_it->second.empty()) {
+      return {};
     }
+
+    ProgramMsgBatch result = prog.receive_batch(buffer_it->second);
+    message_buffer_.erase(buffer_it);
     return result;
   }
 
@@ -423,19 +460,14 @@ class ProgramManager {
       throw runtime_error("Program " + program_id + " not found");
     }
 
-    ProgramMsgBatch result;
     auto& prog = programs_.at(program_id);
-
     auto buffer_it = message_buffer_.find(program_id);
-    if (buffer_it != message_buffer_.end() && !buffer_it->second.empty()) {
-      for (const auto& [port_id, messages] : buffer_it->second) {
-        for (const auto& msg : messages) {
-          auto batch = prog.receive_debug(msg->clone(), port_id);
-          merge_batches(result, batch);
-        }
-      }
-      message_buffer_.erase(buffer_it);
+    if (buffer_it == message_buffer_.end() || buffer_it->second.empty()) {
+      return {};
     }
+
+    ProgramMsgBatch result = prog.receive_batch_debug(buffer_it->second);
+    message_buffer_.erase(buffer_it);
     return result;
   }
 

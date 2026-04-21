@@ -1,6 +1,7 @@
 #include <catch2/catch.hpp>
 #include <memory>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/VectorProject.h"
 
 using namespace rtbot;
@@ -8,47 +9,53 @@ using namespace rtbot;
 SCENARIO("VectorProject selects subset of fields", "[vector_project]") {
   SECTION("Select two fields") {
     auto proj = make_vector_project("proj1", {0, 2});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    proj->connect(col, 0, 0);
 
     REQUIRE(proj->type_name() == "VectorProject");
 
     proj->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0, 40.0}}), 0);
     proj->execute();
 
-    auto& output = proj->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
     REQUIRE(msg->time == 1);
-    REQUIRE(msg->data.values.size() == 2);
-    REQUIRE(msg->data.values[0] == 10.0);
-    REQUIRE(msg->data.values[1] == 30.0);
+    REQUIRE(msg->data.values->size() == 2);
+    REQUIRE((*msg->data.values)[0] == 10.0);
+    REQUIRE((*msg->data.values)[1] == 30.0);
   }
 
   SECTION("Reorder fields") {
     auto proj = make_vector_project("proj1", {2, 0, 1});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    proj->connect(col, 0, 0);
 
     proj->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0}}), 0);
     proj->execute();
 
-    auto& output = proj->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 3);
-    REQUIRE(msg->data.values[0] == 30.0);
-    REQUIRE(msg->data.values[1] == 10.0);
-    REQUIRE(msg->data.values[2] == 20.0);
+    REQUIRE(msg->data.values->size() == 3);
+    REQUIRE((*msg->data.values)[0] == 30.0);
+    REQUIRE((*msg->data.values)[1] == 10.0);
+    REQUIRE((*msg->data.values)[2] == 20.0);
   }
 
   SECTION("Single index") {
     auto proj = make_vector_project("proj1", {1});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    proj->connect(col, 0, 0);
 
     proj->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{10.0, 20.0, 30.0}}), 0);
     proj->execute();
 
-    auto& output = proj->get_output_queue(0);
+    auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
     auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output[0].get());
-    REQUIRE(msg->data.values.size() == 1);
-    REQUIRE(msg->data.values[0] == 20.0);
+    REQUIRE(msg->data.values->size() == 1);
+    REQUIRE((*msg->data.values)[0] == 20.0);
   }
 }
 

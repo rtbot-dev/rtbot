@@ -29,11 +29,11 @@ void to_json(json& j, const ProgramMsgBatch& batch) {
         if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
           j[op_id][port_name].push_back({{"time", num_msg->time}, {"value", num_msg->data.value}});
         } else if (auto* vec_num_msg = dynamic_cast<const Message<VectorNumberData>*>(msg.get())) {
-          j[op_id][port_name].push_back({{"time", vec_num_msg->time}, {"value", vec_num_msg->data.values}});
+          j[op_id][port_name].push_back({{"time", vec_num_msg->time}, {"value", *vec_num_msg->data.values}});
         } else if (auto* bool_msg = dynamic_cast<const Message<BooleanData>*>(msg.get())) {
           j[op_id][port_name].push_back({{"time", bool_msg->time}, {"value", bool_msg->data.value}});
         } else if (auto* vec_bool_msg = dynamic_cast<const Message<VectorBooleanData>*>(msg.get())) {
-          j[op_id][port_name].push_back({{"time", vec_bool_msg->time}, {"value", vec_bool_msg->data.values}});
+          j[op_id][port_name].push_back({{"time", vec_bool_msg->time}, {"value", *vec_bool_msg->data.values}});
         }
       }
     }

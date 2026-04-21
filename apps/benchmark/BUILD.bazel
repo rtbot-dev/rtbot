@@ -3,7 +3,7 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 cc_test(
     name = "benchmark",
     tags = ["manual"],
-    srcs = glob(["src/**/*.cpp"]) + ["//libs/std/test:tools.h"],
+    srcs = ["src/benchmark.cpp", "//libs/std/test:tools.h"],
     copts = [
         "-O3",
         "-Ilibs/std/test",
@@ -13,5 +13,22 @@ cc_test(
         "//libs/api:rtbot-api",
         "//libs/core:rtbot",
         "//libs/std:rtbot-std",
+    ],
+)
+
+# FusedExpression / FusedExpressionVector throughput and output-hash
+# benchmark. Intentionally no hardcoded -O3 — the Bazel compilation mode
+# controls optimization so -c opt vs fastbuild can be compared fairly.
+cc_test(
+    name = "fused_bench",
+    tags = ["manual"],
+    srcs = ["src/fused_bench.cpp"],
+    copts = [
+        "-ffp-contract=off",
+        "-fno-associative-math",
+    ],
+    deps = [
+        "//libs/core:rtbot",
+        "//libs/fuse:rtbot-fuse",
     ],
 )

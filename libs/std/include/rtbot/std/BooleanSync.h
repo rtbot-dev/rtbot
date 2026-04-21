@@ -12,11 +12,10 @@ namespace rtbot {
 
 class BooleanSync : public ReduceJoin<BooleanData> {
  public:
-  explicit BooleanSync(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : ReduceJoin<BooleanData>(std::move(id), num_ports, max_size_per_port), num_ports_(num_ports) {}
-  explicit BooleanSync(std::string id, size_t num_ports, bool init_value,
-                       size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : ReduceJoin<BooleanData>(std::move(id), num_ports, BooleanData{init_value}, max_size_per_port) {}
+  explicit BooleanSync(std::string id, size_t num_ports)
+      : ReduceJoin<BooleanData>(std::move(id), num_ports), num_ports_(num_ports) {}
+  explicit BooleanSync(std::string id, size_t num_ports, bool init_value)
+      : ReduceJoin<BooleanData>(std::move(id), num_ports, BooleanData{init_value}) {}
 
   virtual ~BooleanSync() = default;
   size_t get_num_ports() const { return num_ports_; }
@@ -32,15 +31,15 @@ class BooleanSync : public ReduceJoin<BooleanData> {
 
 class LogicalAnd : public BooleanSync {
  public:
-  explicit LogicalAnd(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, true, max_size_per_port) {}
+  explicit LogicalAnd(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports, true) {}
   ~LogicalAnd() noexcept = default;
   std::string type_name() const override { return "LogicalAnd"; }
 
   bool equals(const LogicalAnd& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalAnd& other) const {
     return equals(other);
   }
@@ -57,15 +56,15 @@ class LogicalAnd : public BooleanSync {
 
 class LogicalOr : public BooleanSync {
  public:
-  explicit LogicalOr(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, false, max_size_per_port) {}
+  explicit LogicalOr(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports, false) {}
   ~LogicalOr() noexcept = default;
   std::string type_name() const override { return "LogicalOr"; }
 
   bool equals(const LogicalOr& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalOr& other) const {
     return equals(other);
   }
@@ -82,15 +81,15 @@ class LogicalOr : public BooleanSync {
 
 class LogicalXor : public BooleanSync {
  public:
-  explicit LogicalXor(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, max_size_per_port) {}
+  explicit LogicalXor(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports) {}
   ~LogicalXor() noexcept = default;
   std::string type_name() const override { return "LogicalXor"; }
 
   bool equals(const LogicalXor& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalXor& other) const {
     return equals(other);
   }
@@ -107,15 +106,15 @@ class LogicalXor : public BooleanSync {
 
 class LogicalNand : public BooleanSync {
  public:
-  explicit LogicalNand(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, true, max_size_per_port) {}
+  explicit LogicalNand(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports, true) {}
   ~LogicalNand() noexcept = default;
   std::string type_name() const override { return "LogicalNand"; }
 
   bool equals(const LogicalNand& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalNand& other) const {
     return equals(other);
   }
@@ -133,15 +132,15 @@ class LogicalNand : public BooleanSync {
 
 class LogicalNor : public BooleanSync {
  public:
-  explicit LogicalNor(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, true, max_size_per_port) {}
+  explicit LogicalNor(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports, true) {}
   ~LogicalNor() noexcept = default;
   std::string type_name() const override { return "LogicalNor"; }
 
   bool equals(const LogicalNor& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalNor& other) const {
     return equals(other);
   }
@@ -158,15 +157,15 @@ class LogicalNor : public BooleanSync {
 
 class LogicalXnor : public BooleanSync {
  public:
-  explicit LogicalXnor(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, max_size_per_port) {}
+  explicit LogicalXnor(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports) {}
   ~LogicalXnor() noexcept = default;
   std::string type_name() const override { return "LogicalXnor"; }
 
   bool equals(const LogicalXnor& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalXnor& other) const {
     return equals(other);
   }
@@ -183,15 +182,15 @@ class LogicalXnor : public BooleanSync {
 
 class LogicalImplication : public BooleanSync {
  public:
-  explicit LogicalImplication(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : BooleanSync(std::move(id), num_ports, true, max_size_per_port) {}
+  explicit LogicalImplication(std::string id, size_t num_ports)
+      : BooleanSync(std::move(id), num_ports, true) {}
   ~LogicalImplication() noexcept = default;
   std::string type_name() const override { return "LogicalImplication"; }
 
   bool equals(const LogicalImplication& other) const {
     return BooleanSync::equals(other);
   }
-  
+
   bool operator==(const LogicalImplication& other) const {
     return equals(other);
   }
@@ -207,32 +206,32 @@ class LogicalImplication : public BooleanSync {
 };
 
 // Factory functions
-inline std::shared_ptr<LogicalAnd> make_logical_and(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalAnd>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalAnd> make_logical_and(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalAnd>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalOr> make_logical_or(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalOr>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalOr> make_logical_or(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalOr>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalXor> make_logical_xor(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalXor>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalXor> make_logical_xor(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalXor>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalNand> make_logical_nand(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalNand>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalNand> make_logical_nand(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalNand>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalNor> make_logical_nor(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalNor>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalNor> make_logical_nor(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalNor>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalXnor> make_logical_xnor(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalXnor>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalXnor> make_logical_xnor(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalXnor>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<LogicalImplication> make_logical_implication(std::string id, size_t num_ports = 2, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<LogicalImplication>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<LogicalImplication> make_logical_implication(std::string id, size_t num_ports = 2) {
+  return std::make_shared<LogicalImplication>(std::move(id), num_ports);
 }
 
 }  // namespace rtbot

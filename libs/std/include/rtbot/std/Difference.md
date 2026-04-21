@@ -99,14 +99,16 @@ Ideal for:
 
 ```cpp
 // Create operator using newer message timestamps
-auto diff = std::make_unique<Difference>("diff1", true);
+auto diff = std::make_shared<Difference>("diff1", true);
+auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+diff->connect(col, 0, 0);
 
 // Process some values
 diff->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
 diff->receive_data(create_message<NumberData>(2, NumberData{15.0}), 0);
 diff->execute();
 
-// Access difference
-const auto& output = diff->get_output_queue(0);
+// Access difference via the downstream Collector
+const auto& output = col->get_data_queue(0);
 // Output will contain a message with value 5.0 at time 2
 ```

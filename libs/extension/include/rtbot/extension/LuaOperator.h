@@ -58,7 +58,7 @@ class LuaOperator : public Operator {
       auto& queue = get_data_queue(i);
 
       for (const auto& msg : queue) {
-        if (auto* num_msg = dynamic_cast<const Message<NumberData>*>(msg.get())) {
+        if (auto* num_msg = static_cast<const Message<NumberData>*>(msg.get())) {
           port_values.push_back(num_msg->data.value);
           port_times.push_back(num_msg->time);
         }
@@ -78,12 +78,11 @@ class LuaOperator : public Operator {
         size_t port_index = kvp.first.as<size_t>();
         sol::table messages = kvp.second;
 
-        auto& output_queue = get_output_queue(port_index);
         for (const auto& msg_pair : messages) {
           sol::table msg = msg_pair.second;
           timestamp_t time = msg["time"];
           double value = msg["value"];
-          output_queue.push_back(create_message<NumberData>(time, NumberData{value}));
+          emit_output(port_index, create_message<NumberData>(time, NumberData{value}), debug);
         }
       }
     } catch (const sol::error& e) {

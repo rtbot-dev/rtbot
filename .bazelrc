@@ -59,6 +59,17 @@ build:asan --linkopt=-fsanitize=address
 build:asan --strip=never
 build:asan --compilation_mode=dbg
 
+# Deterministic floating-point for FusedExpression parity tests.
+build:parity --copt=-ffp-contract=off
+build:parity --copt=-fno-associative-math
+
+# Enable xsimd-backed inner loops in the batched fused-expression evaluator.
+# Off by default; opt in with `--config=fuse_simd`. On arm64 (Apple Silicon,
+# aarch64 Linux) xsimd automatically targets NEON double-precision. On x86 /
+# Linux, add `--copt=-mavx2` to lift above the SSE baseline. WASM targets
+# need `-msimd128` in the Emscripten build.
+build:fuse_simd --copt=-DRTBOT_FUSED_SIMD=1
+
 # Emscripten flags (non-Windows)
 build:linux --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"
 build:macos --action_env=EMCC_CFLAGS="-fexceptions -Wno-c++11-narrowing -Wno-unused-const-variable"

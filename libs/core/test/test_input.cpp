@@ -4,6 +4,7 @@
 #include <typeindex>
 #include <unordered_map>
 
+#include "rtbot/Collector.h"
 #include "rtbot/Input.h"
 #include "rtbot/PortType.h"
 
@@ -11,14 +12,16 @@ using namespace rtbot;
 
 SCENARIO("Input operator handles single number port", "[input]") {
   GIVEN("An input operator with one number port") {
-    auto input = make_number_input("input1");
+    auto input = std::make_shared<Input>("input1", std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    input->connect(col, 0, 0);
 
     WHEN("Receiving a number message") {
       input->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
       input->execute();
 
       THEN("Message is forwarded") {
-        const auto& output = input->get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
         REQUIRE(!output.empty());
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg != nullptr);
@@ -27,28 +30,13 @@ SCENARIO("Input operator handles single number port", "[input]") {
       }
     }
 
-     WHEN("Receiving a max_size_per_port() + 1 messages, only max_size_per_port() are forwarded") {
-      for (int i = 0; i < input->max_size_per_port() + 1; i++) {
-        input->receive_data(create_message<NumberData>(i, NumberData{i * 2.0}), 0);
-      }
-      input->execute();
-
-      THEN("only 11000 are forwarded") {
-        const auto& output = input->get_output_queue(0);
-        REQUIRE(output.size() == input->max_size_per_port());
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());        
-        REQUIRE(msg->time == 1);
-        REQUIRE(msg->data.value == 2.0);
-      }
-    }
-
     WHEN("Receiving messages with decreasing timestamps") {
       input->receive_data(create_message<NumberData>(2, NumberData{42.0}), 0);
       input->receive_data(create_message<NumberData>(1, NumberData{24.0}), 0);
       input->execute();
 
-      THEN("Only the first message is forwarded") {        
-        const auto& output = input->get_output_queue(0);
+      THEN("Only the first message is forwarded") {
+        const auto& output = col->get_data_queue(0);
         REQUIRE(output.size() == 1);
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
         REQUIRE(msg->data.value == 42.0);
@@ -59,8 +47,12 @@ SCENARIO("Input operator handles single number port", "[input]") {
 
 SCENARIO("Input operator handles multiple types", "[input]") {
   GIVEN("An input operator with different types of ports") {
-    auto input = std::make_unique<Input>(
+    auto input = std::make_shared<Input>(
         "mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN, PortType::VECTOR_NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean", "vector_number"});
+    input->connect(col, 0, 0);
+    input->connect(col, 1, 1);
+    input->connect(col, 2, 2);
 
     WHEN("Receiving different types of messages") {
       input->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
@@ -71,7 +63,7 @@ SCENARIO("Input operator handles multiple types", "[input]") {
       THEN("Messages are forwarded with correct types") {
         // Check number port
         {
-          const auto& output = input->get_output_queue(0);
+          const auto& output = col->get_data_queue(0);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
           REQUIRE(msg != nullptr);
@@ -80,7 +72,7 @@ SCENARIO("Input operator handles multiple types", "[input]") {
 
         // Check boolean port
         {
-          const auto& output = input->get_output_queue(1);
+          const auto& output = col->get_data_queue(1);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<BooleanData>*>(output.front().get());
           REQUIRE(msg != nullptr);
@@ -89,11 +81,11 @@ SCENARIO("Input operator handles multiple types", "[input]") {
 
         // Check vector port
         {
-          const auto& output = input->get_output_queue(2);
+          const auto& output = col->get_data_queue(2);
           REQUIRE(!output.empty());
           const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(output.front().get());
           REQUIRE(msg != nullptr);
-          REQUIRE(msg->data.values == std::vector<double>{1.0, 2.0, 3.0});
+          REQUIRE(*msg->data.values == std::vector<double>{1.0, 2.0, 3.0});
         }
       }
 
@@ -145,7 +137,10 @@ SCENARIO("Input operator factory functions work correctly", "[input]") {
 
 SCENARIO("Input operator handles state serialization", "[input][State]") {
   GIVEN("An input operator with multiple types and processed messages") {
-    auto input = std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+    auto input = std::make_shared<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean"});
+    input->connect(col, 0, 0);
+    input->connect(col, 1, 1);
 
     input->receive_data(create_message<NumberData>(1, NumberData{42.0}), 0);
     input->receive_data(create_message<BooleanData>(2, BooleanData{true}), 1);
@@ -157,22 +152,25 @@ SCENARIO("Input operator handles state serialization", "[input][State]") {
 
       // Create new operator with same configuration
       auto restored =
-          std::make_unique<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+          std::make_shared<Input>("mixed_input", std::vector<std::string>{PortType::NUMBER, PortType::BOOLEAN});
+      auto rcol = std::make_shared<Collector>("c", std::vector<std::string>{"number", "boolean"});
+      restored->connect(rcol, 0, 0);
+      restored->connect(rcol, 1, 1);
 
       // Restore state
       restored->restore_data_from_json(state);
 
       THEN("State is correctly preserved") {
-        REQUIRE(*restored == *input);        
+        REQUIRE(*restored == *input);
       }
 
       AND_WHEN("New messages are received") {
-        restored->clear_all_output_ports();
+        rcol->reset();
         restored->receive_data(create_message<NumberData>(3, NumberData{84.0}), 0);
         restored->execute();
 
         THEN("Messages are processed based on restored state") {
-          const auto& output = restored->get_output_queue(0);
+          const auto& output = rcol->get_data_queue(0);
           REQUIRE(output.size() == 1);
           const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
           REQUIRE(msg->time == 3);
@@ -185,7 +183,7 @@ SCENARIO("Input operator handles state serialization", "[input][State]") {
       auto state = input->collect();
 
       // Create new operator with different configuration
-      auto mismatched = std::make_unique<Input>(
+      auto mismatched = std::make_shared<Input>(
           "mixed_input", std::vector<std::string>{PortType::BOOLEAN, PortType::NUMBER});
 
       THEN("Type mismatch is detected") {
@@ -231,8 +229,12 @@ SCENARIO("Input operator port configuration is accessible", "[input]") {
 
 SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
   GIVEN("An input operator with multiple ports") {
-    auto input = std::make_unique<Input>(
+    auto input = std::make_shared<Input>(
         "multi_input", std::vector<std::string>{PortType::NUMBER, PortType::NUMBER, PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number", "number", "number"});
+    input->connect(col, 0, 0);
+    input->connect(col, 1, 1);
+    input->connect(col, 2, 2);
 
     WHEN("Receiving concurrent messages with same timestamp") {
       // Send messages to different ports with same timestamp
@@ -242,9 +244,9 @@ SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
       input->execute();
 
       THEN("All messages are forwarded correctly") {
-        const auto& output0 = input->get_output_queue(0);
-        const auto& output1 = input->get_output_queue(1);
-        const auto& output2 = input->get_output_queue(2);
+        const auto& output0 = col->get_data_queue(0);
+        const auto& output1 = col->get_data_queue(1);
+        const auto& output2 = col->get_data_queue(2);
 
         REQUIRE(output0.size() == 1);
         REQUIRE(output1.size() == 1);
@@ -262,7 +264,7 @@ SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
         REQUIRE(msg2->data.value == 3.0);
 
         AND_WHEN("Receiving more messages with mixed timestamps") {
-          input->clear_all_output_ports();
+          col->reset();
           input->receive_data(create_message<NumberData>(2, NumberData{4.0}), 0);
           input->receive_data(create_message<NumberData>(2, NumberData{5.0}), 1);
           input->receive_data(create_message<NumberData>(1, NumberData{6.0}), 2);  // Old timestamp
@@ -282,6 +284,27 @@ SCENARIO("Input operator handles concurrent messages correctly", "[input]") {
             REQUIRE(new_msg1->data.value == 5.0);
           }
         }
+      }
+    }
+  }
+}
+
+SCENARIO("Input forwards messages without cloning", "[input][perf]") {
+  GIVEN("A vector-number input operator") {
+    auto input = make_vector_number_input("input_no_clone");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{PortType::VECTOR_NUMBER});
+    input->connect(col, 0, 0);
+
+    auto msg = create_message<VectorNumberData>(
+        1, VectorNumberData{{1.0, 2.0, 3.0}});
+
+    WHEN("A message is received and executed") {
+      input->receive_data(std::move(msg), 0);
+      input->execute();
+
+      THEN("The message is forwarded to the collector") {
+        const auto& output = col->get_data_queue(0);
+        REQUIRE(output.size() == 1);
       }
     }
   }

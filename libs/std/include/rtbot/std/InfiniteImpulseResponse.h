@@ -113,10 +113,8 @@ class InfiniteImpulseResponse : public Operator {
  protected:
   void process_data(bool debug=false) override {
     auto& input_queue = get_data_queue(0);
-    auto& output_queue = get_output_queue(0);
-
     while (!input_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<NumberData>*>(input_queue.front().get());
+      const auto* msg = static_cast<const Message<NumberData>*>(input_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid message type in IIR filter");
       }
@@ -163,7 +161,7 @@ class InfiniteImpulseResponse : public Operator {
         }
 
         // Create output message
-        output_queue.push_back(create_message<NumberData>(msg->time, NumberData{y_n}));
+        emit_output(0, create_message<NumberData>(msg->time, NumberData{y_n}), debug);
       }
 
       input_queue.pop_front();

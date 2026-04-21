@@ -53,6 +53,9 @@
 #include "rtbot/std/TopK.h"
 #include "rtbot/std/TimestampExtract.h"
 #include "rtbot/std/WindowMinMax.h"
+#include "rtbot/fuse/FusedExpression.h"
+#include "rtbot/fuse/BurstAggregate.h"
+#include "rtbot/fuse/FusedExpressionVector.h"
 
 using json = nlohmann::json;
 
@@ -82,7 +85,6 @@ class OperatorJson {
     auto type = parsed["type"].get<std::string>();
     auto id = parsed["id"].get<std::string>();
     auto num_ports = parsed.value("numPorts", 2);
-    auto max_size_per_port = parsed.value("maxSizePerPort", MAX_SIZE_PER_PORT);
 
     if (type == "Input") {
       return make_input(id, parsed["portTypes"].get<std::vector<std::string>>());
@@ -99,31 +101,31 @@ class OperatorJson {
     } else if (type == "InfiniteImpulseResponse") {
       return make_iir(id, parsed["b_coeffs"].get<std::vector<double>>(), parsed["a_coeffs"].get<std::vector<double>>());
     } else if (type == "Join") {
-      return make_join(id, parsed["portTypes"].get<std::vector<std::string>>(), max_size_per_port);
+      return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "Difference") {
       return make_difference(id);
     } else if (type == "PeakDetector") {
       return make_peak_detector(id, parsed["window_size"].get<size_t>());
     } else if (type == "Linear") {
-      return make_linear(id, parsed["coefficients"].get<std::vector<double>>(), max_size_per_port);
+      return make_linear(id, parsed["coefficients"].get<std::vector<double>>());
     } else if (type == "Subtraction") {
-      return make_subtraction(id, num_ports, max_size_per_port);
+      return make_subtraction(id, num_ports);
     } else if (type == "LogicalAnd") {
-      return make_logical_and(id, num_ports, max_size_per_port);
+      return make_logical_and(id, num_ports);
     } else if (type == "LogicalOr") {
-      return make_logical_or(id, num_ports, max_size_per_port);
+      return make_logical_or(id, num_ports);
     } else if (type == "LogicalXor") {
-      return make_logical_xor(id, num_ports, max_size_per_port);
+      return make_logical_xor(id, num_ports);
     } else if (type == "LogicalNand") {
-      return make_logical_nand(id, num_ports, max_size_per_port);
+      return make_logical_nand(id, num_ports);
     } else if (type == "LogicalNor") {
-      return make_logical_nor(id, num_ports, max_size_per_port);
+      return make_logical_nor(id, num_ports);
     } else if (type == "LogicalImplication") {
-      return make_logical_implication(id, num_ports, max_size_per_port);
+      return make_logical_implication(id, num_ports);
     } else if (type == "SyncGreaterThan") {
-      return make_sync_greater_than(id, num_ports, max_size_per_port);
+      return make_sync_greater_than(id, num_ports);
     } else if (type == "SyncLessThan") {
-      return make_sync_less_than(id, num_ports, max_size_per_port);
+      return make_sync_less_than(id, num_ports);
     } else if (type == "Scale") {
       return make_scale(id, parsed["value"].get<double>());
     } else if (type == "Power") {
@@ -131,11 +133,11 @@ class OperatorJson {
     } else if (type == "Add") {
       return make_add(id, parsed["value"].get<double>());
     } else if (type == "Division") {
-      return make_division(id, num_ports, max_size_per_port);
+      return make_division(id, num_ports);
     } else if (type == "Multiplication") {
-      return make_multiplication(id, num_ports, max_size_per_port);
+      return make_multiplication(id, num_ports);
     } else if (type == "Addition") {
-      return make_addition(id, num_ports, max_size_per_port);
+      return make_addition(id, num_ports);
     } else if (type == "GreaterThan") {
       return make_greater_than(id, parsed["value"].get<double>());
     } else if (type == "Function") {
@@ -157,9 +159,9 @@ class OperatorJson {
     } else if (type == "NotEqualTo") {
       return make_not_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
     } else if (type == "SyncEqual") {
-      return make_sync_equal(id, num_ports, parsed.value("epsilon", 1e-10), max_size_per_port);
+      return make_sync_equal(id, num_ports, parsed.value("epsilon", 1e-10));
     } else if (type == "SyncNotEqual") {
-      return make_sync_not_equal(id, num_ports, parsed.value("epsilon", 1e-10), max_size_per_port);
+      return make_sync_not_equal(id, num_ports, parsed.value("epsilon", 1e-10));
     } else if (type == "Sin") {
       return make_sin(id);
     } else if (type == "Cos") {
@@ -185,7 +187,7 @@ class OperatorJson {
     } else if (type == "TimestampExtract") {
       return make_timestamp_extract(id);
     } else if (type == "Variable") {
-      return make_variable(id, parsed.value("default_value", 0.0), max_size_per_port);
+      return make_variable(id, parsed.value("default_value", 0.0));
     } else if (type == "KeyedVariable") {
       return make_keyed_variable(id, parsed.value("mode", "exists"), parsed.value("default_value", 0.0));
     } else if (type == "TimeShift") {
@@ -197,10 +199,10 @@ class OperatorJson {
     } else if (type == "Demultiplexer") {
       auto port_type = parsed.value("portType", "number");
       auto num = parsed.value("numPorts", 1);
-      if (port_type == "vector_number") return make_demultiplexer_vector_number(id, num, max_size_per_port);
-      if (port_type == "boolean") return make_demultiplexer_boolean(id, num, max_size_per_port);
-      if (port_type == "vector_boolean") return make_demultiplexer_vector_boolean(id, num, max_size_per_port);
-      return make_demultiplexer_number(id, num, max_size_per_port);
+      if (port_type == "vector_number") return make_demultiplexer_vector_number(id, num);
+      if (port_type == "boolean") return make_demultiplexer_boolean(id, num);
+      if (port_type == "vector_boolean") return make_demultiplexer_vector_boolean(id, num);
+      return make_demultiplexer_number(id, num);
     } else if (type == "Multiplexer") {
       return make_multiplexer_number(id, parsed.value("numPorts", 2));
     } else if (type == "ResamplerConstant") {
@@ -219,6 +221,33 @@ class OperatorJson {
       return make_vector_project(id, parsed["indices"].get<std::vector<int>>());
     } else if (type == "VectorCompose") {
       return make_vector_compose(id, parsed["numPorts"].get<size_t>());
+    } else if (type == "FusedExpression") {
+      return make_fused_expression(
+          id, parsed["numPorts"].get<size_t>(),
+          parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("coefficients", std::vector<double>{}));
+    } else if (type == "FusedExpressionVector") {
+      return make_fused_expression_vector(
+          id, parsed["numOutputs"].get<size_t>(),
+          parsed["bytecode"].get<std::vector<double>>(),
+          parsed.value("constants", std::vector<double>{}),
+          parsed.value("coefficients", std::vector<double>{}));
+    } else if (type == "BurstAggregate") {
+      auto key_cols_int = parsed.value("keyColumns", std::vector<int>{});
+      std::vector<std::size_t> key_cols;
+      key_cols.reserve(key_cols_int.size());
+      for (int k : key_cols_int) key_cols.push_back(static_cast<std::size_t>(k));
+      return make_burst_aggregate(
+          id,
+          parsed["aggBytecode"].get<std::vector<double>>(),
+          parsed.value("aggConstants", std::vector<double>{}),
+          parsed.value("segBytecode", std::vector<double>{}),
+          parsed.value("segConstants", std::vector<double>{}),
+          std::move(key_cols),
+          parsed["numAggOutputs"].get<std::size_t>(),
+          parsed["numInputCols"].get<std::size_t>());
     } else if (type == "CompareGT") {
       return make_compare_gt(id, parsed["value"].get<double>());
     } else if (type == "CompareLT") {
@@ -232,17 +261,17 @@ class OperatorJson {
     } else if (type == "CompareNEQ") {
       return make_compare_neq(id, parsed["value"].get<double>(), parsed.value("tolerance", 0.0));
     } else if (type == "CompareSyncGT") {
-      return make_compare_sync_gt(id, max_size_per_port);
+      return make_compare_sync_gt(id);
     } else if (type == "CompareSyncLT") {
-      return make_compare_sync_lt(id, max_size_per_port);
+      return make_compare_sync_lt(id);
     } else if (type == "CompareSyncGTE") {
-      return make_compare_sync_gte(id, max_size_per_port);
+      return make_compare_sync_gte(id);
     } else if (type == "CompareSyncLTE") {
-      return make_compare_sync_lte(id, max_size_per_port);
+      return make_compare_sync_lte(id);
     } else if (type == "CompareSyncEQ") {
-      return make_compare_sync_eq(id, parsed.value("tolerance", 0.0), max_size_per_port);
+      return make_compare_sync_eq(id, parsed.value("tolerance", 0.0));
     } else if (type == "CompareSyncNEQ") {
-      return make_compare_sync_neq(id, parsed.value("tolerance", 0.0), max_size_per_port);
+      return make_compare_sync_neq(id, parsed.value("tolerance", 0.0));
     } else if (type == "MovingKeyCount") {
       return make_moving_key_count(id, parsed["window_size"].get<size_t>());
     } else if (type == "MinTracker") {
@@ -259,7 +288,16 @@ class OperatorJson {
     } else if (type == "BooleanToNumber") {
       return make_boolean_to_number(id);
     } else if (type == "KeyedPipeline") {
-      auto key_index = parsed["key_index"].get<int>();
+      // Computed key mode: keyColumnIndices (coefficients computed internally)
+      // Classic mode: key_index
+      int key_index = -1;
+      std::vector<int> key_column_indices;
+
+      if (parsed.contains("keyColumnIndices")) {
+        key_column_indices = parsed["keyColumnIndices"].get<std::vector<int>>();
+      } else {
+        key_index = parsed["key_index"].get<int>();
+      }
 
       // Build factory from embedded prototype definition
       const auto& proto = parsed["prototype"];
@@ -286,7 +324,11 @@ class OperatorJson {
         return sg;
       };
 
-      return make_keyed_pipeline(id, key_index, factory);
+      if (!key_column_indices.empty()) {
+        return make_keyed_pipeline(id, std::move(key_column_indices), factory);
+      } else {
+        return make_keyed_pipeline(id, key_index, factory);
+      }
     } else if (type == "Pipeline") {
       // Validate port types
       auto input_types = parsed["input_port_types"].get<std::vector<std::string>>();
@@ -316,7 +358,17 @@ class OperatorJson {
         throw std::runtime_error("Pipeline must contain at least one connection between operators");
       }
 
-      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types);
+      std::vector<double> segment_bytecode;
+      std::vector<double> segment_constants;
+      if (parsed.contains("segmentBytecode") && parsed["segmentBytecode"].is_array()) {
+        segment_bytecode = parsed["segmentBytecode"].get<std::vector<double>>();
+      }
+      if (parsed.contains("segmentConstants") && parsed["segmentConstants"].is_array()) {
+        segment_constants = parsed["segmentConstants"].get<std::vector<double>>();
+      }
+      auto pipeline = std::make_shared<Pipeline>(id, input_types, output_types,
+                                                  std::move(segment_bytecode),
+                                                  std::move(segment_constants));
 
       // Configure internal operators
       for (const auto& op_json : parsed["operators"]) {
@@ -335,7 +387,13 @@ class OperatorJson {
         std::string to = conn["to"].get<std::string>();
         size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
         size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
-        pipeline->connect(from, to, from_port, to_port);
+        const auto& ops = pipeline->get_operators();
+        auto from_it = ops.find(from);
+        auto to_it = ops.find(to);
+        if (from_it == ops.end() || to_it == ops.end()) {
+          throw std::runtime_error("Pipeline: invalid operator reference in connection from " + from + " to " + to);
+        }
+        pipeline->connect(from_it->second, to_it->second, from_port, to_port);
       }
 
       // Set entry operator
@@ -399,7 +457,13 @@ class OperatorJson {
           std::string to = conn["to"].get<std::string>();
           size_t from_port = conn.contains("fromPort") ? parse_port_name(conn["fromPort"]).index : 0;
           size_t to_port = conn.contains("toPort") ? parse_port_name(conn["toPort"]).index : 0;
-          trigger_set->connect(from, to, from_port, to_port);
+          const auto& ts_ops = trigger_set->get_operators();
+          auto from_it = ts_ops.find(from);
+          auto to_it = ts_ops.find(to);
+          if (from_it == ts_ops.end() || to_it == ts_ops.end()) {
+            throw std::runtime_error("TriggerSet: invalid operator reference in connection from " + from + " to " + to);
+          }
+          trigger_set->connect(from_it->second, to_it->second, from_port, to_port);
         }
       }
 
@@ -456,7 +520,6 @@ class OperatorJson {
       j["a_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_a_coeffs();
     } else if (type == "Join") {
       j["portTypes"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "Scale") {
       j["value"] = std::dynamic_pointer_cast<Scale>(op)->get_value();
     } else if (type == "Power") {
@@ -465,7 +528,6 @@ class OperatorJson {
       j["value"] = std::dynamic_pointer_cast<Add>(op)->get_value();
     } else if (type == "Linear") {
       j["coefficients"] = std::dynamic_pointer_cast<Linear>(op)->get_coefficients();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "PeakDetector") {
       j["window_size"] = std::dynamic_pointer_cast<PeakDetector>(op)->window_size();
     } else if (type == "GreaterThan") {
@@ -486,10 +548,8 @@ class OperatorJson {
       j["epsilon"] = std::dynamic_pointer_cast<NotEqualTo>(op)->get_epsilon();
     } else if (type == "SyncEqual") {
       j["epsilon"] = std::dynamic_pointer_cast<SyncEqual>(op)->get_epsilon();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "SyncNotEqual") {
       j["epsilon"] = std::dynamic_pointer_cast<SyncNotEqual>(op)->get_epsilon();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "GreaterThan") {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
     } else if (type == "LessThanOrEqualToReplace") {
@@ -497,19 +557,15 @@ class OperatorJson {
       j["replaceBy"] = std::dynamic_pointer_cast<LessThanOrEqualToReplace>(op)->get_replace_by();
     } else if (type == "Addition" || type == "Subtraction" || type == "Multiplication" || type == "Division") {
       j["numPorts"] = op->num_data_ports();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "SyncGreaterThan" || type == "SyncLessThan") {
       j["numPorts"] = op->num_data_ports();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "LogicalAnd" || type == "LogicalOr" || type == "LogicalXor" || type == "LogicalNand" ||
                type == "LogicalNor" || type == "LogicalImplication") {
       j["numPorts"] = std::dynamic_pointer_cast<BooleanSync>(op)->get_num_ports();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "Sin" || type == "Cos" || type == "Tan" || type == "Exp" || type == "Log" || type == "Log10" ||
                type == "Abs" || type == "Sign" || type == "Floor" || type == "Ceil" || type == "Round") {
     } else if (type == "Variable") {
       j["default_value"] = std::dynamic_pointer_cast<Variable>(op)->get_default_value();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "KeyedVariable") {
       auto kv = std::dynamic_pointer_cast<KeyedVariable>(op);
       j["mode"] = kv->get_mode();
@@ -529,7 +585,6 @@ class OperatorJson {
       } else {
         j["numPorts"] = std::dynamic_pointer_cast<Demultiplexer<NumberData>>(op)->get_num_ports();
       }
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "Multiplexer") {
       j["numPorts"] = std::dynamic_pointer_cast<Multiplexer<NumberData>>(op)->get_num_ports();
     } else if (type == "ResamplerConstant") {
@@ -549,6 +604,23 @@ class OperatorJson {
       j["indices"] = std::dynamic_pointer_cast<VectorProject>(op)->get_indices();
     } else if (type == "VectorCompose") {
       j["numPorts"] = std::dynamic_pointer_cast<VectorCompose>(op)->get_num_ports();
+    } else if (type == "FusedExpression") {
+      auto fe = std::dynamic_pointer_cast<FusedExpression>(op);
+      j["numPorts"] = fe->get_num_ports();
+      j["numOutputs"] = fe->get_num_outputs();
+      j["bytecode"] = fe->get_bytecode();
+      j["constants"] = fe->get_constants();
+      if (!fe->get_coefficients().empty()) {
+        j["coefficients"] = fe->get_coefficients();
+      }
+    } else if (type == "FusedExpressionVector") {
+      auto fev = std::dynamic_pointer_cast<FusedExpressionVector>(op);
+      j["numOutputs"] = fev->get_num_outputs();
+      j["bytecode"] = fev->get_bytecode();
+      j["constants"] = fev->get_constants();
+      if (!fev->get_coefficients().empty()) {
+        j["coefficients"] = fev->get_coefficients();
+      }
     } else if (type == "CompareGT") {
       j["value"] = std::dynamic_pointer_cast<CompareGT>(op)->get_value();
     } else if (type == "CompareLT") {
@@ -565,13 +637,11 @@ class OperatorJson {
       j["tolerance"] = std::dynamic_pointer_cast<CompareNEQ>(op)->get_tolerance();
     } else if (type == "CompareSyncGT" || type == "CompareSyncLT" ||
                type == "CompareSyncGTE" || type == "CompareSyncLTE") {
-      j["maxSizePerPort"] = op->max_size_per_port();
+      // No parameters
     } else if (type == "CompareSyncEQ") {
       j["tolerance"] = std::dynamic_pointer_cast<CompareSyncEQ>(op)->get_tolerance();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "CompareSyncNEQ") {
       j["tolerance"] = std::dynamic_pointer_cast<CompareSyncNEQ>(op)->get_tolerance();
-      j["maxSizePerPort"] = op->max_size_per_port();
     } else if (type == "MovingKeyCount") {
       j["window_size"] = std::dynamic_pointer_cast<MovingKeyCount>(op)->get_window_size();
     } else if (type == "MinTracker" || type == "MaxTracker") {
@@ -587,9 +657,17 @@ class OperatorJson {
       j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "BooleanToNumber") {
       // No parameters beyond id
+    } else if (type == "CumulativeSum") {
+      // No parameters beyond id
+    } else if (type == "CountNumber" || type == "CountBoolean") {
+      // No parameters beyond id
     } else if (type == "KeyedPipeline") {
       auto kp = std::dynamic_pointer_cast<KeyedPipeline>(op);
-      j["key_index"] = kp->get_key_index();
+      if (kp->has_computed_key()) {
+        j["keyColumnIndices"] = kp->get_key_column_indices();
+      } else {
+        j["key_index"] = kp->get_key_index();
+      }
     } else if (type == "Pipeline") {
       auto pipeline = std::dynamic_pointer_cast<Pipeline>(op);
       j["type"] = "Pipeline";
@@ -626,6 +704,12 @@ class OperatorJson {
           mapping_json["o" + std::to_string(op_port + 1)] = "o" + std::to_string(pipeline_port + 1);
         }
         j["outputMappings"][op_id] = mapping_json;
+      }
+
+      // Segment bytecode (if present)
+      if (!pipeline->get_segment_bytecode().empty()) {
+        j["segmentBytecode"] = pipeline->get_segment_bytecode();
+        j["segmentConstants"] = pipeline->get_segment_constants();
       }
     } else if (type == "TriggerSet") {
       auto trigger_set = std::dynamic_pointer_cast<TriggerSet>(op);

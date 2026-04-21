@@ -245,7 +245,7 @@
   "moduleExtensions": {
     "//tools:non_bcr_deps.bzl%non_bcr_deps": {
       "general": {
-        "bzlTransitiveDigest": "U3/9TiQa4bVRtYAT1Df1PCSr15IVxCMGJMX5TLVnd90=",
+        "bzlTransitiveDigest": "farzXnj261D8FvgHGp+PWfDnPHihuszs8VmJpKrAZsQ=",
         "usagesDigest": "/FOggdsPZRlq7vLBwgxO2Q8cadRepJieeUd30cgAUtk=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -351,6 +351,17 @@
               "build_file": "@@//tools/external:linenoise.BUILD",
               "strip_prefix": "cpp-linenoise-master",
               "url": "https://github.com/yhirose/cpp-linenoise/archive/refs/heads/master.zip"
+            }
+          },
+          "xsimd": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "build_file": "@@//tools/external:xsimd.BUILD",
+              "sha256": "8bdbbad0c3e7afa38d88d0d484d70a1671a1d8aefff03f4223ab2eb6a41110a3",
+              "strip_prefix": "xsimd-13.0.0",
+              "urls": [
+                "https://github.com/xtensor-stack/xsimd/archive/refs/tags/13.0.0.tar.gz"
+              ]
             }
           }
         },

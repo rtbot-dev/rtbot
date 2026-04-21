@@ -14,8 +14,8 @@ namespace rtbot {
 template <typename T>
 class Demultiplexer : public Operator {
  public:
-  Demultiplexer(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT)
-      : Operator(std::move(id), max_size_per_port) {
+  Demultiplexer(std::string id, size_t num_ports)
+      : Operator(std::move(id)) {
     if (num_ports < 1) {
       throw std::runtime_error("Number of output ports must be at least 1");
     }
@@ -72,13 +72,13 @@ class Demultiplexer : public Operator {
 
       auto& data_queue = get_data_queue(0);
       if (data_queue.empty()) return;
-      auto* msg = dynamic_cast<const Message<T>*>(data_queue.front().get());
-      auto* ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
+      auto* msg = static_cast<const Message<T>*>(data_queue.front().get());
+      auto* ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(0).front().get());
       if (msg && ctrl_msg && msg->time == ctrl_msg->time) {
         for (int i = 0; i < num_control_ports(); i++) {
-          ctrl_msg = dynamic_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());          
+          ctrl_msg = static_cast<const Message<BooleanData>*>(get_control_queue(i).front().get());          
           if (ctrl_msg->data.value) {
-            get_output_queue(i).push_back(data_queue.front()->clone());
+            emit_output(i, data_queue.front()->clone(), debug);
           }
           get_control_queue(i).pop_front();
         }
@@ -95,22 +95,22 @@ class Demultiplexer : public Operator {
 };
 
 // Factory functions for common configurations using PortType
-inline std::shared_ptr<Demultiplexer<NumberData>> make_demultiplexer_number(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<Demultiplexer<NumberData>> make_demultiplexer_number(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<NumberData>>(std::move(id), num_ports);
 }
 
-inline std::shared_ptr<Demultiplexer<BooleanData>> make_demultiplexer_boolean(std::string id, size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports, max_size_per_port);
+inline std::shared_ptr<Demultiplexer<BooleanData>> make_demultiplexer_boolean(std::string id, size_t num_ports) {
+  return std::make_shared<Demultiplexer<BooleanData>>(std::move(id), num_ports);
 }
 
 inline std::shared_ptr<Demultiplexer<VectorNumberData>> make_demultiplexer_vector_number(std::string id,
-                                                                                         size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports, max_size_per_port);
+                                                                                         size_t num_ports) {
+  return std::make_shared<Demultiplexer<VectorNumberData>>(std::move(id), num_ports);
 }
 
 inline std::shared_ptr<Demultiplexer<VectorBooleanData>> make_demultiplexer_vector_boolean(std::string id,
-                                                                                           size_t num_ports, size_t max_size_per_port = MAX_SIZE_PER_PORT) {
-  return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports, max_size_per_port);
+                                                                                           size_t num_ports) {
+  return std::make_shared<Demultiplexer<VectorBooleanData>>(std::move(id), num_ports);
 }
 
 }  // namespace rtbot

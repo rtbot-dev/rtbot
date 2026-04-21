@@ -139,7 +139,7 @@ class KeyedVariable : public Operator {
     auto& c2_queue = get_control_queue(1);
 
     while (!c2_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<NumberData>*>(c2_queue.front().get());
+      const auto* msg = static_cast<const Message<NumberData>*>(c2_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid heartbeat message type in KeyedVariable");
       }
@@ -157,20 +157,18 @@ class KeyedVariable : public Operator {
   void process_data(bool debug = false) override {
     auto& i1_queue = get_data_queue(0);
     auto& c1_queue = get_control_queue(0);
-    auto& out_queue = get_output_queue(0);
-
     // Step 1: apply all pending i1 updates
     while (!i1_queue.empty()) {
-      const auto* msg = dynamic_cast<const Message<VectorNumberData>*>(i1_queue.front().get());
+      const auto* msg = static_cast<const Message<VectorNumberData>*>(i1_queue.front().get());
       if (!msg) {
         throw std::runtime_error("Invalid data message type in KeyedVariable");
       }
-      if (msg->data.values.size() < 2) {
+      if (msg->data.values->size() < 2) {
         throw std::runtime_error("KeyedVariable i1 message must have 2 values: [key, value]");
       }
 
-      double key = msg->data.values[0];
-      double val = msg->data.values[1];
+      double key = (*msg->data.values)[0];
+      double val = (*msg->data.values)[1];
 
       if (std::isnan(val)) {
         hashmap_.erase(key);
@@ -186,7 +184,7 @@ class KeyedVariable : public Operator {
     timestamp_t resolve_up_to = std::max(heartbeat_time_, data_time_);
 
     while (!c1_queue.empty()) {
-      const auto* query = dynamic_cast<const Message<NumberData>*>(c1_queue.front().get());
+      const auto* query = static_cast<const Message<NumberData>*>(c1_queue.front().get());
       if (!query) {
         throw std::runtime_error("Invalid query message type in KeyedVariable");
       }
@@ -197,11 +195,11 @@ class KeyedVariable : public Operator {
 
       if (mode_ == "exists") {
         bool found = hashmap_.count(lookup_key) > 0;
-        out_queue.push_back(create_message<BooleanData>(query_time, BooleanData{found}));
+        emit_output(0, create_message<BooleanData>(query_time, BooleanData{found}), debug);
       } else {
         auto it = hashmap_.find(lookup_key);
         double result = (it != hashmap_.end()) ? it->second : default_value_;
-        out_queue.push_back(create_message<NumberData>(query_time, NumberData{result}));
+        emit_output(0, create_message<NumberData>(query_time, NumberData{result}), debug);
       }
 
       c1_queue.pop_front();

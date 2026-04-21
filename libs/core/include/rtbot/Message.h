@@ -10,6 +10,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "rtbot/PerfCounters.h"
+
 namespace rtbot {
 
 using timestamp_t = int64_t;
@@ -100,16 +102,74 @@ struct BooleanData {
 
 };
 
+// Thread-local freelist for per-message std::vector<double> buffers.
+//
+// Every VectorNumberData emission today does a make_shared<vector<double>>.
+// On the IMS hot path that's one malloc+free per message for the shared_ptr
+// control block and one malloc+free for the underlying double buffer — the
+// remaining allocator tier after the Message<T> pool (see below) is gone.
+// Recycle buffers through a TL ring; on last-shared_ptr death the custom
+// deleter returns the vector to the freelist with its capacity retained.
+struct VectorBufferPool {
+  static constexpr std::size_t kCap = 1024;
+  std::vector<std::vector<double>*> slots;
+  ~VectorBufferPool() {
+    for (auto* v : slots) delete v;
+  }
+};
+
+inline VectorBufferPool& tls_vector_double_pool() noexcept {
+  thread_local VectorBufferPool pool;
+  return pool;
+}
+
+inline std::shared_ptr<std::vector<double>> make_pooled_vector_double(
+    std::size_t size) {
+  auto& pool = tls_vector_double_pool();
+  std::vector<double>* raw;
+  if (!pool.slots.empty()) {
+    raw = pool.slots.back();
+    pool.slots.pop_back();
+    raw->resize(size);
+  } else {
+    raw = new std::vector<double>(size);
+  }
+  return std::shared_ptr<std::vector<double>>(
+      raw, [](std::vector<double>* v) noexcept {
+        auto& p = tls_vector_double_pool();
+        if (p.slots.size() < VectorBufferPool::kCap) {
+          v->clear();
+          p.slots.push_back(v);
+        } else {
+          delete v;
+        }
+      });
+}
+
 struct VectorNumberData {
-  std::vector<double> values;
+  // Shared-immutable buffer: clone() of Message<VectorNumberData> copies the
+  // shared_ptr (one atomic increment) instead of the entire vector (~161 KB
+  // for a 20K-sample burst). Construction sites build into a local vector
+  // then wrap it with make_shared or use the convenience constructor.
+  std::shared_ptr<std::vector<double>> values;
+
+  VectorNumberData() : values(make_pooled_vector_double(0)) {}
+  // Copy into a pooled buffer — `v`'s allocator can't be recycled since we
+  // don't own it. Hot-path emitters (FE/FEV) should build directly into a
+  // buffer obtained from make_pooled_vector_double and pass a shared_ptr.
+  VectorNumberData(std::vector<double> v) : values(make_pooled_vector_double(v.size())) {
+    for (std::size_t i = 0; i < v.size(); ++i) (*values)[i] = v[i];
+  }
+  VectorNumberData(std::shared_ptr<std::vector<double>> v)
+      : values(std::move(v)) {}
 
   Bytes serialize() const {
     Bytes bytes;
-    size_t size = values.size();
+    size_t size = values->size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
                  reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
 
-    for (const auto& value : values) {
+    for (const auto& value : *values) {
       bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&value),
                    reinterpret_cast<const uint8_t*>(&value) + sizeof(value));
     }
@@ -124,14 +184,14 @@ struct VectorNumberData {
     std::memcpy(&size, &(*it), sizeof(size));
     it += sizeof(size_t);
 
-    data.values.reserve(size);
+    data.values->reserve(size);
 
     // ---- read each double ----
     for (size_t i = 0; i < size; ++i) {
         double value;
         std::memcpy(&value, &(*it), sizeof(double));
         it += sizeof(double);
-        data.values.push_back(value);
+        data.values->push_back(value);
     }
     return data;
   }
@@ -146,9 +206,9 @@ struct VectorNumberData {
 
   uint64_t hash() const {
     uint64_t result = 0;
-    for (int i=0; i < values.size(); i++) {
+    for (int i=0; i < values->size(); i++) {
       uint64_t u;
-      double value = values.at(i);
+      double value = values->at(i);
       uint64_t quantize = static_cast<uint64_t>(value * 1e9);
       std::memcpy(&u, &quantize, sizeof(uint64_t));
       result = result + u;
@@ -158,11 +218,19 @@ struct VectorNumberData {
 };
 
 struct VectorBooleanData {
-  std::vector<bool> values;
+  // Shared-immutable buffer: clone() of Message<VectorBooleanData> copies the
+  // shared_ptr (one atomic increment) instead of the entire vector.
+  std::shared_ptr<std::vector<bool>> values;
+
+  VectorBooleanData() : values(std::make_shared<std::vector<bool>>()) {}
+  VectorBooleanData(std::vector<bool> v)
+      : values(std::make_shared<std::vector<bool>>(std::move(v))) {}
+  VectorBooleanData(std::shared_ptr<std::vector<bool>> v)
+      : values(std::move(v)) {}
 
   Bytes serialize() const {
     Bytes bytes;
-    size_t size = values.size();
+    size_t size = values->size();
     bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&size),
                  reinterpret_cast<const uint8_t*>(&size) + sizeof(size));
 
@@ -171,7 +239,7 @@ struct VectorBooleanData {
     std::vector<uint8_t> packed_bools(byte_count, 0);
 
     for (size_t i = 0; i < size; ++i) {
-      if (values[i]) {
+      if ((*values)[i]) {
         packed_bools[i / 8] |= (1 << (i % 8));
       }
     }
@@ -190,13 +258,13 @@ struct VectorBooleanData {
 
     // Number of bytes in the packed bitfield
     size_t byte_count = (size + 7) / 8;
-    data.values.reserve(size);
+    data.values->reserve(size);
 
     // ---- decode packed bits ----
     for (size_t i = 0; i < size; ++i) {
         uint8_t byte = *(it + (i / 8));
         bool value = (byte & (uint8_t(1) << (i % 8))) != 0;
-        data.values.push_back(value);
+        data.values->push_back(value);
     }
 
     // Advance iterator past the packed bytes
@@ -206,9 +274,9 @@ struct VectorBooleanData {
 
   uint64_t hash() const {
     uint64_t result = 0;
-    for (int i=0; i < values.size(); i++) {
+    for (int i=0; i < values->size(); i++) {
       uint64_t u;
-      if (values.at(i)) u = 1;
+      if (values->at(i)) u = 1;
       else u = 0;
       result = result + u;
     }
@@ -261,6 +329,68 @@ class Message : public BaseMessage {
 
   std::unique_ptr<BaseMessage> clone() const override { return std::make_unique<Message<T>>(time, data); }
 
+  // --- Thread-local object pool for Message<T> -----------------------------------
+  // Messages are heap-allocated per-sample on the rtbot hot path (see
+  // Program::receive → create_message, Operator::propagate_outputs → clone).
+  // Under profiling the allocator dominates at ~47% of CPU. Pool the Message
+  // blocks themselves to short-circuit malloc/free on the common case.
+  //
+  // Note: this pools the Message<T> object only. For T = VectorNumberData the
+  // inner std::vector<double> still allocates its own buffer; that is tracked
+  // as a follow-up optimization.
+ private:
+  struct Pool {
+    static constexpr std::size_t kCap = 1024;
+    void* slots[kCap];
+    std::size_t count = 0;
+    ~Pool() {
+      for (std::size_t i = 0; i < count; ++i) {
+        ::operator delete(slots[i]);
+      }
+    }
+  };
+
+  static Pool& tls_pool() noexcept {
+    thread_local Pool pool;
+    return pool;
+  }
+
+ public:
+  static void* operator new(std::size_t sz) {
+    if (sz == sizeof(Message<T>)) {
+      Pool& pool = tls_pool();
+      if (pool.count > 0) {
+        RTBOT_PERF_COUNT(MSG_ALLOC_POOL_HIT);
+        return pool.slots[--pool.count];
+      }
+    }
+    RTBOT_PERF_COUNT(MSG_ALLOC_POOL_MISS);
+    return ::operator new(sz);
+  }
+
+  static void operator delete(void* p, std::size_t sz) noexcept {
+    if (!p) return;
+    if (sz == sizeof(Message<T>)) {
+      Pool& pool = tls_pool();
+      if (pool.count < Pool::kCap) {
+        pool.slots[pool.count++] = p;
+        return;
+      }
+    }
+    ::operator delete(p);
+  }
+
+  static void operator delete(void* p) noexcept {
+    if (!p) return;
+    Pool& pool = tls_pool();
+    if (pool.count < Pool::kCap) {
+      pool.slots[pool.count++] = p;
+      return;
+    }
+    ::operator delete(p);
+  }
+  // --- end pool ------------------------------------------------------------------
+
   std::string to_string() const override {
     std::ostringstream ss;
     ss << "(" << time << ", ";
@@ -271,16 +401,16 @@ class Message : public BaseMessage {
       ss << (data.value ? "true" : "false");
     } else if constexpr (std::is_same_v<T, VectorNumberData>) {
       ss << "[";
-      for (size_t i = 0; i < data.values.size(); ++i) {
+      for (size_t i = 0; i < data.values->size(); ++i) {
         if (i > 0) ss << ", ";
-        ss << data.values[i];
+        ss << (*data.values)[i];
       }
       ss << "]";
     } else if constexpr (std::is_same_v<T, VectorBooleanData>) {
       ss << "[";
-      for (size_t i = 0; i < data.values.size(); ++i) {
+      for (size_t i = 0; i < data.values->size(); ++i) {
         if (i > 0) ss << ", ";
-        ss << (data.values[i] ? "true" : "false");
+        ss << ((*data.values)[i] ? "true" : "false");
       }
       ss << "]";
     }

@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/extension/LuaOperator.h"
 #include "rtbot/std/MovingAverage.h"
 
@@ -171,7 +172,9 @@ int main() {
   // Run benchmarks multiple times
   for (size_t run = 0; run < NUM_RUNS; run++) {
     // Native Implementation
-    auto native_op = std::make_unique<MovingAverage>("native_ma", WINDOW_SIZE);
+    auto native_op = std::make_shared<MovingAverage>("native_ma", WINDOW_SIZE);
+    auto native_col = std::make_shared<Collector>("nc", std::vector<std::string>{"number"});
+    native_op->connect(native_col, 0, 0);
     size_t initial_memory = get_peak_memory();
     auto start_time = high_resolution_clock::now();
 
@@ -181,13 +184,13 @@ int main() {
 
       // Only store results from first run
       if (run == 0) {
-        const auto& output = native_op->get_output_queue(0);
+        const auto& output = native_col->get_data_queue(0);
         for (const auto& out_msg : output) {
           const auto* num_msg = dynamic_cast<const Message<NumberData>*>(out_msg.get());
           native_results.emplace_back(num_msg->time, num_msg->data.value);
         }
       }
-      native_op->clear_all_output_ports();
+      native_col->reset();
     }
 
     auto end_time = high_resolution_clock::now();
@@ -198,7 +201,9 @@ int main() {
     native_avg_memory += peak_memory;
 
     // Lua Implementation
-    auto lua_op = std::make_unique<LuaOperator>("lua_ma", lua_code);
+    auto lua_op = std::make_shared<LuaOperator>("lua_ma", lua_code);
+    auto lua_col = std::make_shared<Collector>("lc", std::vector<std::string>{"number"});
+    lua_op->connect(lua_col, 0, 0);
     initial_memory = get_peak_memory();
     start_time = high_resolution_clock::now();
 
@@ -208,13 +213,13 @@ int main() {
 
       // Only store results from first run
       if (run == 0) {
-        const auto& output = lua_op->get_output_queue(0);
+        const auto& output = lua_col->get_data_queue(0);
         for (const auto& out_msg : output) {
           const auto* num_msg = dynamic_cast<const Message<NumberData>*>(out_msg.get());
           lua_results.emplace_back(num_msg->time, num_msg->data.value);
         }
       }
-      lua_op->clear_all_output_ports();
+      lua_col->reset();
     }
 
     end_time = high_resolution_clock::now();

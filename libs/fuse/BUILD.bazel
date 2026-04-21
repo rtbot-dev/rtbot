@@ -1,0 +1,42 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "md",
+    srcs = glob(["include/**/*.md"]),
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob([
+        "include/**/*.h",
+        "src/**/*.cpp",
+    ], allow_empty = True),
+)
+
+# FusedExpression / FusedExpressionVector and their shared bytecode /
+# scalar-evaluator / opcode-spec infrastructure. Split out of libs/std so this
+# initiative (bytecode compaction, batched evaluation, windowed opcodes,
+# dispatch upgrade, SIMD) has a clear home and can evolve independently of
+# the general standard operator library.
+#
+# Intentionally no hardcoded -O3: rtbot has empirically seen -O3 underperform
+# the default -c opt on some workloads. The Bazel compilation mode controls
+# optimization; benchmark with `bazel run -c opt`.
+cc_library(
+    name = "rtbot-fuse",
+    srcs = glob(["src/**/*.cpp"], allow_empty = True),
+    hdrs = glob(["include/**/*.h"]),
+    copts = [
+        "-ffp-contract=off",
+        "-fno-associative-math",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core:rtbot",
+        "//libs/std:rtbot-std",  # VectorCompose is FusedExpression's parent class
+        "@xsimd//:lib",
+    ],
+)

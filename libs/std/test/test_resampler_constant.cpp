@@ -1,5 +1,6 @@
 #include <catch2/catch.hpp>
 
+#include "rtbot/Collector.h"
 #include "rtbot/std/ResamplerConstant.h"
 
 using namespace rtbot;
@@ -11,13 +12,15 @@ SCENARIO("ResamplerConstant initialization", "[ResamplerConstant]") {
   }
 
   SECTION("Handles invalid message types") {
-    auto resampler = ResamplerConstant<NumberData>("test", 5);
-    REQUIRE_THROWS_AS(resampler.receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
+    auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 5);
+    REQUIRE_THROWS_AS(resampler->receive_data(create_message<BooleanData>(1, BooleanData{true}), 0), std::runtime_error);
   }
 }
 
 SCENARIO("ResamplerConstant downsampling without t0", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 10);  // Grid: msg_time + 10, +20,...
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 10);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("Input frequency higher than grid") {
     std::vector<std::pair<timestamp_t, double>> inputs = {
@@ -30,11 +33,11 @@ SCENARIO("ResamplerConstant downsampling without t0", "[ResamplerConstant]") {
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
-    const auto& output = resampler.get_output_queue(0);
+    resampler->execute();
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     const auto* msg1 = dynamic_cast<const Message<NumberData>*>(output[0].get());
@@ -48,7 +51,9 @@ SCENARIO("ResamplerConstant downsampling without t0", "[ResamplerConstant]") {
 }
 
 SCENARIO("ResamplerConstant upsampling without t0", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 5);  // Grid: msg_time + 5, +10,...
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 5);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("Input frequency lower than grid") {
     std::vector<std::pair<timestamp_t, double>> inputs = {
@@ -58,11 +63,11 @@ SCENARIO("ResamplerConstant upsampling without t0", "[ResamplerConstant]") {
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
-    const auto& output = resampler.get_output_queue(0);
+    resampler->execute();
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 4);
 
     std::vector<std::pair<timestamp_t, double>> expected = {{6, 10.0}, {11, 10.0}, {16, 20.0}, {21, 20.0}};
@@ -77,29 +82,31 @@ SCENARIO("ResamplerConstant upsampling without t0", "[ResamplerConstant]") {
 
 SCENARIO("ResamplerConstant operator handles serialization", "[ResamplerConstant][State]") {
   GIVEN("A linear join" ) {
-    auto rc = ResamplerConstant<NumberData>("resampler_constant", 1);
-    rc.receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
-    rc.receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
-    rc.receive_data(create_message<NumberData>(5, NumberData{5.0}), 0);
-    rc.receive_data(create_message<NumberData>(7, NumberData{7.0}), 0);
-    rc.receive_data(create_message<NumberData>(9, NumberData{9.0}), 0);
-    rc.execute();
-    rc.receive_data(create_message<NumberData>(11, NumberData{11.0}), 0);
-    
+    auto rc = std::make_shared<ResamplerConstant<NumberData>>("resampler_constant", 1);
+    rc->receive_data(create_message<NumberData>(1, NumberData{1.0}), 0);
+    rc->receive_data(create_message<NumberData>(3, NumberData{3.0}), 0);
+    rc->receive_data(create_message<NumberData>(5, NumberData{5.0}), 0);
+    rc->receive_data(create_message<NumberData>(7, NumberData{7.0}), 0);
+    rc->receive_data(create_message<NumberData>(9, NumberData{9.0}), 0);
+    rc->execute();
+    rc->receive_data(create_message<NumberData>(11, NumberData{11.0}), 0);
 
-    auto state = rc.collect();
-    auto restored = ResamplerConstant<NumberData>("resampler_constant", 1);
-    restored.restore_data_from_json(state);
-  
-    
+
+    auto state = rc->collect();
+    auto restored = std::make_shared<ResamplerConstant<NumberData>>("resampler_constant", 1);
+    restored->restore_data_from_json(state);
+
+
     SECTION("verifying deserialization") {
-      REQUIRE(restored == rc);
+      REQUIRE(*restored == *rc);
     }
   }
 }
 
 SCENARIO("ResamplerConstant with fixed t0", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 10, 5);  // Grid: 5,15,25,...
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 10, 5);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("Processing mixed frequency input") {
     std::vector<std::pair<timestamp_t, double>> inputs = {
@@ -110,11 +117,11 @@ SCENARIO("ResamplerConstant with fixed t0", "[ResamplerConstant]") {
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
-    const auto& output = resampler.get_output_queue(0);
+    resampler->execute();
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     std::vector<std::pair<timestamp_t, double>> expected = {{5, 10.0}, {15, 20.0}, {25, 30.0}};
@@ -128,11 +135,11 @@ SCENARIO("ResamplerConstant with fixed t0", "[ResamplerConstant]") {
 }
 
 SCENARIO("ResamplerConstant with snap_first and t0=0", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 10, 0, true);  // Grid: 0,10,20,... snap_first
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 10, 0, true);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("First message arrives mid-grid") {
-    // snap_first updates value BEFORE emitting at grid points, so each
-    // message's value is immediately used at the next grid point.
     std::vector<std::pair<timestamp_t, double>> inputs = {
         {8, 10.0},   // Snaps to grid point 0, emits t=0 with value=10.0
         {15, 20.0},  // Updates value first, emits t=10 with value=20.0
@@ -140,11 +147,11 @@ SCENARIO("ResamplerConstant with snap_first and t0=0", "[ResamplerConstant]") {
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
-    const auto& output = resampler.get_output_queue(0);
+    resampler->execute();
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 3);
 
     std::vector<std::pair<timestamp_t, double>> expected = {{0, 10.0}, {10, 20.0}, {20, 30.0}};
@@ -158,7 +165,9 @@ SCENARIO("ResamplerConstant with snap_first and t0=0", "[ResamplerConstant]") {
 }
 
 SCENARIO("ResamplerConstant snap_first on exact grid point", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 10, 0, true);  // Grid: 0,10,20,...
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 10, 0, true);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("First message arrives exactly on grid point") {
     std::vector<std::pair<timestamp_t, double>> inputs = {
@@ -167,11 +176,11 @@ SCENARIO("ResamplerConstant snap_first on exact grid point", "[ResamplerConstant
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
-    const auto& output = resampler.get_output_queue(0);
+    resampler->execute();
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     std::vector<std::pair<timestamp_t, double>> expected = {{10, 10.0}, {20, 20.0}};
@@ -185,7 +194,9 @@ SCENARIO("ResamplerConstant snap_first on exact grid point", "[ResamplerConstant
 }
 
 SCENARIO("ResamplerConstant with t0 after first message", "[ResamplerConstant]") {
-  auto resampler = ResamplerConstant<NumberData>("test", 10, 50);  // Grid: 50,60,70,...
+  auto resampler = std::make_shared<ResamplerConstant<NumberData>>("test", 10, 50);
+  auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+  resampler->connect(col, 0, 0);
 
   WHEN("First messages arrive before t0") {
     std::vector<std::pair<timestamp_t, double>> inputs = {
@@ -197,12 +208,12 @@ SCENARIO("ResamplerConstant with t0 after first message", "[ResamplerConstant]")
     };
 
     for (const auto& [time, value] : inputs) {
-      resampler.receive_data(create_message<NumberData>(time, NumberData{value}), 0);
+      resampler->receive_data(create_message<NumberData>(time, NumberData{value}), 0);
     }
 
-    resampler.execute();
+    resampler->execute();
 
-    const auto& output = resampler.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 2);
 
     std::vector<std::pair<timestamp_t, double>> expected = {

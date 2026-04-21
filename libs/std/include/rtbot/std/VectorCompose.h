@@ -14,10 +14,9 @@ namespace rtbot {
 
 class VectorCompose : public Join {
  public:
-  VectorCompose(std::string id, size_t num_ports,
-                size_t max_size_per_port = MAX_SIZE_PER_PORT)
+  VectorCompose(std::string id, size_t num_ports)
       : Join(std::move(id), std::vector<std::string>(num_ports, PortType::NUMBER),
-             {PortType::VECTOR_NUMBER}, max_size_per_port,
+             {PortType::VECTOR_NUMBER},
              /*allow_single_port=*/true),
         num_ports_(num_ports) {
     if (num_ports < 1) {
@@ -55,19 +54,19 @@ class VectorCompose : public Join {
       timestamp_t time = 0;
 
       for (size_t i = 0; i < num_ports_; i++) {
-        const auto* msg = dynamic_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
+        const auto* msg = static_cast<const Message<NumberData>*>(get_data_queue(i).front().get());
         if (!msg) {
           throw std::runtime_error("Invalid message type in VectorCompose");
         }
         time = msg->time;
-        result.values.push_back(msg->data.value);
+        result.values->push_back(msg->data.value);
       }
 
       for (size_t i = 0; i < num_ports_; i++) {
         get_data_queue(i).pop_front();
       }
 
-      get_output_queue(0).push_back(create_message<VectorNumberData>(time, result));
+      emit_output(0, create_message<VectorNumberData>(time, result), debug);
     }
   }
 

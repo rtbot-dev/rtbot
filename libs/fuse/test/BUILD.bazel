@@ -1,0 +1,38 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.h",
+    ]),
+    data = glob([
+        "**/*.json",
+        "**/*.csv",
+    ], allow_empty = True),
+    copts = [
+        "-DCATCH_CONFIG_POSIX_SIGNALS",
+        "-g",
+        "-fsanitize=address",
+        "-Wno-macro-redefined",
+        "-ffp-contract=off",
+        "-fno-associative-math",
+        "-Ilibs/fuse/test",
+    ],
+    linkopts = [
+        "-fsanitize=address",
+    ],
+    deps = [
+        "//libs/api:rtbot-api",
+        "//libs/fuse:rtbot-fuse",
+        "//libs/std:rtbot-std",
+        "@catch2",
+    ] + select({
+        "//:enable_telemetry": [
+            "@io_opentelemetry_cpp//api",
+            "@io_opentelemetry_cpp//exporters/otlp:otlp_file_exporter",
+            "@io_opentelemetry_cpp//sdk/src/trace",
+        ],
+        "//conditions:default": [],
+    }),
+)

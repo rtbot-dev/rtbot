@@ -3,13 +3,16 @@
 #include <cmath>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/finance/RelativeStrengthIndex.h"
 
 using namespace rtbot;
 
 SCENARIO("RelativeStrengthIndex operator computes correct RSI values", "[rsi]") {
   GIVEN("A RelativeStrengthIndex operator with period 14") {
-    auto rsi = RelativeStrengthIndex("rsi", 14);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 14);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Test data based on typical RSI calculation examples
     std::vector<double> values = {
@@ -28,10 +31,10 @@ SCENARIO("RelativeStrengthIndex operator computes correct RSI values", "[rsi]") 
 
     WHEN("Processing the input sequence") {
       for (size_t i = 0; i < values.size(); i++) {
-        rsi.receive_data(create_message<NumberData>(i + 1, NumberData{values[i]}), 0);
-        rsi.execute();
+        rsi->receive_data(create_message<NumberData>(i + 1, NumberData{values[i]}), 0);
+        rsi->execute();
 
-        const auto& output = rsi.get_output_queue(0);
+        const auto& output = col->get_data_queue(0);
 
         if (i < 14) {
           THEN("No output is produced for first 14 values at index " + std::to_string(i)) {
@@ -47,7 +50,7 @@ SCENARIO("RelativeStrengthIndex operator computes correct RSI values", "[rsi]") 
           }
         }
 
-        rsi.clear_all_output_ports();
+        col->reset();
       }
     }
   }
@@ -55,22 +58,24 @@ SCENARIO("RelativeStrengthIndex operator computes correct RSI values", "[rsi]") 
 
 SCENARIO("RelativeStrengthIndex operator handles edge cases", "[rsi]") {
   SECTION("Small period") {
-    auto rsi = RelativeStrengthIndex("rsi", 2);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Send 3 values (period + 1 needed for first output)
-    rsi.receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
-    rsi.execute();
-    REQUIRE(rsi.get_output_queue(0).empty());
+    rsi->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+    rsi->execute();
+    REQUIRE(col->get_data_queue(0).empty());
 
-    rsi.receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
-    rsi.execute();
-    REQUIRE(rsi.get_output_queue(0).empty());
+    rsi->receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
+    rsi->execute();
+    REQUIRE(col->get_data_queue(0).empty());
 
-    rsi.receive_data(create_message<NumberData>(3, NumberData{14.0}), 0);
-    rsi.execute();
+    rsi->receive_data(create_message<NumberData>(3, NumberData{14.0}), 0);
+    rsi->execute();
 
     // Should have output now
-    const auto& output = rsi.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -80,17 +85,19 @@ SCENARIO("RelativeStrengthIndex operator handles edge cases", "[rsi]") {
   }
 
   SECTION("All losses") {
-    auto rsi = RelativeStrengthIndex("rsi", 2);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Send decreasing values
-    rsi.receive_data(create_message<NumberData>(1, NumberData{20.0}), 0);
-    rsi.execute();
-    rsi.receive_data(create_message<NumberData>(2, NumberData{15.0}), 0);
-    rsi.execute();
-    rsi.receive_data(create_message<NumberData>(3, NumberData{10.0}), 0);
-    rsi.execute();
+    rsi->receive_data(create_message<NumberData>(1, NumberData{20.0}), 0);
+    rsi->execute();
+    rsi->receive_data(create_message<NumberData>(2, NumberData{15.0}), 0);
+    rsi->execute();
+    rsi->receive_data(create_message<NumberData>(3, NumberData{10.0}), 0);
+    rsi->execute();
 
-    const auto& output = rsi.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -100,17 +107,19 @@ SCENARIO("RelativeStrengthIndex operator handles edge cases", "[rsi]") {
   }
 
   SECTION("No change in values") {
-    auto rsi = RelativeStrengthIndex("rsi", 2);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 2);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Send same value multiple times
-    rsi.receive_data(create_message<NumberData>(1, NumberData{50.0}), 0);
-    rsi.execute();
-    rsi.receive_data(create_message<NumberData>(2, NumberData{50.0}), 0);
-    rsi.execute();
-    rsi.receive_data(create_message<NumberData>(3, NumberData{50.0}), 0);
-    rsi.execute();
+    rsi->receive_data(create_message<NumberData>(1, NumberData{50.0}), 0);
+    rsi->execute();
+    rsi->receive_data(create_message<NumberData>(2, NumberData{50.0}), 0);
+    rsi->execute();
+    rsi->receive_data(create_message<NumberData>(3, NumberData{50.0}), 0);
+    rsi->execute();
 
-    const auto& output = rsi.get_output_queue(0);
+    const auto& output = col->get_data_queue(0);
     REQUIRE(output.size() == 1);
 
     const auto* msg = dynamic_cast<const Message<NumberData>*>(output.front().get());
@@ -122,36 +131,40 @@ SCENARIO("RelativeStrengthIndex operator handles edge cases", "[rsi]") {
 
 SCENARIO("RelativeStrengthIndex serialization", "[rsi][State]") {
   GIVEN("An RSI operator with accumulated state") {
-    auto rsi = RelativeStrengthIndex("rsi", 3);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Feed enough data to initialize and produce output
-    rsi.receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
-    rsi.execute();
-    rsi.clear_all_output_ports();
-    rsi.receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
-    rsi.execute();
-    rsi.clear_all_output_ports();
-    rsi.receive_data(create_message<NumberData>(3, NumberData{11.0}), 0);
-    rsi.execute();
-    rsi.clear_all_output_ports();
-    rsi.receive_data(create_message<NumberData>(4, NumberData{14.0}), 0);
-    rsi.execute();
-    rsi.clear_all_output_ports();
+    rsi->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+    rsi->execute();
+    col->reset();
+    rsi->receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
+    rsi->execute();
+    col->reset();
+    rsi->receive_data(create_message<NumberData>(3, NumberData{11.0}), 0);
+    rsi->execute();
+    col->reset();
+    rsi->receive_data(create_message<NumberData>(4, NumberData{14.0}), 0);
+    rsi->execute();
+    col->reset();
 
     WHEN("State is serialized and restored") {
-      auto state = rsi.collect();
+      auto state = rsi->collect();
 
-      auto restored = RelativeStrengthIndex("rsi", 3);
-      restored.restore_data_from_json(state);
+      auto restored = std::make_shared<RelativeStrengthIndex>("rsi", 3);
+      auto rcol = std::make_shared<Collector>("rc", std::vector<std::string>{"number"});
+      restored->connect(rcol, 0, 0);
+      restored->restore_data_from_json(state);
 
       THEN("Restored operator produces same output as original") {
-        rsi.receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
-        rsi.execute();
-        restored.receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
-        restored.execute();
+        rsi->receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
+        rsi->execute();
+        restored->receive_data(create_message<NumberData>(5, NumberData{13.0}), 0);
+        restored->execute();
 
-        const auto& orig_out = rsi.get_output_queue(0);
-        const auto& rest_out = restored.get_output_queue(0);
+        const auto& orig_out = col->get_data_queue(0);
+        const auto& rest_out = rcol->get_data_queue(0);
         REQUIRE(orig_out.size() == rest_out.size());
         REQUIRE(orig_out.size() == 1);
 
@@ -166,24 +179,27 @@ SCENARIO("RelativeStrengthIndex serialization", "[rsi][State]") {
 
 SCENARIO("RelativeStrengthIndex reset functionality", "[rsi]") {
   GIVEN("An RSI operator with some state") {
-    auto rsi = RelativeStrengthIndex("rsi", 3);
+    auto rsi = std::make_shared<RelativeStrengthIndex>("rsi", 3);
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    rsi->connect(col, 0, 0);
 
     // Add some data
-    rsi.receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
-    rsi.execute();
-    rsi.receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
-    rsi.execute();
+    rsi->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+    rsi->execute();
+    rsi->receive_data(create_message<NumberData>(2, NumberData{12.0}), 0);
+    rsi->execute();
 
     WHEN("Reset is called") {
-      rsi.reset();
+      rsi->reset();
+      col->reset();
 
       THEN("Operator behaves as if freshly constructed") {
         // Add same data again
-        rsi.receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
-        rsi.execute();
+        rsi->receive_data(create_message<NumberData>(1, NumberData{10.0}), 0);
+        rsi->execute();
 
         // Should have no output yet (buffer not full)
-        REQUIRE(rsi.get_output_queue(0).empty());
+        REQUIRE(col->get_data_queue(0).empty());
       }
     }
   }

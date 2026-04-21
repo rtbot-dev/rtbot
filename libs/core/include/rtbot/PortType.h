@@ -48,6 +48,15 @@ class PortType {
     }
   }
 
+  // Get port type string from type_index
+  static std::string type_index_to_string(std::type_index ti) {
+    if (ti == std::type_index(typeid(NumberData))) return NUMBER;
+    if (ti == std::type_index(typeid(BooleanData))) return BOOLEAN;
+    if (ti == std::type_index(typeid(VectorNumberData))) return VECTOR_NUMBER;
+    if (ti == std::type_index(typeid(VectorBooleanData))) return VECTOR_BOOLEAN;
+    throw std::runtime_error("Unknown type_index for port type");
+  }
+
   // Validate port type string
   static bool is_valid_port_type(const std::string& port_type) {
     return port_type == NUMBER || port_type == BOOLEAN || port_type == VECTOR_NUMBER || port_type == VECTOR_BOOLEAN;
@@ -60,9 +69,9 @@ class PortType {
     } else if (port_type == BOOLEAN) {
       return rtbot::create_message<BooleanData>(time, {false});
     } else if (port_type == VECTOR_NUMBER) {
-      return rtbot::create_message<VectorNumberData>(time, {{}});
+      return rtbot::create_message<VectorNumberData>(time, VectorNumberData{});
     } else if (port_type == VECTOR_BOOLEAN) {
-      return rtbot::create_message<VectorBooleanData>(time, {{}});
+      return rtbot::create_message<VectorBooleanData>(time, VectorBooleanData{});
     } else {
       throw std::runtime_error("Unknown port type: " + port_type);
     }
