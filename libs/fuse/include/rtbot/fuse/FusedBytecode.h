@@ -89,7 +89,7 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
   const double kNegInf = -std::numeric_limits<double>::infinity();
   constexpr std::size_t kU16Max = std::numeric_limits<std::uint16_t>::max();
 
-  auto check_u16 = [](std::size_t v, const char* name) {
+  auto check_u16 = [kU16Max](std::size_t v, const char* name) {
     if (v > kU16Max) {
       throw std::runtime_error(
           std::string("pack_bytecode: ") + name + " " + std::to_string(v) +
