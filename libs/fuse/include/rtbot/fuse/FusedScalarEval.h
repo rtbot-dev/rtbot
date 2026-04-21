@@ -509,10 +509,12 @@ inline bool evaluate_one(
           y_comp = (t - y_n) - term;
           y_n = t;
         }
-        const std::size_t yi = static_cast<std::size_t>(y_head);
-        y_ring[yi] = y_n;
-        y_head = static_cast<double>((yi + 1) % A_len);
-        if (y_count < static_cast<double>(A_len)) y_count = y_count + 1.0;
+        if (A_len > 0) {
+          const std::size_t yi = static_cast<std::size_t>(y_head);
+          y_ring[yi] = y_n;
+          y_head = static_cast<double>((yi + 1) % A_len);
+          if (y_count < static_cast<double>(A_len)) y_count = y_count + 1.0;
+        }
 
         stack[sp - 1] = y_n;
         break;
