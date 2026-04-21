@@ -87,6 +87,15 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
   PackResult out;
   const double kPosInf = std::numeric_limits<double>::infinity();
   const double kNegInf = -std::numeric_limits<double>::infinity();
+  constexpr std::size_t kU16Max = std::numeric_limits<std::uint16_t>::max();
+
+  auto check_u16 = [](std::size_t v, const char* name) {
+    if (v > kU16Max) {
+      throw std::runtime_error(
+          std::string("pack_bytecode: ") + name + " " + std::to_string(v) +
+          " exceeds uint16_t capacity (" + std::to_string(kU16Max) + ")");
+    }
+  };
 
   auto reserve_state = [&](std::size_t off, std::size_t count, double fill) {
     const std::size_t end = off + count;
@@ -135,42 +144,49 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
     switch (op) {
       case 0 /* INPUT */:
       case 1 /* CONST */: {
-        const std::uint16_t arg = static_cast<std::uint16_t>(bc[pc]);
-        out.packed.push_back({op, 0, arg});
+        const std::size_t arg = static_cast<std::size_t>(bc[pc]);
+        check_u16(arg, op == 0 ? "INPUT index" : "CONST index");
+        out.packed.push_back({op, 0, static_cast<std::uint16_t>(arg)});
         break;
       }
       case 21 /* CUMSUM */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "CUMSUM state offset");
         reserve_state(off, 2, 0.0);
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
       }
       case 22 /* COUNT */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "COUNT state offset");
         reserve_state(off, 1, 0.0);
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
       }
       case 23 /* MAX_AGG */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "MAX_AGG state offset");
         reserve_state(off, 1, kNegInf);
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
       }
       case 24 /* MIN_AGG */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "MIN_AGG state offset");
         reserve_state(off, 1, kPosInf);
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
       }
       case 25 /* STATE_LOAD */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "STATE_LOAD state offset");
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
       }
       case 38 /* DIFF */:
       case 39 /* SIGN_CHANGE */: {
         const std::size_t off = static_cast<std::size_t>(bc[pc]);
+        check_u16(off, "DIFF/SIGN_CHANGE state offset");
         reserve_state(off, 2, 0.0);
         out.packed.push_back({op, 0, static_cast<std::uint16_t>(off)});
         break;
@@ -178,9 +194,13 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
       case 35 /* MA_UPDATE */:
       case 36 /* MSUM_UPDATE */: {
         const std::size_t W = static_cast<std::size_t>(bc[pc]);
+        if (W == 0) throw std::runtime_error("pack_bytecode: MA/MSUM window size must be >= 1");
+        check_u16(W, "MA/MSUM window size");
         const std::size_t off = state_cursor;
+        check_u16(off, "MA/MSUM state offset");
         state_cursor += W + 3;
         reserve_state(off, W + 3, 0.0);
+        check_u16(out.aux_args.size(), "aux_args index");
         const std::uint16_t aux_idx =
             static_cast<std::uint16_t>(out.aux_args.size());
         out.aux_args.push_back({static_cast<std::uint16_t>(off),
@@ -190,9 +210,13 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
       }
       case 37 /* STD_UPDATE */: {
         const std::size_t W = static_cast<std::size_t>(bc[pc]);
+        if (W == 0) throw std::runtime_error("pack_bytecode: STD window size must be >= 1");
+        check_u16(W, "STD window size");
         const std::size_t off = state_cursor;
+        check_u16(off, "STD state offset");
         state_cursor += W + 4;
         reserve_state(off, W + 4, 0.0);
+        check_u16(out.aux_args.size(), "aux_args index");
         const std::uint16_t aux_idx =
             static_cast<std::uint16_t>(out.aux_args.size());
         out.aux_args.push_back({static_cast<std::uint16_t>(off),
@@ -203,9 +227,13 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
       case 40 /* WIN_MIN */:
       case 41 /* WIN_MAX */: {
         const std::size_t W = static_cast<std::size_t>(bc[pc]);
+        if (W == 0) throw std::runtime_error("pack_bytecode: WIN_MIN/WIN_MAX window size must be >= 1");
+        check_u16(W, "WIN_MIN/WIN_MAX window size");
         const std::size_t off = state_cursor;
+        check_u16(off, "WIN_MIN/WIN_MAX state offset");
         state_cursor += 2 * W + 2;
         reserve_state(off, 2 * W + 2, 0.0);
+        check_u16(out.aux_args.size(), "aux_args index");
         const std::uint16_t aux_idx =
             static_cast<std::uint16_t>(out.aux_args.size());
         out.aux_args.push_back({static_cast<std::uint16_t>(off),
@@ -216,10 +244,15 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
       case 42 /* FIR_UPDATE */: {
         const std::size_t coeff_start = static_cast<std::size_t>(bc[pc]);
         const std::size_t coeff_len = static_cast<std::size_t>(bc[pc + 1]);
+        if (coeff_len == 0) throw std::runtime_error("pack_bytecode: FIR coeff_len must be >= 1");
+        check_u16(coeff_start, "FIR coeff_start");
+        check_u16(coeff_len, "FIR coeff_len");
         const std::size_t W = coeff_len;
         const std::size_t off = state_cursor;
+        check_u16(off, "FIR state offset");
         state_cursor += W + 2;
         reserve_state(off, W + 2, 0.0);
+        check_u16(out.aux_args.size(), "aux_args index");
         const std::uint16_t aux_idx =
             static_cast<std::uint16_t>(out.aux_args.size());
         out.aux_args.push_back({static_cast<std::uint16_t>(off),
@@ -233,9 +266,15 @@ inline PackResult pack_bytecode(const std::vector<double>& bc) {
         const std::size_t b_len = static_cast<std::size_t>(bc[pc]);
         const std::size_t a_len = static_cast<std::size_t>(bc[pc + 1]);
         const std::size_t coeff_start = static_cast<std::size_t>(bc[pc + 2]);
+        if (b_len == 0) throw std::runtime_error("pack_bytecode: IIR b_len must be >= 1");
+        check_u16(b_len, "IIR b_len");
+        check_u16(a_len, "IIR a_len");
+        check_u16(coeff_start, "IIR coeff_start");
         const std::size_t off = state_cursor;
+        check_u16(off, "IIR state offset");
         state_cursor += b_len + a_len + 4;
         reserve_state(off, b_len + a_len + 4, 0.0);
+        check_u16(out.aux_args.size(), "aux_args index");
         const std::uint16_t aux_idx =
             static_cast<std::uint16_t>(out.aux_args.size());
         out.aux_args.push_back({static_cast<std::uint16_t>(off),
