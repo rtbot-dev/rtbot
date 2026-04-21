@@ -33,6 +33,7 @@
 #include <string>
 #include <vector>
 
+#include "rtbot/Collector.h"
 #include "rtbot/fuse/FusedAuxArgs.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/fuse/FusedExpressionVector.h"
@@ -158,6 +159,8 @@ Result run_fe(const Case& c, std::size_t chunk) {
   auto op = make_fused_expression(c.name + "_fe", c.num_inputs, c.num_outputs,
                                     c.bytecode, c.constants, c.coefficients,
                                     c.state_init);
+  auto col = make_vector_number_collector(c.name + "_fe_col");
+  op->connect(col, 0, 0);
 
   auto t0 = std::chrono::steady_clock::now();
   std::size_t queued = 0;
@@ -177,7 +180,7 @@ Result run_fe(const Case& c, std::size_t chunk) {
   auto t1 = std::chrono::steady_clock::now();
 
   Sha256 h;
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   for (std::size_t t = 0; t < q.size(); ++t) {
     const auto* m = static_cast<const Message<VectorNumberData>*>(q[t].get());
     for (double v : *m->data.values) h.update(v);
@@ -198,6 +201,8 @@ Result run_fev(const Case& c, std::size_t chunk) {
   auto op = make_fused_expression_vector(c.name + "_fev", c.num_outputs,
                                            c.bytecode, c.constants,
                                            c.coefficients, c.state_init);
+  auto col = make_vector_number_collector(c.name + "_fev_col");
+  op->connect(col, 0, 0);
 
   auto t0 = std::chrono::steady_clock::now();
   std::size_t queued = 0;
@@ -216,7 +221,7 @@ Result run_fev(const Case& c, std::size_t chunk) {
   auto t1 = std::chrono::steady_clock::now();
 
   Sha256 h;
-  auto& q = op->get_output_queue(0);
+  auto& q = col->get_data_queue(0);
   for (std::size_t t = 0; t < q.size(); ++t) {
     const auto* m = static_cast<const Message<VectorNumberData>*>(q[t].get());
     for (double v : *m->data.values) h.update(v);
