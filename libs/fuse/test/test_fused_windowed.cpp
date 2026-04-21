@@ -15,6 +15,7 @@
 #include "rtbot/fuse/FusedBatchEval.h"
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedExpression.h"
+#include "rtbot/fuse/FusedExpressionVector.h"
 #include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 #include "rtbot/fuse/FusedStateLayout.h"
@@ -529,6 +530,73 @@ SCENARIO("Windowed-opcode state survives collect_bytes + restore mid-stream",
     const auto* m = dynamic_cast<const Message<VectorNumberData>*>(qb[i].get());
     got.push_back((*m->data.values)[0]);
   }
+
+  REQUIRE(got.size() == ref_out.size());
+  for (std::size_t i = 0; i < got.size(); ++i) {
+    INFO("i=" << i);
+    REQUIRE(dbits(got[i]) == dbits(ref_out[i]));
+  }
+}
+
+SCENARIO("Windowed state survives collect_bytes + restore mid-stream under batched eval",
+         "[windowed][ma][serialize][batched]") {
+  using namespace rtbot;
+  // Use FusedExpressionVector so the batched evaluator (FusedBatchEval) is
+  // actually exercised when messages are queued before execute(). The scalar
+  // restore scenario above only drives FusedExpression; this asserts batched
+  // state serialization is not lane-order-sensitive.
+  const std::size_t W = 8;
+  const std::size_t N = 32;  // 4x the SIMD lane width to ensure multi-batch
+  auto values = random_values(0xBA7C4EDDULL, N);
+
+  std::vector<double> bytecode = {
+      INPUT, 0, MA_UPDATE, static_cast<double>(W), END};
+
+  auto drive_vec = [&](FusedExpressionVector& op,
+                        const std::shared_ptr<Collector>& col,
+                        std::size_t start, std::size_t end) {
+    // Queue all messages up front, then a single execute() — forces the
+    // batched path whenever backlog >= 2 (see FusedExpressionVector::process_data).
+    for (std::size_t i = start; i < end; ++i) {
+      auto vec = std::make_shared<std::vector<double>>(
+          std::vector<double>{values[i]});
+      op.receive_data(create_message<VectorNumberData>(
+                           static_cast<std::int64_t>(i + 1),
+                           VectorNumberData(std::move(vec))),
+                       0);
+    }
+    op.execute();
+    std::vector<double> out;
+    auto& q = col->get_data_queue(0);
+    for (std::size_t i = 0; i < q.size(); ++i) {
+      const auto* m = dynamic_cast<const Message<VectorNumberData>*>(q[i].get());
+      out.push_back((*m->data.values)[0]);
+    }
+    return out;
+  };
+
+  auto ref_op = make_fused_expression_vector("ref", 1, bytecode, {});
+  auto ref_col = make_vector_number_collector("ref_col");
+  ref_op->connect(ref_col, 0, 0);
+  auto ref_out = drive_vec(*ref_op, ref_col, 0, N);
+
+  auto fe_a = make_fused_expression_vector("a", 1, bytecode, {});
+  auto fe_a_col = make_vector_number_collector("fe_a_col");
+  fe_a->connect(fe_a_col, 0, 0);
+  const std::size_t half = N / 2;
+  auto got_a = drive_vec(*fe_a, fe_a_col, 0, half);
+  auto bytes = fe_a->collect_bytes();
+
+  auto fe_b = make_fused_expression_vector("a", 1, bytecode, {});
+  auto fe_b_col = make_vector_number_collector("fe_b_col");
+  fe_b->connect(fe_b_col, 0, 0);
+  auto it = bytes.cbegin();
+  fe_b->restore(it);
+  auto got_b = drive_vec(*fe_b, fe_b_col, half, N);
+
+  std::vector<double> got;
+  got.insert(got.end(), got_a.begin(), got_a.end());
+  got.insert(got.end(), got_b.begin(), got_b.end());
 
   REQUIRE(got.size() == ref_out.size());
   for (std::size_t i = 0; i < got.size(); ++i) {
