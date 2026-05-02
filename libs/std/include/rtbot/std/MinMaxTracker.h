@@ -24,6 +24,11 @@ class MinTracker : public Operator {
   std::string type_name() const override { return "MinTracker"; }
   double get_current_min() const { return min_; }
 
+  void reset() override {
+    Operator::reset();
+    min_ = std::numeric_limits<double>::infinity();
+  }
+
   bool equals(const MinTracker& other) const {
     return StateSerializer::hash_double(min_) ==
                StateSerializer::hash_double(other.min_) &&
@@ -94,6 +99,11 @@ class MaxTracker : public Operator {
 
   std::string type_name() const override { return "MaxTracker"; }
   double get_current_max() const { return max_; }
+
+  void reset() override {
+    Operator::reset();
+    max_ = -std::numeric_limits<double>::infinity();
+  }
 
   bool equals(const MaxTracker& other) const {
     return StateSerializer::hash_double(max_) ==

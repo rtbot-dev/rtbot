@@ -7,6 +7,7 @@
 #include "rtbot/std/CumulativeSum.h"
 #include "rtbot/std/Count.h"
 #include "rtbot/fuse/FusedExpression.h"
+#include "rtbot/std/MinMaxTracker.h"
 #include "rtbot/std/MovingAverage.h"
 #include "rtbot/std/PeakDetector.h"
 #include "rtbot/std/VectorExtract.h"
@@ -608,6 +609,88 @@ SCENARIO("Pipeline: reset with MovingAverage restarts accumulation", "[pipeline]
         const auto* msg = dynamic_cast<const Message<NumberData>*>(output[0].get());
         REQUIRE(msg->time == 5);
         REQUIRE(msg->data.value == Approx(15.0));  // Average of 10.0 and 20.0
+      }
+    }
+  }
+}
+
+SCENARIO("Pipeline: per-segment Min/Max reset on key change", "[pipeline][reset][min_max_tracker]") {
+  // Regression for RB-491. MinTracker/MaxTracker previously had no reset()
+  // override, so their internal accumulators carried the running min/max
+  // across segment boundaries instead of restarting per segment.
+
+  GIVEN("A pipeline with MaxTracker inside") {
+    auto pipeline = std::make_unique<Pipeline>(
+        "max_pipe",
+        std::vector<std::string>{PortType::NUMBER},
+        std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    pipeline->connect(col, 0, 0);
+
+    auto mx = std::make_shared<MaxTracker>("mx");
+    pipeline->register_operator(mx);
+    pipeline->set_entry("mx");
+    pipeline->add_output_mapping("mx", 0, 0);
+
+    WHEN("Two segments where the second contains only smaller values") {
+      // Segment 1 (key=1): values [10, 20, 90] → running max = 90.
+      send_paired(*pipeline, 1, 10.0, 1.0);
+      send_paired(*pipeline, 2, 20.0, 1.0);
+      send_paired(*pipeline, 3, 90.0, 1.0);
+
+      // Key change → emit segment 1's last buffered max (=90) at boundary t=4.
+      send_paired(*pipeline, 4, 30.0, 0.0);
+      // Segment 2 (key=0): values [30, 20] → per-segment max should be 30.
+      send_paired(*pipeline, 5, 20.0, 0.0);
+
+      // Final key change → emit segment 2's max at boundary t=6.
+      send_paired(*pipeline, 6, 0.0, 1.0);
+
+      THEN("Each emission reflects per-segment max, not running max across segments") {
+        const auto& output = col->get_data_queue(0);
+        REQUIRE(output.size() == 2);
+        REQUIRE(dynamic_cast<const Message<NumberData>*>(output[0].get())->data.value
+                == Approx(90.0));
+        REQUIRE(dynamic_cast<const Message<NumberData>*>(output[1].get())->data.value
+                == Approx(30.0));
+      }
+    }
+  }
+
+  GIVEN("A pipeline with MinTracker inside") {
+    auto pipeline = std::make_unique<Pipeline>(
+        "min_pipe",
+        std::vector<std::string>{PortType::NUMBER},
+        std::vector<std::string>{PortType::NUMBER});
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    pipeline->connect(col, 0, 0);
+
+    auto mn = std::make_shared<MinTracker>("mn");
+    pipeline->register_operator(mn);
+    pipeline->set_entry("mn");
+    pipeline->add_output_mapping("mn", 0, 0);
+
+    WHEN("Two segments where the second contains only larger values") {
+      // Segment 1 (key=1): values [50, 10, 30] → running min = 10.
+      send_paired(*pipeline, 1, 50.0, 1.0);
+      send_paired(*pipeline, 2, 10.0, 1.0);
+      send_paired(*pipeline, 3, 30.0, 1.0);
+
+      // Key change → emit segment 1's min (=10) at t=4.
+      send_paired(*pipeline, 4, 60.0, 0.0);
+      // Segment 2 (key=0): values [60, 75] → per-segment min should be 60.
+      send_paired(*pipeline, 5, 75.0, 0.0);
+
+      // Final key change → emit segment 2's min at t=6.
+      send_paired(*pipeline, 6, 0.0, 1.0);
+
+      THEN("Each emission reflects per-segment min, not running min across segments") {
+        const auto& output = col->get_data_queue(0);
+        REQUIRE(output.size() == 2);
+        REQUIRE(dynamic_cast<const Message<NumberData>*>(output[0].get())->data.value
+                == Approx(10.0));
+        REQUIRE(dynamic_cast<const Message<NumberData>*>(output[1].get())->data.value
+                == Approx(60.0));
       }
     }
   }
