@@ -134,6 +134,60 @@ SCENARIO("MinTracker serialization roundtrip", "[min_max_tracker][State]") {
   }
 }
 
+SCENARIO("MinTracker.reset re-initializes accumulator", "[min_max_tracker]") {
+  SECTION("After reset, the next message becomes the new min") {
+    auto mn = make_min_tracker("mn1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    mn->connect(col, 0, 0);
+
+    // Establish a running min of 3 over [5,3,7].
+    mn->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
+    mn->receive_data(create_message<NumberData>(2, NumberData{3.0}), 0);
+    mn->receive_data(create_message<NumberData>(3, NumberData{7.0}), 0);
+    mn->execute();
+    REQUIRE(mn->get_current_min() == Approx(3.0));
+
+    mn->reset();
+    REQUIRE(mn->get_current_min() == std::numeric_limits<double>::infinity());
+
+    // After reset, a value larger than the previous min must be reported,
+    // not clamped by leftover state.
+    mn->receive_data(create_message<NumberData>(4, NumberData{42.0}), 0);
+    mn->execute();
+    REQUIRE(mn->get_current_min() == Approx(42.0));
+    auto& out = col->get_data_queue(0);
+    const auto* last = dynamic_cast<const Message<NumberData>*>(out.back().get());
+    REQUIRE(last->data.value == Approx(42.0));
+  }
+}
+
+SCENARIO("MaxTracker.reset re-initializes accumulator", "[min_max_tracker]") {
+  SECTION("After reset, the next message becomes the new max") {
+    auto mx = make_max_tracker("mx1");
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"number"});
+    mx->connect(col, 0, 0);
+
+    // Establish a running max of 7 over [5,3,7].
+    mx->receive_data(create_message<NumberData>(1, NumberData{5.0}), 0);
+    mx->receive_data(create_message<NumberData>(2, NumberData{3.0}), 0);
+    mx->receive_data(create_message<NumberData>(3, NumberData{7.0}), 0);
+    mx->execute();
+    REQUIRE(mx->get_current_max() == Approx(7.0));
+
+    mx->reset();
+    REQUIRE(mx->get_current_max() == -std::numeric_limits<double>::infinity());
+
+    // After reset, a value smaller than the previous max must be reported,
+    // not held back by leftover state.
+    mx->receive_data(create_message<NumberData>(4, NumberData{2.0}), 0);
+    mx->execute();
+    REQUIRE(mx->get_current_max() == Approx(2.0));
+    auto& out = col->get_data_queue(0);
+    const auto* last = dynamic_cast<const Message<NumberData>*>(out.back().get());
+    REQUIRE(last->data.value == Approx(2.0));
+  }
+}
+
 SCENARIO("MaxTracker serialization roundtrip", "[min_max_tracker][State]") {
   SECTION("Collect and restore mid-stream") {
     auto mx = make_max_tracker("mx1");
