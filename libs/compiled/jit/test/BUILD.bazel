@@ -1,0 +1,34 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+
+cc_test(
+    name = "test",
+    srcs = glob(
+        [
+            "**/*.cpp",
+            "**/*.h",
+        ],
+        allow_empty = True,
+    ),
+    copts = [
+        "-DCATCH_CONFIG_POSIX_SIGNALS",
+        "-g",
+        "-fsanitize=address",
+        "-Wno-macro-redefined",
+        "-ffp-contract=off",
+        "-fno-associative-math",
+    ],
+    linkopts = [
+        "-fsanitize=address",
+    ],
+    deps = [
+        "//libs/api:rtbot-api",
+        "//libs/api/test:parity_helper",
+        "//libs/compiled/jit:rtbot-compiled-jit",
+        "//libs/compiled/jit_spike:jit_context",
+        "//libs/compiled:rtbot-compiled",
+        "//libs/core:rtbot",
+        "//libs/fuse:rtbot-fuse",
+        "//libs/std:rtbot-std",
+        "@catch2",
+    ],
+)
