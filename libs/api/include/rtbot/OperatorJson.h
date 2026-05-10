@@ -141,7 +141,13 @@ class OperatorJson {
     } else if (type == "GreaterThan") {
       return make_greater_than(id, parsed["value"].get<double>());
     } else if (type == "Function") {
-      return make_function(id, parsed["points"].get<std::vector<std::pair<double, double>>>());
+      auto points = parsed["points"].get<std::vector<std::pair<double, double>>>();
+      InterpolationType interp = InterpolationType::LINEAR;
+      if (parsed.contains("interpolation_type")) {
+        const auto s = parsed["interpolation_type"].get<std::string>();
+        if (s == "HERMITE") interp = InterpolationType::HERMITE;
+      }
+      return make_function(id, std::move(points), interp);
     } else if (type == "ConstantNumber") {
       return make_constant_number(id, parsed["value"].get<double>());
     } else if (type == "ConstantBoolean") {
@@ -287,6 +293,8 @@ class OperatorJson {
                                  parsed.value("mode", "min"));
     } else if (type == "BooleanToNumber") {
       return make_boolean_to_number(id);
+    } else if (type == "Identity") {
+      return make_identity(id);
     } else if (type == "KeyedPipeline") {
       // Computed key mode: keyColumnIndices (coefficients computed internally)
       // Classic mode: key_index
@@ -533,7 +541,10 @@ class OperatorJson {
     } else if (type == "GreaterThan") {
       j["value"] = std::dynamic_pointer_cast<GreaterThan>(op)->get_threshold();
     } else if (type == "Function") {
-      j["points"] = std::dynamic_pointer_cast<Function>(op)->get_points();
+      auto fn = std::dynamic_pointer_cast<Function>(op);
+      j["points"] = fn->get_points();
+      j["interpolation_type"] =
+          (fn->get_interpolation_type() == InterpolationType::HERMITE) ? "HERMITE" : "LINEAR";
     } else if (type == "ConstantNumber" || type == "ConstantNumberToBoolean") {
       j["value"] = std::dynamic_pointer_cast<ConstantNumber>(op)->get_value().value;
     } else if (type == "ConstantBoolean" || type == "ConstantBooleanToNumber") {
