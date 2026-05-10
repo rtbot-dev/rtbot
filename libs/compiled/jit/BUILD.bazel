@@ -1,0 +1,27 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "rtbot-compiled-jit",
+    srcs = glob(["src/**/*.cpp"], allow_empty = True),
+    hdrs = glob(["include/**/*.h"]),
+    copts = [
+        "-ffp-contract=off",
+        "-fno-associative-math",
+    ],
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/compiled:rtbot-compiled",
+        "//libs/compiled/jit_spike:jit_context",
+        "//libs/core:rtbot",
+        "//libs/fuse:rtbot-fuse",
+        "@llvm-project//llvm:Core",
+        "@llvm-project//llvm:OrcJIT",
+        "@llvm-project//llvm:Passes",
+        "@llvm-project//llvm:AllTargetsCodeGens",
+        "@llvm-project//llvm:AllTargetsAsmParsers",
+        "@llvm-project//llvm:Support",
+    ],
+)
