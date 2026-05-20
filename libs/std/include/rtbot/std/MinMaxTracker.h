@@ -11,9 +11,12 @@
 
 namespace rtbot {
 
+class Program;  // grants serialize/restore parity sync access to min_/max_.
+
 // MinTracker: all-time running minimum. Emits current min on every message.
 class MinTracker : public Operator {
  public:
+  friend class Program;
   explicit MinTracker(std::string id)
       : Operator(std::move(id)),
         min_(std::numeric_limits<double>::infinity()) {
@@ -90,6 +93,7 @@ class MinTracker : public Operator {
 // MaxTracker: all-time running maximum. Emits current max on every message.
 class MaxTracker : public Operator {
  public:
+  friend class Program;
   explicit MaxTracker(std::string id)
       : Operator(std::move(id)),
         max_(-std::numeric_limits<double>::infinity()) {

@@ -1,0 +1,19 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# Templated stage library — composable per-operator structs that can be
+# combined at compile time into a hand-composed pipeline. Header-only because
+# templates must be visible at instantiation site. Depends on libs/core for
+# the public types (NumberData, Message, etc.) used by CompiledProgram's
+# I/O boundary; the stages themselves are dependency-free.
+# See docs/plans/roadmap/codegen/phase-0-strategy.md for context.
+cc_library(
+    name = "rtbot-compiled",
+    hdrs = glob(["include/**/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/core:rtbot",
+    ],
+)

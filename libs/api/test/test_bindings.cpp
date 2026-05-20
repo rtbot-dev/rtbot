@@ -41,15 +41,21 @@ SCENARIO("Bindings handle program creation and message processing", "[bindings]"
   }
 
   GIVEN("A program with state") {
+    // Variable is not JIT-compilable, so the program falls back to the
+    // interpreter. This keeps serialize_data() available. The Variable
+    // operator is connected to a side branch not in the output mapping, so it
+    // does not affect the MA→Output path or expected values.
     std::string program_json = R"({
             "operators": [
                 {"type": "Input", "id": "input1", "portTypes": ["number"]},
                 {"type": "MovingAverage", "id": "ma1", "window_size": 3},
+                {"type": "Variable", "id": "var1", "default_value": 0.0},
                 {"type": "Output", "id": "output1", "portTypes": ["number"]}
             ],
             "connections": [
                 {"from": "input1", "to": "ma1", "fromPort": "o1", "toPort": "i1"},
-                {"from": "ma1", "to": "output1", "fromPort": "o1", "toPort": "i1"}
+                {"from": "ma1", "to": "output1", "fromPort": "o1", "toPort": "i1"},
+                {"from": "input1", "to": "var1", "fromPort": "o1", "toPort": "i1"}
             ],
             "entryOperator": "input1",
             "output": { "output1": ["o1"] }

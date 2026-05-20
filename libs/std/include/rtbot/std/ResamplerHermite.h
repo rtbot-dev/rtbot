@@ -14,6 +14,7 @@ struct ResamplerFeatures {
 };
 
 class ResamplerHermite : public Buffer<NumberData, ResamplerFeatures> {
+  friend class Program;
  public:
   ResamplerHermite(std::string id, timestamp_t interval, std::optional<timestamp_t> t0 = std::nullopt)
       : Buffer<NumberData, ResamplerFeatures>(std::move(id), 4),

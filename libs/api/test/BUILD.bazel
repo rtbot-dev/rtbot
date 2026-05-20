@@ -1,4 +1,15 @@
-load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
+cc_library(
+    name = "parity_helper",
+    hdrs = ["parity_helper.h"],
+    includes = ["."],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs/api:rtbot-api",
+        "@catch2",
+    ],
+)
 
 cc_test(
     name = "test",

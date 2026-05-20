@@ -8,8 +8,11 @@
 
 namespace rtbot {
 
+class Program;  // grants serialize/restore parity sync access to sum_/sum_comp_.
+
 class CumulativeSum : public Operator {
  public:
+  friend class Program;
   CumulativeSum(std::string id) : Operator(std::move(id)), sum_(0.0), sum_comp_(0.0) {
     // Add single input and output port for NumberData
     add_data_port<NumberData>();

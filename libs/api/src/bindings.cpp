@@ -433,6 +433,22 @@ std::string diagnose_program(const std::string& json_program) {
   return json(result).dump();
 }
 
+// Out-of-line interpreter path for Program::send. The hot JIT path is inlined
+// in Program.h; this slow path is kept out-of-line to avoid dragging
+// OperatorJson / create_message / send_to_entry into every caller's TU.
+void Program::send_interpreter_(std::int64_t t, double v, const std::string& port_id) {
+  send_to_entry(create_message<NumberData>(t, NumberData{v}), port_id, false);
+}
+
+void Program::send_vector_interpreter_(std::int64_t t, const double* v,
+                                        std::size_t n,
+                                        const std::string& port_id) {
+  std::vector<double> values(v, v + n);
+  send_to_entry(create_message<VectorNumberData>(
+                    t, VectorNumberData{std::move(values)}),
+                port_id, false);
+}
+
 }  // namespace rtbot
 
 #endif  // RTBOT_BINDINGS_H

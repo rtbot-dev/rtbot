@@ -13,7 +13,7 @@ jsonschema:
     id:
       type: string
       description: The id of the operator
-    coeff:
+    coefficients:
       type: array
       description: The vector of FIR coefficients
       examples:
@@ -21,12 +21,16 @@ jsonschema:
       minItems: 1
       items:
         type: number
-    tolerance:
-      type: number
-      description: Threshold below which coefficients are considered zero
-      default: 1e-10
-      examples: [1e-6]
-  required: ["id", "coeff"]
+    coeff:
+      type: array
+      description: Deprecated alias of coefficients
+      minItems: 1
+      items:
+        type: number
+  required: ["id"]
+  anyOf:
+    - required: ["coefficients"]
+    - required: ["coeff"]
 ---
 
 # FiniteImpulseResponse

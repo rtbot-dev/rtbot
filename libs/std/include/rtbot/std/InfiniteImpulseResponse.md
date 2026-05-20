@@ -13,21 +13,49 @@ jsonschema:
     id:
       type: string
       description: The id of the operator
-    b:
+    b_coefficients:
       type: array
       description: Feed-forward (input) coefficients vector
       minItems: 1
       items:
         type: number
       examples: [[1.0, -0.5, 0.25]]
-    a:
+    a_coefficients:
       type: array
       description: Feedback (output) coefficients vector
       minItems: 1
       items:
         type: number
       examples: [[0.3, 0.1]]
-  required: ["id", "b", "a"]
+    b_coeffs:
+      type: array
+      description: Deprecated alias of b_coefficients
+      minItems: 1
+      items:
+        type: number
+    a_coeffs:
+      type: array
+      description: Deprecated alias of a_coefficients
+      minItems: 1
+      items:
+        type: number
+    b:
+      type: array
+      description: Deprecated alias of b_coefficients
+      minItems: 1
+      items:
+        type: number
+    a:
+      type: array
+      description: Deprecated alias of a_coefficients
+      minItems: 1
+      items:
+        type: number
+  required: ["id"]
+  anyOf:
+    - required: ["b_coefficients", "a_coefficients"]
+    - required: ["b_coeffs", "a_coeffs"]
+    - required: ["b", "a"]
 ---
 
 # InfiniteImpulseResponse

@@ -30,8 +30,19 @@ TEST_CASE("Bollinger Bands Pipeline Test", "[program]") {
     std::cout << "Create result: " << create_result << std::endl;
     REQUIRE(create_result.empty());
 
-    // Generate test data
-    srand(time(nullptr));
+    // Generate test data. Use a fixed seed so this regression test is
+    // deterministic: the input thinning pattern must reproduce exactly so
+    // failures (cross-mode disparities) can be triaged without re-rolling
+    // the data set. Override via env-var RTBOT_BOLLINGER_SEED for ad-hoc
+    // exploration; default 42.
+    {
+      const char* seed_env = std::getenv("RTBOT_BOLLINGER_SEED");
+      unsigned seed = 42;
+      if (seed_env != nullptr && seed_env[0] != '\0') {
+        seed = static_cast<unsigned>(std::strtoul(seed_env, nullptr, 10));
+      }
+      srand(seed);
+    }
     std::vector<uint64_t> times;
     std::vector<double> values;
     std::vector<std::string> ports;

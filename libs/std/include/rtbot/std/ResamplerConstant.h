@@ -11,6 +11,7 @@ namespace rtbot {
 
 template <typename T>
 class ResamplerConstant : public Operator {
+  friend class Program;
  public:
   explicit ResamplerConstant(std::string id, timestamp_t interval,
                              std::optional<timestamp_t> t0 = std::nullopt,
