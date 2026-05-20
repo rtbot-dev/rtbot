@@ -79,14 +79,23 @@ PartitionResult partition_segments(const CompiledGraph& graph) {
     }
   }
 
-  // Walk topological order and split at sync ops.
+  // Walk topological order and split at sync ops. Output ops are deferred
+  // across the entire walk so they end up at the tail of the LAST segment
+  // — the IR emitter terminates the Output's basic block with
+  // `br ret_true`, and any subsequent IR (e.g. a downstream sync op's
+  // try_sync) appended after that branch produces a malformed CFG that
+  // LLVM rejects with "Terminator found in the middle of a basic block."
+  // Hoisting Output to the last segment also ensures all sync ops have a
+  // chance to advance their queue state before the function exits.
+  // PARITY.md class-3 (LLVM crash on Linear consuming a filter-gated chain
+  // alongside an Output independent of the Linear).
   PartitionResult result;
   Segment current_segment;
+  std::vector<std::string> deferred_outputs;
 
   for (const auto& id : topo_order) {
     const OpNode& node = graph.nodes[id_to_idx[id]];
     if (is_sync_op(node.kind)) {
-      // Flush the current segment if it has any ops.
       if (!current_segment.op_ids.empty()) {
         result.segments.push_back(std::move(current_segment));
         current_segment = Segment{};
@@ -94,9 +103,18 @@ PartitionResult partition_segments(const CompiledGraph& graph) {
       result.sync_ops.push_back(id);
       // The sync op itself is not placed in any segment; start a fresh one
       // for the downstream ops.
+    } else if (node.kind == OpKind::Output) {
+      deferred_outputs.push_back(id);
     } else {
       current_segment.op_ids.push_back(id);
     }
+  }
+
+  // Append deferred Outputs at the tail of the (final) trailing segment so
+  // they are emitted strictly last in the function body. If the trailing
+  // segment is empty, the Outputs alone become its body.
+  for (auto& id : deferred_outputs) {
+    current_segment.op_ids.push_back(std::move(id));
   }
 
   // Flush the trailing segment.
