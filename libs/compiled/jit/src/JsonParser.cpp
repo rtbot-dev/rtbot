@@ -402,14 +402,23 @@ OpNode parse_op_node(const nlohmann::json& j) {
       break;
     case OpKind::ResamplerHermite:
       node.resampler_interval = j.at("interval").get<std::int64_t>();
+      // ResamplerHermite t0 is supported by the framework operator but not yet
+      // by the JIT emitter. Throw so Program falls back to the interpreter.
+      if (j.contains("t0")) {
+        throw std::runtime_error("ResamplerHermite '" + node.id +
+                                 "' t0 not supported by JIT yet");
+      }
       break;
     case OpKind::ResamplerConstant: {
       node.resampler_interval = j.at("interval").get<std::int64_t>();
       if (j.contains("t0")) {
         node.resampler_t0_set = true;
-        // FE OperatorJson reads t0 as a double; cast to int64 timestamp.
-        node.resampler_t0 = static_cast<std::int64_t>(
-            j.at("t0").get<double>());
+        // Canonical schema type is integer (a timestamp). Accept both integer
+        // and floating-point JSON encodings for robustness with older programs.
+        const auto& t0v = j.at("t0");
+        node.resampler_t0 = t0v.is_number_integer()
+                                ? t0v.get<std::int64_t>()
+                                : static_cast<std::int64_t>(t0v.get<double>());
       } else {
         node.resampler_t0_set = false;
         node.resampler_t0 = 0;
@@ -439,7 +448,13 @@ OpNode parse_op_node(const nlohmann::json& j) {
       break;
     }
     case OpKind::FIR: {
-      node.coefficients = j.at("coefficients").get<std::vector<double>>();
+      // Canonical key is "coefficients"; accept "coeff" as a backward-compat alias
+      // for programs serialized by older versions of OperatorJson.
+      if (j.contains("coefficients")) {
+        node.coefficients = j.at("coefficients").get<std::vector<double>>();
+      } else {
+        node.coefficients = j.at("coeff").get<std::vector<double>>();
+      }
       node.window_size  = node.coefficients.size();
       break;
     }
@@ -613,8 +628,18 @@ OpNode parse_op_node(const nlohmann::json& j) {
       break;
     }
     case OpKind::IIR: {
-      auto b = j.at("b_coefficients").get<std::vector<double>>();
-      auto a = j.at("a_coefficients").get<std::vector<double>>();
+      // Canonical keys are b_coefficients / a_coefficients. Accept the older
+      // b_coeffs / a_coeffs and the schema-level b / a as aliases so JIT and
+      // framework parsers agree on every form the schema permits.
+      auto pick = [&](std::initializer_list<const char*> keys) {
+        for (const char* k : keys) {
+          if (j.contains(k)) return j.at(k).get<std::vector<double>>();
+        }
+        throw std::runtime_error("InfiniteImpulseResponse '" + node.id +
+                                 "' missing coefficient field");
+      };
+      auto b = pick({"b_coefficients", "b_coeffs", "b"});
+      auto a = pick({"a_coefficients", "a_coeffs", "a"});
       node.b_len = b.size();
       node.a_len = a.size();
       node.coefficients.insert(node.coefficients.end(), b.begin(), b.end());
@@ -702,7 +727,9 @@ OpNode parse_op_node(const nlohmann::json& j) {
     case OpKind::FiltEqScalar:
     case OpKind::FiltNeqScalar:
       node.scalar_value = j.at("value").get<double>();
-      node.tolerance    = j.value("epsilon", 1e-10);
+      // Canonical schema key is "tolerance"; accept legacy "epsilon" as alias.
+      node.tolerance    = j.contains("tolerance") ? j.at("tolerance").get<double>()
+                                                  : j.value("epsilon", 1e-10);
       break;
     // FilterSync: SyncEqual/SyncNotEqual take "epsilon"; Sync{Greater,Less}Than no params
     case OpKind::FiltEqSync:
@@ -982,9 +1009,18 @@ OpNode parse_op_node(const nlohmann::json& j) {
       node.topk_row_width = 1;
       break;
     }
+    case OpKind::Diff:
+      // The JIT emit_diff hard-codes use_oldest_time=true. Reject any program
+      // that asks for the older-timestamp variant so Program falls back to the
+      // interpreter, which honours the flag.
+      if (j.contains("use_oldest_time") && !j.at("use_oldest_time").get<bool>()) {
+        throw std::runtime_error("Difference '" + node.id +
+                                 "' use_oldest_time=false not supported by JIT");
+      }
+      break;
     default:
       // Stateless operators and zero-parameter stateful ops (CumSum, Count,
-      // MaxAgg, MinAgg, SignChange, Gate, Diff) need no extra fields.
+      // MaxAgg, MinAgg, SignChange, Gate) need no extra fields.
       break;
   }
 

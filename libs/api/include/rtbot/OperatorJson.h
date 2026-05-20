@@ -97,13 +97,31 @@ class OperatorJson {
     } else if (type == "StandardDeviation") {
       return make_std_dev(id, parsed["window_size"].get<size_t>());
     } else if (type == "FiniteImpulseResponse") {
-      return make_fir(id, parsed["coeff"].get<std::vector<double>>());
+      std::vector<double> coeffs;
+      if (parsed.contains("coefficients")) {
+        coeffs = parsed["coefficients"].get<std::vector<double>>();
+      } else if (parsed.contains("coeff")) {
+        coeffs = parsed["coeff"].get<std::vector<double>>();
+      } else {
+        throw std::runtime_error("FiniteImpulseResponse '" + id +
+                                 "' requires 'coefficients' (or legacy 'coeff')");
+      }
+      return make_fir(id, coeffs);
     } else if (type == "InfiniteImpulseResponse") {
-      return make_iir(id, parsed["b_coeffs"].get<std::vector<double>>(), parsed["a_coeffs"].get<std::vector<double>>());
+      auto pick_vec = [&](std::initializer_list<const char*> keys) {
+        for (const char* k : keys) {
+          if (parsed.contains(k)) return parsed[k].get<std::vector<double>>();
+        }
+        throw std::runtime_error("InfiniteImpulseResponse '" + id +
+                                 "' missing coefficient field");
+      };
+      auto b = pick_vec({"b_coefficients", "b_coeffs", "b"});
+      auto a = pick_vec({"a_coefficients", "a_coeffs", "a"});
+      return make_iir(id, b, a);
     } else if (type == "Join") {
       return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "Difference") {
-      return make_difference(id);
+      return make_difference(id, parsed.value("use_oldest_time", true));
     } else if (type == "PeakDetector") {
       return make_peak_detector(id, parsed["window_size"].get<size_t>());
     } else if (type == "Linear") {
@@ -161,9 +179,13 @@ class OperatorJson {
     } else if (type == "LessThanOrEqualToReplace") {
       return make_less_than_or_equal_to_replace(id, parsed["value"].get<double>(), parsed["replaceBy"].get<double>());
     } else if (type == "EqualTo") {
-      return make_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
+      double eps = parsed.contains("tolerance") ? parsed["tolerance"].get<double>()
+                                                : parsed.value("epsilon", 1e-10);
+      return make_equal_to(id, parsed["value"].get<double>(), eps);
     } else if (type == "NotEqualTo") {
-      return make_not_equal_to(id, parsed["value"].get<double>(), parsed.value("epsilon", 1e-10));
+      double eps = parsed.contains("tolerance") ? parsed["tolerance"].get<double>()
+                                                : parsed.value("epsilon", 1e-10);
+      return make_not_equal_to(id, parsed["value"].get<double>(), eps);
     } else if (type == "SyncEqual") {
       return make_sync_equal(id, num_ports, parsed.value("epsilon", 1e-10));
     } else if (type == "SyncNotEqual") {
@@ -214,12 +236,22 @@ class OperatorJson {
     } else if (type == "ResamplerConstant") {
       bool snap = parsed.contains("snapFirst") && parsed["snapFirst"].get<int>() != 0;
       if (parsed.contains("t0")) {
-        return make_resampler_constant(id, parsed["interval"].get<int>(),
-                                       parsed["t0"].get<double>(), snap);
+        const auto& t0v = parsed["t0"];
+        std::int64_t t0 = t0v.is_number_integer()
+                              ? t0v.get<std::int64_t>()
+                              : static_cast<std::int64_t>(t0v.get<double>());
+        return make_resampler_constant(id, parsed["interval"].get<int>(), t0, snap);
       }
       return make_resampler_constant(id, parsed["interval"].get<int>(),
                                      std::nullopt, snap);
     } else if (type == "ResamplerHermite") {
+      if (parsed.contains("t0")) {
+        const auto& t0v = parsed["t0"];
+        std::int64_t t0 = t0v.is_number_integer()
+                              ? t0v.get<std::int64_t>()
+                              : static_cast<std::int64_t>(t0v.get<double>());
+        return make_resampler_hermite(id, parsed["interval"].get<int>(), t0);
+      }
       return make_resampler_hermite(id, parsed["interval"].get<int>());
     } else if (type == "VectorExtract") {
       return make_vector_extract(id, parsed["index"].get<int>());
@@ -522,10 +554,10 @@ class OperatorJson {
     } else if (type == "StandardDeviation") {
       j["window_size"] = std::dynamic_pointer_cast<StandardDeviation>(op)->window_size();
     } else if (type == "FiniteImpulseResponse") {
-      j["coeff"] = std::dynamic_pointer_cast<FiniteImpulseResponse>(op)->get_coefficients();
+      j["coefficients"] = std::dynamic_pointer_cast<FiniteImpulseResponse>(op)->get_coefficients();
     } else if (type == "InfiniteImpulseResponse") {
-      j["b_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_b_coeffs();
-      j["a_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_a_coeffs();
+      j["b_coefficients"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_b_coeffs();
+      j["a_coefficients"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_a_coeffs();
     } else if (type == "Join") {
       j["portTypes"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
     } else if (type == "Scale") {
@@ -553,10 +585,10 @@ class OperatorJson {
       j["value"] = std::dynamic_pointer_cast<LessThan>(op)->get_threshold();
     } else if (type == "EqualTo") {
       j["value"] = std::dynamic_pointer_cast<EqualTo>(op)->get_value();
-      j["epsilon"] = std::dynamic_pointer_cast<EqualTo>(op)->get_epsilon();
+      j["tolerance"] = std::dynamic_pointer_cast<EqualTo>(op)->get_epsilon();
     } else if (type == "NotEqualTo") {
       j["value"] = std::dynamic_pointer_cast<NotEqualTo>(op)->get_value();
-      j["epsilon"] = std::dynamic_pointer_cast<NotEqualTo>(op)->get_epsilon();
+      j["tolerance"] = std::dynamic_pointer_cast<NotEqualTo>(op)->get_epsilon();
     } else if (type == "SyncEqual") {
       j["epsilon"] = std::dynamic_pointer_cast<SyncEqual>(op)->get_epsilon();
     } else if (type == "SyncNotEqual") {
@@ -608,7 +640,11 @@ class OperatorJson {
         j["snapFirst"] = 1;
       }
     } else if (type == "ResamplerHermite") {
-      j["interval"] = std::dynamic_pointer_cast<ResamplerHermite>(op)->get_interval();
+      auto rh = std::dynamic_pointer_cast<ResamplerHermite>(op);
+      j["interval"] = rh->get_interval();
+      if (rh->get_t0().has_value()) {
+        j["t0"] = rh->get_t0().value();
+      }
     } else if (type == "VectorExtract") {
       j["index"] = std::dynamic_pointer_cast<VectorExtract>(op)->get_index();
     } else if (type == "VectorProject") {
@@ -668,6 +704,8 @@ class OperatorJson {
       j["mode"] = wmm->is_min() ? "min" : "max";
     } else if (type == "BooleanToNumber") {
       // No parameters beyond id
+    } else if (type == "Difference") {
+      j["use_oldest_time"] = std::dynamic_pointer_cast<Difference>(op)->get_use_oldest_time();
     } else if (type == "CumulativeSum") {
       // No parameters beyond id
     } else if (type == "CountNumber" || type == "CountBoolean") {

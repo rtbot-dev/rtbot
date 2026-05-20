@@ -67,6 +67,9 @@ jsonschemas:
         type: number
         description: The allowed deviation from the reference value (absolute)
         examples: [0.1]
+      epsilon:
+        type: number
+        description: Deprecated alias of tolerance
     required: ["id", "value"]
   - type: object
     title: NotEqualTo
@@ -85,6 +88,9 @@ jsonschemas:
         type: number
         description: The allowed deviation from the reference value (absolute)
         examples: [0.1]
+      epsilon:
+        type: number
+        description: Deprecated alias of tolerance
     required: ["id", "value"]
 ---
 
