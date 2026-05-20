@@ -170,6 +170,13 @@ class JitCompiledProgram {
   std::size_t num_outputs() const { return num_outputs_; }
   std::size_t state_size() const { return state_.size(); }
   std::size_t max_emits_per_call() const { return max_emits_per_call_; }
+
+  // Per-op-id starting offset (in doubles) into the flat state buffer.
+  // Mirrors StateLayout::offsets captured at compile time. Used by Program
+  // serialize/restore parity paths to read/write per-op state slots.
+  const std::map<std::string, std::size_t>& state_offsets() const noexcept {
+    return state_offsets_;
+  }
   // True when the program was compiled with a vector input (lane width > 1).
   // In that case the emitted function uses the SegmentFnVecT signature and
   // callers must drive it via receive_vector / segment_fn_vec_.
@@ -238,6 +245,9 @@ class JitCompiledProgram {
   bool input_is_vector_{false};
   // Non-zero initial values for specific state slots (used by JitCache).
   std::map<std::size_t, double> state_init_overrides_;
+  // Per-op-id starting offset into state_, captured from StateLayout at
+  // compile time. Exposed via state_offsets() for serialize/restore parity.
+  std::map<std::string, std::size_t> state_offsets_;
 
   // Flat emit buffer: stores (i64_as_double, i32_as_double_lane, v0, v1, ..., v_{N-1}) per emit.
   // One "record" occupies (2 + num_outputs_) slots. No per-emit allocation.

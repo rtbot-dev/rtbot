@@ -7,6 +7,7 @@
 #include <llvm/IR/Value.h>
 
 #include "rtbot/compiled/jit/IrEmissionContext.h"
+#include "rtbot/compiled/jit/emit/Join.h"
 
 namespace rtbot::jit::emit {
 
@@ -31,7 +32,8 @@ struct ReducedSyncOutput {
 // no FastMath). N is implied by coeffs.size() (must be >= 2).
 ReducedSyncOutput emit_linear_try_sync(IrEmissionContext& ec,
                                        std::size_t state_offset,
-                                       const std::vector<double>& coeffs);
+                                       const std::vector<double>& coeffs,
+                                       std::size_t cap = kJitDefaultSyncQueueCapacity);
 
 }  // namespace rtbot::jit::emit
 

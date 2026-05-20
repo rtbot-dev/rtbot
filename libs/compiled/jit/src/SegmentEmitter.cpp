@@ -167,6 +167,12 @@ const OpNode& find_node(const CompiledGraph& graph, const std::string& id) {
   throw std::runtime_error("SegmentEmitter: node not found: " + id);
 }
 
+// Effective per-port ring capacity for a node, given the program default.
+std::size_t node_cap(const CompiledGraph& graph, const std::string& id) {
+  return effective_sync_queue_capacity(find_node(graph, id),
+                                       graph.default_sync_queue_capacity);
+}
+
 // Determine num_outputs for the Output op. Equal to the sum of its per-port
 // widths; for the all-width-1 baseline this matches the collected port count.
 std::size_t compute_num_outputs(const CompiledGraph& graph,
@@ -383,34 +389,53 @@ void write_port_value_to_slots(IrEmissionContext& ec,
   }
 }
 
-// Write the Output op's inputs to out_t_alloca and out_v_allocas, then
-// set al_did_emit = 1 and branch to chain_exit_bb.
+// Write the Output op's inputs into the K-slot multi-emit arrays at the
+// current emit-count cursor, then increment the cursor and branch to
+// chain_exit_bb. Each Resampler callback invocation appends one record:
+//   arg_out_t[cnt]                       = out_t
+//   arg_out_v[cnt * num_outputs + slot]  = out_v[slot]   for each port slot
+//   arg_out_port_id[cnt]                 = 0             (multi-port record)
+//   ++cnt
 void emit_output_writes(IrEmissionContext& ec,
                          const CompiledGraph& graph,
                          const std::string& output_op_id,
                          std::size_t num_outputs,
                          const ValueMap& value_map,
-                         llvm::Value* al_out_t,
-                         const std::vector<llvm::Value*>& al_out_v,
-                         llvm::Value* al_did_emit,
+                         llvm::Value* arg_out_t,
+                         llvm::Value* arg_out_v,
+                         llvm::Value* arg_out_port_id,
+                         llvm::Value* al_emit_count,
                          llvm::BasicBlock* chain_exit_bb) {
   auto& b  = ec.b();
   auto& ctx = ec.ctx();
-  llvm::Type* i8 = llvm::Type::getInt8Ty(ctx);
+  llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
+  llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
+  llvm::Type* i32 = llvm::Type::getInt32Ty(ctx);
 
   auto in_conns = inputs_for(graph, output_op_id);
   const OpNode& output_node = find_node(graph, output_op_id);
 
-  // Write out_t from the timestamp of the first connected input.
+  llvm::Value* cnt = b.CreateLoad(i32, al_emit_count, "rs_cnt");
+  llvm::Value* cnt_z = b.CreateZExt(cnt, i64, "rs_cnt_z");
+  llvm::Value* num_out_c = llvm::ConstantInt::get(
+      i64, static_cast<int64_t>(num_outputs));
+  llvm::Value* v_base = b.CreateMul(cnt_z, num_out_c, "rs_v_base");
+
+  // arg_out_t[cnt] = timestamp of first connected input.
   if (!in_conns.empty()) {
     auto it = value_map.find({in_conns[0]->from_id, in_conns[0]->from_port});
     if (it != value_map.end()) {
-      b.CreateStore(it->second.t, al_out_t);
+      llvm::Value* t_slot = b.CreateGEP(i64, arg_out_t, cnt_z, "rs_t_slot");
+      b.CreateStore(it->second.t, t_slot);
     }
   }
 
-  // Write each output value to its port slot(s). Vector wires fan out across
-  // consecutive slots starting at the port's flat-slot base.
+  // arg_out_port_id[cnt] = 0 (record carries all output ports).
+  llvm::Value* pid_slot = b.CreateGEP(i32, arg_out_port_id, cnt_z, "rs_pid_slot");
+  b.CreateStore(llvm::ConstantInt::get(i32, 0), pid_slot);
+
+  // Write each output value to its port slot(s) in arg_out_v. Vector wires
+  // fan out across consecutive slots starting at the port's flat-slot base.
   for (const auto* conn : in_conns) {
     auto it = value_map.find({conn->from_id, conn->from_port});
     if (it == value_map.end()) continue;
@@ -418,12 +443,18 @@ void emit_output_writes(IrEmissionContext& ec,
         ec, output_node, conn->to_port, it->second,
         [&](std::size_t slot, llvm::Value* val) {
           if (slot < num_outputs) {
-            b.CreateStore(val, al_out_v[slot]);
+            llvm::Value* off = b.CreateAdd(
+                v_base,
+                llvm::ConstantInt::get(i64, static_cast<int64_t>(slot)),
+                "rs_v_off");
+            llvm::Value* v_slot = b.CreateGEP(f64, arg_out_v, off, "rs_v_slot");
+            b.CreateStore(val, v_slot);
           }
         });
   }
 
-  b.CreateStore(llvm::ConstantInt::get(i8, 1), al_did_emit);
+  b.CreateStore(b.CreateAdd(cnt, llvm::ConstantInt::get(i32, 1)),
+                al_emit_count);
   b.CreateBr(chain_exit_bb);
 }
 
@@ -461,9 +492,10 @@ void emit_post_resampler_chain(IrEmissionContext& ec,
                                 const std::string& resampler_op_id,
                                 const std::string& output_op_id,
                                 std::size_t num_outputs,
-                                llvm::Value* al_out_t,
-                                const std::vector<llvm::Value*>& al_out_v,
-                                llvm::Value* al_did_emit,
+                                llvm::Value* arg_out_t,
+                                llvm::Value* arg_out_v,
+                                llvm::Value* arg_out_port_id,
+                                llvm::Value* al_emit_count,
                                 llvm::Value* al_should_emit,
                                 llvm::Value* rs_rt,
                                 llvm::Value* rs_rv) {
@@ -696,8 +728,8 @@ void emit_post_resampler_chain(IrEmissionContext& ec,
       b.CreateCondBr(se, bb_write, chain_exit_bb);
       b.SetInsertPoint(bb_write);
       emit_output_writes(ec, graph, output_op_id, num_outputs,
-                         value_map, al_out_t, al_out_v, al_did_emit,
-                         chain_exit_bb);
+                         value_map, arg_out_t, arg_out_v, arg_out_port_id,
+                         al_emit_count, chain_exit_bb);
       b.SetInsertPoint(chain_exit_bb);
       return;
     }
@@ -954,15 +986,6 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
   // -------------------------------------------------------------------------
   // Allocas (in entry block, before any control flow).
   // -------------------------------------------------------------------------
-  llvm::Value* al_out_t_slot = b.CreateAlloca(i64, nullptr, "al_out_t");
-  std::vector<llvm::Value*> al_out_v;
-  al_out_v.reserve(num_outputs);
-  for (std::size_t i = 0; i < num_outputs; ++i) {
-    al_out_v.push_back(b.CreateAlloca(f64, nullptr, "al_out_v" + std::to_string(i)));
-  }
-  llvm::Value* al_did_emit = b.CreateAlloca(i8, nullptr, "al_did_emit");
-  b.CreateStore(llvm::ConstantInt::get(i8, 0), al_did_emit);
-
   // should_emit: program-level Gate suppression flag (i1, starts true).
   // Gate ops AND this with (predicate != 0.0). Output checks it before
   // writing results. Always allocated so LLVM can fold it for Gate-free programs.
@@ -1342,6 +1365,13 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
     const OpNode& rs_node  = find_node(graph, resampler_op_id);
     std::size_t   rs_offset = layout.offsets.at(resampler_op_id);
 
+    // Multi-emit counter: incremented each time the post-Resampler chain
+    // reaches Output. Returned as the segment's record count after the
+    // resampler's inner emit-loop terminates.
+    llvm::Value* al_emit_count =
+        b.CreateAlloca(i32, nullptr, "al_rs_emit_count");
+    b.CreateStore(llvm::ConstantInt::get(i32, 0), al_emit_count);
+
     // Step 3: emit the Resampler with a callback that runs the downstream chain.
     auto chain_cb = [&](llvm::Value* cb_rt, llvm::Value* cb_rv) {
       emit_post_resampler_chain(
@@ -1350,7 +1380,7 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
           resampler_op_id,
           output_op_id,
           num_outputs,
-          al_out_t_slot, al_out_v, al_did_emit, al_should_emit,
+          arg_out_t, arg_out_v, arg_out_port_id, al_emit_count, al_should_emit,
           cb_rt, cb_rv);
     };
     if (rs_node.kind == OpKind::ResamplerHermite) {
@@ -1365,25 +1395,10 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
           rs_inp->second.t, rs_inp->second.v, chain_cb);
     }
 
-    // After loop_exit: check al_did_emit.
-    // IRBuilder is in bb_loop_exit (set by emit_resampler_hermite).
-    llvm::Value* did = b.CreateLoad(i8, al_did_emit, "did_emit");
-    llvm::BasicBlock* bb_write_out =
-        llvm::BasicBlock::Create(ctx, "write_outputs", fn);
-    b.CreateCondBr(
-        b.CreateICmpNE(did, llvm::ConstantInt::get(i8, 0), "did_nz"),
-        bb_write_out, bb_ret_false);
-
-    // Write from allocas to function output parameters, then ret true.
-    b.SetInsertPoint(bb_write_out);
-    b.CreateStore(b.CreateLoad(i64, al_out_t_slot, "ot"), arg_out_t);
-    for (std::size_t i = 0; i < num_outputs; ++i) {
-      llvm::Value* slot = b.CreateGEP(
-          f64, arg_out_v,
-          llvm::ConstantInt::get(i64, static_cast<int64_t>(i)));
-      b.CreateStore(b.CreateLoad(f64, al_out_v[i], "ov"), slot);
-    }
-    b.CreateBr(bb_ret_true);
+    // After loop_exit: return the multi-emit record count directly.
+    // IRBuilder is in bb_loop_exit (set by emit_resampler_*).
+    llvm::Value* ret_cnt = b.CreateLoad(i32, al_emit_count, "rs_ret_cnt");
+    b.CreateRet(ret_cnt);
   }
 
   // -------------------------------------------------------------------------
@@ -1486,8 +1501,9 @@ void emit_segment_ops(
         for (auto [join_id, to_port] : join_successors(op_id, 0)) {
           std::size_t jo = layout.offsets.at(join_id);
           std::size_t jN = join_n_ports.at(join_id);
+          const std::size_t jcap = node_cap(graph, join_id);
           if (pv.width <= 1) {
-            emit::emit_join_push(ec, jo, jN, to_port, pv.t, pv.v);
+            emit::emit_join_push(ec, jo, jN, to_port, pv.t, pv.v, jcap);
           } else {
             const OpNode& dst = find_node(graph, join_id);
             const bool is_pipe_segbc = dst.kind == OpKind::Pipeline &&
@@ -1505,7 +1521,7 @@ void emit_segment_ops(
                   pv.v,
                   llvm::ConstantInt::get(i32t, static_cast<std::uint32_t>(k)),
                   "in_v_lane_to_pipe");
-              emit::emit_join_push(ec, jo, jN, k, pv.t, lane);
+              emit::emit_join_push(ec, jo, jN, k, pv.t, lane, jcap);
             }
           }
         }
@@ -1630,7 +1646,8 @@ void emit_segment_ops(
           for (auto [join_id, to_port] : joins) {
             std::size_t jo = layout.offsets.at(join_id);
             std::size_t jN = join_n_ports.at(join_id);
-            emit::emit_join_push(ec, jo, jN, to_port, it->second.t, it->second.v);
+            emit::emit_join_push(ec, jo, jN, to_port, it->second.t, it->second.v,
+                                 node_cap(graph, join_id));
           }
           b.CreateBr(bb_after);
           b.SetInsertPoint(bb_after);
@@ -1791,7 +1808,8 @@ void emit_segment_ops(
         for (auto [join_id, to_port] : join_successors(op_id, 0)) {
           std::size_t jo = layout.offsets.at(join_id);
           std::size_t jN = join_n_ports.at(join_id);
-          emit::emit_join_push(ec, jo, jN, to_port, out.out_t, out.out_v);
+          emit::emit_join_push(ec, jo, jN, to_port, out.out_t, out.out_v,
+                               node_cap(graph, join_id));
         }
         b.CreateBr(bb_sfc);
 
@@ -1825,7 +1843,8 @@ void emit_segment_ops(
         for (auto [join_id, to_port] : join_successors(op_id, 0)) {
           std::size_t jo = layout.offsets.at(join_id);
           std::size_t jN = join_n_ports.at(join_id);
-          emit::emit_join_push(ec, jo, jN, to_port, inp_t, out_v);
+          emit::emit_join_push(ec, jo, jN, to_port, inp_t, out_v,
+                               node_cap(graph, join_id));
         }
         continue;
       }
@@ -1858,7 +1877,8 @@ void emit_segment_ops(
       for (auto [join_id, to_port] : join_successors(op_id, 0)) {
         std::size_t jo = layout.offsets.at(join_id);
         std::size_t jN = join_n_ports.at(join_id);
-        emit::emit_join_push(ec, jo, jN, to_port, sl_t, loaded);
+        emit::emit_join_push(ec, jo, jN, to_port, sl_t, loaded,
+                             node_cap(graph, join_id));
       }
       continue;
     }
@@ -2705,7 +2725,9 @@ EmittedSegment emit_program_with_input_width(
     //       another vector consumer): build an SSA [N x double] and feed it
     //       through value_map so the downstream segment can extract / project.
     if (snode.kind == OpKind::VectorCompose) {
-      emit::JoinSyncOutput so = emit::emit_join_try_sync(ec, offset, N);
+      emit::JoinSyncOutput so = emit::emit_join_try_sync(
+          ec, offset, N,
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity));
 
       // Find the (single) downstream connection from VectorCompose's output.
       const Connection* down_conn = nullptr;
@@ -2829,8 +2851,9 @@ EmittedSegment emit_program_with_input_width(
         if (!is_pipe_segbc && !is_keyed_pipe) continue;
         const std::size_t pjo = layout.offsets.at(conn.to_id);
         const std::size_t pjN = join_n_ports.at(conn.to_id);
+        const std::size_t pcap = node_cap(graph, conn.to_id);
         for (std::size_t k = 0; k < N; ++k) {
-          emit::emit_join_push(ec, pjo, pjN, k, so.out_t, so.out_vs[k]);
+          emit::emit_join_push(ec, pjo, pjN, k, so.out_t, so.out_vs[k], pcap);
         }
       }
 
@@ -2862,7 +2885,9 @@ EmittedSegment emit_program_with_input_width(
     // supported: (a) direct-to-Output, (b) feed an SSA [N x double] vector
     // through value_map for downstream vector consumers.
     if (snode.kind == OpKind::FusedExpression) {
-      emit::JoinSyncOutput so = emit::emit_join_try_sync(ec, offset, N);
+      emit::JoinSyncOutput so = emit::emit_join_try_sync(
+          ec, offset, N,
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity));
 
       // Find the (single) downstream connection from FE's output.
       const Connection* down_conn = nullptr;
@@ -2881,8 +2906,10 @@ EmittedSegment emit_program_with_input_width(
 
       const std::size_t M = snode.fe_num_outputs;
       // The bytecode-state region begins right after the N port queues.
+      const std::size_t fe_cap =
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity);
       const std::size_t bc_state_off =
-          offset + N * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+          offset + N * (2 * fe_cap + 2);
 
       llvm::BasicBlock* fe_then_bb  = llvm::BasicBlock::Create(ctx, "fe_then_bb",  fn);
       llvm::BasicBlock* fe_merge_bb = llvm::BasicBlock::Create(ctx, "fe_merge_bb", fn);
@@ -2961,8 +2988,9 @@ EmittedSegment emit_program_with_input_width(
         if (!is_pipe_segbc && !is_keyed_pipe) continue;
         const std::size_t pjo = layout.offsets.at(conn.to_id);
         const std::size_t pjN = join_n_ports.at(conn.to_id);
+        const std::size_t pcap2 = node_cap(graph, conn.to_id);
         for (std::size_t k = 0; k < M; ++k) {
-          emit::emit_join_push(ec, pjo, pjN, k, so.out_t, feo.out_vs[k]);
+          emit::emit_join_push(ec, pjo, pjN, k, so.out_t, feo.out_vs[k], pcap2);
         }
       }
 
@@ -3096,7 +3124,9 @@ EmittedSegment emit_program_with_input_width(
 
       // try_sync over all (data + control) port queues. JoinSyncOutput's
       // out_vs[k] is the synced value for flat port k.
-      emit::JoinSyncOutput so = emit::emit_join_try_sync(ec, offset, total_ports);
+      emit::JoinSyncOutput so = emit::emit_join_try_sync(
+          ec, offset, total_ports,
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity));
 
       llvm::BasicBlock* pipe_then_bb  =
           llvm::BasicBlock::Create(ctx, "pipe_then_bb",  fn);
@@ -3107,8 +3137,9 @@ EmittedSegment emit_program_with_input_width(
       b.SetInsertPoint(pipe_then_bb);
 
       // Pipeline state slots — see plan_state_layout / state_size_for.
-      const std::size_t queue_size =
-          total_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t pipe_cap =
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity);
+      const std::size_t queue_size = total_ports * (2 * pipe_cap + 2);
       const std::size_t key_off            = offset + queue_size;
       const std::size_t msg_present_off    = key_off + 1;
       const std::size_t buf_t_off          = key_off + 2;
@@ -3518,7 +3549,9 @@ EmittedSegment emit_program_with_input_width(
             "' has no Output connection");
       }
 
-      emit::JoinSyncOutput so = emit::emit_join_try_sync(ec, offset, lane_w);
+      emit::JoinSyncOutput so = emit::emit_join_try_sync(
+          ec, offset, lane_w,
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity));
 
       llvm::BasicBlock* kp_then_bb  =
           llvm::BasicBlock::Create(ctx, "kp_then_bb", fn);
@@ -3529,8 +3562,9 @@ EmittedSegment emit_program_with_input_width(
       b.SetInsertPoint(kp_then_bb);
 
       // KeyedPipeline state layout: [port queues][ctx_ptr_slot]
-      const std::size_t queue_size =
-          lane_w * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t kp_cap =
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity);
+      const std::size_t queue_size = lane_w * (2 * kp_cap + 2);
       const std::size_t ctx_ptr_off = offset + queue_size;
 
       // Compute the key.
@@ -3846,22 +3880,28 @@ EmittedSegment emit_program_with_input_width(
     std::size_t out_n = 0;
 
     if (snode.kind == OpKind::Join) {
-      emit::JoinSyncOutput so = emit::emit_join_try_sync(ec, offset, N);
+      emit::JoinSyncOutput so = emit::emit_join_try_sync(
+          ec, offset, N,
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity));
       sync_flag = so.sync_flag;
       sync_t    = so.out_t;
       out_vs    = so.out_vs;
       out_n     = N;
     } else if (snode.kind == OpKind::Linear) {
+      const std::size_t lin_cap =
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity);
       emit::ReducedSyncOutput so = emit::emit_linear_try_sync(
-          ec, offset, snode.coefficients);
+          ec, offset, snode.coefficients, lin_cap);
       sync_flag = so.emit_flag;
       sync_t    = so.out_t;
       out_vs    = {so.out_v};
       out_n     = 1;
     } else {
       // OpKind::ReduceJoin
+      const std::size_t rj_cap =
+          effective_sync_queue_capacity(snode, graph.default_sync_queue_capacity);
       emit::ReducedSyncOutput so = emit::emit_reduce_join_try_sync(
-          ec, offset, N, snode.reduce_op);
+          ec, offset, N, snode.reduce_op, rj_cap);
       sync_flag = so.emit_flag;
       sync_t    = so.out_t;
       out_vs    = {so.out_v};
@@ -3883,7 +3923,8 @@ EmittedSegment emit_program_with_input_width(
       for (auto [next_join_id, to_port] : join_successors_fn(sync_id, p)) {
         std::size_t njo = layout.offsets.at(next_join_id);
         std::size_t njN = join_n_ports.at(next_join_id);
-        emit::emit_join_push(ec, njo, njN, to_port, sync_t, out_vs[p]);
+        emit::emit_join_push(ec, njo, njN, to_port, sync_t, out_vs[p],
+                             node_cap(graph, next_join_id));
       }
     }
 

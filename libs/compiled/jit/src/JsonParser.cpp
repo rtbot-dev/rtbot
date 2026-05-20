@@ -988,6 +988,16 @@ OpNode parse_op_node(const nlohmann::json& j) {
       break;
   }
 
+  // Per-op sync queue capacity override (optional). 0 = inherit from program.
+  if (j.contains("syncQueueCapacity")) {
+    const std::size_t cap = j.at("syncQueueCapacity").get<std::size_t>();
+    if (cap == 0) {
+      throw std::runtime_error(
+          "operator '" + node.id + "': syncQueueCapacity must be > 0");
+    }
+    node.sync_queue_capacity = cap;
+  }
+
   // Optional per-port scalar width metadata. The current FE does not emit this
   // field for any of the JIT-supported opcodes (all ports are width 1, encoded
   // implicitly by "number"/"boolean" in portTypes — "vector_number" cannot be
@@ -1044,6 +1054,15 @@ CompiledGraph parse_program_json_obj(const nlohmann::json& j) {
   CompiledGraph graph;
 
   graph.entry_op_id = j.at("entryOperator").get<std::string>();
+
+  if (j.contains("syncQueueCapacity")) {
+    const std::size_t cap = j.at("syncQueueCapacity").get<std::size_t>();
+    if (cap == 0) {
+      throw std::runtime_error(
+          "syncQueueCapacity must be > 0");
+    }
+    graph.default_sync_queue_capacity = cap;
+  }
 
   // Composite operators (e.g. RelativeStrengthIndex) expand at parse time
   // into a sub-graph of primitive ops. We collect the external composite id

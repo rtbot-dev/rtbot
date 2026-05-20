@@ -19,9 +19,16 @@ struct BufferFeatures {
   static constexpr bool TRACK_VARIANCE = true;
 };
 
+// Forward declaration so Buffer can grant the Program serialize/restore parity
+// path access to private accumulators (sum_, sum_comp_, M2_) and the buffer
+// deque. The accessors below are gated behind friend Program; outside callers
+// must go through collect()/restore_data_from_json() as usual.
+class Program;
+
 template <typename T, typename Features = BufferFeatures>
 class Buffer : public Operator {
  public:
+  friend class Program;
   Buffer(std::string id, size_t window_size) : Operator(std::move(id)), window_size_(window_size) {
     if (window_size < 1) {
       throw std::runtime_error("Buffer window size must be at least 1");

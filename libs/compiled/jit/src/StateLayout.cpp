@@ -2,13 +2,15 @@
 
 #include <limits>
 
-#include "rtbot/compiled/JoinStage.h"
 #include "rtbot/fuse/FusedBytecode.h"
+
 #include "rtbot/fuse/FusedStateLayout.h"
 
 namespace rtbot::jit {
 
-std::size_t state_size_for(const OpNode& node) {
+std::size_t state_size_for(const OpNode& node, std::size_t program_cap) {
+  const std::size_t cap = effective_sync_queue_capacity(node, program_cap);
+  const std::size_t port_slots = 2 * cap + 2;  // doubles per port ring buffer
   switch (node.kind) {
     // Stateless arithmetic
     case OpKind::Add:
@@ -87,23 +89,23 @@ std::size_t state_size_for(const OpNode& node) {
       return 0;
 
     // Demultiplexer state layout: 1 data port + N control ports each holding
-    // a Join-style PortBuffer<64> (130 doubles per port).
+    // a Join-style ring buffer (port_slots doubles per port).
     //   ports [0]       : data port (queue of incoming data values)
     //   ports [1..N]    : control ports (queue of incoming control booleans)
     case OpKind::Demux: {
       std::size_t n = node.mux_num_ports;
       if (n == 0) n = 1;
-      return (1 + n) * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      return (1 + n) * port_slots;
     }
 
     // Multiplexer state layout: N data ports + N control ports each holding
-    // a Join-style PortBuffer<64> (130 doubles per port).
+    // a Join-style ring buffer (port_slots doubles per port).
     //   ports [0..N)    : data ports
     //   ports [N..2N)   : control ports
     case OpKind::Mux: {
       std::size_t n = node.mux_num_ports;
       if (n == 0) n = 1;
-      return 2 * n * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      return 2 * n * port_slots;
     }
 
     // CumSum: sum + Kahan compensation = 2
@@ -168,7 +170,7 @@ std::size_t state_size_for(const OpNode& node) {
     case OpKind::ResamplerConstant:
       return 3;
 
-    // Join with N ports: N * (2 * kJoinPortCapacity + 2)
+    // Join with N ports: N * port_slots
     // join_num_ports is set by the parser; fall back to port_types.size()
     // for legacy graphs and 2 if neither is provided.
     case OpKind::Join: {
@@ -176,7 +178,7 @@ std::size_t state_size_for(const OpNode& node) {
       if (n_ports == 0) {
         n_ports = node.port_types.empty() ? 2 : node.port_types.size();
       }
-      return n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      return n_ports * port_slots;
     }
 
     // Linear and ReduceJoin: same per-port ring buffer machinery as Join.
@@ -187,23 +189,22 @@ std::size_t state_size_for(const OpNode& node) {
         n_ports = node.coefficients.size();
       }
       if (n_ports < 2) n_ports = 2;
-      return n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      return n_ports * port_slots;
     }
 
     // VectorCompose: same per-port ring buffer machinery as Join.
     case OpKind::VectorCompose: {
       std::size_t n_ports = node.join_num_ports;
       if (n_ports == 0) n_ports = 1;
-      return n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      return n_ports * port_slots;
     }
 
     // FusedExpression: N port queues (Join-shape) + bytecode-derived state.
-    // Total = N * port_capacity + bytecode_state_size.
+    // Total = N * port_slots + bytecode_state_size.
     case OpKind::FusedExpression: {
       std::size_t n_ports = node.fe_num_ports;
       if (n_ports == 0) n_ports = 1;
-      const std::size_t queue_size =
-          n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t queue_size = n_ports * port_slots;
       auto pack = rtbot::fuse::pack_bytecode(node.fe_bytecode);
       const auto fl = rtbot::fuse::compute_state_layout(pack.packed,
                                                         pack.aux_args);
@@ -245,7 +246,7 @@ std::size_t state_size_for(const OpNode& node) {
 
     // Pipeline state layout (planned by plan_state_layout, which fills
     // pipeline_inner_state_size before this is consulted):
-    //   port queues:           N * (2 * kJoinPortCapacity + 2)
+    //   port queues:           N * port_slots
     //   last_segment_key:      1 (init NaN — D3 forces first-tick reset)
     //   buffered_msg_present:  1 (init 0.0 = false)
     //   buffered_t:            1
@@ -262,8 +263,7 @@ std::size_t state_size_for(const OpNode& node) {
       if (n_ports == 0) n_ports = 1;
       const bool has_control = node.pipeline_segment_bytecode.empty();
       const std::size_t total_ports = n_ports + (has_control ? 1 : 0);
-      const std::size_t queue_size =
-          total_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t queue_size = total_ports * port_slots;
       const std::size_t num_outputs = node.pipeline_output_port_types.size();
       return queue_size + 3 + num_outputs + node.pipeline_inner_state_size;
     }
@@ -288,8 +288,7 @@ std::size_t state_size_for(const OpNode& node) {
       std::size_t n_ports = node.join_num_ports;
       if (n_ports == 0) n_ports = node.keyed_pipeline_input_lane_width;
       if (n_ports == 0) n_ports = 1;
-      const std::size_t queue_size =
-          n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t queue_size = n_ports * port_slots;
       return queue_size + 1;
     }
   }
@@ -301,6 +300,7 @@ std::size_t state_size_for(const OpNode& node) {
 StateLayout plan_state_layout(CompiledGraph& graph) {
   StateLayout layout;
   std::size_t cursor = 0;
+  const std::size_t prog_cap = graph.default_sync_queue_capacity;
 
   for (auto& node : graph.nodes) {
     // Recursively plan the inner program for Pipeline nodes BEFORE sizing
@@ -330,7 +330,7 @@ StateLayout plan_state_layout(CompiledGraph& graph) {
     }
     const std::size_t off = cursor;
     layout.offsets[node.id] = off;
-    cursor += state_size_for(node);
+    cursor += state_size_for(node, prog_cap);
 
     // MaxAgg slot must start at -inf; MinAgg slot must start at +inf.
     if (node.kind == OpKind::MaxAgg) {
@@ -345,8 +345,8 @@ StateLayout plan_state_layout(CompiledGraph& graph) {
       // = -inf, MIN_AGG = +inf), then apply user-supplied stateInit on top.
       std::size_t n_ports = node.fe_num_ports;
       if (n_ports == 0) n_ports = 1;
-      const std::size_t queue_size =
-          n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t fe_cap = effective_sync_queue_capacity(node, prog_cap);
+      const std::size_t queue_size = n_ports * (2 * fe_cap + 2);
       const std::size_t bc_base = off + queue_size;
       auto pack = rtbot::fuse::pack_bytecode(node.fe_bytecode);
       const auto fl = rtbot::fuse::compute_state_layout(pack.packed,
@@ -426,8 +426,8 @@ StateLayout plan_state_layout(CompiledGraph& graph) {
       if (n_ports == 0) n_ports = 1;
       const bool has_control = node.pipeline_segment_bytecode.empty();
       const std::size_t total_ports = n_ports + (has_control ? 1 : 0);
-      const std::size_t queue_size =
-          total_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+      const std::size_t pipe_cap = effective_sync_queue_capacity(node, prog_cap);
+      const std::size_t queue_size = total_ports * (2 * pipe_cap + 2);
       const std::size_t key_off = off + queue_size;
       layout.state_init_overrides[key_off] =
           std::numeric_limits<double>::quiet_NaN();
@@ -481,6 +481,16 @@ std::size_t compute_max_emits_per_call(const CompiledGraph& graph) {
     }
     if (node.kind == OpKind::Pipeline) {
       const std::size_t n = node.pipeline_output_port_types.size();
+      if (n > k) k = n;
+    }
+    if (node.kind == OpKind::ResamplerHermite ||
+        node.kind == OpKind::ResamplerConstant) {
+      // A resampler can emit multiple ticks per input when the input is
+      // sparse relative to its interval. Bound K by the op's effective sync
+      // queue capacity so the multi-emit scratch arrays size matches the
+      // worst-case fan-out the runtime is willing to buffer.
+      const std::size_t n = effective_sync_queue_capacity(
+          node, graph.default_sync_queue_capacity);
       if (n > k) k = n;
     }
     if (node.kind == OpKind::KeyedPipeline) {

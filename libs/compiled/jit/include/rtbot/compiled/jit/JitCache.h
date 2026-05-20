@@ -49,6 +49,9 @@ class JitCache {
     std::size_t num_outputs{0};
     std::size_t max_emits_per_call{1};
     std::map<std::size_t, double> state_init_overrides;
+    // Per-op-id starting offsets into the flat state buffer. Mirrors
+    // StateLayout::offsets captured at compile time; needed by serialize/restore.
+    std::map<std::string, std::size_t> state_offsets;
     std::shared_ptr<rtbot::JitContext> jit_ctx;  // keeps compiled code alive
     // Per-KeyedPipeline-node runtime config. Each instantiation allocates
     // fresh KeyedPipelineNodeCtx instances and patches their pointers into

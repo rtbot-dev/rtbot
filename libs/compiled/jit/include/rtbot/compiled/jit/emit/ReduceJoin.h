@@ -7,6 +7,7 @@
 
 #include "rtbot/compiled/jit/CompiledGraph.h"
 #include "rtbot/compiled/jit/IrEmissionContext.h"
+#include "rtbot/compiled/jit/emit/Join.h"
 #include "rtbot/compiled/jit/emit/Linear.h"  // ReducedSyncOutput
 
 namespace rtbot::jit::emit {
@@ -22,7 +23,8 @@ namespace rtbot::jit::emit {
 ReducedSyncOutput emit_reduce_join_try_sync(IrEmissionContext& ec,
                                             std::size_t state_offset,
                                             std::size_t n_ports,
-                                            ReduceOp reduce_op);
+                                            ReduceOp reduce_op,
+                                            std::size_t cap = kJitDefaultSyncQueueCapacity);
 
 }  // namespace rtbot::jit::emit
 

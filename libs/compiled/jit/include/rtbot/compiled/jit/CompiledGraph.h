@@ -12,6 +12,11 @@
 
 namespace rtbot::jit {
 
+// Default per-port sync queue capacity used when no override is specified
+// in JSON (program-level `syncQueueCapacity` or per-op `syncQueueCapacity`).
+// Each port costs `2*cap + 2` doubles of state; at 64 that is ~1 KB per port.
+inline constexpr std::size_t kJitDefaultSyncQueueCapacity = 64;
+
 struct CompiledGraph;
 
 // Opcode tag — covers the FE opcode set + sync/routing.
@@ -263,6 +268,12 @@ struct OpNode {
   // plus ring_count + ring_head + ctx_ptr.
   std::size_t mkc_window_size{0};
 
+  // Per-op sync queue capacity override. 0 means "use program default".
+  // Applies to all ops that use Join-style per-port ring buffers (Join,
+  // Linear, ReduceJoin, VectorCompose, FusedExpression, Demux, Mux,
+  // Pipeline, KeyedPipeline).
+  std::size_t sync_queue_capacity{0};
+
   // VectorExtract: index into the upstream vector wire.
   std::size_t vector_index{0};
   // VectorProject: ordered list of indices into the upstream vector wire.
@@ -287,6 +298,14 @@ struct OpNode {
   }
 };
 
+// Returns the effective per-port ring buffer capacity for `op` given the
+// program-level default. Returns the per-op override if set (non-zero),
+// otherwise returns the program default.
+inline std::size_t effective_sync_queue_capacity(const OpNode& op,
+                                                  std::size_t program_default) {
+  return op.sync_queue_capacity != 0 ? op.sync_queue_capacity : program_default;
+}
+
 // Distinguishes data ports (i{n}/o{n}) from control ports (c{n}). Existing
 // opcodes consume only data inputs; control routing (Demux/Mux) is layered
 // on top of this metadata.
@@ -310,6 +329,9 @@ struct CompiledGraph {
   std::map<std::string, std::vector<std::string>> outputs;
   // The entry input op id, mirrors the JSON's "entryOperator" field.
   std::string entry_op_id;
+  // Program-level default per-port sync queue capacity. Applied to any op
+  // whose sync_queue_capacity is 0 (inherit). Defaults to 64.
+  std::size_t default_sync_queue_capacity{64};
 };
 
 }  // namespace rtbot::jit

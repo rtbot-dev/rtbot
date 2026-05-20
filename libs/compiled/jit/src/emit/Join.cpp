@@ -3,12 +3,13 @@
 // IR emission for Join<N> push and try_sync. Mirrors JoinStage<N> from
 // libs/compiled/include/rtbot/compiled/JoinStage.h exactly.
 //
-// State layout (N * 130 doubles at state_offset):
+// State layout (N * (2*cap+2) doubles at state_offset):
 //   For each port p in [0, N):
-//     [state_offset + p*130 + 0..63]   times[64]   — i64 timestamps bit-cast as double
-//     [state_offset + p*130 + 64..127] values[64]  — double values
-//     [state_offset + p*130 + 128]     head        — size_t stored as double (UIToFP/FPToUI)
-//     [state_offset + p*130 + 129]     size        — size_t stored as double (UIToFP/FPToUI)
+//     [state_offset + p*stride + 0..cap-1]       times[cap]  — i64 timestamps bit-cast as double
+//     [state_offset + p*stride + cap..2*cap-1]   values[cap] — double values
+//     [state_offset + p*stride + 2*cap]           head        — size_t stored as double (UIToFP/FPToUI)
+//     [state_offset + p*stride + 2*cap+1]         size        — size_t stored as double (UIToFP/FPToUI)
+// where stride = 2*cap+2.
 
 #include "rtbot/compiled/jit/emit/Join.h"
 
@@ -22,31 +23,28 @@ namespace rtbot::jit::emit {
 
 namespace {
 
-// Per-port slot sizes.
-static constexpr std::size_t kPortStride   = 130;  // doubles per port
-static constexpr std::size_t kTimesOffset  = 0;    // relative to port base
-static constexpr std::size_t kValuesOffset = 64;   // relative to port base
-static constexpr std::size_t kHeadOffset   = 128;  // relative to port base
-static constexpr std::size_t kSizeOffset   = 129;  // relative to port base
-
 // Compute the absolute state-buffer offset for a field in a given port.
-std::size_t port_slot(std::size_t state_offset, std::size_t port, std::size_t field_offset) {
-  return state_offset + port * kPortStride + field_offset;
+// `cap` is the per-port ring capacity; stride = 2*cap+2.
+std::size_t port_slot(std::size_t state_offset, std::size_t port,
+                      std::size_t field_offset, std::size_t cap) {
+  return state_offset + port * (2 * cap + 2) + field_offset;
 }
 
 // Pop the front element from port `port` (advance head, decrement size).
 // Emits straight-line IR in the current basic block. No new blocks created.
-void emit_pop_front(IrEmissionContext& ec, std::size_t state_offset, std::size_t port) {
+void emit_pop_front(IrEmissionContext& ec, std::size_t state_offset,
+                    std::size_t port, std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
 
   llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
   llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
 
-  const std::size_t cap_val = kJitJoinPortCapacity;
+  const std::size_t head_off = 2 * cap;
+  const std::size_t size_off = 2 * cap + 1;
 
-  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, kHeadOffset));
-  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, kSizeOffset));
+  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, head_off, cap));
+  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, size_off, cap));
 
   llvm::Value* head_d = b.CreateLoad(f64, head_ptr, "jpop_head_d");
   llvm::Value* size_d = b.CreateLoad(f64, size_ptr, "jpop_size_d");
@@ -54,12 +52,12 @@ void emit_pop_front(IrEmissionContext& ec, std::size_t state_offset, std::size_t
   llvm::Value* head_i = b.CreateFPToUI(head_d, i64, "jpop_head_i");
   llvm::Value* size_i = b.CreateFPToUI(size_d, i64, "jpop_size_i");
 
-  llvm::Value* cap  = llvm::ConstantInt::get(i64, static_cast<int64_t>(cap_val));
-  llvm::Value* one  = llvm::ConstantInt::get(i64, 1);
+  llvm::Value* cap_v = llvm::ConstantInt::get(i64, static_cast<int64_t>(cap));
+  llvm::Value* one   = llvm::ConstantInt::get(i64, 1);
 
   // head = (head + 1) % cap
   llvm::Value* head1 = b.CreateAdd(head_i, one, "jpop_head1");
-  llvm::Value* new_head_i = b.CreateURem(head1, cap, "jpop_new_head");
+  llvm::Value* new_head_i = b.CreateURem(head1, cap_v, "jpop_new_head");
   // size = size - 1
   llvm::Value* new_size_i = b.CreateSub(size_i, one, "jpop_new_size");
 
@@ -69,18 +67,21 @@ void emit_pop_front(IrEmissionContext& ec, std::size_t state_offset, std::size_t
 
 // Load the front timestamp (i64) of port `port`. Straight-line, no new blocks.
 llvm::Value* emit_front_time(IrEmissionContext& ec, std::size_t state_offset,
-                              std::size_t port) {
+                              std::size_t port, std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
 
   llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
   llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
 
-  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, kHeadOffset));
+  const std::size_t head_off  = 2 * cap;
+  const std::size_t times_off = 0;
+
+  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, head_off, cap));
   llvm::Value* head_d   = b.CreateLoad(f64, head_ptr, "jft_head_d");
   llvm::Value* head_i   = b.CreateFPToUI(head_d, i64, "jft_head_i");
 
-  llvm::Value* times_base = ec.state_gep(port_slot(state_offset, port, kTimesOffset));
+  llvm::Value* times_base = ec.state_gep(port_slot(state_offset, port, times_off, cap));
   llvm::Value* t_ptr      = b.CreateGEP(f64, times_base, head_i, "jft_tptr");
   llvm::Value* t_d        = b.CreateLoad(f64, t_ptr, "jft_t_d");
   return b.CreateBitCast(t_d, i64, "jft_t_i");
@@ -88,18 +89,21 @@ llvm::Value* emit_front_time(IrEmissionContext& ec, std::size_t state_offset,
 
 // Load the front value (double) of port `port`. Straight-line, no new blocks.
 llvm::Value* emit_front_value(IrEmissionContext& ec, std::size_t state_offset,
-                               std::size_t port) {
+                               std::size_t port, std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
 
   llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
   llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
 
-  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, kHeadOffset));
+  const std::size_t head_off = 2 * cap;
+  const std::size_t vals_off = cap;
+
+  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, head_off, cap));
   llvm::Value* head_d   = b.CreateLoad(f64, head_ptr, "jfv_head_d");
   llvm::Value* head_i   = b.CreateFPToUI(head_d, i64, "jfv_head_i");
 
-  llvm::Value* vals_base = ec.state_gep(port_slot(state_offset, port, kValuesOffset));
+  llvm::Value* vals_base = ec.state_gep(port_slot(state_offset, port, vals_off, cap));
   llvm::Value* v_ptr     = b.CreateGEP(f64, vals_base, head_i, "jfv_vptr");
   return b.CreateLoad(f64, v_ptr, "jfv_v");
 }
@@ -110,49 +114,52 @@ llvm::Value* emit_front_value(IrEmissionContext& ec, std::size_t state_offset,
 // Public re-exports for Demux/Mux emitters that share the per-port ring layout.
 // ---------------------------------------------------------------------------
 void emit_port_pop_front(IrEmissionContext& ec, std::size_t state_offset,
-                         std::size_t port) {
-  emit_pop_front(ec, state_offset, port);
+                         std::size_t port, std::size_t cap) {
+  emit_pop_front(ec, state_offset, port, cap);
 }
 
 llvm::Value* emit_port_size(IrEmissionContext& ec, std::size_t state_offset,
-                            std::size_t port) {
+                            std::size_t port, std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
   llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
   llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
-  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, kSizeOffset));
+  const std::size_t size_off = 2 * cap + 1;
+  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, size_off, cap));
   llvm::Value* size_d   = b.CreateLoad(f64, size_ptr, "psz_d");
   return b.CreateFPToUI(size_d, i64, "psz_i");
 }
 
 llvm::Value* emit_port_front_time(IrEmissionContext& ec, std::size_t state_offset,
-                                  std::size_t port) {
-  return emit_front_time(ec, state_offset, port);
+                                  std::size_t port, std::size_t cap) {
+  return emit_front_time(ec, state_offset, port, cap);
 }
 
 llvm::Value* emit_port_front_value(IrEmissionContext& ec, std::size_t state_offset,
-                                   std::size_t port) {
-  return emit_front_value(ec, state_offset, port);
+                                   std::size_t port, std::size_t cap) {
+  return emit_front_value(ec, state_offset, port, cap);
 }
 
 // ---------------------------------------------------------------------------
 // emit_join_push
 // ---------------------------------------------------------------------------
 void emit_join_push(IrEmissionContext& ec, std::size_t state_offset, std::size_t /*N*/,
-                    std::size_t port, llvm::Value* t, llvm::Value* v) {
+                    std::size_t port, llvm::Value* t, llvm::Value* v,
+                    std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
 
   llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
   llvm::Type* i64 = llvm::Type::getInt64Ty(ctx);
 
-  const std::size_t cap_val = kJitJoinPortCapacity;
+  const std::size_t head_off = 2 * cap;
+  const std::size_t size_off = 2 * cap + 1;
 
-  llvm::Value* cap64 = llvm::ConstantInt::get(i64, static_cast<int64_t>(cap_val));
+  llvm::Value* cap64 = llvm::ConstantInt::get(i64, static_cast<int64_t>(cap));
   llvm::Value* one64 = llvm::ConstantInt::get(i64, 1);
 
-  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, kHeadOffset));
-  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, kSizeOffset));
+  llvm::Value* head_ptr = ec.state_gep(port_slot(state_offset, port, head_off, cap));
+  llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, port, size_off, cap));
 
   // Load head and size.
   llvm::Value* head_d = b.CreateLoad(f64, head_ptr, "jp_head_d");
@@ -200,12 +207,12 @@ void emit_join_push(IrEmissionContext& ec, std::size_t state_offset, std::size_t
   llvm::Value* idx            = b.CreateURem(head_plus_size, cap64, "jp_idx");
 
   // Store t as bit-cast double into times ring.
-  llvm::Value* times_base = ec.state_gep(port_slot(state_offset, port, kTimesOffset));
+  llvm::Value* times_base = ec.state_gep(port_slot(state_offset, port, /*times_off=*/0, cap));
   llvm::Value* t_ptr      = b.CreateGEP(f64, times_base, idx, "jp_t_ptr");
   b.CreateStore(b.CreateBitCast(t, f64, "jp_t_bc"), t_ptr);
 
   // Store v into values ring.
-  llvm::Value* vals_base = ec.state_gep(port_slot(state_offset, port, kValuesOffset));
+  llvm::Value* vals_base = ec.state_gep(port_slot(state_offset, port, /*vals_off=*/cap, cap));
   llvm::Value* v_ptr     = b.CreateGEP(f64, vals_base, idx, "jp_v_ptr");
   b.CreateStore(v, v_ptr);
 
@@ -218,7 +225,7 @@ void emit_join_push(IrEmissionContext& ec, std::size_t state_offset, std::size_t
 // emit_join_try_sync
 // ---------------------------------------------------------------------------
 JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offset,
-                                  std::size_t N) {
+                                  std::size_t N, std::size_t cap) {
   auto& b   = ec.b();
   auto& ctx = ec.ctx();
 
@@ -231,7 +238,7 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
   llvm::Value* zero_f64 = llvm::ConstantFP::get(f64, 0.0);
   llvm::Value* one_i32  = llvm::ConstantInt::get(i32, 1);
 
-  const int max_iters = static_cast<int>(2 * kJitJoinPortCapacity);  // 128
+  const int max_iters = static_cast<int>(2 * cap);
 
   llvm::Function* fn = b.GetInsertBlock()->getParent();
   llvm::BasicBlock* bb_entry = b.GetInsertBlock();
@@ -265,7 +272,8 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
 
   // --- (1) All ports must have size > 0; if any is 0, jump to no_sync -------
   for (std::size_t p = 0; p < N; ++p) {
-    llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, p, kSizeOffset));
+    const std::size_t size_off = 2 * cap + 1;
+    llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, p, size_off, cap));
     llvm::Value* size_d   = b.CreateLoad(f64, size_ptr, "jts_sz_d");
     llvm::Value* size_i   = b.CreateFPToUI(size_d, i64, "jts_sz_i");
     llvm::Value* is_empty = b.CreateICmpEQ(size_i, zero_i64, "jts_empty");
@@ -277,12 +285,12 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
   }
 
   // --- (2) Load front times; compute min_t and max_t (unrolled) -------------
-  llvm::Value* ft0   = emit_front_time(ec, state_offset, 0);
+  llvm::Value* ft0   = emit_front_time(ec, state_offset, 0, cap);
   llvm::Value* min_t = ft0;
   llvm::Value* max_t = ft0;
 
   for (std::size_t i = 1; i < N; ++i) {
-    llvm::Value* fti = emit_front_time(ec, state_offset, i);
+    llvm::Value* fti = emit_front_time(ec, state_offset, i, cap);
     // min_t = fti < min_t ? fti : min_t
     llvm::Value* lt = b.CreateICmpSLT(fti, min_t, "jts_lt");
     min_t = b.CreateSelect(lt, fti, min_t, "jts_min");
@@ -301,12 +309,13 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
   b.SetInsertPoint(bb_drop_mins);
 
   for (std::size_t p = 0; p < N; ++p) {
-    llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, p, kSizeOffset));
+    const std::size_t size_off = 2 * cap + 1;
+    llvm::Value* size_ptr = ec.state_gep(port_slot(state_offset, p, size_off, cap));
     llvm::Value* size_d   = b.CreateLoad(f64, size_ptr, "jts_dm_sz_d");
     llvm::Value* size_i   = b.CreateFPToUI(size_d, i64, "jts_dm_sz_i");
     llvm::Value* has_entry = b.CreateICmpUGT(size_i, zero_i64, "jts_dm_has");
 
-    llvm::Value* ftp         = emit_front_time(ec, state_offset, p);
+    llvm::Value* ftp         = emit_front_time(ec, state_offset, p, cap);
     llvm::Value* ft_eq_min   = b.CreateICmpEQ(ftp, min_t, "jts_dm_eq");
     llvm::Value* should_pop  = b.CreateAnd(has_entry, ft_eq_min, "jts_dm_pop");
 
@@ -316,7 +325,7 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
     b.CreateCondBr(should_pop, bb_do_pop, bb_skip);
 
     b.SetInsertPoint(bb_do_pop);
-    emit_pop_front(ec, state_offset, p);
+    emit_pop_front(ec, state_offset, p, cap);
     b.CreateBr(bb_skip);
 
     b.SetInsertPoint(bb_skip);
@@ -337,8 +346,8 @@ JoinSyncOutput emit_join_try_sync(IrEmissionContext& ec, std::size_t state_offse
   sync_out_vs.reserve(N);
 
   for (std::size_t p = 0; p < N; ++p) {
-    sync_out_vs.push_back(emit_front_value(ec, state_offset, p));
-    emit_pop_front(ec, state_offset, p);
+    sync_out_vs.push_back(emit_front_value(ec, state_offset, p, cap));
+    emit_pop_front(ec, state_offset, p, cap);
   }
 
   llvm::BasicBlock* bb_synced_end = b.GetInsertBlock();

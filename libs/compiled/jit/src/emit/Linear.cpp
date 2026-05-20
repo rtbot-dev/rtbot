@@ -19,7 +19,8 @@ namespace rtbot::jit::emit {
 
 ReducedSyncOutput emit_linear_try_sync(IrEmissionContext& ec,
                                        std::size_t state_offset,
-                                       const std::vector<double>& coeffs) {
+                                       const std::vector<double>& coeffs,
+                                       std::size_t cap) {
   if (coeffs.size() < 2) {
     throw std::runtime_error(
         "emit_linear_try_sync: at least 2 coefficients required");
@@ -31,7 +32,7 @@ ReducedSyncOutput emit_linear_try_sync(IrEmissionContext& ec,
 
   // Run the shared N-port sync. After this returns, the IRBuilder is in the
   // try_sync exit block; sync_flag/out_t/out_vs are PHIs valid in that block.
-  JoinSyncOutput sync = emit_join_try_sync(ec, state_offset, coeffs.size());
+  JoinSyncOutput sync = emit_join_try_sync(ec, state_offset, coeffs.size(), cap);
 
   // FE Linear::process_data computes:
   //   result = 0.0

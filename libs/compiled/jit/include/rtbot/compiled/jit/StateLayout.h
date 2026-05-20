@@ -36,8 +36,10 @@ struct StateLayout {
 StateLayout plan_state_layout(CompiledGraph& graph);
 
 // Get the state size in doubles for one opcode instance, given its kind
-// and parameters. Public so other parts of the compiler can use it.
-std::size_t state_size_for(const OpNode& node);
+// and parameters. `program_cap` is the program-level default sync queue
+// capacity used when the op's own sync_queue_capacity is 0.
+std::size_t state_size_for(const OpNode& node,
+                            std::size_t program_cap = 256);
 
 // Maximum number of emissions per segment_fn call across the whole program.
 // K = max(1, max Demultiplexer mux_num_ports). Multiplexer always emits at

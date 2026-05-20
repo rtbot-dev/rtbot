@@ -58,6 +58,7 @@ std::unique_ptr<JitCompiledProgram> JitCache::instantiate_from(
     prog->state_[off] = val;
   }
   prog->state_init_overrides_ = entry.state_init_overrides;
+  prog->state_offsets_ = entry.state_offsets;
 
   prog->num_outputs_ = entry.num_outputs;
   prog->max_emits_per_call_ = entry.max_emits_per_call;
@@ -119,6 +120,7 @@ JitCache::Entry JitCache::compile_fresh(const std::string& json) {
   entry.num_outputs         = compiled->num_outputs_;
   entry.max_emits_per_call  = compiled->max_emits_per_call_;
   entry.state_init_overrides = compiled->state_init_overrides_;
+  entry.state_offsets = compiled->state_offsets_;
   entry.keyed_pipeline_configs = compiled->keyed_pipeline_configs_;
   entry.moving_key_count_configs = compiled->moving_key_count_configs_;
   // Transfer ownership of the JitContext into the entry's shared_ptr.

@@ -130,13 +130,15 @@ class Program {
 
   string serialize_data() {
     if (using_jit_) {
-      throw std::runtime_error(
-          "serialize_data: not supported while JIT is active; "
-          "call restore_data_from_json to switch to interpreter mode first");
+      sync_jit_to_framework_all_();
     }
     json result;
     for (auto& [name, op] : operators_) {
       result[name] = op->collect();
+      const auto extras = collect_jit_extras_(name, op);
+      if (!extras.is_null()) {
+        result[name]["__jit_extras"] = extras;
+      }
     }
     return result.dump();
   }
@@ -145,15 +147,14 @@ class Program {
     auto j = json::parse(json_state);
     for (auto& [name, op] : operators_) {
       op->restore_data_from_json(j.at(name));
+      if (j.at(name).contains("__jit_extras")) {
+        apply_jit_extras_(name, op, j.at(name).at("__jit_extras"));
+      }
     }
-    // After restoring interpreter state, the JIT's internal state no longer
-    // matches. Disable JIT so subsequent receives use the interpreter, which
-    // now has the correctly restored state.
+    // Keep JIT active and push the freshly restored framework state back into
+    // the JIT slot pattern so receive_*() resumes from the same point.
     if (using_jit_) {
-      using_jit_      = false;
-      cached_jit_fn_  = nullptr;
-      cached_jit_fn_vec_ = nullptr;
-      jit_program_.reset();
+      sync_framework_to_jit_all_();
     }
   }
 
@@ -544,7 +545,7 @@ class Program {
   template <class Callback>
   inline void drain_records(Callback&& cb, bool consume = true) {
     if (using_jit_) {
-      const bool per_port = (jit_program_->max_emits_per_call() > 1);
+      const bool per_port = jit_per_record_port_dispatch_;
       const bool single_terminal_single_vector =
           (jit_output_ports_.size() == 1 && jit_output_ports_[0].is_vector);
 
@@ -809,6 +810,14 @@ class Program {
   };
   std::vector<JitOutputPort> jit_output_ports_;
 
+  // True when the JIT program emits "one record per output port" with the
+  // port_id field selecting which port the value belongs to. Today this is
+  // the Demux / Mux / TopK shape. False when records are "one per emission
+  // across all output ports" (multi-port records, e.g. a Resampler that fires
+  // multiple times per input call). Drives translate_jit_to_batch_'s and
+  // drain_records' dispatch choice.
+  bool jit_per_record_port_dispatch_{false};
+
   void init_from_json() {
     RTBOT_LOG_DEBUG("Initializing program from JSON");
     auto j = json::parse(program_json_);
@@ -884,6 +893,22 @@ class Program {
 
     jit_output_ports_.clear();
     bool first_seen = false;
+
+    // Pre-scan operator kinds for the per-record dispatch flag. Demux / Mux /
+    // TopK encode the destination port in each record's port_id field; every
+    // other multi-emit shape (e.g. a Resampler firing many ticks per input)
+    // writes one record per emission with all ports populated at port_id=0.
+    jit_per_record_port_dispatch_ = false;
+    if (j.contains("operators")) {
+      for (const auto& op : j["operators"]) {
+        if (!op.contains("type")) continue;
+        const std::string t = op["type"].get<std::string>();
+        if (t == "Demultiplexer" || t == "Multiplexer" || t == "TopK") {
+          jit_per_record_port_dispatch_ = true;
+          break;
+        }
+      }
+    }
 
     // The JIT's flat out_v_arr layout matches a single Output op's input-port
     // layout: slot k holds whichever connection has to_port=k, with vector
@@ -1003,7 +1028,7 @@ class Program {
     ProgramMsgBatch batch;
     if (records.empty()) return batch;
 
-    const bool per_port = (jit_program_->max_emits_per_call() > 1);
+    const bool per_port = jit_per_record_port_dispatch_;
     const bool single_terminal_single_vector =
         (jit_output_ports_.size() == 1 && jit_output_ports_[0].is_vector);
 
@@ -1217,6 +1242,497 @@ class Program {
       }
     }
     return true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase C1 JIT serialization parity codecs.
+  //
+  // Covered opcodes (kept in lockstep with libs/compiled/jit/src/StateLayout.cpp
+  // state layouts): MovingAverage, StandardDeviation, MovingSum, CumulativeSum,
+  // Count, MaxTracker, MinTracker, Difference, SignChange, Gate, Join.
+  // -------------------------------------------------------------------------
+
+  // Capture any extra state that the framework's collect_bytes() drops on
+  // serialize but the JIT preserves bit-exactly (Kahan compensation terms,
+  // M2 accumulator pre-bake, etc.). Round-trip through __jit_extras keeps
+  // emissions bit-exact across both directions.
+  json collect_jit_extras_(const std::string& op_id,
+                            const std::shared_ptr<Operator>& op) const {
+    (void)op_id;
+    const std::string& kind = op->type_name();
+    if (kind == "MovingAverage" || kind == "MovingSum") {
+      if (auto* b = dynamic_cast<Buffer<NumberData, MovingAverageFeatures>*>(op.get())) {
+        return json{{"sum", b->sum_}, {"sum_comp", b->sum_comp_}};
+      }
+      if (auto* b = dynamic_cast<Buffer<NumberData, MovingSumFeatures>*>(op.get())) {
+        return json{{"sum", b->sum_}, {"sum_comp", b->sum_comp_}};
+      }
+    }
+    if (kind == "StandardDeviation") {
+      if (auto* b = dynamic_cast<Buffer<NumberData, StandardDeviationFeatures>*>(op.get())) {
+        return json{{"sum", b->sum_}, {"sum_comp", b->sum_comp_}, {"M2", b->M2_}};
+      }
+    }
+    if (kind == "CumulativeSum") {
+      if (auto* cs = dynamic_cast<CumulativeSum*>(op.get())) {
+        return json{{"sum", cs->sum_}, {"sum_comp", cs->sum_comp_}};
+      }
+    }
+    return json();  // null — no extras
+  }
+
+  // Walk every operator in the graph; for each covered opcode push the JIT
+  // state slice back into the framework operator's private fields so a
+  // subsequent op->collect() reflects the JIT's runtime state. Uncovered
+  // opcodes whose JIT state size is non-zero throw a clear "phase C2" error.
+  void sync_jit_to_framework_all_() {
+    if (!jit_program_) return;
+    const double* jit_state = jit_program_->raw_state_buffer();
+    const auto& offsets = jit_program_->state_offsets();
+    for (auto& [op_id, op] : operators_) {
+      auto it = offsets.find(op_id);
+      if (it == offsets.end()) continue;  // composite-only / FE-folded ops
+      const double* slice = jit_state + it->second;
+      sync_jit_state_to_framework_(op_id, op, slice);
+    }
+  }
+
+  // Reverse direction — copy each covered framework operator's state into the
+  // JIT state buffer slots.
+  void sync_framework_to_jit_all_() {
+    if (!jit_program_) return;
+    double* jit_state = jit_program_->raw_state_buffer();
+    const auto& offsets = jit_program_->state_offsets();
+    for (auto& [op_id, op] : operators_) {
+      auto it = offsets.find(op_id);
+      if (it == offsets.end()) continue;
+      double* slice = jit_state + it->second;
+      sync_framework_state_to_jit_(op_id, op, slice);
+    }
+  }
+
+  // Apply previously captured extras onto a freshly-restored framework op.
+  // The base restore_data_from_json reconstructs sum_/M2_ from the deque
+  // (lossy Kahan); these extras overwrite that with the exact JIT values.
+  void apply_jit_extras_(const std::string& op_id,
+                          const std::shared_ptr<Operator>& op,
+                          const json& extras) {
+    (void)op_id;
+    if (extras.is_null()) return;
+    const std::string& kind = op->type_name();
+    if (kind == "MovingAverage" || kind == "MovingSum") {
+      if (auto* b = dynamic_cast<Buffer<NumberData, MovingAverageFeatures>*>(op.get())) {
+        b->sum_      = extras.value("sum",      0.0);
+        b->sum_comp_ = extras.value("sum_comp", 0.0);
+        return;
+      }
+      if (auto* b = dynamic_cast<Buffer<NumberData, MovingSumFeatures>*>(op.get())) {
+        b->sum_      = extras.value("sum",      0.0);
+        b->sum_comp_ = extras.value("sum_comp", 0.0);
+        return;
+      }
+    }
+    if (kind == "StandardDeviation") {
+      if (auto* b = dynamic_cast<Buffer<NumberData, StandardDeviationFeatures>*>(op.get())) {
+        b->sum_      = extras.value("sum",      0.0);
+        b->sum_comp_ = extras.value("sum_comp", 0.0);
+        b->M2_       = extras.value("M2",       0.0);
+        return;
+      }
+    }
+    if (kind == "CumulativeSum") {
+      if (auto* cs = dynamic_cast<CumulativeSum*>(op.get())) {
+        cs->sum_      = extras.value("sum",      0.0);
+        cs->sum_comp_ = extras.value("sum_comp", 0.0);
+        return;
+      }
+    }
+  }
+
+  // Sync one op's JIT state slice into the framework operator's private state.
+  // For covered opcodes this is the JIT→FW direction. Uncovered opcodes with
+  // non-zero JIT state throw "phase C2 ...".
+  void sync_jit_state_to_framework_(const std::string& op_id,
+                                      const std::shared_ptr<Operator>& fw_op,
+                                      const double* slice) {
+    const std::string& kind = fw_op->type_name();
+
+    if (kind == "MovingAverage" || kind == "MovingSum") {
+      auto* buf = dynamic_cast<Buffer<NumberData, MovingAverageFeatures>*>(fw_op.get());
+      if (buf == nullptr) {
+        auto* buf2 = dynamic_cast<Buffer<NumberData, MovingSumFeatures>*>(fw_op.get());
+        if (buf2 == nullptr) return;
+        sync_jit_to_buffer_ma_or_sum_(buf2, slice);
+        return;
+      }
+      sync_jit_to_buffer_ma_or_sum_(buf, slice);
+      return;
+    }
+    if (kind == "StandardDeviation") {
+      auto* buf = dynamic_cast<Buffer<NumberData, StandardDeviationFeatures>*>(fw_op.get());
+      if (buf == nullptr) return;
+      sync_jit_to_buffer_stddev_(buf, slice);
+      return;
+    }
+    if (kind == "CumulativeSum") {
+      auto* cs = dynamic_cast<CumulativeSum*>(fw_op.get());
+      if (cs == nullptr) return;
+      cs->sum_      = slice[0];
+      cs->sum_comp_ = slice[1];
+      return;
+    }
+    if (kind == "Count" || kind == "CountNumber" || kind == "CountBoolean") {
+      // JIT stores a single double counter at slot 0.
+      auto* cn = dynamic_cast<CountNumber*>(fw_op.get());
+      if (cn != nullptr) {
+        cn->count_ = static_cast<std::size_t>(slice[0]);
+        return;
+      }
+      auto* cb = dynamic_cast<CountBoolean*>(fw_op.get());
+      if (cb != nullptr) {
+        cb->count_ = static_cast<std::size_t>(slice[0]);
+        return;
+      }
+      return;
+    }
+    if (kind == "MaxTracker") {
+      auto* mt = dynamic_cast<MaxTracker*>(fw_op.get());
+      if (mt == nullptr) return;
+      mt->max_ = slice[0];
+      return;
+    }
+    if (kind == "MinTracker") {
+      auto* mt = dynamic_cast<MinTracker*>(fw_op.get());
+      if (mt == nullptr) return;
+      mt->min_ = slice[0];
+      return;
+    }
+    if (kind == "Difference") {
+      auto* dop = dynamic_cast<Difference*>(fw_op.get());
+      if (dop == nullptr) return;
+      sync_jit_to_difference_(dop, slice);
+      return;
+    }
+    if (kind == "Join" || kind == "Linear") {
+      auto* jop = dynamic_cast<Join*>(fw_op.get());
+      if (jop == nullptr) return;
+      sync_jit_to_join_(op_id, jop, slice);
+      return;
+    }
+    // Gate / Input / Output / Identity / Constant / arithmetic etc. — no state.
+    // Anything else that's not in the stateless set is unsupported in C1.
+    if (jit_op_is_stateless_(kind)) return;
+    throw std::runtime_error(
+        "phase C2: opcode " + kind + " serialization not yet supported");
+  }
+
+  void sync_framework_state_to_jit_(const std::string& op_id,
+                                      const std::shared_ptr<Operator>& fw_op,
+                                      double* slice) {
+    const std::string& kind = fw_op->type_name();
+
+    if (kind == "MovingAverage" || kind == "MovingSum") {
+      auto* buf_ma = dynamic_cast<Buffer<NumberData, MovingAverageFeatures>*>(fw_op.get());
+      if (buf_ma != nullptr) {
+        sync_buffer_ma_or_sum_to_jit_(buf_ma, slice);
+        return;
+      }
+      auto* buf_ms = dynamic_cast<Buffer<NumberData, MovingSumFeatures>*>(fw_op.get());
+      if (buf_ms != nullptr) {
+        sync_buffer_ma_or_sum_to_jit_(buf_ms, slice);
+        return;
+      }
+      return;
+    }
+    if (kind == "StandardDeviation") {
+      auto* buf = dynamic_cast<Buffer<NumberData, StandardDeviationFeatures>*>(fw_op.get());
+      if (buf == nullptr) return;
+      sync_buffer_stddev_to_jit_(buf, slice);
+      return;
+    }
+    if (kind == "CumulativeSum") {
+      auto* cs = dynamic_cast<CumulativeSum*>(fw_op.get());
+      if (cs == nullptr) return;
+      slice[0] = cs->sum_;
+      slice[1] = cs->sum_comp_;
+      return;
+    }
+    if (kind == "Count" || kind == "CountNumber" || kind == "CountBoolean") {
+      auto* cn = dynamic_cast<CountNumber*>(fw_op.get());
+      if (cn != nullptr) {
+        slice[0] = static_cast<double>(cn->count_);
+        return;
+      }
+      auto* cb = dynamic_cast<CountBoolean*>(fw_op.get());
+      if (cb != nullptr) {
+        slice[0] = static_cast<double>(cb->count_);
+        return;
+      }
+      return;
+    }
+    if (kind == "MaxTracker") {
+      auto* mt = dynamic_cast<MaxTracker*>(fw_op.get());
+      if (mt == nullptr) return;
+      slice[0] = mt->max_;
+      return;
+    }
+    if (kind == "MinTracker") {
+      auto* mt = dynamic_cast<MinTracker*>(fw_op.get());
+      if (mt == nullptr) return;
+      slice[0] = mt->min_;
+      return;
+    }
+    if (kind == "Difference") {
+      auto* dop = dynamic_cast<Difference*>(fw_op.get());
+      if (dop == nullptr) return;
+      sync_difference_to_jit_(dop, slice);
+      return;
+    }
+    if (kind == "Join" || kind == "Linear") {
+      auto* jop = dynamic_cast<Join*>(fw_op.get());
+      if (jop == nullptr) return;
+      sync_join_to_jit_(op_id, jop, slice);
+      return;
+    }
+    // Stateless ops: nothing to write.
+    if (jit_op_is_stateless_(kind)) return;
+    throw std::runtime_error(
+        "phase C2: opcode " + kind + " serialization not yet supported");
+  }
+
+  // ---- Codec helpers ------------------------------------------------------
+
+  // JIT MA/MovingSum layout: ring[W], sum, comp, count.
+  template <typename Features>
+  void sync_jit_to_buffer_ma_or_sum_(Buffer<NumberData, Features>* buf,
+                                       const double* slice) {
+    const std::size_t W = buf->window_size_;
+    const double count_d = slice[W + 2];
+    const std::size_t count_u = static_cast<std::size_t>(count_d);
+    const std::size_t fill = std::min(count_u, W);
+
+    buf->buffer_.clear();
+    if (fill > 0) {
+      // The JIT ring writes element k at index (count - fill + k) % W. Walk
+      // the slots in the order that produces the oldest-to-newest deque.
+      const std::size_t start = (count_u >= W)
+                                    ? (count_u % W)
+                                    : 0;
+      for (std::size_t k = 0; k < fill; ++k) {
+        const std::size_t idx = (start + k) % W;
+        const double v = slice[idx];
+        buf->buffer_.push_back(create_message<NumberData>(
+            std::numeric_limits<std::int64_t>::min() + static_cast<std::int64_t>(k),
+            NumberData{v}));
+      }
+    }
+    // Sum + Kahan compensation are present unconditionally on Buffer; the
+    // TRACK_SUM / TRACK_VARIANCE Features only gate the public accessors and
+    // the Buffer::restore reconstruction path. The JIT always stores both
+    // for MA/MovingSum/StdDev, so copy them in regardless of Features.
+    buf->sum_      = slice[W];
+    buf->sum_comp_ = slice[W + 1];
+    if constexpr (Features::TRACK_VARIANCE) {
+      // Recompute M2 from the just-restored buffer (matches Buffer::restore).
+      buf->M2_ = 0.0;
+      if (buf->buffer_.size() > 1) {
+        const double mean = buf->sum_ / static_cast<double>(buf->buffer_.size());
+        for (const auto& msg : buf->buffer_) {
+          const double d = msg->data.value - mean;
+          buf->M2_ += d * d;
+        }
+      }
+    }
+  }
+
+  template <typename Features>
+  void sync_buffer_ma_or_sum_to_jit_(Buffer<NumberData, Features>* buf,
+                                       double* slice) {
+    const std::size_t W = buf->window_size_;
+    // Reset the JIT slots so cap-1 elements left over from prior runs don't
+    // leak in if the buffer is now smaller than W.
+    for (std::size_t i = 0; i < W + 3; ++i) slice[i] = 0.0;
+
+    const std::size_t fill = buf->buffer_.size();
+    const std::size_t count_u = fill;  // framework has no notion of total count
+                                       // beyond W; matches JIT post-warmup.
+    std::size_t idx = 0;
+    for (const auto& msg : buf->buffer_) {
+      slice[idx] = msg->data.value;
+      ++idx;
+    }
+    // sum / comp: framework recomputed sum_ via kahan_add on restore; use
+    // that (regardless of Features — both MA and StdDev maintain the same
+    // sum_ + sum_comp_ fields, and Buffer::restore rebuilds them for both).
+    slice[W]     = buf->sum_;
+    slice[W + 1] = buf->sum_comp_;
+    slice[W + 2] = static_cast<double>(count_u);
+  }
+
+  // StdDev shares MA's ring shape. We reuse the MA path; M2_ is reconstructed
+  // by Buffer::restore from the same deque content, so observational parity
+  // holds on the next emission.
+  void sync_jit_to_buffer_stddev_(Buffer<NumberData, StandardDeviationFeatures>* buf,
+                                    const double* slice) {
+    sync_jit_to_buffer_ma_or_sum_(buf, slice);
+  }
+  void sync_buffer_stddev_to_jit_(Buffer<NumberData, StandardDeviationFeatures>* buf,
+                                    double* slice) {
+    sync_buffer_ma_or_sum_to_jit_(buf, slice);
+  }
+
+  // Difference: window=2 Buffer with DifferenceFeatures (no sum/M2). JIT
+  // stores prev_v, prev_t (bitcast), curr_t (unused), count.
+  void sync_jit_to_difference_(Difference* dop, const double* slice) {
+    const double prev_v = slice[0];
+    const double prev_t_d = slice[1];
+    std::int64_t prev_t_i = 0;
+    std::memcpy(&prev_t_i, &prev_t_d, sizeof(std::int64_t));
+    const std::size_t count = static_cast<std::size_t>(slice[3]);
+
+    dop->buffer_.clear();
+    if (count == 0) return;
+    if (count == 1) {
+      dop->buffer_.push_back(create_message<NumberData>(prev_t_i, NumberData{prev_v}));
+      return;
+    }
+    // count >= 2: framework needs [v_{n-1}, v_n]. JIT only retains v_n. Push a
+    // placeholder for v_{n-1} (value 0, fake timestamp) — it gets popped before
+    // the next emission, so downstream emissions remain bit-exact.
+    dop->buffer_.push_back(create_message<NumberData>(
+        std::numeric_limits<std::int64_t>::min(), NumberData{0.0}));
+    dop->buffer_.push_back(create_message<NumberData>(prev_t_i, NumberData{prev_v}));
+  }
+
+  void sync_difference_to_jit_(Difference* dop, double* slice) {
+    for (std::size_t i = 0; i < 4; ++i) slice[i] = 0.0;
+    if (dop->buffer_.empty()) return;
+    // Use the back (latest) entry as the JIT's prev_v / prev_t.
+    const auto& back = dop->buffer_.back();
+    slice[0] = back->data.value;
+    const std::int64_t t = back->time;
+    double t_d = 0.0;
+    std::memcpy(&t_d, &t, sizeof(std::int64_t));
+    slice[1] = t_d;
+    slice[3] = static_cast<double>(dop->buffer_.size());
+  }
+
+  // Join codec.
+  //
+  // JIT layout: N * (2*cap+2) doubles. Per port p:
+  //   times[cap]  (int64 bitcast as double)
+  //   values[cap] (doubles)
+  //   head        (size_t stored as double)
+  //   size        (size_t stored as double)
+  //
+  // Framework Join stores per-port input MessageQueue (std::deque) accessed via
+  // get_data_queue(p). Each entry is a Message<T>. Convert JIT ring → ordered
+  // deque; for FW→JIT pack the deque back into the ring with head=0.
+  void sync_jit_to_join_(const std::string& op_id, Join* jop,
+                          const double* slice) {
+    const std::size_t cap = effective_join_cap_for_op_(op_id);
+    const std::size_t stride = 2 * cap + 2;
+    const std::size_t N = jop->num_data_ports();
+
+    for (std::size_t p = 0; p < N; ++p) {
+      auto& q = jop->get_data_queue(p);
+      q.clear();
+
+      const double* port_base = slice + p * stride;
+      const std::size_t head = static_cast<std::size_t>(port_base[2 * cap]);
+      const std::size_t size = static_cast<std::size_t>(port_base[2 * cap + 1]);
+
+      for (std::size_t k = 0; k < size; ++k) {
+        const std::size_t idx = (head + k) % cap;
+        const double t_d = port_base[idx];
+        std::int64_t t_i = 0;
+        std::memcpy(&t_i, &t_d, sizeof(std::int64_t));
+        const double v = port_base[cap + idx];
+        q.push_back(create_message<NumberData>(t_i, NumberData{v}));
+      }
+    }
+  }
+
+  void sync_join_to_jit_(const std::string& op_id, Join* jop, double* slice) {
+    const std::size_t cap = effective_join_cap_for_op_(op_id);
+    const std::size_t stride = 2 * cap + 2;
+    const std::size_t N = jop->num_data_ports();
+
+    for (std::size_t p = 0; p < N; ++p) {
+      double* port_base = slice + p * stride;
+      for (std::size_t i = 0; i < stride; ++i) port_base[i] = 0.0;
+
+      auto& q = jop->get_data_queue(p);
+      const std::size_t size = std::min(q.size(), cap);
+      // Pack starting at head=0 so the ring layout matches a fresh buffer.
+      std::size_t k = 0;
+      for (auto it = q.begin(); it != q.end() && k < size; ++it, ++k) {
+        if (const auto* nm =
+                dynamic_cast<const Message<NumberData>*>(it->get())) {
+          double t_d = 0.0;
+          std::int64_t t_i = nm->time;
+          std::memcpy(&t_d, &t_i, sizeof(std::int64_t));
+          port_base[k] = t_d;
+          port_base[cap + k] = nm->data.value;
+        } else if (const auto* bm =
+                       dynamic_cast<const Message<BooleanData>*>(it->get())) {
+          double t_d = 0.0;
+          std::int64_t t_i = bm->time;
+          std::memcpy(&t_d, &t_i, sizeof(std::int64_t));
+          port_base[k] = t_d;
+          port_base[cap + k] = bm->data.value ? 1.0 : 0.0;
+        }
+      }
+      port_base[2 * cap]     = 0.0;                         // head
+      port_base[2 * cap + 1] = static_cast<double>(size);   // size
+    }
+  }
+
+  // Look up the per-Join effective sync queue capacity for one op_id.
+  // Parses the cached program JSON; capacity is "syncQueueCapacity" on the
+  // op, falling back to the program-level "defaultSyncQueueCapacity"
+  // (64 by default — mirrors CompiledGraph::default_sync_queue_capacity).
+  std::size_t effective_join_cap_for_op_(const std::string& op_id) const {
+    auto j = json::parse(program_json_);
+    std::size_t prog_cap = 64;
+    if (j.contains("defaultSyncQueueCapacity")) {
+      prog_cap = j["defaultSyncQueueCapacity"].get<std::size_t>();
+    }
+    if (!j.contains("operators")) return prog_cap;
+    for (const auto& op : j["operators"]) {
+      if (op.value("id", std::string{}) != op_id) continue;
+      const std::size_t op_cap = op.value("syncQueueCapacity", std::size_t{0});
+      return op_cap != 0 ? op_cap : prog_cap;
+    }
+    return prog_cap;
+  }
+
+  // Whether the framework operator with this `type_name()` produces zero JIT
+  // state slots (mirrors the OpKind cases that return 0 in
+  // libs/compiled/jit/src/StateLayout.cpp). The phase-C2 guard treats only
+  // type_names absent from this set as potentially stateful.
+  bool jit_op_is_stateless_(const std::string& type_name) const {
+    static const std::set<std::string> stateless = {
+        "Input", "Output", "Identity",
+        "ConstantNumber", "ConstantBoolean",
+        "ConstantNumberToBoolean", "ConstantBooleanToNumber",
+        "Scale", "Add", "Addition", "Subtraction", "Multiplication", "Division",
+        "Power", "Abs", "Sqrt", "Log", "Log10", "Exp",
+        "Sin", "Cos", "Tan", "Sign", "Floor", "Ceil", "Round",
+        "GreaterThan", "LessThan", "EqualTo", "NotEqualTo",
+        "LessThanOrEqualToReplace", "TimeShift", "Function",
+        "CompareEQ", "CompareGT", "CompareGTE", "CompareLT", "CompareLTE",
+        "CompareNEQ",
+        "CompareSyncEQ", "CompareSyncGT", "CompareSyncGTE", "CompareSyncLT",
+        "CompareSyncLTE", "CompareSyncNEQ",
+        "LogicalAnd", "LogicalOr", "LogicalXor", "LogicalNand", "LogicalNor",
+        "LogicalXnor", "LogicalImplication",
+        "SyncEqual", "SyncNotEqual", "SyncGreaterThan", "SyncLessThan",
+        "Variable",  // not JIT-compiled; framework-only
+        "BooleanToNumber",
+        "VectorExtract", "VectorProject",
+    };
+    return stateless.count(type_name) > 0;
   }
 
   void send_to_entry(std::unique_ptr<BaseMessage> msg, const std::string& port_id, bool debug = false) {

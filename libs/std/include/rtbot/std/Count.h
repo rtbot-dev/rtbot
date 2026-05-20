@@ -5,6 +5,8 @@
 
 namespace rtbot {
 
+class Program;  // grants serialize/restore parity sync access to count_.
+
 /**
  * Counts incoming messages regardless of their type.
  * Has one input port and one output port that emits NumberData.
@@ -12,6 +14,7 @@ namespace rtbot {
 template <typename T>
 class Count : public Operator {
  public:
+  friend class Program;
   explicit Count(std::string id) : Operator(std::move(id)), count_(0) {
     add_data_port<T>();             // Accept any type on input
     add_output_port<NumberData>();  // Output count as number

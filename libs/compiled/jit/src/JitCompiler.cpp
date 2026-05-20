@@ -43,13 +43,14 @@ MovingKeyCountNodeConfig make_moving_key_count_config(
 }
 
 KeyedPipelineNodeConfig make_keyed_pipeline_config(const StateLayout& layout,
-                                                    const OpNode& node) {
+                                                    const OpNode& node,
+                                                    std::size_t program_cap) {
   KeyedPipelineNodeConfig cfg;
   std::size_t n_ports = node.join_num_ports;
   if (n_ports == 0) n_ports = node.keyed_pipeline_input_lane_width;
   if (n_ports == 0) n_ports = 1;
-  const std::size_t queue_size =
-      n_ports * (2 * rtbot::compiled::kJoinPortCapacity + 2);
+  const std::size_t kp_cap = effective_sync_queue_capacity(node, program_cap);
+  const std::size_t queue_size = n_ports * (2 * kp_cap + 2);
   const std::size_t base = layout.offsets.at(node.id);
   cfg.ctx_ptr_state_slot = base + queue_size;
   cfg.init_pattern = node.keyed_pipeline_inner_state_init;
@@ -240,6 +241,7 @@ std::unique_ptr<JitCompiledProgram> JitCompiler::compile(
   auto prog = std::make_unique<JitCompiledProgram>();
   prog->state_.resize(emitted.state_size_doubles, 0.0);
   prog->state_init_overrides_ = layout.state_init_overrides;
+  prog->state_offsets_ = layout.offsets;
   for (const auto& [off, val] : layout.state_init_overrides) {
     prog->state_[off] = val;
   }
@@ -267,7 +269,8 @@ std::unique_ptr<JitCompiledProgram> JitCompiler::compile(
   for (const auto& node : graph.nodes) {
     if (node.kind != OpKind::KeyedPipeline) continue;
     prog->keyed_pipeline_configs_.push_back(
-        make_keyed_pipeline_config(layout, node));
+        make_keyed_pipeline_config(layout, node,
+                                   graph.default_sync_queue_capacity));
   }
   for (const auto& cfg : prog->keyed_pipeline_configs_) {
     auto kp_ctx = std::make_unique<KeyedPipelineNodeCtx>();

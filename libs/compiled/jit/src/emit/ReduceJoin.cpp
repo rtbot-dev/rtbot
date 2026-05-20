@@ -121,7 +121,8 @@ llvm::Value* init_value(llvm::IRBuilder<>& b, ReduceOp op) {
 ReducedSyncOutput emit_reduce_join_try_sync(IrEmissionContext& ec,
                                             std::size_t state_offset,
                                             std::size_t n_ports,
-                                            ReduceOp reduce_op) {
+                                            ReduceOp reduce_op,
+                                            std::size_t cap) {
   if (n_ports < 2) {
     throw std::runtime_error(
         "emit_reduce_join_try_sync: at least 2 ports required");
@@ -130,7 +131,7 @@ ReducedSyncOutput emit_reduce_join_try_sync(IrEmissionContext& ec,
   auto& ctx = ec.ctx();
 
   // Drive the shared N-port sync.
-  JoinSyncOutput sync = emit_join_try_sync(ec, state_offset, n_ports);
+  JoinSyncOutput sync = emit_join_try_sync(ec, state_offset, n_ports, cap);
 
   // Build the fold straight-line. For DivReduce we additionally OR a
   // div_by_zero flag for each divisor value to suppress the emit.

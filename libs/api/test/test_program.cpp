@@ -1066,30 +1066,27 @@ SCENARIO("Program handles prototypes", "[program][prototypes]") {
     }
 
     WHEN("Serializing and deserializing") {
-      // JIT-active programs cannot be serialized. This prototype expands to
-      // operators all supported by the JIT, so we verify the throw and then
-      // re-create in interpreter mode via restore_data_from_json.
+      // Phase C1 lifts the JIT-active throw. The prototype expands to MA(3) +
+      // Scale, both covered by the C1 codec, so serialize_data round-trips
+      // bit-exactly in both JIT and interpreter modes.
       program.receive(Message<NumberData>(1, NumberData{3.0}));
       program.receive(Message<NumberData>(2, NumberData{6.0}));
 
-      THEN("serialize_data throws when JIT is active") {
-        if (program.using_jit()) {
-          REQUIRE_THROWS_AS(program.serialize_data(), std::runtime_error);
-        } else {
-          // Interpreter path: verify round-trip fidelity.
-          auto serialized = program.serialize_data();
-          Program restored(program_json);
-          restored.restore_data_from_json(serialized);
+      THEN("serialize_data round-trips state") {
+        auto serialized = program.serialize_data();
+        Program restored(program_json);
+        restored.restore_data_from_json(serialized);
 
-          auto original_batch = program.receive(Message<NumberData>(3, NumberData{9.0}));
-          auto restored_batch = restored.receive(Message<NumberData>(3, NumberData{9.0}));
+        auto original_batch = program.receive(Message<NumberData>(3, NumberData{9.0}));
+        auto restored_batch = restored.receive(Message<NumberData>(3, NumberData{9.0}));
 
-          const auto* original_msg =
-              dynamic_cast<const Message<NumberData>*>(original_batch["output1"]["o1"].back().get());
-          const auto* restored_msg =
-              dynamic_cast<const Message<NumberData>*>(restored_batch["output1"]["o1"].back().get());
-          REQUIRE(original_msg->data.value == Approx(restored_msg->data.value));
-        }
+        const auto* original_msg =
+            dynamic_cast<const Message<NumberData>*>(original_batch["output1"]["o1"].back().get());
+        const auto* restored_msg =
+            dynamic_cast<const Message<NumberData>*>(restored_batch["output1"]["o1"].back().get());
+        REQUIRE(original_msg != nullptr);
+        REQUIRE(restored_msg != nullptr);
+        REQUIRE(original_msg->data.value == Approx(restored_msg->data.value));
       }
     }
   }

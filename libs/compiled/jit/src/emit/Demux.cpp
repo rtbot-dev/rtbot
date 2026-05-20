@@ -57,7 +57,7 @@ DemuxTrySyncOutput emit_demux_try_sync(IrEmissionContext& ec,
   llvm::Value* zero_f64 = llvm::ConstantFP::get(f64, 0.0);
   llvm::Value* one_i32  = llvm::ConstantInt::get(i32, 1);
 
-  const int max_iters = static_cast<int>(2 * 64);
+  const int max_iters = static_cast<int>(2 * kJitDefaultSyncQueueCapacity);
 
   llvm::Function* fn = b.GetInsertBlock()->getParent();
   llvm::BasicBlock* bb_entry = b.GetInsertBlock();
