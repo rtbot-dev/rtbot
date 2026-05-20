@@ -13,8 +13,6 @@ cc_test(
         "//libs/api:rtbot-api",
         "//libs/compiled:rtbot-compiled",
         "//libs/compiled/jit:rtbot-compiled-jit",
-        "//libs/compiled/jit_spike:bollinger_jit",
-        "//libs/compiled/jit_spike:jit_context",
         "//libs/core:rtbot",
         "//libs/fuse:rtbot-fuse",
         "//libs/std:rtbot-std",

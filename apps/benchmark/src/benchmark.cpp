@@ -24,8 +24,6 @@
 #include "rtbot/compiled/ScaleStage.h"
 #include "rtbot/compiled/StdDevStage.h"
 #include "rtbot/compiled/jit/JitCompiler.h"
-#include "libs/compiled/jit_spike/BollingerJit.h"
-#include "libs/compiled/jit_spike/JitContext.h"
 #include "rtbot/fuse/FusedExpression.h"
 #include "rtbot/std/ArithmeticSync.h"
 #include "rtbot/std/MovingAverage.h"
@@ -957,54 +955,6 @@ class BollingerProgramJitEscapeHatchBenchmark {
   std::string json_;
 };
 
-// JIT-compiled Bollinger via the Phase-5 spike's hand-coded emit_bollinger_process.
-// Calls the JIT'd function pointer directly (same calling convention as JitCompiledProgram)
-// to isolate JIT code quality from wrapper overhead.
-class BollingerJitSpikeBenchmark {
- public:
-  using SpikeFnT = bool (*)(double* state, int64_t t, double v,
-                             int64_t* out_t,
-                             double* out_lower, double* out_upper, double* out_middle);
-
-  BollingerJitSpikeBenchmark() {
-    auto ctx = std::make_unique<llvm::LLVMContext>();
-    auto mod = std::make_unique<llvm::Module>("bollinger_spike", *ctx);
-    rtbot::emit_bollinger_process(*mod, *ctx);
-    jit_ctx_ = std::make_unique<rtbot::JitContext>();
-    jit_ctx_->compile_module(std::move(mod), std::move(ctx));
-    fn_ = jit_ctx_->lookup<SpikeFnT>("bollinger_process");
-    state_.resize(rtbot::kBollingerStateSize, 0.0);
-  }
-
-  std::pair<double, double> benchmark_single_size(size_t data_size) {
-    auto prices = SignalGenerator::generate_random_walk(data_size);
-    std::fill(state_.begin(), state_.end(), 0.0);
-
-    int64_t out_t = 0;
-    double out_lower = 0.0, out_upper = 0.0, out_middle = 0.0;
-    size_t emitted = 0;
-
-    auto start = std::chrono::high_resolution_clock::now();
-    for (size_t i = 0; i < data_size; ++i) {
-      if (fn_(state_.data(), static_cast<int64_t>(i + 1), prices[i],
-              &out_t, &out_lower, &out_upper, &out_middle)) {
-        ++emitted;
-      }
-    }
-    auto end = std::chrono::high_resolution_clock::now();
-    volatile size_t sink = emitted;
-    (void)sink;
-
-    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    return {duration.count(), (data_size * 1e9) / duration.count()};
-  }
-
- private:
-  std::unique_ptr<rtbot::JitContext> jit_ctx_;
-  SpikeFnT fn_{nullptr};
-  std::vector<double> state_;
-};
-
 // Drives BollingerTemplatedStage directly in a tight loop, with no Operator
 // framework. Caveat for cross-comparison: this skips the ResamplerHermite
 // stage that the other Bollinger variants include. The random-walk input
@@ -1181,7 +1131,6 @@ int main() {
   std::vector<double> templ_times;
   std::vector<double> comp_times;
   std::vector<double> bollinger_jit_times;
-  std::vector<double> bollinger_jit_spike_times;
   std::vector<double> bollinger_jit_direct_times;
   std::vector<double> bollinger_escape_times;
   fused_times.reserve(kRuns);
@@ -1189,7 +1138,6 @@ int main() {
   templ_times.reserve(kRuns);
   comp_times.reserve(kRuns);
   bollinger_jit_times.reserve(kRuns);
-  bollinger_jit_spike_times.reserve(kRuns);
   bollinger_jit_direct_times.reserve(kRuns);
   bollinger_escape_times.reserve(kRuns);
   // Warm up all variants so first measured run isn't an outlier.
@@ -1209,8 +1157,6 @@ int main() {
     BollingerBandsComposedBenchmark comp;
     comp.benchmark_single_size(kSize);
   }
-  BollingerJitSpikeBenchmark jit_spike_bench;
-  jit_spike_bench.benchmark_single_size(kSize);
   bollinger_jit_direct_benchmark.benchmark_single_size(kSize);
   bollinger_escape_benchmark.benchmark_single_size(kSize);
 
@@ -1226,7 +1172,6 @@ int main() {
     bollinger_jit_times.push_back(bollinger_jit_benchmark.benchmark_single_size(kSize).first);
     bollinger_jit_direct_times.push_back(bollinger_jit_direct_benchmark.benchmark_single_size(kSize).first);
     bollinger_escape_times.push_back(bollinger_escape_benchmark.benchmark_single_size(kSize).first);
-    bollinger_jit_spike_times.push_back(jit_spike_bench.benchmark_single_size(kSize).first);
     {
       BollingerBandsPureBenchmark pure;
       pure_times.push_back(pure.benchmark_single_size(kSize).first);
@@ -1263,7 +1208,6 @@ int main() {
   results2.add_result("Bollinger JIT", kSize, std::move(bollinger_jit_times));
   results2.add_result("Bollinger JIT Direct", kSize, std::move(bollinger_jit_direct_times));
   results2.add_result("Bollinger Escape", kSize, std::move(bollinger_escape_times));
-  results2.add_result("Bollinger JIT Spike", kSize, std::move(bollinger_jit_spike_times));
   results2.add_result("PPG Pipeline", kSize, std::move(ppg_times));
   results2.add_result("PPG Compiled", kSize, std::move(ppg_compiled_times));
   results2.add_result("PPG JIT", kSize, std::move(ppg_jit_times));
