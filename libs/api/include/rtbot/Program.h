@@ -923,16 +923,53 @@ class Program {
     // TopK encode the destination port in each record's port_id field; every
     // other multi-emit shape (e.g. a Resampler firing many ticks per input)
     // writes one record per emission with all ports populated at port_id=0.
+    //
+    // Class-4 (PARITY.md): when the linear-segment JIT path runs into a
+    // retroactive-t op (PeakDetector, TimeShift with non-zero shift) feeding
+    // a multi-port Output, it switches to per-port multi-emit so each
+    // port's record carries its own logical `t`. Those records also use
+    // `port_id` as the slot index, so drain_into and translate_jit_to_batch_
+    // must route them through the per-port aggregation. The switch only
+    // applies to the linear segment path — programs that take the
+    // emit_program path (i.e. contain sync ops) keep the combined-record
+    // shape, so we condition on "no sync ops" here. Keep this list in sync
+    // with `is_sync_op` in `SegmentPartitioner.cpp`.
     jit_per_record_port_dispatch_ = false;
+    bool has_retroactive_t_jit = false;
+    bool has_sync_op_jit = false;
+    std::size_t output_port_count_jit = 0;
     if (j.contains("operators")) {
       for (const auto& op : j["operators"]) {
         if (!op.contains("type")) continue;
         const std::string t = op["type"].get<std::string>();
         if (t == "Demultiplexer" || t == "Multiplexer" || t == "TopK") {
           jit_per_record_port_dispatch_ = true;
-          break;
+        }
+        if (t == "PeakDetector") {
+          has_retroactive_t_jit = true;
+        }
+        if (t == "TimeShift") {
+          std::int64_t shift = 0;
+          if (op.contains("shift")) {
+            shift = op["shift"].get<std::int64_t>();
+          } else if (op.contains("time_shift")) {
+            shift = op["time_shift"].get<std::int64_t>();
+          }
+          if (shift != 0) has_retroactive_t_jit = true;
+        }
+        if (t == "Join" || t == "Linear" || t == "ReduceJoin" ||
+            t == "VectorCompose" || t == "FusedExpression" ||
+            t == "Pipeline" || t == "KeyedPipeline") {
+          has_sync_op_jit = true;
+        }
+        if (t == "Output" && op.contains("portTypes")) {
+          output_port_count_jit = op["portTypes"].size();
         }
       }
+    }
+    if (has_retroactive_t_jit && output_port_count_jit > 1 &&
+        !has_sync_op_jit) {
+      jit_per_record_port_dispatch_ = true;
     }
 
     // The JIT's flat out_v_arr layout matches a single Output op's input-port

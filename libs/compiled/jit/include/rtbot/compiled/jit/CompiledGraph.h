@@ -334,6 +334,38 @@ struct CompiledGraph {
   std::size_t default_sync_queue_capacity{64};
 };
 
+// True when the graph contains an op whose `StatefulOutput.out_t` may differ
+// from the segment's input tick. PeakDetector emits at the window-center
+// timestamp; TimeShift emits at `t + shift`. Every other current stateful op
+// uses the input `t` verbatim. Used by the linear-segment Output emitter to
+// decide whether to switch to per-port multi-emit so the framework's
+// per-port-independent drain shape (one record per port at its own logical
+// `t`) is reproduced — see PARITY.md class-4.
+inline bool has_retroactive_t_op(const CompiledGraph& graph) {
+  for (const auto& n : graph.nodes) {
+    if (n.kind == OpKind::PeakDetector) return true;
+    if (n.kind == OpKind::TimeShift && n.time_shift != 0) return true;
+  }
+  return false;
+}
+
+// Number of data input connections to the program's Output op (or 0 if the
+// graph has no Output node). Used as the per-port-multi-emit upper bound for
+// `compute_max_emits_per_call` and as the "multi-port" predicate for the
+// class-4 retroactive-Output gate.
+inline std::size_t output_op_input_port_count(const CompiledGraph& graph) {
+  std::string out_id;
+  for (const auto& n : graph.nodes) {
+    if (n.kind == OpKind::Output) { out_id = n.id; break; }
+  }
+  if (out_id.empty()) return 0;
+  std::size_t n = 0;
+  for (const auto& c : graph.connections) {
+    if (c.to_id == out_id && c.to_kind == PortKind::Data) ++n;
+  }
+  return n;
+}
+
 }  // namespace rtbot::jit
 
 #endif  // RTBOT_JIT_COMPILED_GRAPH_H

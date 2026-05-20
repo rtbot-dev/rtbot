@@ -493,6 +493,18 @@ std::size_t compute_max_emits_per_call(const CompiledGraph& graph) {
           node, graph.default_sync_queue_capacity);
       if (n > k) k = n;
     }
+    // Retroactive-t multi-port Output (PARITY.md class-4): when the graph
+    // has any op whose StatefulOutput.out_t may differ from the segment's
+    // input tick (PeakDetector, TimeShift with non-zero shift), the linear-
+    // segment Output IR switches to per-port multi-emit so framework's
+    // per-port-independent drain shape is preserved. Worst-case fan-out is
+    // one record per data-input port on the Output node.
+    if (node.kind == OpKind::Output) {
+      if (has_retroactive_t_op(graph)) {
+        const std::size_t n = output_op_input_port_count(graph);
+        if (n > k) k = n;
+      }
+    }
     if (node.kind == OpKind::KeyedPipeline) {
       // KeyedPipeline emits one combined record per inner emission. The
       // inner sub-function's K bounds the per-tick emission count. We also

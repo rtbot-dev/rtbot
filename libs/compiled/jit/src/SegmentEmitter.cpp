@@ -1016,6 +1016,23 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
   llvm::Value* al_should_emit = b.CreateAlloca(b.getInt1Ty(), nullptr, "al_should_emit");
   b.CreateStore(llvm::ConstantInt::getTrue(ctx), al_should_emit);
 
+  // Class-4 fix: when the graph has a retroactive-t op (PeakDetector or
+  // TimeShift) feeding a multi-port Output, the linear-segment Output IR
+  // switches to per-port multi-emit. `al_per_port_count` tracks how many
+  // records the segment has written into the K-slot arrays; on exit we
+  // return its value instead of the constant 1. Allocated unconditionally
+  // (always-0 path collapses to the existing return-1 path) so the LLVM
+  // optimizer can fold it away when unused.
+  const bool use_per_port_multi_emit =
+      has_retroactive_t_op(graph) && output_op_input_port_count(graph) > 1;
+  llvm::Value* al_per_port_count = nullptr;
+  llvm::BasicBlock* bb_ret_count = nullptr;
+  if (use_per_port_multi_emit) {
+    al_per_port_count = b.CreateAlloca(i32, nullptr, "al_per_port_count");
+    b.CreateStore(llvm::ConstantInt::get(i32, 0), al_per_port_count);
+    bb_ret_count = llvm::BasicBlock::Create(ctx, "ret_per_port_count", fn);
+  }
+
   // -------------------------------------------------------------------------
   // Partition: ops before Resampler vs ops after Resampler.
   // -------------------------------------------------------------------------
@@ -1061,6 +1078,113 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
       // Gate-op suppression (al_should_emit).
       if (node.kind == OpKind::Output) {
         auto in_conns = inputs_for(graph, op_id);
+        const OpNode& output_node = node;
+
+        // Per-port multi-emit path (PARITY.md class-4). When the graph
+        // contains a retroactive-t op feeding a multi-port Output, the
+        // framework's drain emits one record per port at that port's own
+        // logical `t` — not at the segment's input tick. Mirror that by
+        // writing one K-slot record per live input port, with the port's
+        // own slot carrying the value and all other slots NaN-filled.
+        // `port_id` carries the port's flat-slot base so `drain_into`'s
+        // existing per-port aggregation (gated by
+        // `jit_per_record_port_dispatch_`) reassembles same-`t` records
+        // into the framework's combined shape.
+        if (use_per_port_multi_emit) {
+          llvm::Value* se = b.CreateLoad(b.getInt1Ty(), al_should_emit);
+          llvm::BasicBlock* bb_pp_writes =
+              llvm::BasicBlock::Create(ctx, "out_pp_writes", fn);
+          b.CreateCondBr(se, bb_pp_writes, bb_ret_count);
+          b.SetInsertPoint(bb_pp_writes);
+
+          llvm::Value* num_out_c = llvm::ConstantInt::get(
+              i64, static_cast<int64_t>(num_outputs));
+          llvm::Value* nan_c = llvm::ConstantFP::getQNaN(f64);
+
+          for (const auto* conn : in_conns) {
+            auto it = value_map.find({conn->from_id, conn->from_port});
+            if (it == value_map.end()) continue;
+
+            // Branch on this port's warmup_flag (nullptr = always-live).
+            llvm::BasicBlock* bb_write =
+                llvm::BasicBlock::Create(ctx, "out_pp_write", fn);
+            llvm::BasicBlock* bb_skip =
+                llvm::BasicBlock::Create(ctx, "out_pp_skip", fn);
+            llvm::Value* port_flag = it->second.warmup_flag;
+            if (port_flag) {
+              b.CreateCondBr(port_flag, bb_write, bb_skip);
+            } else {
+              b.CreateBr(bb_write);
+            }
+            b.SetInsertPoint(bb_write);
+
+            llvm::Value* k     = b.CreateLoad(i32, al_per_port_count, "pp_k");
+            llvm::Value* k_z   = b.CreateZExt(k, i64, "pp_k_z");
+            llvm::Value* v_base = b.CreateMul(k_z, num_out_c, "pp_v_base");
+
+            // arg_out_t[k] = this port's t.
+            llvm::Value* t_slot =
+                b.CreateGEP(i64, arg_out_t, k_z, "pp_t_slot");
+            b.CreateStore(it->second.t, t_slot);
+
+            // Per-port records carry the value at K-slot index 0 (the
+            // drain_into per-port aggregator reads `r.values[0]` and writes
+            // it into `slots[port_id]`). NaN-fill the remaining K-slot row
+            // so the record-decoder reads consistent garbage-free values.
+            const std::size_t slot_base =
+                output_flat_slot_base(output_node, conn->to_port);
+            for (std::size_t s = 0; s < num_outputs; ++s) {
+              llvm::Value* off = b.CreateAdd(
+                  v_base,
+                  llvm::ConstantInt::get(i64, static_cast<int64_t>(s)),
+                  "pp_nan_off");
+              llvm::Value* g = b.CreateGEP(f64, arg_out_v, off, "pp_nan_slot");
+              b.CreateStore(nan_c, g);
+            }
+            // Write the port's value(s) into K-slot 0 (scalar) or the
+            // contiguous range starting at K-slot 0 (vector wires). The
+            // drain_into per-port reassembly steers each record into the
+            // correct flat slot of the per-timestamp combined row using
+            // `port_id`.
+            write_port_value_to_slots(
+                ec, output_node, conn->to_port, it->second,
+                [&](std::size_t slot, llvm::Value* val) {
+                  const std::size_t k_slot =
+                      (slot >= slot_base) ? (slot - slot_base) : 0;
+                  if (k_slot < num_outputs) {
+                    llvm::Value* off = b.CreateAdd(
+                        v_base,
+                        llvm::ConstantInt::get(
+                            i64, static_cast<int64_t>(k_slot)),
+                        "pp_v_off");
+                    llvm::Value* g =
+                        b.CreateGEP(f64, arg_out_v, off, "pp_v_slot");
+                    b.CreateStore(val, g);
+                  }
+                });
+
+            // arg_out_port_id[k] = this port's flat slot base.
+            // drain_into's per-port aggregation uses port_id as the slot
+            // index into the per-timestamp NaN-filled record.
+            llvm::Value* pid_slot =
+                b.CreateGEP(i32, arg_out_port_id, k_z, "pp_pid_slot");
+            b.CreateStore(
+                llvm::ConstantInt::get(i32, static_cast<int32_t>(slot_base)),
+                pid_slot);
+
+            // ++al_per_port_count.
+            b.CreateStore(
+                b.CreateAdd(k, llvm::ConstantInt::get(i32, 1), "pp_k1"),
+                al_per_port_count);
+
+            b.CreateBr(bb_skip);
+            b.SetInsertPoint(bb_skip);
+          }
+
+          b.CreateBr(bb_ret_count);
+          break;
+        }
+
         // OR per-port warmup_flags. nullptr means "always live" so we use
         // a tri-state: explicit_or accumulates non-null flags; any_implicit
         // tracks whether at least one port is unconditional. Commit-OR is
@@ -1085,7 +1209,6 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
             llvm::BasicBlock::Create(ctx, "out_write", fn);
         b.CreateCondBr(gate_flag, bb_out_write, bb_ret_false);
         b.SetInsertPoint(bb_out_write);
-        const OpNode& output_node = node;
         // Timestamp source: any input's t works because in a linear segment
         // all live inputs share the current tick's t. Use the first input
         // unchanged for now.
@@ -1525,6 +1648,15 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
   // -------------------------------------------------------------------------
   b.SetInsertPoint(bb_ret_true);
   b.CreateRet(llvm::ConstantInt::get(i32, 1));
+
+  // -------------------------------------------------------------------------
+  // ret_per_port_count block (class-4 path).
+  // -------------------------------------------------------------------------
+  if (use_per_port_multi_emit) {
+    b.SetInsertPoint(bb_ret_count);
+    llvm::Value* pp_cnt = b.CreateLoad(i32, al_per_port_count, "pp_ret_cnt");
+    b.CreateRet(pp_cnt);
+  }
 
   // -------------------------------------------------------------------------
   // Verify.
