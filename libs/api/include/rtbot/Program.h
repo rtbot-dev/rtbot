@@ -334,6 +334,31 @@ class Program {
         return ids.size();
       }();
       if (terminals <= 1) {
+        // Per-port-dispatch mode (Demux/Mux/TopK): the JIT emits one record
+        // per port_id per tick, with the value in r.values[0]. Framework's
+        // drain_into (below) aggregates all per-port emissions at the same
+        // timestamp into a single callback with NaN-filled inactive slots.
+        // Mirror that here so per-tick callback counts match.
+        if (jit_per_record_port_dispatch_) {
+          const std::size_t num_ports = jit_output_ports_.empty()
+              ? 1u
+              : jit_output_ports_.size();
+          const double nan_v = std::numeric_limits<double>::quiet_NaN();
+          std::map<std::int64_t, std::vector<double>> by_time;
+          for (const auto& r : jit_program_->collect_outputs()) {
+            auto& slots = by_time[r.time];
+            if (slots.empty()) slots.assign(num_ports, nan_v);
+            const std::size_t pid = (r.port_id >= 0)
+                ? static_cast<std::size_t>(r.port_id) : 0u;
+            if (pid < num_ports && !r.values.empty()) {
+              slots[pid] = r.values[0];
+            }
+          }
+          for (const auto& [t, vals] : by_time) {
+            cb(t, vals.data(), vals.size());
+          }
+          return;
+        }
         for (const auto& r : jit_program_->collect_outputs()) {
           cb(r.time, r.values.data(), r.values.size());
         }

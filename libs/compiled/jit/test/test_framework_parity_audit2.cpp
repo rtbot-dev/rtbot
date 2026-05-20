@@ -384,7 +384,7 @@ SCENARIO("audit2 parity: VectorCompose(N=4) -> VectorProject(indices=[1,3])",
 // divergence is locked under audit until the in-flight Output handler fix
 // lands.
 SCENARIO("audit2 parity: Demultiplexer N=3 with overlapping controls",
-         "[program_audit2][parity][demux][!mayfail]") {
+         "[program_audit2][parity][demux]") {
   // Controls: c1 = (v > 0), c2 = (v >= 0), c3 = (v >= 1). When v=2, all three
   // emit; when v=0, only c2; when v<0, none.
   const char* kJson = R"({
