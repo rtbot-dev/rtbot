@@ -128,6 +128,62 @@ fine — that's the intended AND behavior.) We don't have a parity test for
 the Pipeline→outer-Output asymmetric case yet — add one when extending
 audits.
 
+### Per-port warmup-flag plumbing (commits `294af88`, `e1c6abe`, `7c1456b`,
+### `490a77c`)
+
+Added a `warmup_flag` to `PortValue` plumbed end-to-end:
+- Stateful ops stamp their `emit_flag` onto the PortValue they produce.
+- Stateless ops AND-propagate the flag from their inputs.
+- The Output op's commit gate ORs the per-port flags (so asymmetric ports
+  still commit when ANY port is live) and NaN-masks inactive port slots.
+- Stateful chains (filter → filter → ...) AND upstream `warmup_flag` into
+  the downstream stateful op's flag so framework suppression survives
+  through the chain.
+- `drain_into`'s JIT branch groups per-port-discriminator records (Demux,
+  Mux, TopK) by timestamp so framework's per-tick aggregation shape is
+  matched.
+
+Class of bug: "different kinds of `emit_flag` (warmup vs conditional)
+conflated into a single global commit gate". The earlier fix (`bcc21d3`)
+applied the OR shape to the resampler path only; subsequent fuzz audit
+caught ~25 more residual cases that share the same root and were fixed
+by porting the per-port plumbing into the segment-ops and emit_segment
+code paths.
+
+## Known remaining divergence classes (next-session work)
+
+After the warmup-flag plumbing, the fuzz harness still finds three small
+bug classes at low frequency (~10 across seeds 42/100/999 of 600 random
+programs):
+
+1. **Stateful ops advance state on upstream-garbage values.** A windowed
+   op (MA/StdDev/MovingSum/etc.) unconditionally runs its state-advance
+   IR every tick, using whatever the upstream computed even when the
+   upstream's `warmup_flag` is false (would have suppressed in the
+   framework). Result: the JIT op is 1+ ticks ahead of the framework op
+   on warmup. Fix path: branch the state-advance IR on upstream's
+   `warmup_flag`, or save/restore the state slots via `select`. Either
+   is invasive (5-10 state slots per windowed op type) and should be
+   done op-by-op.
+
+2. **Output downstream of unrelated sync op.** Graph partitioning places
+   Output in a sync op's downstream segment when Output's input ports
+   don't actually depend on that sync op. Result: Output skips emissions
+   when the unrelated sync hasn't fired. Fix path: graph-partition
+   refactor to keep Output's segment independent when possible. Example:
+   pipeline with dead-code Join feeding nothing observable but still
+   placing Output in Join's downstream segment.
+
+3. **LLVM IR codegen crashes ("Terminator in middle of basic block").**
+   On certain shapes (sync 2-port op consuming filter-gated comparator
+   upstream) the JIT emits malformed IR which LLVM rejects with
+   `report_fatal_error` (uncatchable abort). Fix path: trace the IR
+   structure for one repro; identify which emitter produces the
+   malformed CFG; fix the branch placement.
+
+Reproductions are in `/tmp/fuzz_failure_<seed>_p<idx>.json`; re-run via
+`bazel test ... --test_arg='[fuzz]' --test_env=RTBOT_FUZZ_SEED=...`.
+
 ## Known ASan caveat
 
 rtbot tests run with `ASAN_OPTIONS=detect_container_overflow=0` (set via
