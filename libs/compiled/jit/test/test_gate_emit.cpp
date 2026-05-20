@@ -16,7 +16,7 @@
 #include "rtbot/fuse/FusedBytecode.h"
 #include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
-#include "libs/compiled/jit_spike/JitContext.h"
+#include "rtbot/compiled/jit/JitContext.h"
 
 using namespace rtbot::jit;
 namespace fused_op = rtbot::fused_op;

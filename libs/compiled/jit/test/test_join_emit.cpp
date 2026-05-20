@@ -20,7 +20,7 @@
 #include "rtbot/compiled/JoinStage.h"
 #include "rtbot/compiled/jit/IrEmissionContext.h"
 #include "rtbot/compiled/jit/emit/Join.h"
-#include "libs/compiled/jit_spike/JitContext.h"
+#include "rtbot/compiled/jit/JitContext.h"
 
 using namespace rtbot::jit;
 using namespace rtbot::jit::emit;

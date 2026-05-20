@@ -14,7 +14,6 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs/compiled:rtbot-compiled",
-        "//libs/compiled/jit_spike:jit_context",
         "//libs/core:rtbot",
         "//libs/fuse:rtbot-fuse",
         "@llvm-project//llvm:Core",

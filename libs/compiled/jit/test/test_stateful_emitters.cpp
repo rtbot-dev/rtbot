@@ -24,7 +24,7 @@
 #include "rtbot/compiled/jit/emit/MovingAverage.h"
 #include "rtbot/compiled/jit/emit/Resampler.h"
 #include "rtbot/compiled/jit/emit/StdDev.h"
-#include "libs/compiled/jit_spike/JitContext.h"
+#include "rtbot/compiled/jit/JitContext.h"
 
 using namespace rtbot::jit;
 using namespace rtbot::jit::emit;

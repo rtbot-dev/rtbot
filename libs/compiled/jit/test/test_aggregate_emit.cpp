@@ -24,7 +24,7 @@
 #include "rtbot/fuse/FusedOps.h"
 #include "rtbot/fuse/FusedScalarEval.h"
 #include "rtbot/fuse/FusedStateLayout.h"
-#include "libs/compiled/jit_spike/JitContext.h"
+#include "rtbot/compiled/jit/JitContext.h"
 
 using namespace rtbot::jit;
 using namespace rtbot::jit::emit;

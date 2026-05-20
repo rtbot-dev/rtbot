@@ -119,7 +119,7 @@ maven.install(
 )
 use_repo(maven, "maven")
 
-# LLVM — used by jit_spike (ORC JIT proof of concept) and future codegen phases
+# LLVM — used by the JIT (ORC JIT) and codegen layer in libs/compiled/jit/.
 bazel_dep(name = "llvm-project", version = "17.0.3.bcr.4")
 
 # Non-BCR deps via module extension (C++ libs with custom BUILD files)

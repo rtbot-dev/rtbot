@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "libs/compiled/jit_spike/JitContext.h"
+#include "rtbot/compiled/jit/JitContext.h"
 
 namespace rtbot::jit {
 

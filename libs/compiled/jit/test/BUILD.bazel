@@ -24,7 +24,6 @@ cc_test(
         "//libs/api:rtbot-api",
         "//libs/api/test:parity_helper",
         "//libs/compiled/jit:rtbot-compiled-jit",
-        "//libs/compiled/jit_spike:jit_context",
         "//libs/compiled:rtbot-compiled",
         "//libs/core:rtbot",
         "//libs/fuse:rtbot-fuse",
