@@ -1,6 +1,37 @@
 #ifndef RTBOT_API_TEST_PARITY_HELPER_H
 #define RTBOT_API_TEST_PARITY_HELPER_H
 
+// Cross-mode parity helper for JIT vs canonical framework (operator-graph)
+// execution. Drives the same Program JSON through both paths with identical
+// input and asserts bit-exact per-emission equality.
+//
+// Why this exists
+// ---------------
+// The JIT is a re-implementation of the framework's operator math. We need a
+// machine-checkable contract that says "JIT emissions match framework emissions
+// byte-for-byte over the same input." Any divergence is a JIT bug.
+//
+// Two divergence classes this catches
+// -----------------------------------
+//   1. Per-tick value drift — JIT computes a different number from the
+//      framework. Usually FP-order or accumulator-format mismatches.
+//   2. Per-tick emission drops/duplicates — JIT emits fewer or more records
+//      than the framework. Caught by the Bollinger-resampler-multi-emit and
+//      asymmetric-multi-port-Output bugs.
+//
+// Known ASan caveat
+// -----------------
+// rtbot's tests run with `ASAN_OPTIONS=detect_container_overflow=0` (see
+// BUILD.bazel test_env). The 3 resampler-thinned-input parity scenarios crash
+// inside LLVM's `TypePromotionLegacy::runOnFunction` with a container-overflow
+// ASan report when this suppression is disabled. The crash is a false positive
+// caused by ASan-instrumented user code calling into the un-instrumented LLVM
+// library (which legitimately reads from preallocated SetVector capacity).
+// Correctness of the parity check itself is unaffected — the affected
+// scenarios PASS bit-exact comparisons; they just trip the unrelated ASan
+// false positive during teardown when the suppression is off. Fix is upstream
+// LLVM, not us. Do not chase.
+
 #include <catch2/catch.hpp>
 
 #include <cstdint>
