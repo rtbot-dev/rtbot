@@ -1279,10 +1279,23 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
           PortValue pv{};
           pv.t = out.out_t;
           pv.v = out.out_v;
-          // Phase 1: stamp warmup_flag on every stateful 1->1 op's
-          // PortValue. We don't yet distinguish warmup from conditional
-          // (Filter ops) semantics; future steps will separate them.
-          pv.warmup_flag = out.emit_flag;
+          // Stamp warmup_flag = (this op's emit_flag) AND (upstream's
+          // warmup_flag). For filter chains this propagates predicate
+          // suppression through the chain so a downstream consumer
+          // (Output, etc.) NaN-masks correctly when any upstream filter
+          // would have suppressed.
+          llvm::Value* combined = out.emit_flag;
+          if (inp->second.warmup_flag) {
+            combined = b.CreateAnd(combined, inp->second.warmup_flag, "wfl_chain");
+          }
+          // Sync filters have a second input; AND its flag too.
+          if (in_conns.size() >= 2) {
+            auto inp2 = value_map.find({in_conns[1]->from_id, in_conns[1]->from_port});
+            if (inp2 != value_map.end() && inp2->second.warmup_flag) {
+              combined = b.CreateAnd(combined, inp2->second.warmup_flag, "wfl_chain2");
+            }
+          }
+          pv.warmup_flag = combined;
           value_map[{op_id, 0}] = pv;
           continue;
         }
