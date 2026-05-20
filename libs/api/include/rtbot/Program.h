@@ -1413,17 +1413,56 @@ class Program {
       sync_jit_to_difference_(dop, slice);
       return;
     }
-    if (kind == "Join" || kind == "Linear") {
+    if (kind == "Join" || kind == "Linear" || kind == "VectorCompose") {
       auto* jop = dynamic_cast<Join*>(fw_op.get());
       if (jop == nullptr) return;
       sync_jit_to_join_(op_id, jop, slice);
       return;
     }
+    if (kind == "PeakDetector") {
+      auto* pd = dynamic_cast<PeakDetector*>(fw_op.get());
+      if (pd == nullptr) return;
+      sync_jit_to_peak_detector_(pd, slice);
+      return;
+    }
+    if (kind == "WindowMinMax") {
+      auto* wmm = dynamic_cast<WindowMinMax*>(fw_op.get());
+      if (wmm == nullptr) return;
+      sync_jit_to_window_min_max_(wmm, slice);
+      return;
+    }
+    if (kind == "FiniteImpulseResponse") {
+      auto* fir = dynamic_cast<FiniteImpulseResponse*>(fw_op.get());
+      if (fir == nullptr) return;
+      sync_jit_to_fir_(fir, slice);
+      return;
+    }
+    if (kind == "InfiniteImpulseResponse") {
+      auto* iir = dynamic_cast<InfiniteImpulseResponse*>(fw_op.get());
+      if (iir == nullptr) return;
+      sync_jit_to_iir_(iir, slice);
+      return;
+    }
+    if (kind == "ResamplerHermite") {
+      auto* rh = dynamic_cast<ResamplerHermite*>(fw_op.get());
+      if (rh == nullptr) return;
+      sync_jit_to_resampler_hermite_(rh, slice);
+      return;
+    }
+    if (kind == "ResamplerConstant") {
+      auto* rc = dynamic_cast<ResamplerConstant<NumberData>*>(fw_op.get());
+      if (rc == nullptr) return;
+      sync_jit_to_resampler_constant_(rc, slice);
+      return;
+    }
+    if (kind == "FusedExpression" || kind == "FusedExpressionVector") {
+      throw std::runtime_error(
+          "phase C3: FusedExpression with bytecode state not yet supported");
+    }
     // Gate / Input / Output / Identity / Constant / arithmetic etc. — no state.
-    // Anything else that's not in the stateless set is unsupported in C1.
     if (jit_op_is_stateless_(kind)) return;
     throw std::runtime_error(
-        "phase C2: opcode " + kind + " serialization not yet supported");
+        "phase C3: opcode " + kind + " serialization not yet supported");
   }
 
   void sync_framework_state_to_jit_(const std::string& op_id,
@@ -1488,16 +1527,56 @@ class Program {
       sync_difference_to_jit_(dop, slice);
       return;
     }
-    if (kind == "Join" || kind == "Linear") {
+    if (kind == "Join" || kind == "Linear" || kind == "VectorCompose") {
       auto* jop = dynamic_cast<Join*>(fw_op.get());
       if (jop == nullptr) return;
       sync_join_to_jit_(op_id, jop, slice);
       return;
     }
+    if (kind == "PeakDetector") {
+      auto* pd = dynamic_cast<PeakDetector*>(fw_op.get());
+      if (pd == nullptr) return;
+      sync_peak_detector_to_jit_(pd, slice);
+      return;
+    }
+    if (kind == "WindowMinMax") {
+      auto* wmm = dynamic_cast<WindowMinMax*>(fw_op.get());
+      if (wmm == nullptr) return;
+      sync_window_min_max_to_jit_(wmm, slice);
+      return;
+    }
+    if (kind == "FiniteImpulseResponse") {
+      auto* fir = dynamic_cast<FiniteImpulseResponse*>(fw_op.get());
+      if (fir == nullptr) return;
+      sync_fir_to_jit_(fir, slice);
+      return;
+    }
+    if (kind == "InfiniteImpulseResponse") {
+      auto* iir = dynamic_cast<InfiniteImpulseResponse*>(fw_op.get());
+      if (iir == nullptr) return;
+      sync_iir_to_jit_(iir, slice);
+      return;
+    }
+    if (kind == "ResamplerHermite") {
+      auto* rh = dynamic_cast<ResamplerHermite*>(fw_op.get());
+      if (rh == nullptr) return;
+      sync_resampler_hermite_to_jit_(rh, slice);
+      return;
+    }
+    if (kind == "ResamplerConstant") {
+      auto* rc = dynamic_cast<ResamplerConstant<NumberData>*>(fw_op.get());
+      if (rc == nullptr) return;
+      sync_resampler_constant_to_jit_(rc, slice);
+      return;
+    }
+    if (kind == "FusedExpression" || kind == "FusedExpressionVector") {
+      throw std::runtime_error(
+          "phase C3: FusedExpression with bytecode state not yet supported");
+    }
     // Stateless ops: nothing to write.
     if (jit_op_is_stateless_(kind)) return;
     throw std::runtime_error(
-        "phase C2: opcode " + kind + " serialization not yet supported");
+        "phase C3: opcode " + kind + " serialization not yet supported");
   }
 
   // ---- Codec helpers ------------------------------------------------------
@@ -1686,6 +1765,247 @@ class Program {
       port_base[2 * cap]     = 0.0;                         // head
       port_base[2 * cap + 1] = static_cast<double>(size);   // size
     }
+  }
+
+  // PeakDetector codec.
+  //
+  // JIT layout: [ring_v[W], ring_t[W], count]. JIT writes element index
+  // (count - 1) % W at the most recent slot. Walk slots in count order to
+  // rebuild the framework Buffer's deque oldest-to-newest. Timestamps are
+  // preserved exactly from the ring.
+  void sync_jit_to_peak_detector_(PeakDetector* pd, const double* slice) {
+    const std::size_t W = pd->window_size_;
+    const double count_d = slice[2 * W];
+    const std::size_t count_u = static_cast<std::size_t>(count_d);
+    const std::size_t fill = std::min(count_u, W);
+
+    pd->buffer_.clear();
+    if (fill == 0) return;
+    const std::size_t start = (count_u >= W) ? (count_u % W) : 0;
+    for (std::size_t k = 0; k < fill; ++k) {
+      const std::size_t idx = (start + k) % W;
+      const double v = slice[idx];
+      const double t_d = slice[W + idx];
+      std::int64_t t_i = 0;
+      std::memcpy(&t_i, &t_d, sizeof(std::int64_t));
+      pd->buffer_.push_back(create_message<NumberData>(t_i, NumberData{v}));
+    }
+  }
+
+  void sync_peak_detector_to_jit_(PeakDetector* pd, double* slice) {
+    const std::size_t W = pd->window_size_;
+    for (std::size_t i = 0; i < 2 * W + 1; ++i) slice[i] = 0.0;
+    const std::size_t fill = pd->buffer_.size();
+    std::size_t k = 0;
+    for (const auto& msg : pd->buffer_) {
+      slice[k] = msg->data.value;
+      double t_d = 0.0;
+      std::int64_t t_i = msg->time;
+      std::memcpy(&t_d, &t_i, sizeof(std::int64_t));
+      slice[W + k] = t_d;
+      ++k;
+    }
+    slice[2 * W] = static_cast<double>(fill);
+  }
+
+  // WindowMinMax codec.
+  //
+  // JIT layout: [pos, size, dq_vals[W], dq_pos[W]].
+  // FW: pos_ (size_t), mono_ deque of (size_t, double).
+  void sync_jit_to_window_min_max_(WindowMinMax* wmm, const double* slice) {
+    const std::size_t W = wmm->window_size_;
+    wmm->pos_ = static_cast<std::size_t>(slice[0]);
+    const std::size_t size = static_cast<std::size_t>(slice[1]);
+    wmm->mono_.clear();
+    for (std::size_t k = 0; k < size; ++k) {
+      const double val = slice[2 + k];
+      const std::size_t p = static_cast<std::size_t>(slice[2 + W + k]);
+      wmm->mono_.push_back({p, val});
+    }
+  }
+
+  void sync_window_min_max_to_jit_(WindowMinMax* wmm, double* slice) {
+    const std::size_t W = wmm->window_size_;
+    for (std::size_t i = 0; i < 2 + 2 * W; ++i) slice[i] = 0.0;
+    slice[0] = static_cast<double>(wmm->pos_);
+    const std::size_t size = std::min(wmm->mono_.size(), W);
+    slice[1] = static_cast<double>(size);
+    std::size_t k = 0;
+    for (const auto& [p, val] : wmm->mono_) {
+      if (k >= size) break;
+      slice[2 + k] = val;
+      slice[2 + W + k] = static_cast<double>(p);
+      ++k;
+    }
+  }
+
+  // FIR codec.
+  //
+  // JIT layout: [ring[W], head, count]. JIT doesn't track per-element
+  // timestamps; fabricate increasing INT64_MIN-relative timestamps for the
+  // framework Buffer so collect_bytes can serialize them. Downstream
+  // emissions only use msg->time on the FW path for the output's time field,
+  // which the framework FIR sources from the incoming message (not from any
+  // buffer entry), so the fake values are never observed.
+  void sync_jit_to_fir_(FiniteImpulseResponse* fir, const double* slice) {
+    const std::size_t W = fir->window_size_;
+    const std::size_t head = static_cast<std::size_t>(slice[W]);
+    const std::size_t count_u = static_cast<std::size_t>(slice[W + 1]);
+    const std::size_t fill = std::min(count_u, W);
+
+    fir->buffer_.clear();
+    fir->sum_ = 0.0;
+    fir->sum_comp_ = 0.0;
+    if (fill == 0) return;
+    // ring[k] for k in [head, head+1, ..., head+fill-1] (mod W) is the deque
+    // oldest-to-newest. When fill < W, head equals fill (write pointer at end);
+    // when full, head points to the slot of the oldest value.
+    const std::size_t start = (count_u >= W) ? head : 0;
+    for (std::size_t k = 0; k < fill; ++k) {
+      const std::size_t idx = (start + k) % W;
+      const double v = slice[idx];
+      fir->buffer_.push_back(create_message<NumberData>(
+          std::numeric_limits<std::int64_t>::min() +
+              static_cast<std::int64_t>(k),
+          NumberData{v}));
+      fir->kahan_add(v);
+    }
+  }
+
+  void sync_fir_to_jit_(FiniteImpulseResponse* fir, double* slice) {
+    const std::size_t W = fir->window_size_;
+    for (std::size_t i = 0; i < W + 2; ++i) slice[i] = 0.0;
+    const std::size_t fill = fir->buffer_.size();
+    std::size_t k = 0;
+    for (const auto& msg : fir->buffer_) {
+      slice[k] = msg->data.value;
+      ++k;
+    }
+    // After packing at indices [0..fill-1], the next ring slot to overwrite
+    // is fill % W. count == fill mirrors the post-warmup JIT counter (the JIT
+    // only compares count_new < W to gate emission; values beyond W don't
+    // affect observation).
+    slice[W]     = static_cast<double>(fill % W);
+    slice[W + 1] = static_cast<double>(fill);
+  }
+
+  // IIR codec.
+  //
+  // JIT layout: [x_head, x_count, y_head, y_count, x_ring[B], y_ring[A]].
+  // FW: x_ deque (input history, oldest→newest), y_ deque (output history).
+  void sync_jit_to_iir_(InfiniteImpulseResponse* iir, const double* slice) {
+    const std::size_t B = iir->b_.size();
+    const std::size_t A = iir->a_.size();
+    const std::size_t x_head = static_cast<std::size_t>(slice[0]);
+    const std::size_t x_count = static_cast<std::size_t>(slice[1]);
+    const std::size_t y_head = static_cast<std::size_t>(slice[2]);
+    const std::size_t y_count = static_cast<std::size_t>(slice[3]);
+    const double* x_ring = slice + 4;
+    const double* y_ring = slice + 4 + B;
+
+    iir->x_.clear();
+    const std::size_t x_fill = std::min(x_count, B);
+    const std::size_t x_start = (x_count >= B) ? x_head : 0;
+    for (std::size_t k = 0; k < x_fill; ++k) {
+      iir->x_.push_back(x_ring[(x_start + k) % B]);
+    }
+
+    iir->y_.clear();
+    if (A > 0) {
+      const std::size_t y_fill = std::min(y_count, A);
+      const std::size_t y_start = (y_count >= A) ? y_head : 0;
+      for (std::size_t k = 0; k < y_fill; ++k) {
+        iir->y_.push_back(y_ring[(y_start + k) % A]);
+      }
+    }
+  }
+
+  void sync_iir_to_jit_(InfiniteImpulseResponse* iir, double* slice) {
+    const std::size_t B = iir->b_.size();
+    const std::size_t A = iir->a_.size();
+    for (std::size_t i = 0; i < 4 + B + A; ++i) slice[i] = 0.0;
+
+    const std::size_t x_fill = std::min(iir->x_.size(), B);
+    for (std::size_t k = 0; k < x_fill; ++k) slice[4 + k] = iir->x_[k];
+    slice[0] = static_cast<double>(x_fill % B);          // x_head
+    slice[1] = static_cast<double>(x_fill);              // x_count
+
+    if (A > 0) {
+      const std::size_t y_fill = std::min(iir->y_.size(), A);
+      for (std::size_t k = 0; k < y_fill; ++k) slice[4 + B + k] = iir->y_[k];
+      slice[2] = static_cast<double>(y_fill % A);        // y_head
+      slice[3] = static_cast<double>(y_fill);            // y_count
+    }
+  }
+
+  // ResamplerHermite codec.
+  //
+  // JIT layout: [ring_v[4], ring_t[4], next_emit (i64 bitcast), initialized,
+  //               count].
+  // FW: Buffer of up to 4 NumberData messages + next_emit_ + initialized_.
+  // The JIT ring shifts left at full so positions stay oldest→newest.
+  void sync_jit_to_resampler_hermite_(ResamplerHermite* rh, const double* slice) {
+    const double count_d = slice[10];
+    const std::size_t fill = std::min(static_cast<std::size_t>(count_d), std::size_t{4});
+
+    rh->buffer_.clear();
+    for (std::size_t k = 0; k < fill; ++k) {
+      const double v = slice[k];
+      const double t_d = slice[4 + k];
+      std::int64_t t_i = 0;
+      std::memcpy(&t_i, &t_d, sizeof(std::int64_t));
+      rh->buffer_.push_back(create_message<NumberData>(t_i, NumberData{v}));
+    }
+    double ne_d = slice[8];
+    std::int64_t ne_i = 0;
+    std::memcpy(&ne_i, &ne_d, sizeof(std::int64_t));
+    rh->next_emit_ = ne_i;
+    rh->initialized_ = (slice[9] != 0.0);
+  }
+
+  void sync_resampler_hermite_to_jit_(ResamplerHermite* rh, double* slice) {
+    for (std::size_t i = 0; i < 11; ++i) slice[i] = 0.0;
+    const std::size_t fill = std::min(rh->buffer_.size(), std::size_t{4});
+    std::size_t k = 0;
+    for (const auto& msg : rh->buffer_) {
+      if (k >= fill) break;
+      slice[k] = msg->data.value;
+      std::int64_t t_i = msg->time;
+      double t_d = 0.0;
+      std::memcpy(&t_d, &t_i, sizeof(std::int64_t));
+      slice[4 + k] = t_d;
+      ++k;
+    }
+    const std::int64_t ne_i = rh->next_emit_;
+    double ne_d = 0.0;
+    std::memcpy(&ne_d, &ne_i, sizeof(std::int64_t));
+    slice[8] = ne_d;
+    slice[9] = rh->initialized_ ? 1.0 : 0.0;
+    slice[10] = static_cast<double>(fill);
+  }
+
+  // ResamplerConstant codec.
+  //
+  // JIT layout: [last_value, next_emit (i64 bitcast), initialized].
+  // FW: last_value_, next_emit_, initialized_.
+  void sync_jit_to_resampler_constant_(ResamplerConstant<NumberData>* rc,
+                                         const double* slice) {
+    rc->last_value_ = NumberData{slice[0]};
+    double ne_d = slice[1];
+    std::int64_t ne_i = 0;
+    std::memcpy(&ne_i, &ne_d, sizeof(std::int64_t));
+    rc->next_emit_ = ne_i;
+    rc->initialized_ = (slice[2] != 0.0);
+  }
+
+  void sync_resampler_constant_to_jit_(ResamplerConstant<NumberData>* rc,
+                                         double* slice) {
+    slice[0] = rc->last_value_.value;
+    const std::int64_t ne_i = rc->next_emit_;
+    double ne_d = 0.0;
+    std::memcpy(&ne_d, &ne_i, sizeof(std::int64_t));
+    slice[1] = ne_d;
+    slice[2] = rc->initialized_ ? 1.0 : 0.0;
   }
 
   // Look up the per-Join effective sync queue capacity for one op_id.

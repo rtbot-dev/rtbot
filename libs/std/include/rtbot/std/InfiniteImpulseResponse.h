@@ -11,6 +11,7 @@
 namespace rtbot {
 
 class InfiniteImpulseResponse : public Operator {
+  friend class Program;
  public:
   InfiniteImpulseResponse(std::string id, std::vector<double> b_coeffs, std::vector<double> a_coeffs)
       : Operator(std::move(id)), b_(b_coeffs), a_(a_coeffs) {

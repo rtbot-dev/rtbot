@@ -16,6 +16,7 @@ namespace rtbot {
 // WindowMinMax: windowed min or max over the last N values using a monotonic
 // deque algorithm. O(1) amortized per message. No output until window is full.
 class WindowMinMax : public Operator {
+  friend class Program;
  public:
   WindowMinMax(std::string id, size_t window_size, bool is_min)
       : Operator(std::move(id)),
