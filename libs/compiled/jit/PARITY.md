@@ -152,9 +152,11 @@ code paths.
 
 ## Known remaining divergence classes (next-session work)
 
-After the warmup-flag plumbing, the fuzz harness still finds three small
-bug classes at low frequency (~10 across seeds 42/100/999 of 600 random
-programs):
+The fuzz harness used to abort at the first class-3 LLVM crash, hiding
+how many other divergences existed. With class-3 fixed it now runs to
+completion: seed=42, 200 generated → 64 JIT-supported → 55 pass / 9 fail
+(all `count_mismatch`). The 9 failing pipelines (p42, p71, p116, p136,
+p138, p154, p179, p193) split between classes 1 and 2 below.
 
 1. **Stateful ops advance state on upstream-garbage values.** A windowed
    op (MA/StdDev/MovingSum/etc.) unconditionally runs its state-advance
@@ -166,23 +168,84 @@ programs):
    is invasive (5-10 state slots per windowed op type) and should be
    done op-by-op.
 
-2. **Output downstream of unrelated sync op.** Graph partitioning places
-   Output in a sync op's downstream segment when Output's input ports
-   don't actually depend on that sync op. Result: Output skips emissions
-   when the unrelated sync hasn't fired. Fix path: graph-partition
-   refactor to keep Output's segment independent when possible. Example:
-   pipeline with dead-code Join feeding nothing observable but still
-   placing Output in Join's downstream segment.
+2. **Output downstream of unrelated sync op.** Once the class-3 partition
+   fix moved `Output` to the tail of the LAST segment, `emit_program`
+   started emitting that segment inside the LAST sync op's `then_bb` —
+   so when the sync never fires (e.g. a filter-gated comparator chain
+   feeding the sync's i2 produces no value), `Output` is skipped even
+   though its data ports may have nothing to do with that sync.
+   Symptom: pipeline 42 (`Linear(Floor(input), EqualTo<-NotEqualTo)` with
+   `Output` fed from `Multiplication(input, input)`) now compiles but
+   reports `jit=0 interp=200` in the fuzz harness.
+   A naïve fix (extract `Output` from segments and emit it unconditionally
+   after the sync ops loop) breaks SSA dominance for `Output`'s ports
+   that ARE fed by a sync op — their value_map entries are SSA from the
+   sync's `then_bb`, and a post-loop block isn't dominated by `then_bb`.
+   The proper fix needs PHI nodes at each `merge_bb` that merge the
+   then-branch SSA value with a `NaN`/undef sentinel for the no-sync
+   branch, plus per-PortValue `warmup_flag = sync_flag` so the existing
+   per-slot NaN mask kicks in when the sync didn't fire. Tracked as
+   next-session work.
 
-3. **LLVM IR codegen crashes ("Terminator in middle of basic block").**
-   On certain shapes (sync 2-port op consuming filter-gated comparator
-   upstream) the JIT emits malformed IR which LLVM rejects with
-   `report_fatal_error` (uncatchable abort). Fix path: trace the IR
-   structure for one repro; identify which emitter produces the
-   malformed CFG; fix the branch placement.
+3. **LLVM IR codegen crashes ("Terminator in middle of basic block") —
+   FIXED (2026-05-20).** Topo sort could place the `Output` op in a
+   segment *before* a downstream non-Output op (legal because Output is a
+   sink with no outgoing data edges). `emit_segment_ops` then emitted
+   Output, terminated its basic block with `br ret_true`, and continued
+   appending the next op's IR — including the next sync op's
+   `br jts_loop_hdr` — into the already-terminated block. LLVM rejected
+   the malformed CFG via `report_fatal_error` (uncatchable abort).
+   Repro: `/tmp/fuzz_failure_42_p42.json` and
+   `test_fuzz_repro_diag.cpp` SCENARIO `fuzz repro: p42 (Linear(Floor,
+   EqualTo<-NotEqualTo) - LLVM IR crash)` under `[fuzz_repro_p42_crash]`.
+   Fix: `partition_segments` (`SegmentPartitioner.cpp`) defers every
+   `Output` op across the topo walk and appends them at the tail of the
+   final segment so the Output's `br ret_true` is always the last
+   instruction emitted in the function body. As a side-effect this also
+   ensures every sync op gets to advance its queue state before the
+   function exits. Diagnostic: setting
+   `RTBOT_JIT_DUMP_ON_VERIFY_FAIL=1` dumps the offending function to
+   stderr from `emit_program` before LLVM's `report_fatal_error` — keep
+   this around for the next class-3 we find.
+
+4. **Per-port timestamp drift via retroactive stateful ops — FIXED
+   (2026-05-20).** When a multi-port `Output` consumes from a stateful op
+   whose `out_t` may differ from the segment's input tick
+   (`PeakDetector` writes the window-center timestamp; `TimeShift` writes
+   `t + shift`), the pre-fix linear-segment Output IR
+   (`SegmentEmitter.cpp:1086–1120`) stamped the single emitted record
+   with `in_conns[0]->t` — the segment's input tick — and wrote every
+   live port's value into that record. The retroactive value reached the
+   record but the retroactive timestamp was lost; the framework emits
+   that value at its own logical `t` in a separate record.
+   Repro: `/tmp/fuzz_failure_42_p15.json` (`Abs -> {MovingSum,
+   PeakDetector} -> 2-port Output`). Pre-fix JIT: 40 records, all
+   stamped at the input tick. Framework: 52 records, with PD's value at
+   the window-center tick (e.g. 98.2335 at t=2, not t=5).
+   Fix: a compile-time gate
+   (`use_per_port_multi_emit = has_retroactive_t_op(graph) &&
+   output_op_input_port_count(graph) > 1`, both in `CompiledGraph.h`)
+   switches the linear-segment Output to per-port multi-emit. Each live
+   input port writes one K-slot record at its own `t`, with the value at
+   K-slot 0 (vector lanes spread starting at K-slot 0), `port_id` =
+   port's flat-slot base, and remaining K-slots NaN-filled. The segment
+   returns the live-port count via `al_per_port_count`. `compute_max_
+   emits_per_call` in `StateLayout.cpp` bumps K to the Output's input
+   port count when the retroactive condition holds. `Program::compile_
+   jit_` sets `jit_per_record_port_dispatch_ = true` when retroactive +
+   multi-port, so `drain_into`'s per-port aggregation reassembles
+   same-`t` records into the framework's combined-row shape (NaN-fills
+   ports that did not emit at that `t`). Regression test:
+   `test_fuzz_repro_diag.cpp` SCENARIO
+   `parity: per-port retroactive-t Output (PeakDetector multi-port)`
+   under the default `[program][jit][framework_parity]` tags.
 
 Reproductions are in `/tmp/fuzz_failure_<seed>_p<idx>.json`; re-run via
 `bazel test ... --test_arg='[fuzz]' --test_env=RTBOT_FUZZ_SEED=...`.
+Self-contained side-by-side diagnostics for three concrete repros (p15,
+p33, p39) live in `test/test_fuzz_repro_diag.cpp` under the
+`[fuzz_repro]` tag (not part of the default test run; invoke with
+`--test_arg='[fuzz_repro]'`).
 
 ## Known ASan caveat
 
