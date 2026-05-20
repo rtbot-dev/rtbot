@@ -1917,23 +1917,28 @@ void emit_segment_ops(
             break;
         }
         // IRBuilder is now in the emitter's merge block; out.emit_flag is a PHI i1.
-
-        // AND this op's emit_flag into the program-level should-emit flag so
-        // that downstream sync writes (VectorCompose direct-to-output, etc.)
-        // are suppressed during warmup, matching the interpreter behaviour.
-        {
-          llvm::Value* cur_se = b.CreateLoad(b.getInt1Ty(), should_emit_alloca,
-                                              "se_cur");
-          b.CreateStore(b.CreateAnd(cur_se, out.emit_flag, "se_and"),
-                        should_emit_alloca);
-        }
+        //
+        // NOTE: the per-op warmup flag is no longer ANDed into
+        // should_emit_alloca. That global flag now carries only Gate-op
+        // suppression; warmup gating travels per-port via PortValue::
+        // warmup_flag and is consumed at the Output op's commit gate.
+        // Suppressing downstream sync writes during warmup happens
+        // naturally because the bb_sfds branch below skips the Join push
+        // on warmup ticks (the sync op never receives the value, so it
+        // doesn't try_sync, so it never writes).
 
         llvm::BasicBlock* bb_sfds = llvm::BasicBlock::Create(ctx, "sf_ds",   fn);
         llvm::BasicBlock* bb_sfc  = llvm::BasicBlock::Create(ctx, "sf_cont", fn);
         b.CreateCondBr(out.emit_flag, bb_sfds, bb_sfc);
 
         b.SetInsertPoint(bb_sfds);
-        value_map[{op_id, 0}] = {out.out_t, out.out_v};
+        {
+          PortValue pv{};
+          pv.t = out.out_t;
+          pv.v = out.out_v;
+          pv.warmup_flag = out.emit_flag;
+          value_map[{op_id, 0}] = pv;
+        }
         for (auto [join_id, to_port] : join_successors(op_id, 0)) {
           std::size_t jo = layout.offsets.at(join_id);
           std::size_t jN = join_n_ports.at(join_id);
