@@ -122,6 +122,11 @@ struct PortValue {
   llvm::Value* t{nullptr};
   llvm::Value* v{nullptr};
   std::size_t  width{1};
+  // i1 SSA, optional. Tracks "is this port's value valid this tick due to
+  // upstream warmup state?" — windowed-stateful ops (MA, StdDev, ...)
+  // produce false here during their warmup window. nullptr means "always
+  // valid past warmup" (the default for non-windowed producers).
+  llvm::Value* warmup_flag{nullptr};
 };
 
 using ValueMap = std::map<PortKey, PortValue>;
@@ -198,8 +203,27 @@ void emit_stateless_op(IrEmissionContext& ec,
 
   auto in_conns = inputs_for(graph, node.id);
 
+  // Compute the inherited warmup_flag for a stateless op's output:
+  // AND of all input ports' warmup_flags. nullptr if every input is
+  // unconditional (no warmup gating in the chain).
+  auto inherited_warmup_flag = [&]() -> llvm::Value* {
+    llvm::Value* acc = nullptr;
+    for (const auto* c : in_conns) {
+      auto it = value_map.find({c->from_id, c->from_port});
+      if (it == value_map.end()) continue;
+      llvm::Value* w = it->second.warmup_flag;
+      if (!w) continue;
+      acc = acc ? ec.b().CreateAnd(acc, w, "wfl_and") : w;
+    }
+    return acc;
+  };
+
   auto store1 = [&](llvm::Value* out_t, llvm::Value* out_v) {
-    value_map[{node.id, 0}] = {out_t, out_v};
+    PortValue pv{};
+    pv.t = out_t;
+    pv.v = out_v;
+    pv.warmup_flag = inherited_warmup_flag();
+    value_map[{node.id, 0}] = pv;
   };
 
   auto get1 = [&]() -> PortValue {
@@ -1030,17 +1054,41 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
         continue;
       }
 
-      // --- Output: check combined warmup flag AND Gate suppression ---
+      // --- Output: OR per-port warmup flags, NaN-mask inactive slots ----
+      // Framework Output semantics: each input port drains independently;
+      // the record commits if ANY port has a live value this tick. Per-port
+      // flags map to per-slot NaN masking; gate fires on OR of flags AND
+      // Gate-op suppression (al_should_emit).
       if (node.kind == OpKind::Output) {
+        auto in_conns = inputs_for(graph, op_id);
+        // OR per-port warmup_flags. nullptr means "always live" so we use
+        // a tri-state: explicit_or accumulates non-null flags; any_implicit
+        // tracks whether at least one port is unconditional. Commit-OR is
+        // (any_implicit || explicit_or).
+        llvm::Value* explicit_or = llvm::ConstantInt::getFalse(ctx);
+        bool any_implicit = false;
+        for (const auto* c : in_conns) {
+          auto it = value_map.find({c->from_id, c->from_port});
+          if (it == value_map.end()) continue;
+          if (it->second.warmup_flag) {
+            explicit_or = b.CreateOr(explicit_or, it->second.warmup_flag, "out_orfl");
+          } else {
+            any_implicit = true;
+          }
+        }
+        llvm::Value* any_live = any_implicit
+            ? static_cast<llvm::Value*>(llvm::ConstantInt::getTrue(ctx))
+            : explicit_or;
         llvm::Value* se = b.CreateLoad(b.getInt1Ty(), al_should_emit);
-        llvm::Value* gate_flag = b.CreateAnd(combined_flag, se, "out_gate");
+        llvm::Value* gate_flag = b.CreateAnd(any_live, se, "out_gate");
         llvm::BasicBlock* bb_out_write =
             llvm::BasicBlock::Create(ctx, "out_write", fn);
         b.CreateCondBr(gate_flag, bb_out_write, bb_ret_false);
         b.SetInsertPoint(bb_out_write);
-
-        auto in_conns = inputs_for(graph, op_id);
         const OpNode& output_node = node;
+        // Timestamp source: any input's t works because in a linear segment
+        // all live inputs share the current tick's t. Use the first input
+        // unchanged for now.
         if (!in_conns.empty()) {
           auto it = value_map.find({in_conns[0]->from_id, in_conns[0]->from_port});
           if (it != value_map.end()) {
@@ -1050,14 +1098,22 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
         for (const auto* conn : in_conns) {
           auto it = value_map.find({conn->from_id, conn->from_port});
           if (it == value_map.end()) continue;
+          // Per-slot NaN mask: if this port's warmup_flag is false, write
+          // NaN to its slot(s). Implicit (nullptr) flag means always live.
+          llvm::Value* port_flag = it->second.warmup_flag;
           write_port_value_to_slots(
               ec, output_node, conn->to_port, it->second,
               [&](std::size_t slot, llvm::Value* val) {
                 if (slot < num_outputs) {
+                  llvm::Value* to_write = val;
+                  if (port_flag) {
+                    llvm::Value* nan = llvm::ConstantFP::getQNaN(f64);
+                    to_write = b.CreateSelect(port_flag, val, nan, "port_mask");
+                  }
                   llvm::Value* g = b.CreateGEP(
                       f64, arg_out_v,
                       llvm::ConstantInt::get(i64, static_cast<int64_t>(slot)));
-                  b.CreateStore(val, g);
+                  b.CreateStore(to_write, g);
                 }
               });
         }
@@ -1220,7 +1276,14 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
           // deferred to Output so all parallel stateful branches advance
           // state in lockstep during warmup.
           combined_flag = b.CreateAnd(combined_flag, out.emit_flag, "comb_flag");
-          value_map[{op_id, 0}] = {out.out_t, out.out_v};
+          PortValue pv{};
+          pv.t = out.out_t;
+          pv.v = out.out_v;
+          // Phase 1: stamp warmup_flag on every stateful 1->1 op's
+          // PortValue. We don't yet distinguish warmup from conditional
+          // (Filter ops) semantics; future steps will separate them.
+          pv.warmup_flag = out.emit_flag;
+          value_map[{op_id, 0}] = pv;
           continue;
         }
       }
@@ -1236,13 +1299,31 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
           std::size_t offset = layout.offsets.at(op_id);
           llvm::Value* inp_v = nullptr;
           llvm::Value* inp_t = nullptr;
+          llvm::Value* upstream_flag = nullptr;
           if (!in_conns.empty()) {
             auto it = value_map.find({in_conns[0]->from_id, in_conns[0]->from_port});
             if (it != value_map.end()) {
               inp_v = it->second.v;
               inp_t = it->second.t;
+              upstream_flag = it->second.warmup_flag;
             }
           }
+
+          // Snapshot the aggregate's state slot(s) before the in-place
+          // update so we can revert when upstream did not produce a live
+          // value this tick. CumSum has 2 slots (sum + Kahan comp); the
+          // others have 1.
+          llvm::Type* f64 = llvm::Type::getDoubleTy(ctx);
+          llvm::Value* slot0_ptr = ec.state_gep(offset);
+          llvm::Value* slot0_old = upstream_flag
+              ? b.CreateLoad(f64, slot0_ptr, "agg_s0_old") : nullptr;
+          llvm::Value* slot1_ptr = nullptr;
+          llvm::Value* slot1_old = nullptr;
+          if (upstream_flag && node.kind == OpKind::CumSum) {
+            slot1_ptr = ec.state_gep(offset + 1);
+            slot1_old = b.CreateLoad(f64, slot1_ptr, "agg_s1_old");
+          }
+
           llvm::Value* out_v = nullptr;
           switch (node.kind) {
             case OpKind::CumSum:  out_v = emit::emit_cumsum(ec, offset, inp_v); break;
@@ -1251,7 +1332,32 @@ EmittedSegment emit_segment(llvm::LLVMContext& ctx, llvm::Module& mod,
             case OpKind::MinAgg:  out_v = emit::emit_min_agg(ec, offset, inp_v); break;
             default:              break;
           }
-          value_map[{op_id, 0}] = {inp_t, out_v};
+
+          if (upstream_flag) {
+            // Revert state when upstream rejected this tick: store
+            // select(flag, new_state, old_state) back into each slot, and
+            // propagate the gated value as out_v so downstream sees the
+            // unchanged accumulator when flag is false.
+            llvm::Value* slot0_new = b.CreateLoad(f64, slot0_ptr, "agg_s0_new");
+            llvm::Value* slot0_pick = b.CreateSelect(upstream_flag, slot0_new, slot0_old,
+                                                      "agg_s0_pick");
+            b.CreateStore(slot0_pick, slot0_ptr);
+            if (slot1_ptr) {
+              llvm::Value* slot1_new = b.CreateLoad(f64, slot1_ptr, "agg_s1_new");
+              llvm::Value* slot1_pick = b.CreateSelect(upstream_flag, slot1_new, slot1_old,
+                                                        "agg_s1_pick");
+              b.CreateStore(slot1_pick, slot1_ptr);
+            }
+            out_v = slot0_pick;
+          }
+
+          // Aggregates inherit upstream's warmup_flag so downstream Output
+          // can NaN-mask / suppress emission on gated ticks.
+          PortValue pv{};
+          pv.t = inp_t;
+          pv.v = out_v;
+          pv.warmup_flag = upstream_flag;
+          value_map[{op_id, 0}] = pv;
           continue;
         }
       }
@@ -1548,14 +1654,31 @@ void emit_segment_ops(
           }
         }
       }
-      // Gate may have suppressed this tick — check should_emit_alloca.
+      // Per-port commit (Output): OR per-port warmup_flags AND Gate
+      // suppression. NaN-mask inactive slots so independent-per-port
+      // semantics match the framework.
+      auto in_conns = inputs_for(graph, op_id);
+      llvm::Value* explicit_or = llvm::ConstantInt::getFalse(ctx);
+      bool any_implicit = false;
+      for (const auto* c : in_conns) {
+        auto it = value_map.find({c->from_id, c->from_port});
+        if (it == value_map.end()) continue;
+        if (it->second.warmup_flag) {
+          explicit_or = b.CreateOr(explicit_or, it->second.warmup_flag, "out_orfl");
+        } else {
+          any_implicit = true;
+        }
+      }
+      llvm::Value* any_live = any_implicit
+          ? static_cast<llvm::Value*>(llvm::ConstantInt::getTrue(ctx))
+          : explicit_or;
       llvm::Value* se = b.CreateLoad(b.getInt1Ty(), should_emit_alloca);
+      llvm::Value* gate_flag = b.CreateAnd(any_live, se, "out_gate");
       llvm::BasicBlock* bb_out_write =
           llvm::BasicBlock::Create(ctx, "out_write", fn);
-      b.CreateCondBr(se, bb_out_write, bb_ret_false);
+      b.CreateCondBr(gate_flag, bb_out_write, bb_ret_false);
       b.SetInsertPoint(bb_out_write);
 
-      auto in_conns = inputs_for(graph, op_id);
       const OpNode& output_node = node;
       if (!in_conns.empty()) {
         auto it = value_map.find({in_conns[0]->from_id, in_conns[0]->from_port});
@@ -1566,14 +1689,20 @@ void emit_segment_ops(
       for (const auto* conn : in_conns) {
         auto it = value_map.find({conn->from_id, conn->from_port});
         if (it == value_map.end()) continue;
+        llvm::Value* port_flag = it->second.warmup_flag;
         write_port_value_to_slots(
             ec, output_node, conn->to_port, it->second,
             [&](std::size_t slot, llvm::Value* val) {
               if (slot < num_outputs) {
+                llvm::Value* to_write = val;
+                if (port_flag) {
+                  llvm::Value* nan = llvm::ConstantFP::getQNaN(f64);
+                  to_write = b.CreateSelect(port_flag, val, nan, "port_mask");
+                }
                 llvm::Value* g = b.CreateGEP(
                     f64, arg_out_v,
                     llvm::ConstantInt::get(i64, static_cast<int64_t>(slot)));
-                b.CreateStore(val, g);
+                b.CreateStore(to_write, g);
               }
             });
       }
