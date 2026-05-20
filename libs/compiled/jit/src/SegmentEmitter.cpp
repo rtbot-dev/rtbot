@@ -4258,6 +4258,18 @@ EmittedSegment emit_program_with_input_width(
   llvm::raw_string_ostream errs(err);
   if (llvm::verifyFunction(*fn, &errs)) {
     errs.flush();
+    // Dump the malformed function to stderr so a class-3 LLVM IR crash can
+    // be diagnosed offline. report_fatal_error aborts the process so the
+    // dump is the only artifact a human gets.
+    if (std::getenv("RTBOT_JIT_DUMP_ON_VERIFY_FAIL")) {
+      std::string ir;
+      llvm::raw_string_ostream ir_os(ir);
+      fn->print(ir_os);
+      ir_os.flush();
+      std::fprintf(stderr, "\n=== IR for %s (verification failed) ===\n%s\n",
+                   fn_name.c_str(), ir.c_str());
+      std::fflush(stderr);
+    }
     llvm::report_fatal_error(
         llvm::StringRef("emit_program: IR verification failed for '" +
                         fn_name + "': " + err));
