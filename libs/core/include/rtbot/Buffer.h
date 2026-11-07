@@ -45,6 +45,7 @@ class Buffer : public Operator {
     sum_ = 0.0;       // Reset statistical accumulators
     sum_comp_ = 0.0;  // Reset Kahan compensation term
     M2_ = 0.0;
+    var_steps_ = 0;
   }
 
   const std::deque<std::unique_ptr<Message<T>>>& buffer() const { return buffer_; }
@@ -118,6 +119,20 @@ class Buffer : public Operator {
       bytes.insert(bytes.end(), msg_bytes.begin(), msg_bytes.end());
     }
 
+    if constexpr (Features::TRACK_SUM || Features::TRACK_VARIANCE) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_),
+                   reinterpret_cast<const uint8_t*>(&sum_) + sizeof(sum_));
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&sum_comp_),
+                   reinterpret_cast<const uint8_t*>(&sum_comp_) + sizeof(sum_comp_));
+    }
+
+    if constexpr (Features::TRACK_VARIANCE) {
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&M2_),
+                   reinterpret_cast<const uint8_t*>(&M2_) + sizeof(M2_));
+      bytes.insert(bytes.end(), reinterpret_cast<const uint8_t*>(&var_steps_),
+                   reinterpret_cast<const uint8_t*>(&var_steps_) + sizeof(var_steps_));
+    }
+
     return bytes;
   }
 
@@ -154,32 +169,18 @@ class Buffer : public Operator {
     }
 
     // ---- Optional statistics ----
-    if constexpr (Features::TRACK_SUM) {
-        sum_ = 0.0;
-        sum_comp_ = 0.0;
-        if (!buffer_.empty()) {
-            for (const auto& msg : buffer_) {
-                kahan_add(msg->data.value);
-            }
-        }
+    if constexpr (Features::TRACK_SUM || Features::TRACK_VARIANCE) {
+        std::memcpy(&sum_, &(*it), sizeof(sum_));
+        it += sizeof(sum_);
+        std::memcpy(&sum_comp_, &(*it), sizeof(sum_comp_));
+        it += sizeof(sum_comp_);
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
-        sum_ = 0.0;
-        sum_comp_ = 0.0;
-        M2_ = 0.0;
-
-        if (!buffer_.empty()) {
-            for (const auto& msg : buffer_) {
-                kahan_add(msg->data.value);
-            }
-
-            double mean = sum_ / buffer_.size();
-            for (const auto& msg : buffer_) {
-                double delta = msg->data.value - mean;
-                M2_ += delta * delta;
-            }
-        }
+        std::memcpy(&M2_, &(*it), sizeof(M2_));
+        it += sizeof(M2_);
+        std::memcpy(&var_steps_, &(*it), sizeof(var_steps_));
+        it += sizeof(var_steps_);
     }
   }
 
@@ -286,21 +287,68 @@ class Buffer : public Operator {
     }
 
     if constexpr (Features::TRACK_VARIANCE) {
-      if (removed_value) {
-        kahan_subtract(*removed_value);
+      if (!removed_value) {
+        const size_t n = buffer_.size();
+        const double old_mean =
+            (n > 1) ? (sum_ / static_cast<double>(n - 1)) : 0.0;
+        kahan_add(added_value);
+        if (n <= 1) {
+          M2_ = 0.0;
+          return;
+        }
+        if (n == window_size_) {
+          var_steps_ = 0;
+          const double mean = sum_ / static_cast<double>(n);
+          M2_ = 0.0;
+          for (const auto& msg : buffer_) {
+            const double delta = msg->data.value - mean;
+            M2_ += delta * delta;
+          }
+          return;
+        }
+        const double new_mean = sum_ / static_cast<double>(n);
+        M2_ += (added_value - old_mean) * (added_value - new_mean);
+        if (M2_ < 0.0) M2_ = 0.0;
+        if (M2_ == 0.0 &&
+            (buffer_.front()->data.value != new_mean ||
+             buffer_.back()->data.value != new_mean)) {
+          M2_ = 0.0;
+          for (const auto& msg : buffer_) {
+            const double delta = msg->data.value - new_mean;
+            M2_ += delta * delta;
+          }
+        }
+        return;
       }
+
+      const double w_d = static_cast<double>(window_size_);
+      const double old_mean = sum_ / w_d;
+      kahan_subtract(*removed_value);
       kahan_add(added_value);
 
-      M2_ = 0.0;
+      if (window_size_ <= 1) {
+        M2_ = 0.0;
+        return;
+      }
 
-      if (buffer_.size() <= 1) return;
-
-      double mean = sum_ / buffer_.size();
-
-      // Second pass: compute M2
-      for (const auto& msg : buffer_) {
-        double delta = msg->data.value - mean;
-        M2_ += delta * delta;
+      ++var_steps_;
+      const double new_mean = sum_ / w_d;
+      if (var_steps_ >= window_size_ ||
+          (M2_ == 0.0 &&
+           (buffer_.front()->data.value != new_mean ||
+            buffer_.back()->data.value != new_mean))) {
+        if (var_steps_ >= window_size_) {
+          var_steps_ = 0;
+        }
+        M2_ = 0.0;
+        for (const auto& msg : buffer_) {
+          const double delta = msg->data.value - new_mean;
+          M2_ += delta * delta;
+        }
+      } else {
+        M2_ += (added_value - *removed_value) *
+               ((added_value - new_mean) + (*removed_value - old_mean));
+        if (M2_ < 0.0) M2_ = 0.0;
       }
     }
   }
@@ -310,6 +358,7 @@ class Buffer : public Operator {
   double sum_{0.0};
   double sum_comp_{0.0};  // Kahan compensation term for sum_
   double M2_{0.0};
+  size_t var_steps_{0};
 };
 
 }  // namespace rtbot

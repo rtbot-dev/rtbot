@@ -377,6 +377,55 @@ SCENARIO("KeyedPipeline computed key: per-key state isolation", "[keyed_pipeline
     // outputs NumberData. The real use case has FusedExpression outputting VectorNumberData.
     REQUIRE(kp->num_keys() == 2);
   }
+
+  SECTION("Distinct multi-column keys that collide under polynomial PRIME=1000003 remain isolated") {
+    // Under old polynomial hash PRIME = 1000003.0:
+    //   (1.0, 1000004.0) -> 1.0 * 1000003.0 + 1000004.0 = 2000007.0
+    //   (2.0, 1.0)       -> 2.0 * 1000003.0 + 1.0       = 2000007.0
+    auto kp = make_keyed_pipeline(
+        "kp_collision",
+        std::vector<int>{0, 1},
+        make_extract_cumsum_factory(2));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
+
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 1000004.0, 10.0}}), 0);
+    kp->execute();
+    col->reset();
+
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{2.0, 1.0, 20.0}}), 0);
+    kp->execute();
+    col->reset();
+
+    REQUIRE(kp->num_keys() == 2);
+
+    kp->receive_data(create_message<VectorNumberData>(3, VectorNumberData{{1.0, 1000004.0, 5.0}}), 0);
+    kp->execute();
+    auto& out = col->get_data_queue(0);
+    REQUIRE(out.size() == 1);
+    auto* msg = dynamic_cast<const Message<NumberData>*>(out[0].get());
+    REQUIRE(msg != nullptr);
+    REQUIRE(msg->data.value == Approx(15.0));
+  }
+
+  SECTION("4-column keys exceeding 2^53 polynomial range remain distinct") {
+    auto kp = make_keyed_pipeline(
+        "kp_4col",
+        std::vector<int>{0, 1, 2, 3},
+        make_extract_cumsum_factory(4));
+    auto col = std::make_shared<Collector>("c", std::vector<std::string>{"vector_number"});
+    kp->connect(col, 0, 0);
+
+    kp->receive_data(create_message<VectorNumberData>(1, VectorNumberData{{1.0, 0.0, 0.0, 1.0, 100.0}}), 0);
+    kp->execute();
+    col->reset();
+
+    kp->receive_data(create_message<VectorNumberData>(2, VectorNumberData{{1.0, 0.0, 0.0, 2.0, 200.0}}), 0);
+    kp->execute();
+    col->reset();
+
+    REQUIRE(kp->num_keys() == 2);
+  }
 }
 
 SCENARIO("KeyedPipeline computed key: single column coefficient", "[keyed_pipeline][computed_key]") {
@@ -595,5 +644,18 @@ SCENARIO("KeyedPipeline computed key: JSON roundtrip via OperatorJson", "[keyed_
     REQUIRE(j.contains("key_index"));
     REQUIRE_FALSE(j.contains("keyColumnIndices"));
     REQUIRE(j["key_index"] == 0);
+  }
+
+  SECTION("restore_data_from_json rejects mismatched key dimension") {
+    auto kp_single = make_keyed_pipeline("kp", 0, make_project_factory({0, 1}));
+    kp_single->receive_data(
+        create_message<VectorNumberData>(1, VectorNumberData{{1.0, 10.0}}), 0);
+    kp_single->execute();
+    auto single_state = kp_single->collect();
+
+    auto kp_multi = make_keyed_pipeline(
+        "kp", std::vector<int>{0, 1}, make_project_factory({0, 1}));
+    REQUIRE_THROWS_AS(kp_multi->restore_data_from_json(single_state),
+                      std::runtime_error);
   }
 }

@@ -19,9 +19,9 @@ def _non_bcr_deps_impl(module_ctx):
     http_archive(
         name = "yaml-cpp",
         build_file = "//tools/external:yaml-cpp.BUILD",
-        sha256 = "4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5",
-        strip_prefix = "yaml-cpp-yaml-cpp-0.7.0",
-        url = "https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.7.0.zip",
+        sha256 = "1c22709eb1fcde200c87ef4e878ce2c9477cc05eae84ebf1f72ec5b356468fee",
+        strip_prefix = "yaml-cpp-yaml-cpp-0.9.0",
+        url = "https://github.com/jbeder/yaml-cpp/archive/refs/tags/yaml-cpp-0.9.0.zip",
     )
 
     http_archive(
@@ -58,9 +58,9 @@ def _non_bcr_deps_impl(module_ctx):
     http_archive(
         name = "cxxopts",
         build_file = "//tools/external:cxxopts.BUILD",
-        sha256 = "9f43fa972532e5df6c5fd5ad0f5bac606cdec541ccaf1732463d8070bbb7f03b",
-        strip_prefix = "cxxopts-3.2.0",
-        url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.2.0.tar.gz",
+        sha256 = "3bfc70542c521d4b55a46429d808178916a579b28d048bd8c727ee76c39e2072",
+        strip_prefix = "cxxopts-3.3.1",
+        url = "https://github.com/jarro2783/cxxopts/archive/refs/tags/v3.3.1.tar.gz",
     )
 
     http_archive(

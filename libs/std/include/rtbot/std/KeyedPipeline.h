@@ -37,9 +37,7 @@ class KeyedPipeline : public Operator {
     add_output_port<VectorNumberData>();
   }
 
-  // New constructor: key is computed internally as a polynomial hash over
-  // selected input columns.  The hash coefficients (PRIME^(N-1), ..., 1)
-  // are computed automatically — callers only specify WHICH columns.
+  // New constructor: key is the exact tuple of selected input columns.
   // Output = prototype_output directly (no key prepend, no VectorProject needed).
   KeyedPipeline(std::string id, std::vector<int> key_column_indices,
                 SubGraphFactory factory)
@@ -56,14 +54,6 @@ class KeyedPipeline : public Operator {
         throw std::runtime_error(
             "KeyedPipeline key_column_indices entries must be non-negative");
       }
-    }
-    // Pre-compute polynomial hash coefficients: PRIME^(N-1), ..., PRIME^0
-    static constexpr double PRIME = 1000003.0;
-    key_coefficients_.resize(key_column_indices_.size());
-    double coeff = 1.0;
-    for (int i = static_cast<int>(key_column_indices_.size()) - 1; i >= 0; --i) {
-      key_coefficients_[i] = coeff;
-      coeff *= PRIME;
     }
     add_data_port<VectorNumberData>();
     add_output_port<VectorNumberData>();
@@ -97,7 +87,10 @@ class KeyedPipeline : public Operator {
       for (const auto& [op_id, op] : sg.operators) {
         key_ops[op_id] = op->collect();
       }
-      content[std::to_string(key)] = key_ops;
+      std::string key_str = (!has_computed_key() && key.size() == 1)
+                                ? std::to_string(key[0])
+                                : nlohmann::json(key).dump();
+      content[key_str] = key_ops;
     }
     result["content"] = content;
 
@@ -113,8 +106,18 @@ class KeyedPipeline : public Operator {
     // Restore sub-graphs from "content"
     const auto& content = j.at("content");
     sub_graphs_.clear();
+    const size_t expected_dim = has_computed_key() ? key_column_indices_.size() : 1;
     for (auto& [key_str, key_ops] : content.items()) {
-      double key = std::stod(key_str);
+      std::vector<double> key;
+      if (!key_str.empty() && key_str.front() == '[') {
+        key = nlohmann::json::parse(key_str).get<std::vector<double>>();
+      } else {
+        key = {std::stod(key_str)};
+      }
+      if (key.size() != expected_dim) {
+        throw std::runtime_error(
+            "KeyedPipeline: checkpoint key dimension mismatch");
+      }
       auto& sg = get_or_create_subgraph_(key);
       for (auto& [op_id, op] : sg.operators) {
         op->restore_data_from_json(key_ops.at(op_id));
@@ -125,7 +128,6 @@ class KeyedPipeline : public Operator {
   bool equals(const KeyedPipeline& other) const {
     if (key_index_ != other.key_index_) return false;
     if (key_column_indices_ != other.key_column_indices_) return false;
-    // key_coefficients_ are derived from key_column_indices_ — no need to compare
     if (sub_graphs_.size() != other.sub_graphs_.size()) return false;
 
     for (const auto& [key, sg] : sub_graphs_) {
@@ -156,23 +158,23 @@ class KeyedPipeline : public Operator {
       }
 
       auto time = msg->time;
-      double key;
+      std::vector<double> key;
 
       if (has_computed_key()) {
-        // Computed key mode: key = polynomial hash over selected columns
-        key = 0.0;
+        // Computed key mode: exact tuple of selected columns
+        key.reserve(key_column_indices_.size());
         for (size_t i = 0; i < key_column_indices_.size(); ++i) {
           if (static_cast<size_t>(key_column_indices_[i]) >= msg->data.values->size()) {
             throw std::runtime_error("KeyedPipeline key_column_indices entry out of bounds");
           }
-          key += key_coefficients_[i] * (*msg->data.values)[key_column_indices_[i]];
+          key.push_back((*msg->data.values)[key_column_indices_[i]]);
         }
       } else {
         // Classic mode: key is read directly from input vector
         if (static_cast<size_t>(key_index_) >= msg->data.values->size()) {
           throw std::runtime_error("KeyedPipeline key_index out of bounds");
         }
-        key = (*msg->data.values)[key_index_];
+        key = {(*msg->data.values)[key_index_]};
       }
 
       auto& sg = get_or_create_subgraph_(key);
@@ -195,7 +197,7 @@ class KeyedPipeline : public Operator {
         } else {
           // Classic mode: prepend key to output
           VectorNumberData result;
-          result.values->push_back(key);
+          result.values->push_back(key[0]);
 
           if (out_msg->type() == std::type_index(typeid(VectorNumberData))) {
             const auto* vec_msg = static_cast<const Message<VectorNumberData>*>(out_msg.get());
@@ -215,7 +217,7 @@ class KeyedPipeline : public Operator {
   }
 
  private:
-  SubGraph& get_or_create_subgraph_(double key) {
+  SubGraph& get_or_create_subgraph_(const std::vector<double>& key) {
     auto it = sub_graphs_.find(key);
     if (it != sub_graphs_.end()) return it->second;
 
@@ -231,8 +233,8 @@ class KeyedPipeline : public Operator {
         sg.output->id() + "_collector", col_types);
     sg.output->connect(sg.collector, 0, 0);
 
-    if (new_key_callback_) {
-      new_key_callback_(key);
+    if (new_key_callback_ && !key.empty()) {
+      new_key_callback_(key[0]);
     }
     return sg;
   }
@@ -240,9 +242,8 @@ class KeyedPipeline : public Operator {
   int key_index_;
   SubGraphFactory factory_;
   NewKeyCallback new_key_callback_;
-  std::map<double, SubGraph> sub_graphs_;
+  std::map<std::vector<double>, SubGraph> sub_graphs_;
   std::vector<int> key_column_indices_;
-  std::vector<double> key_coefficients_;
 };
 
 inline std::shared_ptr<KeyedPipeline> make_keyed_pipeline(std::string id, int key_index,

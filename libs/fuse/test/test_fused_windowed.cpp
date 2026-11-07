@@ -216,6 +216,44 @@ SCENARIO("STD_UPDATE opcode matches standalone StandardDeviation bit-exactly",
   }
 }
 
+SCENARIO("STD_UPDATE opcode with W=1 matches standalone StandardDeviation(1) and emits 0.0",
+         "[windowed][std]") {
+  const std::size_t W = 1;
+  std::vector<double> values = {5.0, 10.0, -3.0};
+
+  auto p = make_unary_windowed_program(
+      static_cast<std::uint8_t>(STD_UPDATE),
+      {0, static_cast<std::uint16_t>(W), 0, 0});
+  auto fused_out = drive_fused_scalar(p.packed, {}, p.aux, p.coefficients,
+                                        as_inputs(values), p.state, 1);
+  rtbot::StandardDeviation op("std1", W);
+  auto standalone_out = drive_standalone_scalar(op, values);
+  REQUIRE(fused_out.size() == values.size());
+  REQUIRE(standalone_out.size() == values.size());
+  for (std::size_t i = 0; i < fused_out.size(); ++i) {
+    INFO("i=" << i);
+    REQUIRE(fused_out[i] == 0.0);
+    REQUIRE(dbits(fused_out[i]) == dbits(standalone_out[i]));
+  }
+
+  SECTION("STD_UPDATE W=2 on 1e16+2 and 1e16 matches standalone and is nonzero") {
+    std::vector<double> extreme = {10000000000000002.0, 10000000000000000.0,
+                                   10000000000000002.0};
+    auto p2 = make_unary_windowed_program(
+        static_cast<std::uint8_t>(STD_UPDATE), {0, 2, 0, 0});
+    auto f_out = drive_fused_scalar(p2.packed, {}, p2.aux, p2.coefficients,
+                                    as_inputs(extreme), p2.state, 1);
+    rtbot::StandardDeviation op2("sd2", 2);
+    auto s_out = drive_standalone_scalar(op2, extreme);
+    REQUIRE(f_out.size() == 2);
+    REQUIRE(s_out.size() == 2);
+    for (std::size_t i = 0; i < 2; ++i) {
+      REQUIRE(f_out[i] > 0.0);
+      REQUIRE(dbits(f_out[i]) == dbits(s_out[i]));
+    }
+  }
+}
+
 SCENARIO("DIFF opcode matches standalone Difference bit-exactly",
          "[windowed][diff]") {
   const std::size_t N = 200;

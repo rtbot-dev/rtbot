@@ -417,37 +417,70 @@ inline void evaluate_batched(
         double& sum = state[off + W];
         double& comp = state[off + W + 1];
         double& count = state[off + W + 2];
+        double& m2 = state[off + W + 3];
         for (std::size_t l = 0; l < active_lanes; ++l) {
           const double v = stack[sp - 1][l];
           const std::size_t count_i = static_cast<std::size_t>(count);
           const std::size_t idx = count_i % W;
-          if (count_i >= W) {
+          if (count_i < W) {
+            const std::size_t n = count_i + 1;
+            ring[idx] = v;
+            const double ya = v - comp;
+            const double ta = sum + ya;
+            comp = (ta - sum) - ya;
+            sum = ta;
+            count = count + 1.0;
+            if (n < W) {
+              lane_emit[l] = false;
+              stack[sp - 1][l] = 0.0;
+              continue;
+            }
+            if (W <= 1) {
+              m2 = 0.0;
+            } else {
+              const double mean = sum / static_cast<double>(W);
+              m2 = 0.0;
+              for (std::size_t k = 0; k < W; ++k) {
+                const double d = ring[k] - mean;
+                m2 += d * d;
+              }
+            }
+          } else {
+            const double w_d = static_cast<double>(W);
             const double leaving = ring[idx];
+            const double old_mean = sum / w_d;
             const double ys = (-leaving) - comp;
             const double ts = sum + ys;
             comp = (ts - sum) - ys;
             sum = ts;
+
+            ring[idx] = v;
+            const double ya = v - comp;
+            const double ta = sum + ya;
+            comp = (ta - sum) - ya;
+            sum = ta;
+            count = count + 1.0;
+
+            if (W <= 1) {
+              m2 = 0.0;
+            } else if (((count_i + 1 - W) % W) == 0 ||
+                       (m2 == 0.0 && (ring[0] != (sum / w_d) ||
+                                      ring[W - 1] != (sum / w_d)))) {
+              const double mean = sum / w_d;
+              m2 = 0.0;
+              for (std::size_t k = 0; k < W; ++k) {
+                const std::size_t ring_idx = (idx + 1 + k) % W;
+                const double d = ring[ring_idx] - mean;
+                m2 += d * d;
+              }
+            } else {
+              const double new_mean = sum / w_d;
+              m2 += (v - leaving) * ((v - new_mean) + (leaving - old_mean));
+              if (m2 < 0.0) m2 = 0.0;
+            }
           }
-          ring[idx] = v;
-          const double ya = v - comp;
-          const double ta = sum + ya;
-          comp = (ta - sum) - ya;
-          sum = ta;
-          count = count + 1.0;
-          if (count_i + 1 < W) {
-            lane_emit[l] = false;
-            stack[sp - 1][l] = 0.0;
-            continue;
-          }
-          const double mean = sum / static_cast<double>(W);
-          double m2 = 0.0;
-          for (std::size_t k = 0; k < W; ++k) {
-            const std::size_t ring_idx =
-                (count_i + 1 == W) ? k : (idx + 1 + k) % W;
-            const double d = ring[ring_idx] - mean;
-            m2 += d * d;
-          }
-          stack[sp - 1][l] = std::sqrt(m2 / static_cast<double>(W - 1));
+          stack[sp - 1][l] =
+              (W <= 1) ? 0.0 : std::sqrt(m2 / static_cast<double>(W - 1));
         }
         break;
       }

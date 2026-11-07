@@ -1556,3 +1556,74 @@ SCENARIO("Program with nested prototypes", "[program]") {
     REQUIRE(msg->data.value == Approx(7.0));
   }
 }
+
+SCENARIO("Program validates and executes IIR, WindowMinMax, and 64-bit timestamp operators", "[program][rtbot18]") {
+  SECTION("InfiniteImpulseResponse with b_coeffs, a_coeffs, and init_from_first_sample passes schema validation") {
+    std::string program_json = R"({
+      "apiVersion": "v1",
+      "operators": [
+        {"type": "Input", "id": "in", "portTypes": ["number"]},
+        {"type": "InfiniteImpulseResponse", "id": "ema", "b_coeffs": [0.1], "a_coeffs": [-0.9], "init_from_first_sample": true},
+        {"type": "Output", "id": "out", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "in", "to": "ema"},
+        {"from": "ema", "to": "out"}
+      ],
+      "entryOperator": "in",
+      "output": {"out": ["o1"]}
+    })";
+
+    Program program(program_json);
+    auto b1 = program.receive(Message<NumberData>(1, NumberData{100.0}));
+    REQUIRE(b1["out"]["o1"].size() == 1);
+    const auto* m1 = dynamic_cast<const Message<NumberData>*>(b1["out"]["o1"].back().get());
+    REQUIRE(m1->data.value == Approx(100.0));
+
+    auto b2 = program.receive(Message<NumberData>(2, NumberData{200.0}));
+    REQUIRE(b2["out"]["o1"].size() == 1);
+    const auto* m2 = dynamic_cast<const Message<NumberData>*>(b2["out"]["o1"].back().get());
+    REQUIRE(m2->data.value == Approx(110.0));
+  }
+
+  SECTION("WindowMinMax passes schema validation in top-level Program") {
+    std::string program_json = R"({
+      "apiVersion": "v1",
+      "operators": [
+        {"type": "Input", "id": "in", "portTypes": ["number"]},
+        {"type": "WindowMinMax", "id": "wmin", "window_size": 2, "mode": "min"},
+        {"type": "Output", "id": "out", "portTypes": ["number"]}
+      ],
+      "connections": [
+        {"from": "in", "to": "wmin"},
+        {"from": "wmin", "to": "out"}
+      ],
+      "entryOperator": "in",
+      "output": {"out": ["o1"]}
+    })";
+
+    Program program(program_json);
+    REQUIRE(program.receive(Message<NumberData>(1, NumberData{10.0})).empty());
+    auto b2 = program.receive(Message<NumberData>(2, NumberData{4.0}));
+    REQUIRE(b2["out"]["o1"].size() == 1);
+    const auto* m2 = dynamic_cast<const Message<NumberData>*>(b2["out"]["o1"].back().get());
+    REQUIRE(m2->data.value == Approx(4.0));
+  }
+
+  SECTION("TimeShift and ResamplerConstant preserve 64-bit timestamps exceeding INT32_MAX") {
+    // 1 hour in microseconds = 3,600,000,000 > INT32_MAX (2,147,483,647)
+    constexpr timestamp_t kOneHourUs = 3600000000LL;
+    auto ts_op = OperatorJson::read_op(
+        R"({"type":"TimeShift","id":"ts1","shift":3600000000})");
+    auto* ts_typed = dynamic_cast<TimeShift*>(ts_op.get());
+    REQUIRE(ts_typed != nullptr);
+    REQUIRE(ts_typed->get_shift() == kOneHourUs);
+
+    auto rs_op = OperatorJson::read_op(
+        R"({"type":"ResamplerConstant","id":"rs1","interval":3600000000,"t0":0,"snapFirst":1})");
+    auto* rs_typed = dynamic_cast<ResamplerConstant<NumberData>*>(rs_op.get());
+    REQUIRE(rs_typed != nullptr);
+    REQUIRE(rs_typed->get_interval() == kOneHourUs);
+    REQUIRE(rs_typed->get_snap_first() == true);
+  }
+}
