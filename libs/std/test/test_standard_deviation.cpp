@@ -236,5 +236,45 @@ SCENARIO("StandardDeviation operator handles long data streams correctly", "[Sta
         }
       }
     }
+
+    WHEN("State is serialized mid-stream on large offset inputs") {
+      auto sd_large = std::make_shared<StandardDeviation>("sd_large", 16);
+      auto col1 = std::make_shared<Collector>("c1", std::vector<std::string>{"number"});
+      sd_large->connect(col1, 0, 0);
+
+      for (int i = 1; i <= 25; ++i) {
+        double v = 1e12 + 0.1 * std::sin(static_cast<double>(i));
+        sd_large->receive_data(create_message<NumberData>(i, NumberData{v}), 0);
+        sd_large->execute();
+      }
+
+      auto state = sd_large->collect();
+      auto restored = std::make_shared<StandardDeviation>("sd_large", 16);
+      auto col2 = std::make_shared<Collector>("c2", std::vector<std::string>{"number"});
+      restored->connect(col2, 0, 0);
+      restored->restore_data_from_json(state);
+
+      THEN("Restored operator equals original and continues identically") {
+        REQUIRE(*sd_large == *restored);
+
+        for (int i = 26; i <= 40; ++i) {
+          col1->reset();
+          col2->reset();
+          double v = 1e12 + 0.1 * std::sin(static_cast<double>(i));
+          sd_large->receive_data(create_message<NumberData>(i, NumberData{v}), 0);
+          sd_large->execute();
+          restored->receive_data(create_message<NumberData>(i, NumberData{v}), 0);
+          restored->execute();
+
+          const auto& out1 = col1->get_data_queue(0);
+          const auto& out2 = col2->get_data_queue(0);
+          REQUIRE(out1.size() == 1);
+          REQUIRE(out2.size() == 1);
+          const double v1 = static_cast<const Message<NumberData>*>(out1[0].get())->data.value;
+          const double v2 = static_cast<const Message<NumberData>*>(out2[0].get())->data.value;
+          REQUIRE(v1 == v2);
+        }
+      }
+    }
   }
 }

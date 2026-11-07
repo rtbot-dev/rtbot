@@ -316,10 +316,10 @@ inline bool evaluate_one(
         break;
       }
       case 37 /* STD_UPDATE */: {
-        // Matches rtbot::StandardDeviation: Kahan-compensated running sum over
-        // the ring, then on each full-window message recompute M2 from
-        // scratch via a second pass (2-pass variance), emit sqrt(M2 / (W-1)).
-        // State layout: ring[0..W), [W]=sum, [W+1]=comp, [W+2]=count, [W+3]=_pad.
+        // Matches rtbot::StandardDeviation: Kahan-compensated running sum +
+        // O(1) amortized sliding Welford M2 update with periodic refresh every
+        // W messages, emit sqrt(M2 / (W-1)) (or 0.0 when W <= 1).
+        // State layout: ring[0..W), [W]=sum, [W+1]=comp, [W+2]=count, [W+3]=m2.
         const AuxArgs& a = aux_args[i.arg];
         const std::size_t off = a.a;
         const std::size_t W = a.b;
@@ -327,47 +327,70 @@ inline bool evaluate_one(
         double& sum = state[off + W];
         double& comp = state[off + W + 1];
         double& count = state[off + W + 2];
+        double& m2 = state[off + W + 3];
 
         const double v = stack[sp - 1];
         const std::size_t count_i = static_cast<std::size_t>(count);
         const std::size_t idx = count_i % W;
-        if (count_i >= W) {
+        if (count_i < W) {
+          const std::size_t n = count_i + 1;
+          ring[idx] = v;
+          const double ya = v - comp;
+          const double ta = sum + ya;
+          comp = (ta - sum) - ya;
+          sum = ta;
+          count = count + 1.0;
+          if (n < W) {
+            emit = false;
+            stack[sp - 1] = 0.0;
+            break;
+          }
+          if (W <= 1) {
+            m2 = 0.0;
+          } else {
+            const double mean = sum / static_cast<double>(W);
+            m2 = 0.0;
+            for (std::size_t k = 0; k < W; ++k) {
+              const double d = ring[k] - mean;
+              m2 += d * d;
+            }
+          }
+        } else {
+          const double w_d = static_cast<double>(W);
           const double leaving = ring[idx];
+          const double old_mean = sum / w_d;
           const double ys = (-leaving) - comp;
           const double ts = sum + ys;
           comp = (ts - sum) - ys;
           sum = ts;
-        }
-        ring[idx] = v;
-        const double ya = v - comp;
-        const double ta = sum + ya;
-        comp = (ta - sum) - ya;
-        sum = ta;
-        count = count + 1.0;
 
-        if (count_i + 1 < W) {
-          emit = false;
-          stack[sp - 1] = 0.0;
-          break;
-        }
-        // Buffer is full — recompute M2 over the ring in the same deque-walk
-        // order rtbot::Buffer uses (front-to-back, i.e. oldest-to-newest).
-        // After this message's write, oldest sits at (idx + 1) % W when
-        // count_i >= W; for count_i == W-1 the ring is filling front-to-back
-        // at [0..W) and the natural walk matches.
-        const double mean = sum / static_cast<double>(W);
-        double m2 = 0.0;
-        for (std::size_t k = 0; k < W; ++k) {
-          std::size_t ring_idx;
-          if (count_i + 1 == W) {
-            ring_idx = k;  // ring filled [0..W), walk in order
+          ring[idx] = v;
+          const double ya = v - comp;
+          const double ta = sum + ya;
+          comp = (ta - sum) - ya;
+          sum = ta;
+          count = count + 1.0;
+
+          if (W <= 1) {
+            m2 = 0.0;
+          } else if (((count_i + 1 - W) % W) == 0 ||
+                     (m2 == 0.0 &&
+                      (ring[0] != (sum / w_d) || ring[W - 1] != (sum / w_d)))) {
+            const double mean = sum / w_d;
+            m2 = 0.0;
+            for (std::size_t k = 0; k < W; ++k) {
+              const std::size_t ring_idx = (idx + 1 + k) % W;
+              const double d = ring[ring_idx] - mean;
+              m2 += d * d;
+            }
           } else {
-            ring_idx = (idx + 1 + k) % W;  // oldest first
+            const double new_mean = sum / w_d;
+            m2 += (v - leaving) * ((v - new_mean) + (leaving - old_mean));
+            if (m2 < 0.0) m2 = 0.0;
           }
-          const double d = ring[ring_idx] - mean;
-          m2 += d * d;
         }
-        stack[sp - 1] = std::sqrt(m2 / static_cast<double>(W - 1));
+        stack[sp - 1] =
+            (W <= 1) ? 0.0 : std::sqrt(m2 / static_cast<double>(W - 1));
         break;
       }
       case 40 /* WIN_MIN */:
