@@ -99,7 +99,14 @@ class OperatorJson {
     } else if (type == "FiniteImpulseResponse") {
       return make_fir(id, parsed["coeff"].get<std::vector<double>>());
     } else if (type == "InfiniteImpulseResponse") {
-      return make_iir(id, parsed["b_coeffs"].get<std::vector<double>>(), parsed["a_coeffs"].get<std::vector<double>>());
+      bool init_first = false;
+      if (parsed.contains("init_from_first_sample")) {
+        init_first = parsed["init_from_first_sample"].is_boolean()
+                         ? parsed["init_from_first_sample"].get<bool>()
+                         : (parsed["init_from_first_sample"].get<int>() != 0);
+      }
+      return make_iir(id, parsed["b_coeffs"].get<std::vector<double>>(),
+                      parsed["a_coeffs"].get<std::vector<double>>(), init_first);
     } else if (type == "Join") {
       return make_join(id, parsed["portTypes"].get<std::vector<std::string>>());
     } else if (type == "Difference") {
@@ -191,7 +198,7 @@ class OperatorJson {
     } else if (type == "KeyedVariable") {
       return make_keyed_variable(id, parsed.value("mode", "exists"), parsed.value("default_value", 0.0));
     } else if (type == "TimeShift") {
-      return make_time_shift(id, parsed["shift"].get<int>());
+      return make_time_shift(id, parsed["shift"].get<timestamp_t>());
     } else if (type == "CumulativeSum") {
       return make_cumulative_sum(id);
     } else if (type == "CountNumber") {
@@ -208,13 +215,13 @@ class OperatorJson {
     } else if (type == "ResamplerConstant") {
       bool snap = parsed.contains("snapFirst") && parsed["snapFirst"].get<int>() != 0;
       if (parsed.contains("t0")) {
-        return make_resampler_constant(id, parsed["interval"].get<int>(),
+        return make_resampler_constant(id, parsed["interval"].get<timestamp_t>(),
                                        parsed["t0"].get<double>(), snap);
       }
-      return make_resampler_constant(id, parsed["interval"].get<int>(),
+      return make_resampler_constant(id, parsed["interval"].get<timestamp_t>(),
                                      std::nullopt, snap);
     } else if (type == "ResamplerHermite") {
-      return make_resampler_hermite(id, parsed["interval"].get<int>());
+      return make_resampler_hermite(id, parsed["interval"].get<timestamp_t>());
     } else if (type == "VectorExtract") {
       return make_vector_extract(id, parsed["index"].get<int>());
     } else if (type == "VectorProject") {
@@ -516,8 +523,12 @@ class OperatorJson {
     } else if (type == "FiniteImpulseResponse") {
       j["coeff"] = std::dynamic_pointer_cast<FiniteImpulseResponse>(op)->get_coefficients();
     } else if (type == "InfiniteImpulseResponse") {
-      j["b_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_b_coeffs();
-      j["a_coeffs"] = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op)->get_a_coeffs();
+      auto iir = std::dynamic_pointer_cast<InfiniteImpulseResponse>(op);
+      j["b_coeffs"] = iir->get_b_coeffs();
+      j["a_coeffs"] = iir->get_a_coeffs();
+      if (iir->get_init_from_first_sample()) {
+        j["init_from_first_sample"] = true;
+      }
     } else if (type == "Join") {
       j["portTypes"] = std::dynamic_pointer_cast<Join>(op)->get_port_types();
     } else if (type == "Scale") {

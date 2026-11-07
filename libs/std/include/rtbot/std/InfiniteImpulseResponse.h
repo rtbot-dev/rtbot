@@ -12,8 +12,12 @@ namespace rtbot {
 
 class InfiniteImpulseResponse : public Operator {
  public:
-  InfiniteImpulseResponse(std::string id, std::vector<double> b_coeffs, std::vector<double> a_coeffs)
-      : Operator(std::move(id)), b_(b_coeffs), a_(a_coeffs) {
+  InfiniteImpulseResponse(std::string id, std::vector<double> b_coeffs, std::vector<double> a_coeffs,
+                          bool init_from_first_sample = false)
+      : Operator(std::move(id)),
+        b_(b_coeffs),
+        a_(a_coeffs),
+        init_from_first_sample_(init_from_first_sample) {
     if (b_coeffs.empty() || a_coeffs.empty()) {
       throw std::runtime_error("Both coefficient vectors must have at least one element");
     }
@@ -32,6 +36,7 @@ class InfiniteImpulseResponse : public Operator {
 
   std::vector<double> get_a_coeffs() const { return a_; }
   std::vector<double> get_b_coeffs() const { return b_; }
+  bool get_init_from_first_sample() const { return init_from_first_sample_; }
 
   bool equals(const InfiniteImpulseResponse& other) const {
       if (!Operator::equals(other)) return false;
@@ -39,6 +44,7 @@ class InfiniteImpulseResponse : public Operator {
       // Compare coefficients
       if (b_ != other.b_) return false;
       if (a_ != other.a_) return false;
+      if (init_from_first_sample_ != other.init_from_first_sample_) return false;
 
       // Compare input/output buffers
       if (x_ != other.x_) return false;
@@ -129,28 +135,32 @@ class InfiniteImpulseResponse : public Operator {
 
       // Calculate new output if we have enough inputs
       if (x_.size() == b_.size()) {
-        // Kahan-compensated summation for y_n: the feedback terms from y_
-        // re-enter future computations, so per-sample rounding errors
-        // compound over time.  Compensated summation keeps each y_n value
-        // accurate to nearly full double precision.
         double y_n = 0.0;
-        double y_comp = 0.0;
+        if (init_from_first_sample_ && y_.empty()) {
+          y_n = x_.back();
+        } else {
+          // Kahan-compensated summation for y_n: the feedback terms from y_
+          // re-enter future computations, so per-sample rounding errors
+          // compound over time.  Compensated summation keeps each y_n value
+          // accurate to nearly full double precision.
+          double y_comp = 0.0;
 
-        // Add input terms (b coefficients)
-        for (size_t i = 0; i < b_.size(); ++i) {
-          double term = b_[i] * x_[x_.size() - 1 - i] - y_comp;
-          double t = y_n + term;
-          y_comp = (t - y_n) - term;
-          y_n = t;
-        }
+          // Add input terms (b coefficients)
+          for (size_t i = 0; i < b_.size(); ++i) {
+            double term = b_[i] * x_[x_.size() - 1 - i] - y_comp;
+            double t = y_n + term;
+            y_comp = (t - y_n) - term;
+            y_n = t;
+          }
 
-        // Subtract available output terms (a coefficients)
-        size_t available_outputs = std::min(y_.size(), a_.size());
-        for (size_t i = 0; i < available_outputs; ++i) {
-          double term = -(a_[i] * y_[y_.size() - 1 - i]) - y_comp;
-          double t = y_n + term;
-          y_comp = (t - y_n) - term;
-          y_n = t;
+          // Subtract available output terms (a coefficients)
+          size_t available_outputs = std::min(y_.size(), a_.size());
+          for (size_t i = 0; i < available_outputs; ++i) {
+            double term = -(a_[i] * y_[y_.size() - 1 - i]) - y_comp;
+            double t = y_n + term;
+            y_comp = (t - y_n) - term;
+            y_n = t;
+          }
         }
 
         // Update output buffer
@@ -173,11 +183,13 @@ class InfiniteImpulseResponse : public Operator {
   std::vector<double> a_;  // Output coefficients
   std::deque<double> x_;   // Input buffer
   std::deque<double> y_;   // Output buffer
+  bool init_from_first_sample_{false};
 };
 
 inline std::shared_ptr<Operator> make_iir(const std::string& id, std::vector<double> b_coeffs,
-                                          std::vector<double> a_coeffs) {
-  return std::make_shared<InfiniteImpulseResponse>(id, b_coeffs, a_coeffs);
+                                          std::vector<double> a_coeffs,
+                                          bool init_from_first_sample = false) {
+  return std::make_shared<InfiniteImpulseResponse>(id, b_coeffs, a_coeffs, init_from_first_sample);
 }
 
 }  // namespace rtbot

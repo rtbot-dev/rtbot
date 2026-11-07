@@ -6,28 +6,32 @@ view:
   shape: circle
   latex:
     template: |
-      IIR({{b}},{{a}})
+      IIR({{b_coeffs}},{{a_coeffs}})
 jsonschema:
   type: object
   properties:
     id:
       type: string
       description: The id of the operator
-    b:
+    b_coeffs:
       type: array
       description: Feed-forward (input) coefficients vector
       minItems: 1
       items:
         type: number
       examples: [[1.0, -0.5, 0.25]]
-    a:
+    a_coeffs:
       type: array
       description: Feedback (output) coefficients vector
       minItems: 1
       items:
         type: number
       examples: [[0.3, 0.1]]
-  required: ["id", "b", "a"]
+    init_from_first_sample:
+      type: boolean
+      description: When true, seeds the first output directly from the first input sample (y_0 = x_0)
+      default: false
+  required: ["id", "b_coeffs", "a_coeffs"]
 ---
 
 # InfiniteImpulseResponse
