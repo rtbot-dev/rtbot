@@ -50,6 +50,8 @@ class Input : public Operator {
   void receive_data(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
     try {
       Operator::receive_data(std::move(msg), port_index, /*debug=*/true);
+    } catch (const QueueLimitExceeded&) {
+      throw;  // Capacity errors must reach the host, unlike invalid ingress.
     } catch (const std::exception& e) {
       // Do nothing
     }
@@ -58,6 +60,8 @@ class Input : public Operator {
   void receive_control(std::unique_ptr<BaseMessage> msg, size_t port_index, bool /*debug*/ = false) override {
     try {
       Operator::receive_control(std::move(msg), port_index, /*debug=*/true);
+    } catch (const QueueLimitExceeded&) {
+      throw;  // Capacity errors must reach the host, unlike invalid ingress.
     } catch (const std::exception& e) {
       // Do nothing
     }
