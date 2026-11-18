@@ -15,7 +15,8 @@ namespace rtbot {
 // inspect (tests, Program output collection, etc.).
 class Collector : public Operator {
  public:
-  Collector(std::string id, const std::vector<std::string>& port_types) : Operator(std::move(id)) {
+  Collector(std::string id, const std::vector<std::string>& port_types)
+      : Operator(std::move(id), QueueLimits{0, QueueOverflowPolicy::Error}) {
     if (port_types.empty()) {
       throw std::runtime_error("Collector must have at least one port type");
     }

@@ -15,8 +15,11 @@
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
+
 #include "rtbot/Base64.h"
 #include "rtbot/Message.h"
+#include "rtbot/QueueLimits.h"
 #include "rtbot/StateSerializer.h"
 #include "rtbot/telemetry/OpenTelemetry.h"
 
@@ -34,6 +37,7 @@ using MessageQueue = std::deque<std::unique_ptr<BaseMessage>>;
 struct PortInfo {
   MessageQueue queue;
   std::type_index type;
+  QueueStatistics statistics;
   timestamp_t last_timestamp{std::numeric_limits<timestamp_t>::min()};
 
   // Constructor
@@ -60,10 +64,28 @@ enum class PortKind { DATA, CONTROL };
 // Base operator class
 class Operator {
  public:
-  explicit Operator(std::string id) : id_(std::move(id)) {}
+  explicit Operator(std::string id, QueueLimits limits = QueueLimits::from_environment())
+      : id_(std::move(id)), queue_limits_(limits) {}
   virtual ~Operator() = default;
 
   virtual std::string type_name() const = 0;
+
+  const QueueLimits& queue_limits() const { return queue_limits_; }
+
+  // Set before ingress. Never silently truncate an existing live queue.
+  void set_queue_limits(QueueLimits limits) {
+    for (const auto* ports : {&data_ports_, &control_ports_}) {
+      for (const auto& port : *ports) {
+        if (limits.max_messages && port.queue.size() > limits.max_messages)
+          throw std::invalid_argument("Queue already exceeds requested limit at " + id_);
+      }
+    }
+    queue_limits_ = limits;
+  }
+
+  const QueueStatistics& queue_statistics(PortKind kind, size_t index) const {
+    return (kind == PortKind::DATA ? data_ports_ : control_ports_).at(index).statistics;
+  }
 
   // Composite operators (Pipeline, TriggerSet) override to expose their
   // internal operators. Returning nullptr — the common case — means "no
@@ -129,10 +151,10 @@ class Operator {
 
     // ---- Restore message queues ----
     for (auto& port : data_ports_) {
-        StateSerializer::deserialize_message_queue(it, port.queue);
+        restore_input_queue(it, port);
     }
     for (auto& port : control_ports_) {
-        StateSerializer::deserialize_message_queue(it, port.queue);
+        restore_input_queue(it, port);
     }
   }
 
@@ -182,14 +204,14 @@ class Operator {
                                ", Last timestamp: " + std::to_string(data_ports_[port_index].last_timestamp));
     }
 
-    // Update last timestamp
-    data_ports_[port_index].last_timestamp = msg->time;
+    const auto timestamp = msg->time;
 
 #ifdef RTBOT_INSTRUMENTATION
     RTBOT_RECORD_MESSAGE(id_, type_name(), std::move(msg->clone()));
 #endif
 
-    data_ports_[port_index].queue.push_back(std::move(msg));
+    enqueue_input(std::move(msg), port_index, PortKind::DATA);
+    data_ports_[port_index].last_timestamp = timestamp;
   }
 
   // Batch variant — hand a whole port's worth of messages to the operator in
@@ -315,10 +337,9 @@ class Operator {
                                ", Last timestamp: " + std::to_string(control_ports_[port_index].last_timestamp));
     }
 
-    // Update last timestamp
-    control_ports_[port_index].last_timestamp = msg->time;
-
-    control_ports_[port_index].queue.push_back(std::move(msg));
+    const auto timestamp = msg->time;
+    enqueue_input(std::move(msg), port_index, PortKind::CONTROL);
+    control_ports_[port_index].last_timestamp = timestamp;
 
   }
 
@@ -361,7 +382,6 @@ class Operator {
     auto& pi = (child_port_kind == PortKind::DATA)
                    ? child->data_ports_[child_port_index]
                    : child->control_ports_[child_port_index];
-    conn.sink_queue = &pi.queue;
     conn.sink_last_ts = &pi.last_timestamp;
     size_t conn_idx = connections_.size();
     connections_.push_back(std::move(conn));
@@ -492,12 +512,6 @@ class Operator {
     size_t output_port;
     size_t child_input_port;
     PortKind child_port_kind{PortKind::DATA};
-    // Direct pointer to the child's input queue: emit_output pushes here,
-    // bypassing the virtual receive_data/receive_control. Always set at
-    // connect() time — every downstream operator in the graph receives via
-    // this fast path (Input, the only operator with custom receive logic,
-    // is always the graph entry and never a connection child).
-    MessageQueue* sink_queue{nullptr};
     // Cached pointer to the child port's last_timestamp for debug-mode
     // ordering validation.
     timestamp_t* sink_last_ts{nullptr};
@@ -531,6 +545,51 @@ class Operator {
   }
 
  protected:
+  // Shared by direct ingress and both emit fast paths. Checking only
+  // receive_data would leave connected operators unbounded.
+  void enqueue_input(std::unique_ptr<BaseMessage> msg, size_t index, PortKind kind) {
+    auto& port = (kind == PortKind::DATA ? data_ports_ : control_ports_).at(index);
+    if (queue_limits_.max_messages && port.queue.size() >= queue_limits_.max_messages) {
+      if (queue_limits_.overflow == QueueOverflowPolicy::Error) {
+        ++port.statistics.rejected_messages;
+        throw QueueLimitExceeded("Queue limit exceeded at " + type_name() + "(" + id_ + ") " +
+            (kind == PortKind::DATA ? "data " : "control ") + std::to_string(index) +
+            "; limit=" + std::to_string(queue_limits_.max_messages));
+      }
+      while (port.queue.size() >= queue_limits_.max_messages) {
+        port.queue.pop_front();
+        ++port.statistics.dropped_messages;
+      }
+    }
+    port.queue.push_back(std::move(msg));
+    port.statistics.peak_messages = std::max(port.statistics.peak_messages, port.queue.size());
+  }
+
+  void restore_input_queue(Bytes::const_iterator& it, PortInfo& port) {
+    size_t count;
+    std::memcpy(&count, &(*it), sizeof(count));
+    if (queue_limits_.max_messages && count > queue_limits_.max_messages &&
+        queue_limits_.restore_overflow == QueueOverflowPolicy::Error)
+      throw std::runtime_error("Snapshot queue exceeds configured limit at " + id_ +
+          "; messages=" + std::to_string(count) + "; limit=" + std::to_string(queue_limits_.max_messages));
+    // Restore truncation is a separate, explicit recovery choice. Skip the
+    // oldest serialized messages without allocating them; preserve iterator
+    // alignment for the following watermark and operator-specific state.
+    const size_t discard = queue_limits_.max_messages && count > queue_limits_.max_messages
+        ? count - queue_limits_.max_messages : 0;
+    it += sizeof(count);
+    port.queue.clear();
+    for (size_t i = 0; i < count; ++i) {
+      size_t bytes;
+      std::memcpy(&bytes, &(*it), sizeof(bytes));
+      it += sizeof(bytes);
+      if (i >= discard) port.queue.push_back(BaseMessage::deserialize(Bytes(it, it + bytes)));
+      it += bytes;
+    }
+    port.statistics.dropped_messages += discard;
+    port.statistics.peak_messages = std::max(port.statistics.peak_messages, port.queue.size());
+  }
+
   virtual void process_data(bool debug) = 0;
   virtual void process_control(bool debug=false) {};
 
@@ -578,6 +637,7 @@ class Operator {
 
       {
         RTBOT_PERF_SCOPE(EMIT_DISPATCH);
+        const auto timestamp = msg_to_send->time;
         if (debug) {
           if (msg_to_send->time <= *conn.sink_last_ts) {
             throw std::runtime_error(
@@ -586,16 +646,16 @@ class Operator {
                 ". Current time: " + std::to_string(msg_to_send->time) +
                 ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
           }
-          *conn.sink_last_ts = msg_to_send->time;
         }
-        conn.sink_queue->push_back(std::move(msg_to_send));
+        conn.child->enqueue_input(std::move(msg_to_send), conn.child_input_port, conn.child_port_kind);
+        if (debug) *conn.sink_last_ts = timestamp;
       }
     }
   }
 
   // Batch overload: drain an entire vector of messages out of `port_index`
   // in one pass. Connections are iterated once per batch (vs once per
-  // message in the single-msg overload), so the sink_queue tail node stays
+  // message in the single-msg overload), so the destination queue tail stays
   // hot across messages to the same child.
   void emit_output(size_t port_index,
                    std::vector<std::unique_ptr<BaseMessage>> msgs,
@@ -644,6 +704,7 @@ class Operator {
           msg_to_send = msgs[i]->clone();
         }
 #endif
+        const auto timestamp = msg_to_send->time;
         if (debug) {
           if (msg_to_send->time <= *conn.sink_last_ts) {
             throw std::runtime_error(
@@ -652,9 +713,9 @@ class Operator {
                 ". Current time: " + std::to_string(msg_to_send->time) +
                 ", Last timestamp: " + std::to_string(*conn.sink_last_ts));
           }
-          *conn.sink_last_ts = msg_to_send->time;
         }
-        conn.sink_queue->push_back(std::move(msg_to_send));
+        conn.child->enqueue_input(std::move(msg_to_send), conn.child_input_port, conn.child_port_kind);
+        if (debug) *conn.sink_last_ts = timestamp;
       }
     }
   }
@@ -740,6 +801,7 @@ class Operator {
   }
 
   std::string id_;
+  QueueLimits queue_limits_;
   std::vector<PortInfo> data_ports_;
   std::vector<PortInfo> control_ports_;
   std::vector<OutputPortInfo> output_ports_;

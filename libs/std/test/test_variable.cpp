@@ -280,3 +280,22 @@ SCENARIO("Variable operator handles message arrival order variations", "[variabl
     }
   }
 }
+
+TEST_CASE("Variable bounds sensor history while its query signal is silent", "[variable][queue_limits]") {
+  Variable variable("sensor", -1);
+  variable.set_queue_limits({3, QueueOverflowPolicy::DropOldest});
+  auto output = make_number_collector("output");
+  variable.connect(output);
+  for (int time = 1; time <= 50000; ++time) {
+    variable.receive_data(create_message<NumberData>(time, NumberData{double(time)}), 0);
+    variable.execute();
+  }
+  REQUIRE(variable.get_data_queue(0).size() == 3);
+  REQUIRE(variable.queue_statistics(PortKind::DATA, 0).dropped_messages == 49997);
+  variable.receive_control(create_message<NumberData>(50000, NumberData{0}), 0);
+  variable.execute();
+  REQUIRE(output->get_data_queue(0).size() == 1);
+  auto* result = dynamic_cast<Message<NumberData>*>(output->get_data_queue(0).front().get());
+  REQUIRE(result != nullptr);
+  REQUIRE(result->data.value == 50000);
+}
