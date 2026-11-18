@@ -130,6 +130,27 @@ class Program {
   const map<string, vector<size_t>>& get_output_mappings() const { return output_mappings_; }
   vector<string> entry_ports() const;
 
+  // Runtime counters include nested operators and reset on recreation/restore.
+  QueueStatistics queue_statistics() const {
+    QueueStatistics total;
+    const auto visit = [&](const auto& self, const auto& operators) -> void {
+      for (const auto& [id, op] : operators) {
+        for (const auto kind : {PortKind::DATA, PortKind::CONTROL}) {
+          const auto count = kind == PortKind::DATA ? op->num_data_ports() : op->num_control_ports();
+          for (size_t i = 0; i < count; ++i) {
+            const auto& stats = op->queue_statistics(kind, i);
+            total.dropped_messages += stats.dropped_messages;
+            total.rejected_messages += stats.rejected_messages;
+            total.peak_messages = std::max(total.peak_messages, stats.peak_messages);
+          }
+        }
+        if (const auto* children = op->children_ops()) self(self, *children);
+      }
+    };
+    visit(visit, operators_);
+    return total;
+  }
+
   // Static factory methods
 
  private:
@@ -478,6 +499,8 @@ class ProgramManager {
       return "";
     }
   }
+
+  QueueStatistics queue_statistics(const string& program_id) { return get_program(program_id).queue_statistics(); }
 
   string serialize_program_data(const string& program_id) { return get_program(program_id).serialize_data(); }
 

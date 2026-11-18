@@ -1627,3 +1627,20 @@ SCENARIO("Program validates and executes IIR, WindowMinMax, and 64-bit timestamp
     REQUIRE(rs_typed->get_snap_first() == true);
   }
 }
+TEST_CASE("Program exposes bounded queue drops for monitoring", "[program][queue]") {
+  // With the second Join input stalled, every message after the bound drops.
+  const auto* previous = std::getenv("RTBOT_QUEUE_OVERFLOW");
+  const std::string saved = previous ? previous : "";
+  setenv("RTBOT_QUEUE_OVERFLOW", "drop_oldest", 1);
+  Program program(R"({"operators":[{"type":"Input","id":"in","portTypes":["number"]},
+    {"type":"Join","id":"join","portTypes":["number","number"]}],
+    "connections":[{"from":"in","to":"join","fromPort":"o1","toPort":"i1"}],
+    "entryOperator":"in","output":{"join":["o1"]}})");
+  if (previous) setenv("RTBOT_QUEUE_OVERFLOW", saved.c_str(), 1);
+  else unsetenv("RTBOT_QUEUE_OVERFLOW");
+  for (uint64_t t = 1; t <= 17285; ++t) program.receive(Message<NumberData>(t, NumberData{1}));
+  const auto stats = program.queue_statistics();
+  REQUIRE(stats.dropped_messages == 5);
+  REQUIRE(stats.rejected_messages == 0);
+  REQUIRE(stats.peak_messages == 17280);
+}

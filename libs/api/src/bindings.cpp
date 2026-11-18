@@ -40,6 +40,10 @@ void to_json(json& j, const ProgramMsgBatch& batch) {
   }
 }
 
+QueueStatistics get_program_queue_statistics(const std::string& program_id) {
+  return ProgramManager::instance().queue_statistics(program_id);
+}
+
 std::string serialize_program_data(const std::string& program_id) {
   return ProgramManager::instance().serialize_program_data(program_id);
 }
