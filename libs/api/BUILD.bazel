@@ -104,7 +104,7 @@ genrule(
 
 stamped_package_json(
     name = "package",
-    stamp_var = "VERSION",
+    stamp_var = "STABLE_RTBOT_NPM_VERSION",
 )
 
 # npm package for wasm code

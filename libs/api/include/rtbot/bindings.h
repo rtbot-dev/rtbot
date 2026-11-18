@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "rtbot/Message.h"
+#include "rtbot/QueueLimits.h"
 
 namespace rtbot {
 
@@ -21,6 +22,9 @@ using ProgramMsgBatch = std::unordered_map<std::string, OperatorMsgBatch>;
 
 // JSON serialization for message batches
 void to_json(json& j, const ProgramMsgBatch& batch);
+
+// Runtime queue counters (not persisted).
+QueueStatistics get_program_queue_statistics(const std::string& program_id);
 
 // Program serialization and lifecycle
 std::string serialize_program_data(const std::string& program_id);

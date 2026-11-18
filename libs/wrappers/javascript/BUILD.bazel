@@ -101,7 +101,7 @@ stamped_package_json(
     # name of the resulting `jq` target, must be "package"
     name = "package",
     # a key from the bazel-out/stable-status.txt or bazel-out/volatile-status.txt files
-    stamp_var = "VERSION",
+    stamp_var = "STABLE_RTBOT_NPM_VERSION",
 )
 
 npm_package(
