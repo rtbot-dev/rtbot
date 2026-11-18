@@ -10,8 +10,6 @@ on:
   push:
     tags:
       - "v*.*.*"
-  release:
-    types: [published]
 
 jobs:
   tests:
@@ -22,6 +20,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 8
@@ -45,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 8
@@ -57,7 +59,9 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
       - name: Build npm package
-        run: bazel build --stamp //libs/wrappers/javascript:js
+        run: |
+          bazel build --stamp //libs/wrappers/javascript:js
+          EXPECTED_VERSION="${GITHUB_REF_NAME#v}" node -e 'const p = require("./dist/bin/libs/wrappers/javascript/js/package.json"); if (p.version !== process.env.EXPECTED_VERSION || p.version === "0.0.0") throw Error("Release version mismatch: " + p.version)'
       - uses: actions/upload-artifact@v5
         with:
           name: npm-rtbot.tar
@@ -79,6 +83,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 8
@@ -88,7 +94,7 @@ jobs:
           node-version: "18.x"
           registry-url: "https://registry.npmjs.org"
       - name: Prepare release
-        run: .github/workflows/release_prep.sh ${{ env.GITHUB_REF_NAME }} > release_notes.txt
+        run: .github/workflows/release_prep.sh "$GITHUB_REF_NAME" > release_notes.txt
       - uses: actions/download-artifact@v5
         with:
           name: npm-rtbot.tar

@@ -57,6 +57,9 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   fi
 fi
 
+NPM_VERSION="${VERSION/.dev/-dev.}"
+if [[ -n "${EXACT_TAG:-}" ]]; then NPM_VERSION="${EXACT_TAG#v}"; fi
+printf 'STABLE_RTBOT_NPM_VERSION %s\n' "${NPM_VERSION}"
 printf 'RTBOT_VERSION %s\n' "${VERSION}"
 printf 'STABLE_GIT_COMMIT %s\n' "${GIT_COMMIT}"
 printf 'BUILD_SCM_REVISION %s\n' "${GIT_COMMIT}"

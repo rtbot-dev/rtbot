@@ -7,3 +7,9 @@ cc_binary(
         "//libs/api:rtbot-api",
     ],
 )
+
+sh_test(
+    name = "workspace_status_test",
+    srcs = ["workspace_status_test.sh"],
+    data = ["workspace_status.sh"],
+)
